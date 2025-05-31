@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Briefcase, Loader2 } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Briefcase, Loader2, Zap } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,19 +32,20 @@ const bookingFormSchema = z.object({
   pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
   dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
   vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
-  passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."), // Kept max 10 for now, can be refined.
+  passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
 });
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
 // Fare Calculation Constants
 const BASE_FARE = 2.00; // £
-const PER_MILE_RATE = 1.00; // £ per mile (Updated to £1 as per new request for subsequent miles)
-const FIRST_MILE_RATE = 2.99; // £ (New rate for the first mile)
+const PER_MILE_RATE = 1.00; // £ per mile
+const FIRST_MILE_SURCHARGE = 1.99; // £2.99 (first mile) - £1.00 (standard per mile) = £1.99 extra for first mile
 const PER_MINUTE_RATE = 0.15; // £ per minute
 const AVERAGE_SPEED_MPH = 15; // Assumed average speed for duration estimation
 const BOOKING_FEE = 1.50; // £
 const MINIMUM_FARE = 5.00; // £
+const SURGE_MULTIPLIER_VALUE = 1.5; // Example surge multiplier
 
 function deg2rad(deg: number): number {
   return deg * (Math.PI / 180);
@@ -74,6 +75,9 @@ export default function BookRidePage() {
   
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
+
+  const [isSurgeActive, setIsSurgeActive] = useState(false);
+  const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -165,6 +169,8 @@ export default function BookRidePage() {
     formOnChange(inputValue);
     setCoordsState(null); 
     setFareEstimate(null); 
+    setIsSurgeActive(false);
+    setCurrentSurgeMultiplier(1);
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -260,6 +266,12 @@ export default function BookRidePage() {
     if (pickupCoords && dropoffCoords) {
       const distanceMiles = getDistanceInMiles(pickupCoords, dropoffCoords);
       
+      // Determine surge
+      const isCurrentlySurge = Math.random() < 0.3; // 30% chance of surge
+      setIsSurgeActive(isCurrentlySurge);
+      const surgeMultiplierToApply = isCurrentlySurge ? SURGE_MULTIPLIER_VALUE : 1;
+      setCurrentSurgeMultiplier(surgeMultiplierToApply);
+
       let calculatedFareBeforeMultipliers = 0;
 
       if (distanceMiles <= 0) {
@@ -268,32 +280,32 @@ export default function BookRidePage() {
         const estimatedTripDurationMinutes = (distanceMiles / AVERAGE_SPEED_MPH) * 60;
         const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
         
-        let distanceBasedFare = 0;
-        if (distanceMiles <= 1) {
-          distanceBasedFare = FIRST_MILE_RATE;
-        } else {
-          distanceBasedFare = FIRST_MILE_RATE + (distanceMiles - 1) * PER_MILE_RATE;
-        }
+        // £2.99 for first mile, £1 for subsequent. Can be modeled as (Distance * £1) + £1.99 if distance >= 1
+        const distanceBasedFare = distanceMiles * PER_MILE_RATE + (distanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
         
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
         const fareWithBookingFee = subTotal + BOOKING_FEE;
         calculatedFareBeforeMultipliers = Math.max(fareWithBookingFee, MINIMUM_FARE);
       }
 
+      // Apply surge multiplier
+      const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
+
       let vehicleMultiplier = 1;
-      // Updated vehicle multipliers
       if (watchedVehicleType === "estate") vehicleMultiplier = 1.3;
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 2.0;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 2.5;
       
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; // 10% extra per passenger beyond the first
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
       
-      const finalCalculatedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
+      const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
       setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
 
     } else {
       setFareEstimate(null);
+      setIsSurgeActive(false);
+      setCurrentSurgeMultiplier(1);
     }
   }, [pickupCoords, dropoffCoords, watchedVehicleType, watchedPassengers]);
 
@@ -329,7 +341,7 @@ export default function BookRidePage() {
 
     toast({
       title: "Booking Confirmed!",
-      description: `Your ride from ${values.pickupLocation} to ${values.dropoffLocation} is confirmed. Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}. A driver will be assigned shortly.`,
+      description: `Your ride from ${values.pickupLocation} to ${values.dropoffLocation} is confirmed. Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Pricing Applied)' : ''}. A driver will be assigned shortly.`,
       variant: "default",
     });
     form.reset();
@@ -338,6 +350,8 @@ export default function BookRidePage() {
     setPickupCoords(null);
     setDropoffCoords(null);
     setFareEstimate(null);
+    setIsSurgeActive(false);
+    setCurrentSurgeMultiplier(1);
     setMapMarkers([]);
     setPickupSuggestions([]);
     setDropoffSuggestions([]);
@@ -479,7 +493,7 @@ export default function BookRidePage() {
                     )}
                   />
                    <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || isFetchingPickupDetails || isFetchingDropoffDetails}>
-                    <Briefcase className="mr-2 h-4 w-4" /> Book Ride (£{fareEstimate ? fareEstimate.toFixed(2) : '---'})
+                    <Briefcase className="mr-2 h-4 w-4" /> Book Ride (£{fareEstimate ? fareEstimate.toFixed(2) : '---'}) {isSurgeActive && <Zap className="ml-2 h-4 w-4 text-yellow-300" />}
                   </Button>
                 </form>
               </Form>
@@ -504,7 +518,15 @@ export default function BookRidePage() {
                         <p className="text-2xl font-bold text-muted-foreground">Calculating...</p>
                      </div>
                   ) : fareEstimate !== null ? (
-                    <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                    <>
+                      <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                      {isSurgeActive && (
+                        <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
+                          <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                        </p>
+                      )}
+                       {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                    </>
                   ) : (
                      <p className="text-xl text-muted-foreground">Select locations to see fare.</p>
                   )}
