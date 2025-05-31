@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Briefcase } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Briefcase, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -78,44 +78,77 @@ export default function BookRidePage() {
   const [pickupInputValue, setPickupInputValue] = useState("");
   const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
+  const [isFetchingPickupSuggestions, setIsFetchingPickupSuggestions] = useState(false);
 
   const [dropoffInputValue, setDropoffInputValue] = useState("");
   const [dropoffSuggestions, setDropoffSuggestions] = useState<string[]>([]);
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
+  const [isFetchingDropoffSuggestions, setIsFetchingDropoffSuggestions] = useState(false);
+
+  // To manage setTimeout for debouncing/simulation
+  const [pickupTimeoutId, setPickupTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [dropoffTimeoutId, setDropoffTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   const handleAddressInputChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     fieldOnChange: (...event: any[]) => void,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
     setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
-    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
+    setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>,
+    currentTimeoutId: NodeJS.Timeout | null,
+    setTimeoutIdState: React.Dispatch<React.SetStateAction<NodeJS.Timeout | null>>
   ) => {
     const value = e.target.value;
     setInputValueState(value);
     fieldOnChange(value); 
+
+    if (currentTimeoutId) {
+      clearTimeout(currentTimeoutId);
+    }
+
     if (value.length > 1) {
-      const filtered = mockAddresses.filter(addr => addr.toLowerCase().includes(value.toLowerCase()));
-      setSuggestionsState(filtered);
-      setShowSuggestionsState(filtered.length > 0);
+      setIsFetchingState(true);
+      setShowSuggestionsState(true); // Show dropdown immediately with loading state
+      setSuggestionsState([]); // Clear previous suggestions
+
+      const newTimeoutId = setTimeout(() => {
+        const filtered = mockAddresses.filter(addr => addr.toLowerCase().includes(value.toLowerCase()));
+        setSuggestionsState(filtered);
+        setIsFetchingState(false);
+        // setShowSuggestionsState(filtered.length > 0 || isFetchingState); // Keep showing if fetching, or if results exist
+      }, 700); // Simulate 700ms API delay
+      setTimeoutIdState(newTimeoutId);
     } else {
       setShowSuggestionsState(false);
       setSuggestionsState([]);
+      setIsFetchingState(false);
     }
   };
-
+  
   const handleFocus = (
     currentValue: string,
     setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
-    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
+    setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
     if (currentValue.length > 1) {
-      const filtered = mockAddresses.filter(addr =>
-        addr.toLowerCase().includes(currentValue.toLowerCase())
-      );
-      setSuggestionsState(filtered);
-      setShowSuggestionsState(filtered.length > 0);
+      // Simplified onFocus: if there's text, re-filter instantly or show loading if a request was pending
+      // For a real API, you might re-fetch or use cached suggestions.
+      // Here, we'll just re-filter the mock data instantly for simplicity on focus.
+      setIsFetchingState(true); // Show loading briefly
+      setShowSuggestionsState(true);
+      setTimeout(() => { // Simulate quick re-check
+        const filtered = mockAddresses.filter(addr =>
+          addr.toLowerCase().includes(currentValue.toLowerCase())
+        );
+        setSuggestionsState(filtered);
+        setIsFetchingState(false);
+        setShowSuggestionsState(filtered.length > 0);
+      }, 200);
     } else {
       setShowSuggestionsState(false);
+      setIsFetchingState(false);
     }
   };
 
@@ -124,11 +157,13 @@ export default function BookRidePage() {
     address: string,
     fieldOnChange: (...event: any[]) => void,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
-    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
+    setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
     setInputValueState(address);
     fieldOnChange(address); 
     setShowSuggestionsState(false);
+    setIsFetchingState(false); // Ensure loading state is cleared
   };
 
 
@@ -192,19 +227,27 @@ export default function BookRidePage() {
                               placeholder="Type pickup address, e.g., 123 Main St"
                               {...field}
                               value={pickupInputValue}
-                              onChange={(e) => handleAddressInputChange(e, field.onChange, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions)}
-                              onFocus={() => handleFocus(pickupInputValue, setPickupSuggestions, setShowPickupSuggestions)}
-                              onBlur={() => { field.onBlur(); setTimeout(() => setShowPickupSuggestions(false), 150);}}
+                              onChange={(e) => handleAddressInputChange(e, field.onChange, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions, pickupTimeoutId, setPickupTimeoutId)}
+                              onFocus={() => handleFocus(pickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions)}
+                              onBlur={() => { field.onBlur(); setTimeout(() => { if (!isFetchingPickupSuggestions) setShowPickupSuggestions(false); }, 150);}}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showPickupSuggestions && pickupSuggestions.length > 0 && (
+                          {showPickupSuggestions && (
                             <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                              {pickupSuggestions.map((suggestion, index) => (
+                              {isFetchingPickupSuggestions && (
+                                <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
+                                </div>
+                              )}
+                              {!isFetchingPickupSuggestions && pickupSuggestions.length === 0 && pickupInputValue.length > 1 && (
+                                 <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
+                              )}
+                              {!isFetchingPickupSuggestions && pickupSuggestions.map((suggestion, index) => (
                                 <div
                                   key={`pickup-${index}`}
                                   className="p-2 text-sm hover:bg-muted cursor-pointer"
-                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setPickupInputValue, setShowPickupSuggestions)}
+                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setPickupInputValue, setShowPickupSuggestions, setIsFetchingPickupSuggestions)}
                                 >
                                   {suggestion}
                                 </div>
@@ -228,19 +271,27 @@ export default function BookRidePage() {
                               placeholder="Type drop-off address, e.g., 456 Market Ave"
                               {...field}
                               value={dropoffInputValue}
-                              onChange={(e) => handleAddressInputChange(e, field.onChange, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions)}
-                              onFocus={() => handleFocus(dropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions)}
-                              onBlur={() => { field.onBlur(); setTimeout(() => setShowDropoffSuggestions(false), 150);}}
+                              onChange={(e) => handleAddressInputChange(e, field.onChange, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions, dropoffTimeoutId, setDropoffTimeoutId)}
+                              onFocus={() => handleFocus(dropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions)}
+                              onBlur={() => { field.onBlur(); setTimeout(() => { if (!isFetchingDropoffSuggestions) setShowDropoffSuggestions(false); }, 150);}}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
+                          {showDropoffSuggestions && (
                             <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                              {dropoffSuggestions.map((suggestion, index) => (
+                              {isFetchingDropoffSuggestions && (
+                                <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
+                                </div>
+                              )}
+                              {!isFetchingDropoffSuggestions && dropoffSuggestions.length === 0 && dropoffInputValue.length > 1 && (
+                                 <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
+                              )}
+                              {!isFetchingDropoffSuggestions && dropoffSuggestions.map((suggestion, index) => (
                                 <div
                                   key={`dropoff-${index}`}
                                   className="p-2 text-sm hover:bg-muted cursor-pointer"
-                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setDropoffInputValue, setShowDropoffSuggestions)}
+                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setDropoffInputValue, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions)}
                                 >
                                   {suggestion}
                                 </div>
@@ -324,3 +375,5 @@ export default function BookRidePage() {
     </div>
   );
 }
+
+      
