@@ -12,31 +12,31 @@ import { useToast } from '@/hooks/use-toast';
 
 // Interface for how Timestamp will look after JSON serialization from API
 interface JsonTimestamp {
-  seconds: number;
-  nanoseconds: number;
+  _seconds: number; // Firestore Timestamps are often serialized with _seconds
+  _nanoseconds: number; // and _nanoseconds when passed through Next.js API routes
 }
 
 interface Ride {
   id: string;
-  bookingTimestamp: JsonTimestamp; // Updated to reflect JSON serialized Timestamp
+  bookingTimestamp: JsonTimestamp;
   pickupLocation: { address: string };
   dropoffLocation: { address: string };
-  driver?: string; 
+  driver?: string;
   driverAvatar?: string;
   vehicleType: string;
   fareEstimate: number;
-  status: string; 
+  status: string;
   rating?: number;
-  passengerName: string;
+  passengerName: string; // Added as it's part of the booking data
   isSurgeApplied?: boolean;
 }
 
 // Helper function to format JSON serialized Firestore Timestamp
 const formatDate = (timestamp: JsonTimestamp | undefined | null): string => {
-  if (!timestamp || typeof timestamp.seconds !== 'number' || typeof timestamp.nanoseconds !== 'number') {
+  if (!timestamp || typeof timestamp._seconds !== 'number' || typeof timestamp._nanoseconds !== 'number') {
     return 'N/A';
   }
-  return new Date(timestamp.seconds * 1000).toLocaleDateString(undefined, {
+  return new Date(timestamp._seconds * 1000).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -55,6 +55,7 @@ export default function MyRidesPage() {
 
   useEffect(() => {
     if (user?.id) {
+      console.log("MyRidesPage: Attempting to fetch rides for passengerId:", user.id); // Log current user ID
       const fetchRides = async () => {
         setIsLoading(true);
         setError(null);
@@ -72,14 +73,15 @@ export default function MyRidesPage() {
             throw new Error(errorData.details || errorData.message || `Failed to fetch rides: ${response.status}`);
           }
           const data: Ride[] = await response.json();
+          console.log("MyRidesPage: Rides data received from API:", data); // Log received data
           setRides(data);
         } catch (err) {
           console.error("Error fetching rides (Client):", err);
           const displayMessage = err instanceof Error ? err.message : "An unknown error occurred while fetching rides.";
           setError(displayMessage);
-          toast({ 
-            title: "Error Fetching Rides", 
-            description: `${displayMessage} Check browser console or server logs for more details.`, 
+          toast({
+            title: "Error Fetching Rides",
+            description: `${displayMessage} Check browser console or server logs for more details.`,
             variant: "destructive",
             duration: 10000, // Give more time to read potentially long messages
           });
@@ -89,7 +91,8 @@ export default function MyRidesPage() {
       };
       fetchRides();
     } else {
-      setIsLoading(false); 
+      console.log("MyRidesPage: No user ID found, skipping fetch.");
+      setIsLoading(false);
     }
   }, [user, toast]);
 
@@ -116,9 +119,9 @@ export default function MyRidesPage() {
       // } catch (e) {
       //   toast({ title: "Rating Error", description: e.message, variant: "destructive"});
       // }
-      
+
       // For demo purposes, update local state and show toast
-      const updatedRides = rides.map(r => 
+      const updatedRides = rides.map(r =>
         r.id === selectedRide.id ? { ...r, rating: currentRating } : r
       );
       setRides(updatedRides);
@@ -161,10 +164,9 @@ export default function MyRidesPage() {
             <p className="text-sm">{error}</p>
             <Button variant="outline" onClick={() => {
               if (user?.id) { // Trigger refetch logic
-                const event = new CustomEvent('refetchMyRides');
-                window.dispatchEvent(event);
+                 if (typeof window !== 'undefined') window.location.reload();
               } else {
-                window.location.reload();
+                if (typeof window !== 'undefined') window.location.reload();
               }
             }} className="mt-4">Try Again</Button>
           </CardContent>
@@ -189,7 +191,7 @@ export default function MyRidesPage() {
           </CardContent>
         </Card>
       )}
-      
+
       {error && rides.length > 0 && ( // Show error as a dismissable toast if some rides are already loaded
          <div className="p-4 mb-4 text-sm text-destructive-foreground bg-destructive rounded-md shadow-lg">
             <p><strong>Error:</strong> {error}</p>
@@ -210,7 +212,7 @@ export default function MyRidesPage() {
                     <Calendar className="w-4 h-4" /> {formatDate(ride.bookingTimestamp)}
                   </CardDescription>
                 </div>
-                <Badge 
+                <Badge
                   variant={
                     ride.status === 'completed' ? 'default' :
                     ride.status === 'cancelled' ? 'destructive' :
@@ -218,7 +220,7 @@ export default function MyRidesPage() {
                     'secondary'
                   }
                   className={
-                    ride.status === 'in_progress' ? 'border-blue-500 text-blue-500' : 
+                    ride.status === 'in_progress' ? 'border-blue-500 text-blue-500' :
                     ride.status === 'pending_assignment' ? 'bg-yellow-400/80 text-yellow-900' :
                     ride.status === 'driver_assigned' ? 'bg-sky-400/80 text-sky-900' :
                     ride.status === 'completed' ? 'bg-green-500/80 text-green-950': ''
@@ -238,7 +240,7 @@ export default function MyRidesPage() {
                   </div>
                 </div>
               )}
-              {!ride.driver && <p className="text-sm text-muted-foreground">Waiting for driver assignment...</p>}
+              {!ride.driver && ride.status !== 'completed' && ride.status !== 'cancelled' && <p className="text-sm text-muted-foreground">Waiting for driver assignment...</p>}
               <Separator />
               <div className="text-sm space-y-1">
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
