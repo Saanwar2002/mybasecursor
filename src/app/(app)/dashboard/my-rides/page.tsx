@@ -54,11 +54,15 @@ const formatDate = (timestamp?: JsonTimestamp | null): string => {
       console.warn("formatDate: Created an invalid date (isNaN). Seconds:", timestamp._seconds, "Nanoseconds:", timestamp._nanoseconds);
       return 'Date N/A (Invalid Date Obj)';
     }
-    return date.toLocaleDateString(undefined, {
+    
+    const formattedDateString = date.toLocaleDateString('en-US', { // Explicitly use 'en-US' locale
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+    console.log(`formatDate: Successfully formatted. Returning: "${formattedDateString}" for input: ${JSON.stringify(timestamp)}`);
+    return formattedDateString;
+
   } catch (e) {
     console.error("formatDate: Error creating Date object:", e, "from timestamp:", JSON.stringify(timestamp));
     return 'Date N/A (Conversion Error)';
@@ -94,8 +98,10 @@ export default function MyRidesPage() {
           }
           const data: Ride[] = await response.json();
           console.log("MyRidesPage: Rides data received from API:", JSON.stringify(data, null, 2));
-          if (data.length > 0) {
+          if (data.length > 0 && data[0].bookingTimestamp) {
             console.log("MyRidesPage: Inspecting bookingTimestamp of first ride:", JSON.stringify(data[0].bookingTimestamp));
+          } else if (data.length > 0) {
+            console.log("MyRidesPage: First ride has no bookingTimestamp or it's null.");
           }
           setRides(data);
         } catch (err) {
