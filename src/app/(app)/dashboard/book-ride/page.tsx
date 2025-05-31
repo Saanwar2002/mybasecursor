@@ -21,7 +21,6 @@ import { MapPin, Car, DollarSign, Users, Briefcase, Loader2 } from 'lucide-react
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader } from "@googlemaps/js-api-loader";
 
 const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   ssr: false,
@@ -37,10 +36,18 @@ const bookingFormSchema = z.object({
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
-interface Suggestion {
-  description: string;
-  place_id: string;
-}
+const mockAddresses: string[] = [
+  "123 Main St, London, UK",
+  "456 Oak Avenue, London, UK",
+  "789 Pine Rd, Manchester, UK",
+  "10 Downing Street, London, UK",
+  "Buckingham Palace, London, UK",
+  "HD1 3AY, Huddersfield, Kirkgate Buildings",
+  "221B Baker Street, London, UK",
+  "The Shard, London, UK",
+  "Piccadilly Circus, London, UK",
+  "King's Cross Station, London, UK",
+];
 
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
@@ -57,62 +64,25 @@ export default function BookRidePage() {
     },
   });
 
-  const [googleMapsReady, setGoogleMapsReady] = useState(false);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  
-  const pickupSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
-  const dropoffSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
-
   const [pickupInputValue, setPickupInputValue] = useState("");
-  const [pickupSuggestions, setPickupSuggestions] = useState<Suggestion[]>([]);
+  const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
   const [isFetchingPickupSuggestions, setIsFetchingPickupSuggestions] = useState(false);
 
   const [dropoffInputValue, setDropoffInputValue] = useState("");
-  const [dropoffSuggestions, setDropoffSuggestions] = useState<Suggestion[]>([]);
+  const [dropoffSuggestions, setDropoffSuggestions] = useState<string[]>([]);
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
   const [isFetchingDropoffSuggestions, setIsFetchingDropoffSuggestions] = useState(false);
   
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.error("Google Maps API key is missing.");
-      toast({ title: "Configuration Error", description: "Google Maps API key is not configured. Address search will not work.", variant: "destructive" });
-      return;
-    }
-
-    const loader = new Loader({
-      apiKey: apiKey,
-      version: "weekly",
-      libraries: ["places"],
-    });
-
-    loader.load().then(() => {
-      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      setGoogleMapsReady(true);
-    }).catch(e => {
-      console.error("Error loading Google Maps API:", e);
-      toast({ title: "API Error", description: "Could not load Google Maps. Address search may be unavailable.", variant: "destructive" });
-    });
-  }, [toast]);
-
-  const getNewSessionToken = () => {
-    if (googleMapsReady && window.google) {
-      return new google.maps.places.AutocompleteSessionToken();
-    }
-    return undefined;
-  };
-
   const handleAddressInputChange = useCallback((
     inputValue: string,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
-    setSuggestionsState: React.Dispatch<React.SetStateAction<Suggestion[]>>,
+    setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
     setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>,
-    formOnChange: (...event: any[]) => void,
-    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>
+    formOnChange: (value: string) => void
   ) => {
     setInputValueState(inputValue);
     formOnChange(inputValue); // Keep RHF updated with typed value
@@ -121,7 +91,7 @@ export default function BookRidePage() {
       clearTimeout(debounceTimeoutRef.current);
     }
 
-    if (!googleMapsReady || !autocompleteServiceRef.current || inputValue.length < 3) {
+    if (inputValue.length < 2) { // Show suggestions after 2 characters for mock
       setSuggestionsState([]);
       setShowSuggestionsState(false);
       setIsFetchingState(false);
@@ -132,68 +102,47 @@ export default function BookRidePage() {
     setShowSuggestionsState(true); // Show dropdown with loading state
     setSuggestionsState([]); 
 
-    if (!sessionTokenRef.current) {
-        sessionTokenRef.current = getNewSessionToken();
-    }
-
     debounceTimeoutRef.current = setTimeout(() => {
-      if (autocompleteServiceRef.current && sessionTokenRef.current) {
-        autocompleteServiceRef.current.getPlacePredictions(
-          {
-            input: inputValue,
-            sessionToken: sessionTokenRef.current,
-            componentRestrictions: { country: "gb" }, // Restrict to Great Britain for example
-          },
-          (predictions, status) => {
-            setIsFetchingState(false);
-            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              setSuggestionsState(predictions.map(p => ({ description: p.description, place_id: p.place_id })));
-            } else {
-              setSuggestionsState([]);
-              if (status !== google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                 console.warn("Autocomplete prediction error:", status);
-              }
-            }
-          }
-        );
-      } else {
-        setIsFetchingState(false);
-      }
+      const filtered = mockAddresses.filter(addr => 
+        addr.toLowerCase().includes(inputValue.toLowerCase())
+      );
+      setSuggestionsState(filtered);
+      setIsFetchingState(false);
     }, 500); // 500ms debounce
-  }, [googleMapsReady]);
+  }, []);
 
 
   const handleSuggestionClick = (
-    suggestion: Suggestion,
+    suggestion: string,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
-    formOnChange: (...event: any[]) => void,
-    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>
+    formOnChange: (value: string) => void
   ) => {
-    setInputValueState(suggestion.description);
-    formOnChange(suggestion.description); // Update RHF with selected suggestion
+    setInputValueState(suggestion);
+    formOnChange(suggestion); // Update RHF with selected suggestion
     setShowSuggestionsState(false);
-    sessionTokenRef.current = undefined; // Reset session token after selection
-    // Potentially fetch place details here using suggestion.place_id if lat/lng are needed
   };
-
+  
   const handleFocus = (
-    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>
+    inputValue: string,
+    setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
-    if (!sessionTokenRef.current) {
-        sessionTokenRef.current = getNewSessionToken();
+    if (inputValue.length >= 2) {
+        const filtered = mockAddresses.filter(addr => 
+            addr.toLowerCase().includes(inputValue.toLowerCase())
+        );
+        setSuggestionsState(filtered);
+        setShowSuggestionsState(true);
     }
   };
   
   const handleBlur = (
-    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
-    isFetchingState: boolean
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
     // Delay hiding suggestions to allow click event on suggestions to fire
     setTimeout(() => {
-      if (!isFetchingState) { // Don't hide if it's in the middle of a fetch that might populate
-          setShowSuggestionsState(false);
-      }
+      setShowSuggestionsState(false);
     }, 150);
   };
 
@@ -233,18 +182,15 @@ export default function BookRidePage() {
     setDropoffInputValue("");
     setFareEstimate(null);
     setMapMarkers([]);
-    pickupSessionTokenRef.current = undefined;
-    dropoffSessionTokenRef.current = undefined;
   };
 
   const renderSuggestions = (
-    suggestions: Suggestion[],
+    suggestions: string[],
     isFetching: boolean,
     inputValue: string,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
-    formOnChange: (...event: any[]) => void,
-    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>,
+    formOnChange: (value: string) => void,
     fieldKey: string
   ) => (
     <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -253,16 +199,16 @@ export default function BookRidePage() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
         </div>
       )}
-      {!isFetching && suggestions.length === 0 && inputValue.length >= 3 && (
+      {!isFetching && suggestions.length === 0 && inputValue.length >= 2 && (
          <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
       )}
-      {!isFetching && suggestions.map((suggestion) => (
+      {!isFetching && suggestions.map((suggestion, index) => (
         <div
-          key={`${fieldKey}-${suggestion.place_id}`}
+          key={`${fieldKey}-${index}`}
           className="p-2 text-sm hover:bg-muted cursor-pointer"
-          onMouseDown={() => handleSuggestionClick(suggestion, setInputValueState, setShowSuggestionsState, formOnChange, sessionTokenRef)}
+          onMouseDown={() => handleSuggestionClick(suggestion, setInputValueState, setShowSuggestionsState, formOnChange)}
         >
-          {suggestion.description}
+          {suggestion}
         </div>
       ))}
     </div>
@@ -293,14 +239,13 @@ export default function BookRidePage() {
                               placeholder="Type pickup address"
                               {...field} // spread field props first
                               value={pickupInputValue} // then override value
-                              onChange={(e) => handleAddressInputChange(e.target.value, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions, field.onChange, pickupSessionTokenRef)}
-                              onFocus={() => handleFocus(pickupSessionTokenRef)}
-                              onBlur={() => handleBlur(setShowPickupSuggestions, isFetchingPickupSuggestions)}
-                              disabled={!googleMapsReady}
+                              onChange={(e) => handleAddressInputChange(e.target.value, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions, field.onChange)}
+                              onFocus={() => handleFocus(pickupInputValue, setPickupSuggestions, setShowPickupSuggestions)}
+                              onBlur={() => handleBlur(setShowPickupSuggestions)}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showPickupSuggestions && renderSuggestions(pickupSuggestions, isFetchingPickupSuggestions, pickupInputValue, setPickupInputValue, setShowPickupSuggestions, field.onChange, pickupSessionTokenRef, "pickup")}
+                          {showPickupSuggestions && renderSuggestions(pickupSuggestions, isFetchingPickupSuggestions, pickupInputValue, setPickupInputValue, setShowPickupSuggestions, field.onChange, "pickup")}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -318,14 +263,13 @@ export default function BookRidePage() {
                               placeholder="Type drop-off address"
                               {...field} // spread field props first
                               value={dropoffInputValue} // then override value
-                              onChange={(e) => handleAddressInputChange(e.target.value, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions, field.onChange, dropoffSessionTokenRef)}
-                              onFocus={() => handleFocus(dropoffSessionTokenRef)}
-                              onBlur={() => handleBlur(setShowDropoffSuggestions, isFetchingDropoffSuggestions)}
-                              disabled={!googleMapsReady}
+                              onChange={(e) => handleAddressInputChange(e.target.value, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions, field.onChange)}
+                              onFocus={() => handleFocus(dropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions)}
+                              onBlur={() => handleBlur(setShowDropoffSuggestions)}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showDropoffSuggestions && renderSuggestions(dropoffSuggestions, isFetchingDropoffSuggestions, dropoffInputValue, setDropoffInputValue, setShowDropoffSuggestions, field.onChange, dropoffSessionTokenRef, "dropoff")}
+                          {showDropoffSuggestions && renderSuggestions(dropoffSuggestions, isFetchingDropoffSuggestions, dropoffInputValue, setDropoffInputValue, setShowDropoffSuggestions, field.onChange, "dropoff")}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -367,10 +311,9 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!googleMapsReady && (pickupInputValue !== "" || dropoffInputValue !== "")}>
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                     <DollarSign className="mr-2 h-4 w-4" /> Get Fare Estimate
                   </Button>
-                   {!googleMapsReady && <p className="text-xs text-center text-muted-foreground">Initializing address search...</p>}
                 </form>
               </Form>
             </div>
@@ -404,3 +347,5 @@ export default function BookRidePage() {
     </div>
   );
 }
+
+    
