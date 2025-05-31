@@ -11,32 +11,30 @@ const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-// Default UK coordinates (London)
 const defaultPassengerLocation: [number, number] = [51.5074, -0.1278]; 
-// Mock taxi start location slightly away
 const initialTaxiLocation: [number, number] = [51.515, -0.10]; 
 
 export default function TrackRidePage() {
   const [taxiLocation, setTaxiLocation] = useState<[number, number]>(initialTaxiLocation);
-  const [estimatedArrival, setEstimatedArrival] = useState(5); // minutes
+  const [estimatedArrival, setEstimatedArrival] = useState(5); 
+  const [isClient, setIsClient] = useState(false); // Added isClient state
 
-  // Simulate taxi moving closer
   useEffect(() => {
+    setIsClient(true); // Set isClient to true on mount
     const interval = setInterval(() => {
       setTaxiLocation(prev => {
-        // Simple linear movement towards passenger for demo
         const newLat = prev[0] - (prev[0] - defaultPassengerLocation[0]) * 0.1;
         const newLng = prev[1] - (prev[1] - defaultPassengerLocation[1]) * 0.1;
         return [newLat, newLng];
       });
       setEstimatedArrival(prev => Math.max(0, prev - 1));
-    }, 5000); // Update every 5 seconds
+    }, 5000); 
 
     return () => clearInterval(interval);
   }, []);
 
   const mapMarkers = [
-    { position: taxiLocation, popupText: "Your Taxi", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" }, // Basic marker icon
+    { position: taxiLocation, popupText: "Your Taxi", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" },
     { position: defaultPassengerLocation, popupText: "Your Location" }
   ];
 
@@ -53,13 +51,17 @@ export default function TrackRidePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative w-full h-96 md:h-[500px] rounded-lg overflow-hidden shadow-md border">
-            <MapDisplay 
-              center={defaultPassengerLocation} // Center map on passenger
-              zoom={14} 
-              markers={mapMarkers} 
-              className="h-full w-full"
-              scrollWheelZoom={true}
-            />
+            {isClient ? (
+              <MapDisplay 
+                center={defaultPassengerLocation} 
+                zoom={14} 
+                markers={mapMarkers} 
+                className="h-full w-full"
+                scrollWheelZoom={true}
+              />
+            ) : (
+              <Skeleton className="w-full h-full rounded-md" />
+            )}
           </div>
 
           <Card className="bg-primary/10 border-primary/30">
@@ -78,4 +80,3 @@ export default function TrackRidePage() {
     </div>
   );
 }
-

@@ -15,7 +15,6 @@ const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-
 interface RideRequest {
   id: string;
   passengerName: string;
@@ -25,11 +24,10 @@ interface RideRequest {
   estimatedTime: string; 
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active';
-  pickupCoords?: [number, number]; // latitude, longitude
+  pickupCoords?: [number, number]; 
   dropoffCoords?: [number, number];
 }
 
-// Default UK coordinates (London) for mock data
 const defaultUKCenter: [number, number] = [51.5074, -0.1278];
 
 const mockRideRequests: RideRequest[] = [
@@ -41,7 +39,12 @@ const mockRideRequests: RideRequest[] = [
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
-  const [driverLocation] = useState<[number, number]>([51.500, -0.100]); // Mock driver location
+  const [driverLocation] = useState<[number, number]>([51.500, -0.100]); 
+  const [isClient, setIsClient] = useState(false); // Added isClient state
+
+  useEffect(() => {
+    setIsClient(true); // Set isClient to true on mount
+  }, []);
 
   const handleRideAction = (rideId: string, newStatus: RideRequest['status']) => {
     setRideRequests(prevRequests =>
@@ -60,7 +63,7 @@ export default function AvailableRidesPage() {
 
   const getMapMarkersForActiveRide = () => {
     if (!activeRide || !activeRide.pickupCoords) return [];
-    const markers = [{ position: driverLocation, popupText: "Your Location", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" }]; // Driver
+    const markers = [{ position: driverLocation, popupText: "Your Location", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" }];
     markers.push({ position: activeRide.pickupCoords, popupText: `Pickup: ${activeRide.passengerName}` });
     if (activeRide.dropoffCoords) {
         markers.push({ position: activeRide.dropoffCoords, popupText: "Drop-off" });
@@ -92,13 +95,17 @@ export default function AvailableRidesPage() {
             <div className="mt-4">
               <p className="text-sm font-medium mb-1">Live Ride Map:</p>
               <div className="h-64 bg-muted rounded-md overflow-hidden">
-                <MapDisplay 
-                    center={activeRide.pickupCoords || driverLocation} 
-                    zoom={13} 
-                    markers={getMapMarkersForActiveRide()}
-                    className="w-full h-full"
-                    scrollWheelZoom={true}
-                />
+                {isClient ? (
+                  <MapDisplay 
+                      center={activeRide.pickupCoords || driverLocation} 
+                      zoom={13} 
+                      markers={getMapMarkersForActiveRide()}
+                      className="w-full h-full"
+                      scrollWheelZoom={true}
+                  />
+                ) : (
+                  <Skeleton className="w-full h-full rounded-md" />
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 pt-4">
@@ -157,4 +164,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-

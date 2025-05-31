@@ -8,14 +8,13 @@ import { useAuth } from '@/contexts/auth-context';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useEffect } from 'react'; // Added useState and useEffect
 
 const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-
-// Default UK coordinates (London)
 const defaultUKCenter: [number, number] = [51.5074, -0.1278];
 const mockFleetMarkers = [
     { position: [51.51, -0.10] as [number, number], popupText: "Driver 1 (John D) - Active" },
@@ -26,6 +25,11 @@ const mockFleetMarkers = [
 
 export default function OperatorDashboardPage() {
   const { user } = useAuth();
+  const [isClient, setIsClient] = useState(false); // Added isClient state
+
+  useEffect(() => {
+    setIsClient(true); // Set isClient to true on mount
+  }, []);
 
   const activeRides = 12;
   const availableDrivers = 25;
@@ -68,6 +72,7 @@ export default function OperatorDashboardPage() {
             </CardTitle>
         </CardHeader>
         <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden">
+            {isClient ? (
              <MapDisplay 
                 center={defaultUKCenter} 
                 zoom={12} 
@@ -75,6 +80,9 @@ export default function OperatorDashboardPage() {
                 className="w-full h-full" 
                 scrollWheelZoom={true}
              />
+            ) : (
+              <Skeleton className="w-full h-full rounded-md" />
+            )}
         </CardContent>
       </Card>
 
@@ -150,4 +158,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
-

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -34,13 +34,17 @@ const bookingFormSchema = z.object({
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
 });
 
-// Default UK coordinates (London)
 const defaultMapCenter: [number, number] = [51.5074, -0.1278];
 
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const { toast } = useToast();
   const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
+  const [isClient, setIsClient] = useState(false); // Added isClient state
+
+  useEffect(() => {
+    setIsClient(true); // Set isClient to true on mount
+  }, []);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -63,14 +67,11 @@ export default function BookRidePage() {
     const calculatedFare = baseFare + distanceFare * vehicleMultiplier * (1 + (values.passengers -1) * 0.1);
     setFareEstimate(parseFloat(calculatedFare.toFixed(2)));
 
-    // Simulate geocoding and adding markers (replace with actual geocoding)
-    // For demo, we'll add markers near the default center
     const newMarkers = [
         { position: [defaultMapCenter[0] + 0.01, defaultMapCenter[1] + 0.01] as [number, number], popupText: `Pickup: ${values.pickupLocation}` },
         { position: [defaultMapCenter[0] - 0.01, defaultMapCenter[1] - 0.01] as [number, number], popupText: `Dropoff: ${values.dropoffLocation}` }
     ];
     setMapMarkers(newMarkers);
-
 
     toast({
       title: "Ride Details Submitted",
@@ -171,7 +172,11 @@ export default function BookRidePage() {
             </div>
             <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-64 md:h-80 mb-6">
-                 <MapDisplay center={defaultMapCenter} zoom={12} markers={mapMarkers} className="w-full h-full" />
+                 {isClient ? (
+                    <MapDisplay center={defaultMapCenter} zoom={12} markers={mapMarkers} className="w-full h-full" />
+                  ) : (
+                    <Skeleton className="w-full h-full rounded-md" />
+                  )}
               </div>
               {fareEstimate !== null && (
                 <Card className="w-full text-center shadow-md">
@@ -199,4 +204,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
