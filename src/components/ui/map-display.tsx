@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useEffect, useState, Suspense, useMemo, useId } from 'react';
+import React, { useEffect, useState, Suspense, useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { cn } from "@/lib/utils";
@@ -50,7 +50,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   scrollWheelZoom = true,
 }) => {
   const [isClient, setIsClient] = useState(false);
-  const mapDomId = useId(); // Generate a unique and stable ID for this map instance
+  // const mapDomId = useId(); // Generate a unique and stable ID for this map instance // Removed
 
   useEffect(() => {
     setIsClient(true); // Indicate that we are on the client-side
@@ -78,7 +78,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   return (
     <Suspense fallback={fallbackDiv}>
       <LazyMapContainer
-        id={mapDomId} // Assign the unique ID to the map container
+        // id={mapDomId} // Assign the unique ID to the map container - REMOVED
         center={center}
         zoom={zoom}
         style={mapStyle} // Use the potentially memoized style
