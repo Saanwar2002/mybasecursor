@@ -37,14 +37,14 @@ const bookingFormSchema = z.object({
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
-// Fare Calculation Constants
-const BASE_FARE = 2.00; // £
-const PER_MILE_RATE = 1.00; // £ per mile
-const FIRST_MILE_SURCHARGE = 1.99; // £2.99 (first mile) - £1.00 (standard per mile) = £1.99 extra for first mile
-const PER_MINUTE_RATE = 0.15; // £ per minute
+// Fare Calculation Constants - Adjusted
+const BASE_FARE = 0.00; // £ - First mile cost is handled by PER_MILE_RATE + FIRST_MILE_SURCHARGE
+const PER_MILE_RATE = 1.00; // £ per mile (for miles after the first)
+const FIRST_MILE_SURCHARGE = 1.99; // £ - Added to PER_MILE_RATE for the first mile, making it £2.99 total for the first mile.
+const PER_MINUTE_RATE = 0.10; // £ per minute (Reduced)
 const AVERAGE_SPEED_MPH = 15; // Assumed average speed for duration estimation
-const BOOKING_FEE = 1.50; // £
-const MINIMUM_FARE = 5.00; // £
+const BOOKING_FEE = 0.75; // £ (Reduced)
+const MINIMUM_FARE = 4.00; // £ (Reduced)
 const SURGE_MULTIPLIER_VALUE = 1.5; // Example surge multiplier
 
 function deg2rad(deg: number): number {
@@ -225,6 +225,7 @@ export default function BookRidePage() {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsState(null);
           }
+          // Refresh session token after use, as per Google's recommendation
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
@@ -244,6 +245,7 @@ export default function BookRidePage() {
     if (inputValue.length >=2 && suggestions.length > 0) {
         setShowSuggestionsState(true);
     } else if (inputValue.length >= 2 && autocompleteServiceRef.current) {
+        // If suggestions are empty but input is valid, try fetching again
         fetchAddressSuggestions(inputValue, setSuggestionsState, setIsFetchingState);
         setShowSuggestionsState(true);
     } else {
@@ -254,6 +256,7 @@ export default function BookRidePage() {
   const handleBlur = (
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
+    // Delay hiding suggestions to allow click event on suggestion item
     setTimeout(() => {
       setShowSuggestionsState(false);
     }, 150); 
@@ -280,7 +283,7 @@ export default function BookRidePage() {
         const estimatedTripDurationMinutes = (distanceMiles / AVERAGE_SPEED_MPH) * 60;
         const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
         
-        // £2.99 for first mile, £1 for subsequent. Can be modeled as (Distance * £1) + £1.99 if distance >= 1
+        // £2.99 for first mile, £1 for subsequent. This is (Distance * £1) + £1.99 if distance > 0
         const distanceBasedFare = distanceMiles * PER_MILE_RATE + (distanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
         
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
@@ -291,10 +294,11 @@ export default function BookRidePage() {
       // Apply surge multiplier
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
+      // Updated vehicle multipliers
       let vehicleMultiplier = 1;
       if (watchedVehicleType === "estate") vehicleMultiplier = 1.3;
-      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 2.0;
-      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 2.5;
+      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; // 50% increase
+      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.75; // Slightly more for 8-seater
       
       const passengerCount = Number(watchedPassengers) || 1;
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
@@ -353,8 +357,8 @@ export default function BookRidePage() {
     setIsSurgeActive(false);
     setCurrentSurgeMultiplier(1);
     setMapMarkers([]);
-    setPickupSuggestions([]);
-    setDropoffSuggestions([]);
+    setPickupSuggestions([]); // Clear suggestions
+    setDropoffSuggestions([]); // Clear suggestions
   }
 
   const renderSuggestions = (
@@ -367,7 +371,7 @@ export default function BookRidePage() {
     formOnChange: (value: string) => void,
     setCoordsState: React.Dispatch<React.SetStateAction<google.maps.LatLngLiteral | null>>,
     setIsFetchingDetailsState: React.Dispatch<React.SetStateAction<boolean>>,
-    fieldKey: string
+    fieldKey: string // Unique key prefix for suggestions (e.g., "pickup", "dropoff")
   ) => (
     <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
       {isFetchingSuggestions && (
@@ -375,7 +379,7 @@ export default function BookRidePage() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
         </div>
       )}
-      {isFetchingDetails && (
+      {isFetchingDetails && ( // Show loading when fetching place details
          <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching location details...
         </div>
@@ -385,8 +389,9 @@ export default function BookRidePage() {
       )}
       {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestion) => (
         <div
-          key={`${fieldKey}-${suggestion.place_id}`}
+          key={`${fieldKey}-${suggestion.place_id}`} // Ensure unique keys for each suggestion list
           className="p-2 text-sm hover:bg-muted cursor-pointer"
+          // Use onMouseDown to trigger before onBlur closes the dropdown
           onMouseDown={() => handleSuggestionClick(suggestion, setInputValueState, setShowSuggestionsState, formOnChange, setCoordsState, setIsFetchingDetailsState)}
         >
           {suggestion.description}
