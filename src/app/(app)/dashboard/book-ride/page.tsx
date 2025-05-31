@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader } from '@googlemaps/js-api-loader';
+import { useAuth } from '@/contexts/auth-context'; // Added for passengerId
 
 const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   ssr: false,
@@ -41,7 +42,7 @@ const bookingFormSchema = z.object({
 });
 
 type AutocompleteData = {
-  fieldId: string; // For stops, this will be react-hook-form's field.id
+  fieldId: string; 
   inputValue: string;
   suggestions: google.maps.places.AutocompletePrediction[];
   showSuggestions: boolean;
@@ -50,7 +51,7 @@ type AutocompleteData = {
   coords: google.maps.LatLngLiteral | null;
 };
 
-const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
+const defaultMapCenter: [number, number] = [51.5074, -0.1278]; 
 
 // Fare Calculation Constants
 const BASE_FARE = 0.00;
@@ -90,6 +91,7 @@ export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth(); // Get user from AuthContext
   const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
   
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
@@ -99,6 +101,7 @@ export default function BookRidePage() {
   const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
   
   const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
+  const [isBooking, setIsBooking] = useState(false); // Loading state for booking API call
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -194,11 +197,11 @@ export default function BookRidePage() {
     inputValue: string,
     formOnChange: (value: string) => void,
   ) => {
-    formOnChange(inputValue); // Update react-hook-form state
+    formOnChange(inputValue); 
     setFareEstimate(null);
     setEstimatedDistance(null);
 
-    if (typeof formFieldNameOrStopIndex === 'number') { // It's a stop
+    if (typeof formFieldNameOrStopIndex === 'number') { 
       setStopAutocompleteData(prev => prev.map((item, idx) => 
         idx === formFieldNameOrStopIndex 
         ? { ...item, inputValue, coords: null, suggestions: inputValue.length >= 2 ? item.suggestions : [], showSuggestions: inputValue.length >=2, isFetchingSuggestions: inputValue.length >=2 } 
@@ -210,18 +213,18 @@ export default function BookRidePage() {
       setShowPickupSuggestions(inputValue.length >=2);
       if(inputValue.length >=2) {
         setIsFetchingPickupSuggestions(true); 
-        setPickupSuggestions([]); // Clear old suggestions
+        setPickupSuggestions([]); 
       } else {
         setIsFetchingPickupSuggestions(false);
         setPickupSuggestions([]);
       }
-    } else { // dropoffLocation
+    } else { 
       setDropoffInputValue(inputValue);
       setDropoffCoords(null);
       setShowDropoffSuggestions(inputValue.length >=2);
        if(inputValue.length >=2) {
         setIsFetchingDropoffSuggestions(true);
-        setDropoffSuggestions([]); // Clear old suggestions
+        setDropoffSuggestions([]); 
       } else {
         setIsFetchingDropoffSuggestions(false);
         setDropoffSuggestions([]);
@@ -242,7 +245,7 @@ export default function BookRidePage() {
         );
       } else if (formFieldNameOrStopIndex === 'pickupLocation') {
         fetchAddressSuggestions(inputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
-      } else { // dropoffLocation
+      } else { 
         fetchAddressSuggestions(inputValue, setDropoffSuggestions, setIsFetchingDropoffSuggestions);
       }
     }, 300);
@@ -263,12 +266,11 @@ export default function BookRidePage() {
         description: "Could not process the selected address details. Please try again.",
         variant: "destructive",
       });
-      // Reset relevant input state
       if (typeof formFieldNameOrStopIndex === 'string') {
         if (formFieldNameOrStopIndex === 'pickupLocation') {
-          setPickupInputValue(prev => form.getValues('pickupLocation') || prev); // Revert to form value or keep current if form value is also problematic
+          setPickupInputValue(prev => form.getValues('pickupLocation') || prev); 
           setPickupCoords(null); setShowPickupSuggestions(false);
-        } else { // dropoffLocation
+        } else { 
           setDropoffInputValue(prev => form.getValues('dropoffLocation') || prev);
           setDropoffCoords(null); setShowDropoffSuggestions(false);
         }
@@ -283,14 +285,14 @@ export default function BookRidePage() {
       return;
     }
 
-    formOnChange(addressText); // Update react-hook-form state
+    formOnChange(addressText); 
 
     const setIsFetchingDetailsFunc = (isFetching: boolean) => {
       if (typeof formFieldNameOrStopIndex === 'number') {
         setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
       } else if (formFieldNameOrStopIndex === 'pickupLocation') {
         setIsFetchingPickupDetails(isFetching);
-      } else { // dropoffLocation
+      } else { 
         setIsFetchingDropoffDetails(isFetching);
       }
     };
@@ -302,7 +304,7 @@ export default function BookRidePage() {
         setPickupCoords(coords);
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
-      } else { // dropoffLocation
+      } else { 
         setDropoffCoords(coords);
         setDropoffInputValue(addressText);
         setShowDropoffSuggestions(false);
@@ -329,7 +331,7 @@ export default function BookRidePage() {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsFunc(null);
           }
-          autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken(); // Refresh token
+          autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken(); 
         }
       );
     } else {
@@ -344,7 +346,7 @@ export default function BookRidePage() {
     let currentInputValue: string;
     let currentSuggestions: google.maps.places.AutocompletePrediction[];
 
-    if (typeof formFieldNameOrStopIndex === 'number') { // Stop
+    if (typeof formFieldNameOrStopIndex === 'number') { 
         const stopData = stopAutocompleteData[formFieldNameOrStopIndex];
         if (!stopData) return;
         currentInputValue = stopData.inputValue;
@@ -367,7 +369,7 @@ export default function BookRidePage() {
             fetchAddressSuggestions(currentInputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
             setShowPickupSuggestions(true);
         } else setShowPickupSuggestions(false);
-    } else { // dropoffLocation
+    } else { 
         currentInputValue = dropoffInputValue;
         currentSuggestions = dropoffSuggestions;
         if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowDropoffSuggestions(true);
@@ -384,10 +386,10 @@ export default function BookRidePage() {
         setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, showSuggestions: false } : item));
       } else if (formFieldNameOrStopIndex === 'pickupLocation') {
         setShowPickupSuggestions(false);
-      } else { // dropoffLocation
+      } else { 
         setShowDropoffSuggestions(false);
       }
-    }, 150); // Delay to allow click on suggestion
+    }, 150); 
   };
 
   const watchedVehicleType = form.watch("vehicleType");
@@ -395,13 +397,11 @@ export default function BookRidePage() {
   const watchedStops = form.watch("stops");
 
   const handleAddStop = () => {
-    // Append to react-hook-form's fields array
     append({ location: "" });
-    // Add corresponding entry to our local state for autocomplete management
     setStopAutocompleteData(prev => [
       ...prev,
       {
-        fieldId: `stop-temp-${prev.length}-${Date.now()}`, // This will be updated once field.id is available
+        fieldId: `stop-temp-${prev.length}-${Date.now()}`, 
         inputValue: "",
         suggestions: [],
         showSuggestions: false,
@@ -413,14 +413,13 @@ export default function BookRidePage() {
   };
   
   const handleRemoveStop = (index: number) => {
-    remove(index); // remove from react-hook-form
-    setStopAutocompleteData(prev => prev.filter((_, i) => i !== index)); // remove from local state by index
+    remove(index); 
+    setStopAutocompleteData(prev => prev.filter((_, i) => i !== index)); 
   };
 
 
   useEffect(() => {
     let totalDistanceMiles = 0;
-    // Filter stopAutocompleteData for stops that have coordinates AND have a non-empty location string in the form
     const validStopsForFare = stopAutocompleteData.filter((stopData, index) => {
         const formStopValue = form.getValues(`stops.${index}.location`);
         return stopData.coords && formStopValue && formStopValue.trim() !== "";
@@ -428,8 +427,8 @@ export default function BookRidePage() {
     
     if (pickupCoords && dropoffCoords) {
       let currentPoint = pickupCoords;
-      for (const stopData of validStopsForFare) { // Iterate over validated stops
-        if (stopData.coords) { // This check is redundant due to filter, but safe
+      for (const stopData of validStopsForFare) { 
+        if (stopData.coords) { 
           totalDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
           currentPoint = stopData.coords;
         }
@@ -485,7 +484,6 @@ export default function BookRidePage() {
     if (pickupCoords) {
       newMarkers.push({ position: [pickupCoords.lat, pickupCoords.lng], popupText: `Pickup: ${form.getValues('pickupLocation')}` });
     }
-    // Iterate through form.getValues('stops') to ensure we only add markers for stops that are still in the form
     const currentFormStops = form.getValues('stops');
     currentFormStops?.forEach((formStop, index) => {
         const stopData = stopAutocompleteData[index];
@@ -497,66 +495,99 @@ export default function BookRidePage() {
       newMarkers.push({ position: [dropoffCoords.lat, dropoffCoords.lng], popupText: `Dropoff: ${form.getValues('dropoffLocation')}` });
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]); // watchedStops to re-run when form.stops changes
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]); 
 
 
-  function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
-     if (!pickupCoords || !dropoffCoords) {
-      toast({
-        title: "Missing Location Details",
-        description: "Please select valid pickup and drop-off locations from the suggestions.",
-        variant: "destructive",
-      });
-      return;
+  async function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
+    if (!user) {
+        toast({ title: "Authentication Error", description: "You must be logged in to book a ride.", variant: "destructive" });
+        return;
+    }
+    if (!pickupCoords || !dropoffCoords) {
+        toast({ title: "Missing Location Details", description: "Please select valid pickup and drop-off locations.", variant: "destructive" });
+        return;
     }
 
+    const validStopsData = [];
     for (let i = 0; i < (values.stops?.length || 0); i++) {
         const stopLocationInput = values.stops?.[i]?.location;
         const stopData = stopAutocompleteData[i];
         if (stopLocationInput && stopLocationInput.trim() !== "" && !stopData?.coords) {
-            toast({
-                title: `Missing Stop ${i + 1} Details`,
-                description: `Please select a valid location for stop ${i+1} or remove it. Empty stops will be ignored.`,
-                variant: "destructive",
-            });
+            toast({ title: `Missing Stop ${i + 1} Details`, description: `Select a valid location for stop ${i+1} or remove it.`, variant: "destructive" });
             return;
+        }
+        if (stopData?.coords && stopLocationInput && stopLocationInput.trim() !== "") {
+            validStopsData.push({
+                address: stopLocationInput,
+                latitude: stopData.coords.lat,
+                longitude: stopData.coords.lng,
+            });
         }
     }
 
     if (fareEstimate === null) {
-      toast({
-        title: "Fare Not Calculated",
-        description: "Could not calculate fare. Please ensure addresses are valid.",
-        variant: "destructive",
+        toast({ title: "Fare Not Calculated", description: "Could not calculate fare. Ensure addresses are valid.", variant: "destructive" });
+        return;
+    }
+
+    setIsBooking(true);
+
+    const bookingPayload = {
+      passengerId: user.id,
+      passengerName: user.name,
+      pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng },
+      dropoffLocation: { address: values.dropoffLocation, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng },
+      stops: validStopsData,
+      vehicleType: values.vehicleType,
+      passengers: values.passengers,
+      fareEstimate: fareEstimate,
+      isSurgeApplied: isSurgeActive,
+      surgeMultiplier: currentSurgeMultiplier,
+      stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
+    };
+
+    try {
+      const response = await fetch('/api/bookings/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingPayload),
       });
-      return;
-    }
 
-    let rideDescription = `Your ride from ${values.pickupLocation}`;
-    const validStopLocations = values.stops?.filter(s => s.location.trim() !== "").map(s => s.location) || [];
-    if (validStopLocations.length > 0) {
-        rideDescription += ` via ${validStopLocations.join(' via ')}`;
-    }
-    rideDescription += ` to ${values.dropoffLocation} is confirmed. Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Pricing Applied)' : ''}. A driver will be assigned shortly.`;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Booking failed with status ${response.status}`);
+      }
 
-    toast({
-      title: "Booking Confirmed!",
-      description: rideDescription,
-      variant: "default",
-    });
-    form.reset(); // This also resets 'stops' field array
-    setPickupInputValue("");
-    setDropoffInputValue("");
-    setPickupCoords(null);
-    setDropoffCoords(null);
-    setStopAutocompleteData([]); 
-    setFareEstimate(null);
-    setEstimatedDistance(null);
-    setIsSurgeActive(false);
-    setCurrentSurgeMultiplier(1);
-    setMapMarkers([]);
-    setPickupSuggestions([]); 
-    setDropoffSuggestions([]); 
+      const result = await response.json();
+      
+      let rideDescription = `Your ride from ${values.pickupLocation}`;
+      if (validStopsData.length > 0) {
+          rideDescription += ` via ${validStopsData.map(s => s.address).join(' via ')}`;
+      }
+      rideDescription += ` to ${values.dropoffLocation} is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}. A driver will be assigned.`;
+      
+      toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default" });
+      
+      form.reset(); 
+      setPickupInputValue("");
+      setDropoffInputValue("");
+      setPickupCoords(null);
+      setDropoffCoords(null);
+      setStopAutocompleteData([]); 
+      setFareEstimate(null);
+      setEstimatedDistance(null);
+      setIsSurgeActive(false);
+      setCurrentSurgeMultiplier(1);
+      setMapMarkers([]);
+      setPickupSuggestions([]); 
+      setDropoffSuggestions([]); 
+
+    } catch (error) {
+        console.error("Booking error:", error);
+        toast({ title: "Booking Failed", description: error instanceof Error ? error.message : "An unknown error occurred.", variant: "destructive" });
+    } finally {
+        setIsBooking(false);
+    }
   }
 
   const renderSuggestions = (
@@ -643,7 +674,7 @@ export default function BookRidePage() {
                     const currentStopData = stopAutocompleteData[index] || { inputValue: '', suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null, fieldId: stopField.id };
                     return (
                       <FormField
-                        key={stopField.id} // Unique key from useFieldArray
+                        key={stopField.id} 
                         control={form.control}
                         name={`stops.${index}.location`}
                         render={({ field }) => (
@@ -761,8 +792,9 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
-                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails}>
-                     Book Ride
+                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}>
+                     {isBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                     {isBooking ? 'Processing...' : 'Book Ride'}
                   </Button>
                 </form>
               </Form>
@@ -816,3 +848,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
