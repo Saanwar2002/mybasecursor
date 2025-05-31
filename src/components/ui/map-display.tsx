@@ -1,13 +1,14 @@
 
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+// MapContainer and other react-leaflet components are commented out
+// import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { cn } from "@/lib/utils";
-import { Skeleton } from './skeleton';
+import { Skeleton } from './skeleton'; // Keep Skeleton for consistency if needed elsewhere
 
-// Fix for default marker icon issue with Webpack.
+// Fix for default marker icon issue with Webpack - can remain as it's not harmful
 if (typeof window !== 'undefined') {
     if (!(L.Icon.Default.prototype as any)._getIconUrlFixed) {
         delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -32,6 +33,7 @@ interface MapDisplayProps {
   className?: string;
   style?: React.CSSProperties;
   scrollWheelZoom?: boolean;
+  placeholder?: React.ReactNode; // Kept for interface consistency, but not used by MapContainer now
 }
 
 const MapDisplay: React.FC<MapDisplayProps> = ({
@@ -42,14 +44,39 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   style: propStyle,
   scrollWheelZoom = true,
 }) => {
-  const [isMounted, setIsMounted] = useState(false);
+  const defaultStyle = useMemo(() => ({ height: '100%', width: '100%', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #ccc', borderRadius: '0.5rem', backgroundColor: '#f9f9f9' }), []);
+  const mapStyle = propStyle ? { ...defaultStyle, ...propStyle } : defaultStyle;
 
-  useEffect(() => {
+  // Render a placeholder instead of the map
+  return (
+    <div
+      style={mapStyle}
+      className={cn("map-display-placeholder", className)}
+      aria-label="Map container temporarily disabled"
+    >
+      <p className="text-muted-foreground text-center p-4">
+        Map rendering is temporarily disabled. <br />
+        Center: {center.join(', ')}, Zoom: {zoom}
+      </p>
+    </div>
+  );
+
+  // Original MapContainer logic is commented out:
+  /*
+  const [isMounted, setIsMounted] = React.useState(false);
+  React.useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const defaultStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
-  const mapStyle = propStyle || defaultStyle;
+  if (!isMounted) {
+     return (
+      <Skeleton
+        className={cn("rounded-md shadow-md w-full h-full min-h-[300px]", className)}
+        style={mapStyle}
+        aria-label="Loading map..."
+      />
+    );
+  }
 
   const createCustomIcon = (iconUrl: string, iconSize: [number, number] = [25, 41]) => {
     return L.icon({
@@ -60,16 +87,6 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     });
   };
 
-  if (!isMounted) {
-    return (
-      <Skeleton
-        className={cn("rounded-md shadow-md w-full h-full min-h-[300px]", className)}
-        style={mapStyle}
-        aria-label="Loading map..."
-      />
-    );
-  }
-
   return (
     <MapContainer
       center={center}
@@ -77,6 +94,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
       style={mapStyle}
       className={cn("rounded-md shadow-md", className)}
       scrollWheelZoom={scrollWheelZoom}
+      placeholder={<Skeleton className={cn("w-full h-full rounded-md", className)} />}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -93,6 +111,6 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
       ))}
     </MapContainer>
   );
+  */
 };
 export default MapDisplay;
-
