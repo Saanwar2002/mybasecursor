@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -43,12 +43,6 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   style: propStyle,
   scrollWheelZoom = true,
 }) => {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   const defaultStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
   const mapStyle = propStyle || defaultStyle;
 
@@ -61,12 +55,10 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     });
   };
 
-  if (!isMounted) {
-    // Render a skeleton or null while waiting for client-side mount
-    // The parent dynamic import already provides a loading skeleton,
-    // but this internal one ensures MapContainer isn't rendered prematurely.
-    return <Skeleton className={cn("rounded-md shadow-md w-full h-full min-h-[300px]", className)} style={mapStyle} />;
-  }
+  // The placeholder for MapContainer should occupy the same space.
+  const mapPlaceholder = (
+    <Skeleton className={cn("rounded-md shadow-md w-full h-full min-h-[300px]", className)} style={mapStyle} />
+  );
 
   return (
     <MapContainer
@@ -75,6 +67,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
       style={mapStyle}
       className={cn("rounded-md shadow-md", className)}
       scrollWheelZoom={scrollWheelZoom}
+      placeholder={mapPlaceholder} 
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
