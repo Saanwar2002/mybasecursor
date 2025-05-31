@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -258,7 +257,15 @@ export default function MyRidesPage() {
               <div className="text-sm space-y-1">
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>To:</strong> {ride.dropoffLocation.address}</p>
-                <p className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)} {ride.isSurgeApplied && <Badge variant="outline" className="ml-1 border-orange-500 text-orange-500">Surge</Badge>}</p>
+                <div className="flex items-center gap-1"> {/* Changed from p to div */}
+                  <DollarSign className="w-4 h-4 text-muted-foreground" /> 
+                  <strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}{' '}
+                  {ride.isSurgeApplied && (
+                    <Badge variant="outline" className="ml-1 border-orange-500 text-orange-500">
+                      Surge
+                    </Badge>
+                  )}
+                </div>
               </div>
               {ride.status === 'completed' && (
                 <div className="pt-2">
@@ -308,5 +315,3 @@ export default function MyRidesPage() {
     </div>
   );
 }
-
-    
