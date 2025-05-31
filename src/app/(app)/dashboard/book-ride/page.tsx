@@ -19,7 +19,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Car, DollarSign, Users, Briefcase } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import MapDisplay from '@/components/ui/map-display';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />,
+});
 
 const bookingFormSchema = z.object({
   pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
@@ -193,3 +199,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+

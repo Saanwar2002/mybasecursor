@@ -7,7 +7,14 @@ import { MapPin, User, Clock, Check, X, Navigation } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
-import MapDisplay from '@/components/ui/map-display';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />,
+});
+
 
 interface RideRequest {
   id: string;
@@ -150,3 +157,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+

@@ -2,8 +2,14 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Car, Clock } from "lucide-react";
-import MapDisplay from "@/components/ui/map-display";
+import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />,
+});
 
 // Default UK coordinates (London)
 const defaultPassengerLocation: [number, number] = [51.5074, -0.1278]; 
@@ -72,3 +78,4 @@ export default function TrackRidePage() {
     </div>
   );
 }
+

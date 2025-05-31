@@ -6,7 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import Image from 'next/image';
-import MapDisplay from '@/components/ui/map-display';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />,
+});
+
 
 // Default UK coordinates (London)
 const defaultUKCenter: [number, number] = [51.5074, -0.1278];
@@ -143,3 +150,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+

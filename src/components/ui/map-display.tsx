@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useEffect, useState, Suspense, useMemo } from 'react';
+import React, { Suspense, useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { cn } from "@/lib/utils";
@@ -46,17 +46,9 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   zoom = 13,
   markers,
   className,
-  style: propStyle, // Rename to avoid conflict with internal stableStyle
+  style: propStyle,
   scrollWheelZoom = true,
 }) => {
-  const [isClient, setIsClient] = useState(false);
-  // const mapDomId = useId(); // Generate a unique and stable ID for this map instance // Removed
-
-  useEffect(() => {
-    setIsClient(true); // Indicate that we are on the client-side
-  }, []);
-
-  // Memoize the default style object to ensure stability
   const defaultStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
   const mapStyle = propStyle || defaultStyle;
 
@@ -64,24 +56,20 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     return L.icon({
       iconUrl,
       iconSize: iconSize,
-      iconAnchor: [iconSize[0] / 2, iconSize[1]], // Point of the icon which will correspond to marker's location
-      popupAnchor: [0, -iconSize[1]], // Point from which the popup should open relative to the iconAnchor
+      iconAnchor: [iconSize[0] / 2, iconSize[1]],
+      popupAnchor: [0, -iconSize[1]],
     });
   };
 
+  // Fallback for Suspense, though loading state is typically handled by next/dynamic
   const fallbackDiv = <div className={cn("flex items-center justify-center bg-muted rounded-md", className)} style={mapStyle}>Loading map...</div>;
-
-  if (!isClient) {
-    return fallbackDiv;
-  }
 
   return (
     <Suspense fallback={fallbackDiv}>
       <LazyMapContainer
-        // id={mapDomId} // Assign the unique ID to the map container - REMOVED
         center={center}
         zoom={zoom}
-        style={mapStyle} // Use the potentially memoized style
+        style={mapStyle}
         className={cn("rounded-md shadow-md", className)}
         scrollWheelZoom={scrollWheelZoom}
       >
@@ -93,7 +81,6 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
           <LazyMarker
             key={idx}
             position={marker.position}
-            // Use new L.Icon.Default() explicitly if no custom icon
             icon={marker.iconUrl ? createCustomIcon(marker.iconUrl, marker.iconSize) : new L.Icon.Default()}
           >
             {marker.popupText && <LazyPopup>{marker.popupText}</LazyPopup>}
@@ -104,3 +91,4 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   );
 };
 export default MapDisplay;
+
