@@ -37,6 +37,14 @@ const bookingFormSchema = z.object({
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
+// Fare Calculation Constants
+const BASE_FARE = 2.00; // £
+const PER_MILE_RATE = 0.80; // £ per mile
+const PER_MINUTE_RATE = 0.15; // £ per minute
+const AVERAGE_SPEED_MPH = 15; // Assumed average speed for duration estimation
+const BOOKING_FEE = 1.50; // £
+const MINIMUM_FARE = 5.00; // £
+
 function deg2rad(deg: number): number {
   return deg * (Math.PI / 180);
 }
@@ -102,7 +110,7 @@ export default function BookRidePage() {
 
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      const mapDiv = document.createElement('div'); // Dummy div for PlacesService
+      const mapDiv = document.createElement('div'); 
       placesServiceRef.current = new google.maps.places.PlacesService(mapDiv);
       autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
     }).catch(e => {
@@ -154,8 +162,8 @@ export default function BookRidePage() {
   ) => {
     setInputValueState(inputValue);
     formOnChange(inputValue);
-    setCoordsState(null); // Clear coords if user types manually
-    setFareEstimate(null); // Clear fare estimate if address is manually changed
+    setCoordsState(null); 
+    setFareEstimate(null); 
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -196,7 +204,7 @@ export default function BookRidePage() {
         { 
           placeId: suggestion.place_id, 
           fields: ['geometry.location'], 
-          sessionToken: autocompleteSessionTokenRef.current // Use the same token for getDetails
+          sessionToken: autocompleteSessionTokenRef.current 
         }, 
         (place, status) => {
           setIsFetchingDetailsState(false);
@@ -210,7 +218,6 @@ export default function BookRidePage() {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsState(null);
           }
-          // Renew autocomplete session token for the next set of autocompletes
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
@@ -242,7 +249,7 @@ export default function BookRidePage() {
   ) => {
     setTimeout(() => {
       setShowSuggestionsState(false);
-    }, 150); // Delay to allow click on suggestion
+    }, 150); 
   };
 
   const watchedVehicleType = form.watch("vehicleType");
@@ -252,10 +259,19 @@ export default function BookRidePage() {
     if (pickupCoords && dropoffCoords) {
       const distanceMiles = getDistanceInMiles(pickupCoords, dropoffCoords);
       
-      let milesFare;
-      if (distanceMiles <= 0) milesFare = 0;
-      else if (distanceMiles <= 1) milesFare = 2.99;
-      else milesFare = 2.99 + (distanceMiles - 1) * 1.00;
+      let calculatedFareBeforeMultipliers = 0;
+
+      if (distanceMiles <= 0) {
+        calculatedFareBeforeMultipliers = 0;
+      } else {
+        const estimatedTripDurationMinutes = (distanceMiles / AVERAGE_SPEED_MPH) * 60;
+        const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
+        const distanceFare = distanceMiles * PER_MILE_RATE;
+        
+        const subTotal = BASE_FARE + timeFare + distanceFare;
+        const fareWithBookingFee = subTotal + BOOKING_FEE;
+        calculatedFareBeforeMultipliers = Math.max(fareWithBookingFee, MINIMUM_FARE);
+      }
 
       let vehicleMultiplier = 1;
       if (watchedVehicleType === "suv") vehicleMultiplier = 1.5;
@@ -265,8 +281,8 @@ export default function BookRidePage() {
       const passengerCount = Number(watchedPassengers) || 1;
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
       
-      const calculatedFare = milesFare * vehicleMultiplier * passengerAdjustment;
-      setFareEstimate(parseFloat(calculatedFare.toFixed(2)));
+      const finalCalculatedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
+      setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
 
     } else {
       setFareEstimate(null);
