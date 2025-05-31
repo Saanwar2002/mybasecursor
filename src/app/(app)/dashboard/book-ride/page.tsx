@@ -40,8 +40,8 @@ const bookingFormSchema = z.object({
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
 });
 
-type StopAutocompleteData = {
-  fieldId: string;
+type AutocompleteData = {
+  fieldId: string; // For stops, this will be react-hook-form's field.id
   inputValue: string;
   suggestions: google.maps.places.AutocompletePrediction[];
   showSuggestions: boolean;
@@ -55,13 +55,14 @@ const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 // Fare Calculation Constants
 const BASE_FARE = 0.00;
 const PER_MILE_RATE = 1.00;
-const FIRST_MILE_SURCHARGE = 1.99; 
+const FIRST_MILE_SURCHARGE = 1.99;
 const PER_MINUTE_RATE = 0.10;
 const AVERAGE_SPEED_MPH = 15;
 const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
 const SURGE_MULTIPLIER_VALUE = 1.5;
 const PER_STOP_SURCHARGE = 0.50;
+
 
 function deg2rad(deg: number): number {
   return deg * (Math.PI / 180);
@@ -87,6 +88,7 @@ function getDistanceInMiles(
 
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
+  const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const { toast } = useToast();
   const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
   
@@ -96,7 +98,7 @@ export default function BookRidePage() {
   const [isSurgeActive, setIsSurgeActive] = useState(false);
   const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
   
-  const [stopAutocompleteData, setStopAutocompleteData] = useState<StopAutocompleteData[]>([]);
+  const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -187,31 +189,42 @@ export default function BookRidePage() {
   }, []);
 
   const handleAddressInputChangeFactory = useCallback((
-    stopIndex?: number 
+    formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
   ) => (
     inputValue: string,
     formOnChange: (value: string) => void,
   ) => {
-    formOnChange(inputValue);
+    formOnChange(inputValue); // Update react-hook-form state
     setFareEstimate(null);
+    setEstimatedDistance(null);
 
-    if (stopIndex !== undefined) {
+    if (typeof formFieldNameOrStopIndex === 'number') { // It's a stop
       setStopAutocompleteData(prev => prev.map((item, idx) => 
-        idx === stopIndex ? { ...item, inputValue, coords: null, suggestions: [], showSuggestions: inputValue.length >=2, isFetchingSuggestions: inputValue.length >=2 } : item
+        idx === formFieldNameOrStopIndex 
+        ? { ...item, inputValue, coords: null, suggestions: inputValue.length >= 2 ? item.suggestions : [], showSuggestions: inputValue.length >=2, isFetchingSuggestions: inputValue.length >=2 } 
+        : item
       ));
-    } else { // For pickup or dropoff
-      if (form.control.name === "pickupLocation") { // This check is a bit fragile, ideally pass a type
-        setPickupInputValue(inputValue);
-        setPickupCoords(null);
-        setShowPickupSuggestions(inputValue.length >=2);
-        setIsFetchingPickupSuggestions(inputValue.length >=2);
-        if(inputValue.length >=2) setPickupSuggestions([]); else setPickupSuggestions([]);
+    } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+      setPickupInputValue(inputValue);
+      setPickupCoords(null);
+      setShowPickupSuggestions(inputValue.length >=2);
+      if(inputValue.length >=2) {
+        setIsFetchingPickupSuggestions(true); 
+        setPickupSuggestions([]); // Clear old suggestions
       } else {
-        setDropoffInputValue(inputValue);
-        setDropoffCoords(null);
-        setShowDropoffSuggestions(inputValue.length >=2);
-        setIsFetchingDropoffSuggestions(inputValue.length >=2);
-        if(inputValue.length >=2) setDropoffSuggestions([]); else setDropoffSuggestions([]);
+        setIsFetchingPickupSuggestions(false);
+        setPickupSuggestions([]);
+      }
+    } else { // dropoffLocation
+      setDropoffInputValue(inputValue);
+      setDropoffCoords(null);
+      setShowDropoffSuggestions(inputValue.length >=2);
+       if(inputValue.length >=2) {
+        setIsFetchingDropoffSuggestions(true);
+        setDropoffSuggestions([]); // Clear old suggestions
+      } else {
+        setIsFetchingDropoffSuggestions(false);
+        setDropoffSuggestions([]);
       }
     }
 
@@ -222,51 +235,77 @@ export default function BookRidePage() {
     if (inputValue.length < 2) return;
 
     debounceTimeoutRef.current = setTimeout(() => {
-      if (stopIndex !== undefined) {
+      if (typeof formFieldNameOrStopIndex === 'number') {
         fetchAddressSuggestions(inputValue, 
-          (sugg) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, suggestions: sugg } : item)),
-          (fetch) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, isFetchingSuggestions: fetch } : item))
+          (sugg) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, suggestions: sugg } : item)),
+          (fetch) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingSuggestions: fetch } : item))
         );
-      } else {
-        fetchAddressSuggestions(inputValue, 
-          form.control.name === "pickupLocation" ? setPickupSuggestions : setDropoffSuggestions,
-          form.control.name === "pickupLocation" ? setIsFetchingPickupSuggestions : setIsFetchingDropoffSuggestions
-        );
+      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        fetchAddressSuggestions(inputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
+      } else { // dropoffLocation
+        fetchAddressSuggestions(inputValue, setDropoffSuggestions, setIsFetchingDropoffSuggestions);
       }
     }, 300);
-  }, [fetchAddressSuggestions, form.control.name]);
+  }, [fetchAddressSuggestions]);
 
 
   const handleSuggestionClickFactory = useCallback((
-    stopIndex?: number
+    formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
   ) => (
     suggestion: google.maps.places.AutocompletePrediction,
     formOnChange: (value: string) => void,
   ) => {
-    const addressText = suggestion.description;
-    formOnChange(addressText);
+    const addressText = suggestion?.description;
+     if (!addressText) {
+      console.error("Suggestion or description is missing for field/index:", formFieldNameOrStopIndex, "Suggestion:", suggestion);
+      toast({
+        title: "Selection Error",
+        description: "Could not process the selected address details. Please try again.",
+        variant: "destructive",
+      });
+      // Reset relevant input state
+      if (typeof formFieldNameOrStopIndex === 'string') {
+        if (formFieldNameOrStopIndex === 'pickupLocation') {
+          setPickupInputValue(prev => form.getValues('pickupLocation') || prev); // Revert to form value or keep current if form value is also problematic
+          setPickupCoords(null); setShowPickupSuggestions(false);
+        } else { // dropoffLocation
+          setDropoffInputValue(prev => form.getValues('dropoffLocation') || prev);
+          setDropoffCoords(null); setShowDropoffSuggestions(false);
+        }
+      } else { 
+        const stopIndex = formFieldNameOrStopIndex;
+        setStopAutocompleteData(prev => prev.map((item, idx) => 
+          idx === stopIndex 
+          ? { ...item, inputValue: form.getValues(`stops.${stopIndex}.location`) || item.inputValue, coords: null, showSuggestions: false } 
+          : item
+        ));
+      }
+      return;
+    }
+
+    formOnChange(addressText); // Update react-hook-form state
 
     const setIsFetchingDetailsFunc = (isFetching: boolean) => {
-      if (stopIndex !== undefined) {
-        setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, isFetchingDetails: isFetching } : item));
-      } else {
-        form.control.name === "pickupLocation" ? setIsFetchingPickupDetails(isFetching) : setIsFetchingDropoffDetails(isFetching);
+      if (typeof formFieldNameOrStopIndex === 'number') {
+        setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
+      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        setIsFetchingPickupDetails(isFetching);
+      } else { // dropoffLocation
+        setIsFetchingDropoffDetails(isFetching);
       }
     };
 
     const setCoordsFunc = (coords: google.maps.LatLngLiteral | null) => {
-      if (stopIndex !== undefined) {
-        setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, coords, inputValue: addressText, showSuggestions: false } : item));
-      } else {
-        if (form.control.name === "pickupLocation") {
-          setPickupCoords(coords);
-          setPickupInputValue(addressText);
-          setShowPickupSuggestions(false);
-        } else {
-          setDropoffCoords(coords);
-          setDropoffInputValue(addressText);
-          setShowDropoffSuggestions(false);
-        }
+      if (typeof formFieldNameOrStopIndex === 'number') {
+        setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: addressText, showSuggestions: false } : item));
+      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        setPickupCoords(coords);
+        setPickupInputValue(addressText);
+        setShowPickupSuggestions(false);
+      } else { // dropoffLocation
+        setDropoffCoords(coords);
+        setDropoffInputValue(addressText);
+        setShowDropoffSuggestions(false);
       }
     };
     
@@ -298,70 +337,71 @@ export default function BookRidePage() {
       setCoordsFunc(null);
       toast({ title: "Warning", description: "Could not fetch location details (missing place ID or service).", variant: "default" });
     }
-  }, [toast, form.control.name]);
+  }, [toast, placesServiceRef, autocompleteSessionTokenRef, form]);
 
 
-  const handleFocusFactory = (stopIndex?: number) => () => {
+  const handleFocusFactory = (formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
     let currentInputValue: string;
     let currentSuggestions: google.maps.places.AutocompletePrediction[];
 
-    if (stopIndex !== undefined) {
-        const stopData = stopAutocompleteData[stopIndex];
+    if (typeof formFieldNameOrStopIndex === 'number') { // Stop
+        const stopData = stopAutocompleteData[formFieldNameOrStopIndex];
         if (!stopData) return;
         currentInputValue = stopData.inputValue;
         currentSuggestions = stopData.suggestions;
         if (currentInputValue.length >= 2 && currentSuggestions.length > 0) {
-             setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, showSuggestions: true } : item));
+             setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, showSuggestions: true } : item));
         } else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
             fetchAddressSuggestions(currentInputValue, 
-                (sugg) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, suggestions: sugg, showSuggestions: true } : item)),
-                (fetch) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, isFetchingSuggestions: fetch } : item))
+                (sugg) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, suggestions: sugg, showSuggestions: true } : item)),
+                (fetch) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingSuggestions: fetch } : item))
             );
         } else {
-             setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, showSuggestions: false } : item));
+             setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, showSuggestions: false } : item));
         }
-    } else { // Pickup or Dropoff
-        if (form.control.name === "pickupLocation") {
-            currentInputValue = pickupInputValue;
-            currentSuggestions = pickupSuggestions;
-            if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowPickupSuggestions(true);
-            else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
-                fetchAddressSuggestions(currentInputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
-                setShowPickupSuggestions(true);
-            } else setShowPickupSuggestions(false);
-        } else {
-            currentInputValue = dropoffInputValue;
-            currentSuggestions = dropoffSuggestions;
-            if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowDropoffSuggestions(true);
-            else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
-                fetchAddressSuggestions(currentInputValue, setDropoffSuggestions, setIsFetchingDropoffSuggestions);
-                setShowDropoffSuggestions(true);
-            } else setShowDropoffSuggestions(false);
-        }
+    } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        currentInputValue = pickupInputValue;
+        currentSuggestions = pickupSuggestions;
+        if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowPickupSuggestions(true);
+        else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
+            fetchAddressSuggestions(currentInputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
+            setShowPickupSuggestions(true);
+        } else setShowPickupSuggestions(false);
+    } else { // dropoffLocation
+        currentInputValue = dropoffInputValue;
+        currentSuggestions = dropoffSuggestions;
+        if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowDropoffSuggestions(true);
+        else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
+            fetchAddressSuggestions(currentInputValue, setDropoffSuggestions, setIsFetchingDropoffSuggestions);
+            setShowDropoffSuggestions(true);
+        } else setShowDropoffSuggestions(false);
     }
   };
   
-  const handleBlurFactory = (stopIndex?: number) => () => {
+  const handleBlurFactory = (formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
     setTimeout(() => {
-      if (stopIndex !== undefined) {
-        setStopAutocompleteData(prev => prev.map((item, idx) => idx === stopIndex ? { ...item, showSuggestions: false } : item));
-      } else {
-        form.control.name === "pickupLocation" ? setShowPickupSuggestions(false) : setShowDropoffSuggestions(false);
+      if (typeof formFieldNameOrStopIndex === 'number') {
+        setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, showSuggestions: false } : item));
+      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        setShowPickupSuggestions(false);
+      } else { // dropoffLocation
+        setShowDropoffSuggestions(false);
       }
-    }, 150);
+    }, 150); // Delay to allow click on suggestion
   };
 
   const watchedVehicleType = form.watch("vehicleType");
   const watchedPassengers = form.watch("passengers");
-  const watchedStops = form.watch("stops"); // Watch all stops for fare calculation
+  const watchedStops = form.watch("stops");
 
   const handleAddStop = () => {
-    const newFieldId = `stop-${fields.length}-${Date.now()}`; // Create a unique ID
+    // Append to react-hook-form's fields array
     append({ location: "" });
+    // Add corresponding entry to our local state for autocomplete management
     setStopAutocompleteData(prev => [
       ...prev,
       {
-        fieldId: newFieldId, // This ID should ideally come from react-hook-form's append if possible or manage mapping
+        fieldId: `stop-temp-${prev.length}-${Date.now()}`, // This will be updated once field.id is available
         inputValue: "",
         suggestions: [],
         showSuggestions: false,
@@ -373,32 +413,29 @@ export default function BookRidePage() {
   };
   
   const handleRemoveStop = (index: number) => {
-    const fieldIdToRemove = fields[index].id; // react-hook-form gives id to each field
-    remove(index);
-    setStopAutocompleteData(prev => prev.filter(s => {
-      // This assumes we've correctly mapped field.id to our stopAutocompleteData.fieldId
-      // If not, we might need a different way to link them or simply use index if arrays are always in sync.
-      // For now, let's assume direct index mapping after removal from `fields`
-      return true; // This needs a more robust way to link fields.id and stopAutocompleteData items
-    }));
-    // A simpler approach if arrays are kept in sync by index:
-    setStopAutocompleteData(prev => prev.filter((_, i) => i !== index));
+    remove(index); // remove from react-hook-form
+    setStopAutocompleteData(prev => prev.filter((_, i) => i !== index)); // remove from local state by index
   };
 
 
   useEffect(() => {
     let totalDistanceMiles = 0;
-    const validStopsWithCoords = stopAutocompleteData.filter(s => s.coords && form.getValues(`stops.${stopAutocompleteData.findIndex(data => data.fieldId === s.fieldId)}.location`));
+    // Filter stopAutocompleteData for stops that have coordinates AND have a non-empty location string in the form
+    const validStopsForFare = stopAutocompleteData.filter((stopData, index) => {
+        const formStopValue = form.getValues(`stops.${index}.location`);
+        return stopData.coords && formStopValue && formStopValue.trim() !== "";
+    });
     
     if (pickupCoords && dropoffCoords) {
       let currentPoint = pickupCoords;
-      for (const stopData of validStopsWithCoords) {
-        if (stopData.coords) {
+      for (const stopData of validStopsForFare) { // Iterate over validated stops
+        if (stopData.coords) { // This check is redundant due to filter, but safe
           totalDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
           currentPoint = stopData.coords;
         }
       }
       totalDistanceMiles += getDistanceInMiles(currentPoint, dropoffCoords);
+      setEstimatedDistance(parseFloat(totalDistanceMiles.toFixed(2)));
       
       const isCurrentlySurge = Math.random() < 0.3; 
       setIsSurgeActive(isCurrentlySurge);
@@ -417,11 +454,10 @@ export default function BookRidePage() {
         calculatedFareBeforeMultipliers = subTotal + BOOKING_FEE;
       }
       
-      const stopSurchargeAmount = validStopsWithCoords.length * PER_STOP_SURCHARGE;
+      const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
       calculatedFareBeforeMultipliers += stopSurchargeAmount;
       
       calculatedFareBeforeMultipliers = Math.max(calculatedFareBeforeMultipliers, MINIMUM_FARE);
-
 
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
@@ -438,6 +474,7 @@ export default function BookRidePage() {
 
     } else {
       setFareEstimate(null);
+      setEstimatedDistance(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
@@ -448,17 +485,19 @@ export default function BookRidePage() {
     if (pickupCoords) {
       newMarkers.push({ position: [pickupCoords.lat, pickupCoords.lng], popupText: `Pickup: ${form.getValues('pickupLocation')}` });
     }
-    stopAutocompleteData.forEach((stopData, index) => {
-      if (stopData.coords) {
-        const stopLocationValue = form.getValues(`stops.${index}.location`);
-        newMarkers.push({ position: [stopData.coords.lat, stopData.coords.lng], popupText: `Stop: ${stopLocationValue}` });
-      }
+    // Iterate through form.getValues('stops') to ensure we only add markers for stops that are still in the form
+    const currentFormStops = form.getValues('stops');
+    currentFormStops?.forEach((formStop, index) => {
+        const stopData = stopAutocompleteData[index];
+        if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
+             newMarkers.push({ position: [stopData.coords.lat, stopData.coords.lng], popupText: `Stop: ${formStop.location}` });
+        }
     });
     if (dropoffCoords) {
       newMarkers.push({ position: [dropoffCoords.lat, dropoffCoords.lng], popupText: `Dropoff: ${form.getValues('dropoffLocation')}` });
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form]);
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]); // watchedStops to re-run when form.stops changes
 
 
   function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
@@ -471,14 +510,13 @@ export default function BookRidePage() {
       return;
     }
 
-    // Check if all added stops have coords
     for (let i = 0; i < (values.stops?.length || 0); i++) {
         const stopLocationInput = values.stops?.[i]?.location;
-        const stopData = stopAutocompleteData[i]; // Assuming direct index mapping
-        if (stopLocationInput && stopLocationInput.length > 0 && !stopData?.coords) {
+        const stopData = stopAutocompleteData[i];
+        if (stopLocationInput && stopLocationInput.trim() !== "" && !stopData?.coords) {
             toast({
                 title: `Missing Stop ${i + 1} Details`,
-                description: `Please select a valid location for stop ${i+1} or remove it.`,
+                description: `Please select a valid location for stop ${i+1} or remove it. Empty stops will be ignored.`,
                 variant: "destructive",
             });
             return;
@@ -495,11 +533,9 @@ export default function BookRidePage() {
     }
 
     let rideDescription = `Your ride from ${values.pickupLocation}`;
-    if (values.stops && values.stops.length > 0) {
-        const validStopLocations = values.stops.filter(s => s.location.length > 0).map(s => s.location);
-        if (validStopLocations.length > 0) {
-            rideDescription += ` via ${validStopLocations.join(' via ')}`;
-        }
+    const validStopLocations = values.stops?.filter(s => s.location.trim() !== "").map(s => s.location) || [];
+    if (validStopLocations.length > 0) {
+        rideDescription += ` via ${validStopLocations.join(' via ')}`;
     }
     rideDescription += ` to ${values.dropoffLocation} is confirmed. Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Pricing Applied)' : ''}. A driver will be assigned shortly.`;
 
@@ -508,14 +544,14 @@ export default function BookRidePage() {
       description: rideDescription,
       variant: "default",
     });
-    form.reset();
+    form.reset(); // This also resets 'stops' field array
     setPickupInputValue("");
     setDropoffInputValue("");
     setPickupCoords(null);
     setDropoffCoords(null);
-    setStopAutocompleteData([]); // Clear all stops data
-    // fields array is reset by form.reset()
+    setStopAutocompleteData([]); 
     setFareEstimate(null);
+    setEstimatedDistance(null);
     setIsSurgeActive(false);
     setCurrentSurgeMultiplier(1);
     setMapMarkers([]);
@@ -528,7 +564,7 @@ export default function BookRidePage() {
     isFetchingSuggestions: boolean,
     isFetchingDetails: boolean,
     inputValue: string,
-    onSuggestionClick: (suggestion: google.maps.places.AutocompletePrediction) => void,
+    onSuggestionClick: (suggestion: google.maps.places.AutocompletePrediction) => void, 
     fieldKey: string 
   ) => (
     <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -545,13 +581,13 @@ export default function BookRidePage() {
       {!isFetchingSuggestions && !isFetchingDetails && suggestions.length === 0 && inputValue.length >= 2 && (
          <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
       )}
-      {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestion) => (
+      {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestionItem) => (
         <div
-          key={`${fieldKey}-${suggestion.place_id}`} 
+          key={`${fieldKey}-${suggestionItem.place_id}`} 
           className="p-2 text-sm hover:bg-muted cursor-pointer"
-          onMouseDown={() => onSuggestionClick(suggestion)}
+          onMouseDown={() => onSuggestionClick(suggestionItem)}
         >
-          {suggestion.description}
+          {suggestionItem.description}
         </div>
       ))}
     </div>
@@ -583,13 +619,20 @@ export default function BookRidePage() {
                               placeholder="Type pickup address"
                               {...field}
                               value={pickupInputValue}
-                              onChange={(e) => handleAddressInputChangeFactory()(e.target.value, field.onChange)}
-                              onFocus={handleFocusFactory()}
-                              onBlur={handleBlurFactory()}
+                              onChange={(e) => handleAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)}
+                              onFocus={handleFocusFactory('pickupLocation')}
+                              onBlur={handleBlurFactory('pickupLocation')}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showPickupSuggestions && renderSuggestions(pickupSuggestions, isFetchingPickupSuggestions, isFetchingPickupDetails, pickupInputValue, handleSuggestionClickFactory()( /* suggestion, field.onChange */ ), "pickup")}
+                          {showPickupSuggestions && renderSuggestions(
+                            pickupSuggestions, 
+                            isFetchingPickupSuggestions, 
+                            isFetchingPickupDetails, 
+                            pickupInputValue, 
+                            (sugg) => handleSuggestionClickFactory('pickupLocation')(sugg, field.onChange),
+                            "pickup"
+                          )}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -600,14 +643,14 @@ export default function BookRidePage() {
                     const currentStopData = stopAutocompleteData[index] || { inputValue: '', suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null, fieldId: stopField.id };
                     return (
                       <FormField
-                        key={stopField.id}
+                        key={stopField.id} // Unique key from useFieldArray
                         control={form.control}
                         name={`stops.${index}.location`}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="flex items-center justify-between">
                               <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Stop {index + 1}</span>
-                              <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveStop(index)} className="text-destructive hover:text-destructive-hover px-1 py-0 h-auto">
+                              <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveStop(index)} className="text-destructive hover:text-destructive-foreground px-1 py-0 h-auto">
                                 <XCircle className="mr-1 h-4 w-4" /> Remove Stop
                               </Button>
                             </FormLabel>
@@ -628,7 +671,7 @@ export default function BookRidePage() {
                                 currentStopData.isFetchingSuggestions, 
                                 currentStopData.isFetchingDetails, 
                                 currentStopData.inputValue, 
-                                (suggestion) => handleSuggestionClickFactory(index)(suggestion, field.onChange),
+                                (sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange),
                                 `stop-${index}`
                               )}
                             </div>
@@ -662,13 +705,20 @@ export default function BookRidePage() {
                               placeholder="Type drop-off address"
                               {...field}
                               value={dropoffInputValue}
-                               onChange={(e) => handleAddressInputChangeFactory()(e.target.value, field.onChange)}
-                               onFocus={handleFocusFactory()}
-                               onBlur={handleBlurFactory()}
+                               onChange={(e) => handleAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)}
+                               onFocus={handleFocusFactory('dropoffLocation')}
+                               onBlur={handleBlurFactory('dropoffLocation')}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showDropoffSuggestions && renderSuggestions(dropoffSuggestions, isFetchingDropoffSuggestions, isFetchingDropoffDetails, dropoffInputValue, handleSuggestionClickFactory()(/* suggestion, field.onChange */), "dropoff")}
+                          {showDropoffSuggestions && renderSuggestions(
+                            dropoffSuggestions, 
+                            isFetchingDropoffSuggestions, 
+                            isFetchingDropoffDetails, 
+                            dropoffInputValue, 
+                            (sugg) => handleSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), 
+                            "dropoff"
+                          )}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -766,84 +816,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
-// NOTE: The factory functions for handleAddressInputChange, handleSuggestionClick, handleFocus, handleBlur
-// have been simplified due to CDATA limitations. In a real scenario, ensure proper closure and access
-// to `form.control.name` or pass it explicitly if it's pickup/dropoff vs. a stop.
-// The `handleSuggestionClickFactory`'s call in the render prop for pickup/dropoff needs to be 
-// carefully implemented to pass the correct parameters based on whether it's for pickup/dropoff
-// or a stop, for example:
-// For pickup: `(sugg) => handleSuggestionClickFactory()(sugg, field.onChange)`
-// For dropoff: `(sugg) => handleSuggestionClickFactory()(sugg, field.onChange)`
-// For stops: `(sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange)`
-
-// The `stopAutocompleteData` synchronization with `useFieldArray`'s `fields` (especially `field.id`)
-// needs careful management. The current `handleRemoveStop`'s filter for `stopAutocompleteData` is simplified.
-// A robust implementation would ensure `stopAutocompleteData` entries are reliably linked to `useFieldArray`'s fields.
-// This might involve assigning the `field.id` from `useFieldArray` to `stopAutocompleteData.fieldId` when appending,
-// and using that `fieldId` for removal.
-
-// The calls to `handleAddressInputChangeFactory` and `handleSuggestionClickFactory` in the JSX
-// for pickup and dropoff might need specific argument passing for `formOnChange` if `field.onChange`
-// isn't directly suitable or if you need to differentiate handling based on it being pickup/dropoff.
-// The current structure might lead to `form.control.name` being incorrectly interpreted inside the factory
-// for pickup/dropoff calls if the factory is created once. A cleaner way would be separate handlers or ensuring
-// the factory correctly captures/receives the context of "pickup", "dropoff", or "stop[index]".
-// For simplicity in this XML, I've kept it as is, but these are areas for review in a live environment.
-// Pickup:  onChange={(e) => handleAddressInputChangeFactory() /* no index */ (e.target.value, field.onChange)}
-//          onFocus={handleFocusFactory() /* no index */}
-//          onBlur={handleBlurFactory() /* no index */}
-//          {showPickupSuggestions && renderSuggestions(pickupSuggestions, ..., (sugg) => handleSuggestionClickFactory()(sugg, field.onChange), ...)}
-
-// Stop:    onChange={(e) => handleAddressInputChangeFactory(index)(e.target.value, field.onChange)}
-//          onFocus={handleFocusFactory(index)}
-//          onBlur={handleBlurFactory(index)}
-//          {currentStopData.showSuggestions && renderSuggestions(..., (sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange), ...)}
-// This pattern implies the factory functions are invoked correctly for each case.
-// The `form.control.name` usage within the factories is the main concern if not correctly scoped.
-// I've tried to ensure the factories are generally structured, but specific invocation in JSX is key.
-// The solution for pickup/dropoff `handleAddressInputChangeFactory` might be to pass a type like `handleAddressInputChangeFactory('pickup')`.
-// The `field.onChange` is passed to formOnChange, this should be okay.
-// The `handleSuggestionClickFactory()` without index for pickup/dropoff, and with index for stops, correctly distinguishes.
-// The `handleFocusFactory()` without index for pickup/dropoff, and with index for stops, correctly distinguishes.
-// The `handleBlurFactory()` without index for pickup/dropoff, and with index for stops, correctly distinguishes.
-
-// The `renderSuggestions` function for pickup and dropoff also needs the correct onSuggestionClick handler:
-// Pickup: `onMouseDown={() => handleSuggestionClickFactory()(suggestion, field.onChange)}`
-// Dropoff: `onMouseDown={() => handleSuggestionClickFactory()(suggestion, field.onChange)}`
-// These are simplified in the JSX due to space but should be correctly wired.
-// The `renderSuggestions` calls for pickup/dropoff have been corrected to pass `(sugg) => handleSuggestionClickFactory()(sugg, field.onChange)`
-// This should resolve the closure issue for those.
-// The `stopAutocompleteData` `fieldId` is now set using `field.id` on append, and used for filtering.
-// However, `append` doesn't immediately return the new field's ID or update `fields` synchronously in the same render cycle.
-// A `useEffect` hook observing `fields` would be needed to sync `stopAutocompleteData` with `fields` when items are added/removed,
-// particularly for assigning the `field.id` correctly.
-// For now, the `handleRemoveStop` relies on index, which is acceptable if `useFieldArray` and `stopAutocompleteData` are always manipulated in parallel.
-// The `handleAddStop` logic for fieldId is simplified. It will be reliant on index matching the `fields` array.
-// The `useEffect` for fare calculation, the form value for stops is correctly accessed using `form.getValues(stops.${index}.location)`.
-// The `stopAutocompleteData.findIndex(...)` in the fare calculation was incorrect because `stopAutocompleteData` items don't have `id` but `fieldId`.
-// This has been changed to rely on the index of `stopAutocompleteData` which should correspond to `form.watch('stops')` index.
-
-// The `stopAutocompleteData` update logic inside `handleRemoveStop` has been simplified.
-// Assuming that when `remove(index)` is called by `useFieldArray`, the `stopAutocompleteData`
-// should also have its item at the same `index` removed.
-// The `useEffect` for fare calculation uses `stopAutocompleteData.findIndex(data => data.fieldId === s.fieldId)` for `form.getValues`.
-// This is a potential mismatch if `fieldId` is not correctly populated/synced.
-// Corrected to `form.getValues(stops.${stopAutocompleteData.findIndex(sadItem => sadItem.fieldId === s.fieldId)}.location)`
-// This looks complex and error-prone. Simpler approach: if `stopAutocompleteData` and `watchedStops` are kept in sync by index:
-// `form.getValues(stops.${index}.location)` where `index` comes from iterating `stopAutocompleteData`.
-// This is now how it's done in the map markers `useEffect`. I'll apply this simplification to the fare `useEffect` as well.
-// This means `stopAutocompleteData` must perfectly mirror the `fields` array from `useFieldArray` in terms of order and length.
-// `handleAddStop` now just adds a new default entry to `stopAutocompleteData`.
-// `handleRemoveStop` now filters `stopAutocompleteData` by index. This assumes indices align.
-// The `useEffect` for fare calculation will iterate `stopAutocompleteData` by index and assume `form.getValues(stops.${index}.location)` is the corresponding form value.
-// The `useEffect` for map markers already does this. This seems the most straightforward way given the current structure.
-// Updated the `renderSuggestions` for pickup and dropoff to correctly pass the suggestion click handler.
-// The `handleAddressInputChangeFactory` now takes `formFieldName` (e.g. "pickupLocation", "dropoffLocation") to avoid relying on `form.control.name`.
-// This makes the factory more robust.
-// Corrected `handleAddressInputChangeFactory` and related functions to take `formFieldNameOrStopIndex`.
-// If it's a string ("pickupLocation", "dropoffLocation"), handle pickup/dropoff. If number, handle stop at that index.
-// This makes the factories truly generic.
-// Example call for pickup in JSX: onChange={(e) => handleAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)}
-// Example call for stop in JSX: onChange={(e) => handleAddressInputChangeFactory(index)(e.target.value, field.onChange)}
-// This structure is now implemented.
