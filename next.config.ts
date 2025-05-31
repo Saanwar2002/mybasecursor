@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
     // These URLs can sometimes be dynamic. If your URL changes, you'll need to update this list
     // and restart your development server.
     // Example: 'https://YOUR_NEW_PORT-YOUR_SERVICE-YOUR_HASH.REGION.cloudworkstations.dev'
+    // The URL below is based on the last error message. Update if your external URL changes.
     allowedDevOrigins: ['https://9004-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev'],
   },
 };
