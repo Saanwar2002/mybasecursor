@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -10,11 +11,11 @@ export default {
   theme: {
     extend: {
       fontSize: {
-        'xs': '0.8rem', // default 0.75rem
-        'sm': '0.925rem', // default 0.875rem
-        'base': '1.05rem', // default 1rem
-        'lg': '1.175rem', // default 1.125rem
-        'xl': '1.3rem', // default 1.25rem
+        'xs': '0.825rem', 
+        'sm': '0.95rem',   
+        'base': '1.075rem',  
+        'lg': '1.2rem',    
+        'xl': '1.325rem',   
       },
       fontFamily: {
         body: ['PT Sans', 'sans-serif'],

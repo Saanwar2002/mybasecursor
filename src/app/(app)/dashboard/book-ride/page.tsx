@@ -182,7 +182,6 @@ export default function BookRidePage() {
     setCoordsState(null); 
     setFareEstimate(null);
     setEstimatedDistance(null);
-    // Note: Surge logic is triggered by coordinate changes, so it will reset naturally.
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -237,7 +236,6 @@ export default function BookRidePage() {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsState(null);
           }
-          // Refresh session token for next independent call
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
@@ -267,7 +265,6 @@ export default function BookRidePage() {
   const handleBlur = (
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
-    // Delay hiding suggestions to allow click event on suggestion item
     setTimeout(() => {
       setShowSuggestionsState(false);
     }, 150); 
@@ -279,7 +276,7 @@ export default function BookRidePage() {
   const toggleIntermediateStop = () => {
     const newShowState = !showIntermediateStop1;
     setShowIntermediateStop1(newShowState);
-    if (!newShowState) { // If hiding the stop
+    if (!newShowState) { 
       form.setValue("intermediateStop1Location", "");
       setIntermediateStop1InputValue("");
       setIntermediateStop1Coords(null);
@@ -313,7 +310,6 @@ export default function BookRidePage() {
         const estimatedTripDurationMinutes = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
         const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
         
-        // First mile surcharge applies to the overall journey's first mile.
         const distanceBasedFare = (totalDistanceMiles * PER_MILE_RATE) + (totalDistanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
         
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
@@ -323,7 +319,7 @@ export default function BookRidePage() {
 
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
-      let vehicleMultiplier = 1;
+      let vehicleMultiplier = 1.0;
       if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
@@ -491,7 +487,7 @@ export default function BookRidePage() {
 
                   {!showIntermediateStop1 && (
                     <Button type="button" variant="outline" onClick={toggleIntermediateStop} className="w-full text-sm">
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Intermediate Stop
+                      <PlusCircle className="mr-2 h-4 w-4" /> (+ Stop/Pickup)
                     </Button>
                   )}
 
@@ -643,6 +639,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
-
-    
