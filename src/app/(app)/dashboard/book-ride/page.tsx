@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -40,11 +40,6 @@ export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const { toast } = useToast();
   const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
-  const [isClient, setIsClient] = useState(false); // Added isClient state
-
-  useEffect(() => {
-    setIsClient(true); // Set isClient to true on mount
-  }, []);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -172,11 +167,7 @@ export default function BookRidePage() {
             </div>
             <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-64 md:h-80 mb-6">
-                 {isClient ? (
-                    <MapDisplay center={defaultMapCenter} zoom={12} markers={mapMarkers} className="w-full h-full" />
-                  ) : (
-                    <Skeleton className="w-full h-full rounded-md" />
-                  )}
+                <MapDisplay center={defaultMapCenter} zoom={12} markers={mapMarkers} className="w-full h-full" />
               </div>
               {fareEstimate !== null && (
                 <Card className="w-full text-center shadow-md">

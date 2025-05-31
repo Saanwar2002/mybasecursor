@@ -40,11 +40,6 @@ export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
   const [driverLocation] = useState<[number, number]>([51.500, -0.100]); 
-  const [isClient, setIsClient] = useState(false); // Added isClient state
-
-  useEffect(() => {
-    setIsClient(true); // Set isClient to true on mount
-  }, []);
 
   const handleRideAction = (rideId: string, newStatus: RideRequest['status']) => {
     setRideRequests(prevRequests =>
@@ -95,17 +90,13 @@ export default function AvailableRidesPage() {
             <div className="mt-4">
               <p className="text-sm font-medium mb-1">Live Ride Map:</p>
               <div className="h-64 bg-muted rounded-md overflow-hidden">
-                {isClient ? (
-                  <MapDisplay 
-                      center={activeRide.pickupCoords || driverLocation} 
-                      zoom={13} 
-                      markers={getMapMarkersForActiveRide()}
-                      className="w-full h-full"
-                      scrollWheelZoom={true}
-                  />
-                ) : (
-                  <Skeleton className="w-full h-full rounded-md" />
-                )}
+                <MapDisplay 
+                    center={activeRide.pickupCoords || driverLocation} 
+                    zoom={13} 
+                    markers={getMapMarkersForActiveRide()}
+                    className="w-full h-full"
+                    scrollWheelZoom={true}
+                />
               </div>
             </div>
             <div className="flex items-center gap-2 pt-4">

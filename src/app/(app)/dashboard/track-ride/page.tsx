@@ -17,10 +17,8 @@ const initialTaxiLocation: [number, number] = [51.515, -0.10];
 export default function TrackRidePage() {
   const [taxiLocation, setTaxiLocation] = useState<[number, number]>(initialTaxiLocation);
   const [estimatedArrival, setEstimatedArrival] = useState(5); 
-  const [isClient, setIsClient] = useState(false); // Added isClient state
 
   useEffect(() => {
-    setIsClient(true); // Set isClient to true on mount
     const interval = setInterval(() => {
       setTaxiLocation(prev => {
         const newLat = prev[0] - (prev[0] - defaultPassengerLocation[0]) * 0.1;
@@ -51,17 +49,13 @@ export default function TrackRidePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative w-full h-96 md:h-[500px] rounded-lg overflow-hidden shadow-md border">
-            {isClient ? (
-              <MapDisplay 
-                center={defaultPassengerLocation} 
-                zoom={14} 
-                markers={mapMarkers} 
-                className="h-full w-full"
-                scrollWheelZoom={true}
-              />
-            ) : (
-              <Skeleton className="w-full h-full rounded-md" />
-            )}
+            <MapDisplay 
+              center={defaultPassengerLocation} 
+              zoom={14} 
+              markers={mapMarkers} 
+              className="h-full w-full"
+              scrollWheelZoom={true}
+            />
           </div>
 
           <Card className="bg-primary/10 border-primary/30">
