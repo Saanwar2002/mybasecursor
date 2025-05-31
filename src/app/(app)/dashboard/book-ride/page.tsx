@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -21,6 +21,7 @@ import { MapPin, Car, DollarSign, Users, Briefcase, Loader2 } from 'lucide-react
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Loader } from "@googlemaps/js-api-loader";
 
 const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   ssr: false,
@@ -34,31 +35,12 @@ const bookingFormSchema = z.object({
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
 });
 
-const defaultMapCenter: [number, number] = [51.5074, -0.1278];
+const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
-const mockAddresses: string[] = [
-  "10 Downing Street, Westminster, London, SW1A 2AA",
-  "Buckingham Palace, Westminster, London, SW1A 1AA",
-  "Tower of London, Tower Hamlets, London, EC3N 4AB",
-  "The Shard, 32 London Bridge St, Southwark, London, SE1 9SG",
-  "Piccadilly Circus, Westminster, London, W1J 9HS",
-  "Old Trafford, Sir Matt Busby Way, Trafford, Manchester, M16 0RA",
-  "Anfield, Anfield Rd, Liverpool, L4 0TH",
-  "Edinburgh Castle, Castlehill, Edinburgh, EH1 2NG",
-  "350 Fifth Avenue, New York, NY 10118, USA",
-  "Westfield Stratford City, Montfichet Rd, London, E20 1EJ",
-  "Canary Wharf Station, London, E14 5LR",
-  "Heathrow Airport Terminal 5, Hounslow, TW6 2GA",
-  "Gatwick Airport South Terminal, Horley, Gatwick, RH6 0NP",
-  "Kings Cross Station, Euston Rd, London, N1 9AL",
-  "Paddington Station, Praed St, London, W2 1HQ",
-  "HD1 3AY, Huddersfield, Kirkgate Buildings",
-  "1 First Street, Manchester, M15 4FN",
-  "Birmingham New Street Station, Birmingham, B2 4QA",
-  "Leeds City Station, New Station St, Leeds, LS1 4DT",
-  "Bristol Temple Meads, Station Approach, Bristol, BS1 6QF"
-];
-
+interface Suggestion {
+  description: string;
+  place_id: string;
+}
 
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
@@ -75,95 +57,144 @@ export default function BookRidePage() {
     },
   });
 
+  const [googleMapsReady, setGoogleMapsReady] = useState(false);
+  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  
+  const pickupSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+  const dropoffSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+
   const [pickupInputValue, setPickupInputValue] = useState("");
-  const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
+  const [pickupSuggestions, setPickupSuggestions] = useState<Suggestion[]>([]);
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
   const [isFetchingPickupSuggestions, setIsFetchingPickupSuggestions] = useState(false);
 
   const [dropoffInputValue, setDropoffInputValue] = useState("");
-  const [dropoffSuggestions, setDropoffSuggestions] = useState<string[]>([]);
+  const [dropoffSuggestions, setDropoffSuggestions] = useState<Suggestion[]>([]);
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
   const [isFetchingDropoffSuggestions, setIsFetchingDropoffSuggestions] = useState(false);
+  
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // To manage setTimeout for debouncing/simulation
-  const [pickupTimeoutId, setPickupTimeoutId] = useState<NodeJS.Timeout | null>(null);
-  const [dropoffTimeoutId, setDropoffTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error("Google Maps API key is missing.");
+      toast({ title: "Configuration Error", description: "Google Maps API key is not configured. Address search will not work.", variant: "destructive" });
+      return;
+    }
 
-  const handleAddressInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    fieldOnChange: (...event: any[]) => void,
+    const loader = new Loader({
+      apiKey: apiKey,
+      version: "weekly",
+      libraries: ["places"],
+    });
+
+    loader.load().then(() => {
+      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+      setGoogleMapsReady(true);
+    }).catch(e => {
+      console.error("Error loading Google Maps API:", e);
+      toast({ title: "API Error", description: "Could not load Google Maps. Address search may be unavailable.", variant: "destructive" });
+    });
+  }, [toast]);
+
+  const getNewSessionToken = () => {
+    if (googleMapsReady && window.google) {
+      return new google.maps.places.AutocompleteSessionToken();
+    }
+    return undefined;
+  };
+
+  const handleAddressInputChange = useCallback((
+    inputValue: string,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
-    setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
+    setSuggestionsState: React.Dispatch<React.SetStateAction<Suggestion[]>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
     setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>,
-    currentTimeoutId: NodeJS.Timeout | null,
-    setTimeoutIdState: React.Dispatch<React.SetStateAction<NodeJS.Timeout | null>>
+    formOnChange: (...event: any[]) => void,
+    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>
   ) => {
-    const value = e.target.value;
-    setInputValueState(value);
-    fieldOnChange(value); 
+    setInputValueState(inputValue);
+    formOnChange(inputValue); // Keep RHF updated with typed value
 
-    if (currentTimeoutId) {
-      clearTimeout(currentTimeoutId);
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
     }
 
-    if (value.length > 1) {
-      setIsFetchingState(true);
-      setShowSuggestionsState(true); // Show dropdown immediately with loading state
-      setSuggestionsState([]); // Clear previous suggestions
-
-      const newTimeoutId = setTimeout(() => {
-        const filtered = mockAddresses.filter(addr => addr.toLowerCase().includes(value.toLowerCase()));
-        setSuggestionsState(filtered);
-        setIsFetchingState(false);
-        // setShowSuggestionsState(filtered.length > 0 || isFetchingState); // Keep showing if fetching, or if results exist
-      }, 700); // Simulate 700ms API delay
-      setTimeoutIdState(newTimeoutId);
-    } else {
-      setShowSuggestionsState(false);
+    if (!googleMapsReady || !autocompleteServiceRef.current || inputValue.length < 3) {
       setSuggestionsState([]);
-      setIsFetchingState(false);
-    }
-  };
-  
-  const handleFocus = (
-    currentValue: string,
-    setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
-    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
-    setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>
-  ) => {
-    if (currentValue.length > 1) {
-      // Simplified onFocus: if there's text, re-filter instantly or show loading if a request was pending
-      // For a real API, you might re-fetch or use cached suggestions.
-      // Here, we'll just re-filter the mock data instantly for simplicity on focus.
-      setIsFetchingState(true); // Show loading briefly
-      setShowSuggestionsState(true);
-      setTimeout(() => { // Simulate quick re-check
-        const filtered = mockAddresses.filter(addr =>
-          addr.toLowerCase().includes(currentValue.toLowerCase())
-        );
-        setSuggestionsState(filtered);
-        setIsFetchingState(false);
-        setShowSuggestionsState(filtered.length > 0);
-      }, 200);
-    } else {
       setShowSuggestionsState(false);
       setIsFetchingState(false);
+      return;
     }
-  };
+
+    setIsFetchingState(true);
+    setShowSuggestionsState(true); // Show dropdown with loading state
+    setSuggestionsState([]); 
+
+    if (!sessionTokenRef.current) {
+        sessionTokenRef.current = getNewSessionToken();
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (autocompleteServiceRef.current && sessionTokenRef.current) {
+        autocompleteServiceRef.current.getPlacePredictions(
+          {
+            input: inputValue,
+            sessionToken: sessionTokenRef.current,
+            componentRestrictions: { country: "gb" }, // Restrict to Great Britain for example
+          },
+          (predictions, status) => {
+            setIsFetchingState(false);
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              setSuggestionsState(predictions.map(p => ({ description: p.description, place_id: p.place_id })));
+            } else {
+              setSuggestionsState([]);
+              if (status !== google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                 console.warn("Autocomplete prediction error:", status);
+              }
+            }
+          }
+        );
+      } else {
+        setIsFetchingState(false);
+      }
+    }, 500); // 500ms debounce
+  }, [googleMapsReady]);
 
 
   const handleSuggestionClick = (
-    address: string,
-    fieldOnChange: (...event: any[]) => void,
+    suggestion: Suggestion,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
-    setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>
+    formOnChange: (...event: any[]) => void,
+    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>
   ) => {
-    setInputValueState(address);
-    fieldOnChange(address); 
+    setInputValueState(suggestion.description);
+    formOnChange(suggestion.description); // Update RHF with selected suggestion
     setShowSuggestionsState(false);
-    setIsFetchingState(false); // Ensure loading state is cleared
+    sessionTokenRef.current = undefined; // Reset session token after selection
+    // Potentially fetch place details here using suggestion.place_id if lat/lng are needed
+  };
+
+  const handleFocus = (
+    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>
+  ) => {
+    if (!sessionTokenRef.current) {
+        sessionTokenRef.current = getNewSessionToken();
+    }
+  };
+  
+  const handleBlur = (
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
+    isFetchingState: boolean
+  ) => {
+    // Delay hiding suggestions to allow click event on suggestions to fire
+    setTimeout(() => {
+      if (!isFetchingState) { // Don't hide if it's in the middle of a fetch that might populate
+          setShowSuggestionsState(false);
+      }
+    }, 150);
   };
 
 
@@ -178,6 +209,7 @@ export default function BookRidePage() {
     const calculatedFare = baseFare + distanceFare * vehicleMultiplier * (1 + (values.passengers -1) * 0.1);
     setFareEstimate(parseFloat(calculatedFare.toFixed(2)));
 
+    // Placeholder for fetching actual coordinates for map markers
     const newMarkers = [
         { position: [defaultMapCenter[0] + 0.01, defaultMapCenter[1] + 0.01] as [number, number], popupText: `Pickup: ${values.pickupLocation}` },
         { position: [defaultMapCenter[0] - 0.01, defaultMapCenter[1] - 0.01] as [number, number], popupText: `Dropoff: ${values.dropoffLocation}` }
@@ -201,7 +233,41 @@ export default function BookRidePage() {
     setDropoffInputValue("");
     setFareEstimate(null);
     setMapMarkers([]);
+    pickupSessionTokenRef.current = undefined;
+    dropoffSessionTokenRef.current = undefined;
   };
+
+  const renderSuggestions = (
+    suggestions: Suggestion[],
+    isFetching: boolean,
+    inputValue: string,
+    setInputValueState: React.Dispatch<React.SetStateAction<string>>,
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
+    formOnChange: (...event: any[]) => void,
+    sessionTokenRef: React.MutableRefObject<google.maps.places.AutocompleteSessionToken | undefined>,
+    fieldKey: string
+  ) => (
+    <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
+      {isFetching && (
+        <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
+        </div>
+      )}
+      {!isFetching && suggestions.length === 0 && inputValue.length >= 3 && (
+         <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
+      )}
+      {!isFetching && suggestions.map((suggestion) => (
+        <div
+          key={`${fieldKey}-${suggestion.place_id}`}
+          className="p-2 text-sm hover:bg-muted cursor-pointer"
+          onMouseDown={() => handleSuggestionClick(suggestion, setInputValueState, setShowSuggestionsState, formOnChange, sessionTokenRef)}
+        >
+          {suggestion.description}
+        </div>
+      ))}
+    </div>
+  );
+
 
   return (
     <div className="space-y-6">
@@ -224,36 +290,17 @@ export default function BookRidePage() {
                         <div className="relative">
                           <FormControl>
                             <Input
-                              placeholder="Type pickup address, e.g., 123 Main St"
-                              {...field}
-                              value={pickupInputValue}
-                              onChange={(e) => handleAddressInputChange(e, field.onChange, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions, pickupTimeoutId, setPickupTimeoutId)}
-                              onFocus={() => handleFocus(pickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions)}
-                              onBlur={() => { field.onBlur(); setTimeout(() => { if (!isFetchingPickupSuggestions) setShowPickupSuggestions(false); }, 150);}}
+                              placeholder="Type pickup address"
+                              {...field} // spread field props first
+                              value={pickupInputValue} // then override value
+                              onChange={(e) => handleAddressInputChange(e.target.value, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions, field.onChange, pickupSessionTokenRef)}
+                              onFocus={() => handleFocus(pickupSessionTokenRef)}
+                              onBlur={() => handleBlur(setShowPickupSuggestions, isFetchingPickupSuggestions)}
+                              disabled={!googleMapsReady}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showPickupSuggestions && (
-                            <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                              {isFetchingPickupSuggestions && (
-                                <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
-                                </div>
-                              )}
-                              {!isFetchingPickupSuggestions && pickupSuggestions.length === 0 && pickupInputValue.length > 1 && (
-                                 <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
-                              )}
-                              {!isFetchingPickupSuggestions && pickupSuggestions.map((suggestion, index) => (
-                                <div
-                                  key={`pickup-${index}`}
-                                  className="p-2 text-sm hover:bg-muted cursor-pointer"
-                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setPickupInputValue, setShowPickupSuggestions, setIsFetchingPickupSuggestions)}
-                                >
-                                  {suggestion}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          {showPickupSuggestions && renderSuggestions(pickupSuggestions, isFetchingPickupSuggestions, pickupInputValue, setPickupInputValue, setShowPickupSuggestions, field.onChange, pickupSessionTokenRef, "pickup")}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -268,36 +315,17 @@ export default function BookRidePage() {
                         <div className="relative">
                           <FormControl>
                             <Input
-                              placeholder="Type drop-off address, e.g., 456 Market Ave"
-                              {...field}
-                              value={dropoffInputValue}
-                              onChange={(e) => handleAddressInputChange(e, field.onChange, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions, dropoffTimeoutId, setDropoffTimeoutId)}
-                              onFocus={() => handleFocus(dropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions)}
-                              onBlur={() => { field.onBlur(); setTimeout(() => { if (!isFetchingDropoffSuggestions) setShowDropoffSuggestions(false); }, 150);}}
+                              placeholder="Type drop-off address"
+                              {...field} // spread field props first
+                              value={dropoffInputValue} // then override value
+                              onChange={(e) => handleAddressInputChange(e.target.value, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions, field.onChange, dropoffSessionTokenRef)}
+                              onFocus={() => handleFocus(dropoffSessionTokenRef)}
+                              onBlur={() => handleBlur(setShowDropoffSuggestions, isFetchingDropoffSuggestions)}
+                              disabled={!googleMapsReady}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showDropoffSuggestions && (
-                            <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                              {isFetchingDropoffSuggestions && (
-                                <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
-                                </div>
-                              )}
-                              {!isFetchingDropoffSuggestions && dropoffSuggestions.length === 0 && dropoffInputValue.length > 1 && (
-                                 <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
-                              )}
-                              {!isFetchingDropoffSuggestions && dropoffSuggestions.map((suggestion, index) => (
-                                <div
-                                  key={`dropoff-${index}`}
-                                  className="p-2 text-sm hover:bg-muted cursor-pointer"
-                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setDropoffInputValue, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions)}
-                                >
-                                  {suggestion}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          {showDropoffSuggestions && renderSuggestions(dropoffSuggestions, isFetchingDropoffSuggestions, dropoffInputValue, setDropoffInputValue, setShowDropoffSuggestions, field.onChange, dropoffSessionTokenRef, "dropoff")}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -339,9 +367,10 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!googleMapsReady && (pickupInputValue !== "" || dropoffInputValue !== "")}>
                     <DollarSign className="mr-2 h-4 w-4" /> Get Fare Estimate
                   </Button>
+                   {!googleMapsReady && <p className="text-xs text-center text-muted-foreground">Initializing address search...</p>}
                 </form>
               </Form>
             </div>
@@ -375,5 +404,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
-      
