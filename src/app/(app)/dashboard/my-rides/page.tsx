@@ -12,8 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 
 // Interface for how Timestamp will look after JSON serialization from API
 interface JsonTimestamp {
-  _seconds: number; // Firestore Timestamps are often serialized with _seconds
-  _nanoseconds: number; // and _nanoseconds when passed through Next.js API routes
+  _seconds: number; 
+  _nanoseconds: number; 
 }
 
 interface Ride {
@@ -27,20 +27,32 @@ interface Ride {
   fareEstimate: number;
   status: string;
   rating?: number;
-  passengerName: string; // Added as it's part of the booking data
+  passengerName: string; 
   isSurgeApplied?: boolean;
 }
 
 // Helper function to format JSON serialized Firestore Timestamp
 const formatDate = (timestamp: JsonTimestamp | undefined | null): string => {
+  console.log("formatDate received timestamp:", timestamp); // Log input to formatDate
   if (!timestamp || typeof timestamp._seconds !== 'number' || typeof timestamp._nanoseconds !== 'number') {
+    console.warn("formatDate: Invalid or missing timestamp structure. Received:", timestamp);
     return 'N/A';
   }
-  return new Date(timestamp._seconds * 1000).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  try {
+    const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
+    if (isNaN(date.getTime())) {
+      console.warn("formatDate: Created an invalid date. Seconds:", timestamp._seconds);
+      return 'N/A (Invalid Date)';
+    }
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch (e) {
+    console.error("formatDate: Error creating date:", e, "from timestamp:", timestamp);
+    return 'N/A (Error)';
+  }
 };
 
 
@@ -55,7 +67,7 @@ export default function MyRidesPage() {
 
   useEffect(() => {
     if (user?.id) {
-      console.log("MyRidesPage: Attempting to fetch rides for passengerId:", user.id); // Log current user ID
+      console.log("MyRidesPage: Attempting to fetch rides for passengerId:", user.id); 
       const fetchRides = async () => {
         setIsLoading(true);
         setError(null);
@@ -66,14 +78,12 @@ export default function MyRidesPage() {
             try {
               errorData = await response.json();
             } catch (e) {
-              // If response is not JSON, use the status text or a generic message
               console.error("Response was not JSON:", response.statusText);
             }
-            // Use details if available, otherwise the message from errorData, or fallback
             throw new Error(errorData.details || errorData.message || `Failed to fetch rides: ${response.status}`);
           }
           const data: Ride[] = await response.json();
-          console.log("MyRidesPage: Rides data received from API:", data); // Log received data
+          console.log("MyRidesPage: Rides data received from API:", data); 
           setRides(data);
         } catch (err) {
           console.error("Error fetching rides (Client):", err);
@@ -83,7 +93,7 @@ export default function MyRidesPage() {
             title: "Error Fetching Rides",
             description: `${displayMessage} Check browser console or server logs for more details.`,
             variant: "destructive",
-            duration: 10000, // Give more time to read potentially long messages
+            duration: 10000, 
           });
         } finally {
           setIsLoading(false);
@@ -148,7 +158,7 @@ export default function MyRidesPage() {
     );
   }
 
-  if (error && rides.length === 0) { // Only show full page error if no rides loaded at all
+  if (error && rides.length === 0) { 
     return (
       <div className="space-y-6">
         <Card className="shadow-lg">
@@ -163,7 +173,7 @@ export default function MyRidesPage() {
             <p className="font-semibold">Could not load your rides.</p>
             <p className="text-sm">{error}</p>
             <Button variant="outline" onClick={() => {
-              if (user?.id) { // Trigger refetch logic
+              if (user?.id) { 
                  if (typeof window !== 'undefined') window.location.reload();
               } else {
                 if (typeof window !== 'undefined') window.location.reload();
@@ -192,7 +202,7 @@ export default function MyRidesPage() {
         </Card>
       )}
 
-      {error && rides.length > 0 && ( // Show error as a dismissable toast if some rides are already loaded
+      {error && rides.length > 0 && ( 
          <div className="p-4 mb-4 text-sm text-destructive-foreground bg-destructive rounded-md shadow-lg">
             <p><strong>Error:</strong> {error}</p>
             <p className="text-xs">Some data might be missing or outdated. Please try refreshing.</p>

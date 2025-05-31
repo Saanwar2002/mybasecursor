@@ -55,19 +55,30 @@ export async function GET(request: NextRequest) {
     const rides: any[] = []; // Use any[] for initial push, then type for response
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      // Ensure bookingTimestamp is a Firestore Timestamp before sending
-      const bookingTimestamp = data.bookingTimestamp instanceof Timestamp ? data.bookingTimestamp : Timestamp.fromDate(new Date(data.bookingTimestamp?.seconds * 1000 || Date.now()));
+      console.log(`API /my-rides: Processing doc ${doc.id}, raw bookingTimestamp:`, data.bookingTimestamp);
+
+      let processedTimestamp: Timestamp;
+      if (data.bookingTimestamp instanceof Timestamp) {
+        processedTimestamp = data.bookingTimestamp;
+      } else if (data.bookingTimestamp && typeof data.bookingTimestamp.seconds === 'number' && typeof data.bookingTimestamp.nanoseconds === 'number') {
+        // It might be an object from an earlier serialization attempt or non-server timestamp
+        processedTimestamp = new Timestamp(data.bookingTimestamp.seconds, data.bookingTimestamp.nanoseconds);
+      } else {
+        // Fallback if timestamp is missing or malformed
+        console.warn(`API /my-rides: doc ${doc.id} has missing or malformed bookingTimestamp. Using current time as fallback.`);
+        processedTimestamp = Timestamp.now();
+      }
       
       rides.push({
         id: doc.id,
-        ...data, // Spread the rest of the data
-        bookingTimestamp: serializeTimestamp(bookingTimestamp), // Serialize timestamp
+        ...data, 
+        bookingTimestamp: serializeTimestamp(processedTimestamp), // Serialize timestamp
       });
     });
 
     return NextResponse.json(rides, { status: 200 });
   } catch (error) {
-    console.error('Error fetching bookings (API Route):', error); // Log the full error object
+    console.error('Error fetching bookings (API Route):', error); 
 
     let errorMessage = 'An unknown server error occurred.';
     let errorDetails = '';
@@ -91,3 +102,4 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
