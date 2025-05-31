@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -36,6 +36,25 @@ const bookingFormSchema = z.object({
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278];
 
+const mockAddresses: string[] = [
+  "10 Downing Street, Westminster, London, SW1A 2AA",
+  "Buckingham Palace, Westminster, London, SW1A 1AA",
+  "Tower of London, Tower Hamlets, London, EC3N 4AB",
+  "The Shard, 32 London Bridge St, Southwark, London, SE1 9SG",
+  "Piccadilly Circus, Westminster, London, W1J 9HS",
+  "Old Trafford, Sir Matt Busby Way, Trafford, Manchester, M16 0RA",
+  "Anfield, Anfield Rd, Liverpool, L4 0TH",
+  "Edinburgh Castle, Castlehill, Edinburgh, EH1 2NG",
+  "350 Fifth Avenue, New York, NY 10118, USA",
+  "Westfield Stratford City, Montfichet Rd, London, E20 1EJ",
+  "Canary Wharf Station, London, E14 5LR",
+  "Heathrow Airport Terminal 5, Hounslow, TW6 2GA",
+  "Gatwick Airport South Terminal, Horley, Gatwick, RH6 0NP",
+  "Kings Cross Station, Euston Rd, London, N1 9AL",
+  "Paddington Station, Praed St, London, W2 1HQ"
+];
+
+
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const { toast } = useToast();
@@ -50,6 +69,49 @@ export default function BookRidePage() {
       passengers: 1,
     },
   });
+
+  // State for pickup autocomplete
+  const [pickupInputValue, setPickupInputValue] = useState("");
+  const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
+  const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
+
+  // State for dropoff autocomplete
+  const [dropoffInputValue, setDropoffInputValue] = useState("");
+  const [dropoffSuggestions, setDropoffSuggestions] = useState<string[]>([]);
+  const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
+
+  const handleAddressInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fieldOnChange: (...event: any[]) => void,
+    setInputValueState: React.Dispatch<React.SetStateAction<string>>,
+    setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
+    const value = e.target.value;
+    setInputValueState(value);
+    fieldOnChange(value); // Update react-hook-form state
+    if (value.length > 1) {
+      setSuggestionsState(
+        mockAddresses.filter(addr => addr.toLowerCase().includes(value.toLowerCase()))
+      );
+      setShowSuggestionsState(true);
+    } else {
+      setShowSuggestionsState(false);
+      setSuggestionsState([]);
+    }
+  };
+
+  const handleSuggestionClick = (
+    address: string,
+    fieldOnChange: (...event: any[]) => void,
+    setInputValueState: React.Dispatch<React.SetStateAction<string>>,
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
+    setInputValueState(address);
+    fieldOnChange(address); // Update react-hook-form state
+    setShowSuggestionsState(false);
+  };
+
 
   function onSubmit(values: z.infer<typeof bookingFormSchema>) {
     const baseFare = 5;
@@ -81,6 +143,8 @@ export default function BookRidePage() {
       variant: "default",
     });
     form.reset();
+    setPickupInputValue("");
+    setDropoffInputValue("");
     setFareEstimate(null);
     setMapMarkers([]);
   };
@@ -103,9 +167,36 @@ export default function BookRidePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 123 Main St, Anytown" {...field} />
-                        </FormControl>
+                        <div className="relative">
+                          <FormControl>
+                            <Input
+                              placeholder="Type pickup address, e.g., 123 Main St"
+                              {...field} // Spread field to pass ref, name, onBlur
+                              value={pickupInputValue} // Control input with local state
+                              onChange={(e) => handleAddressInputChange(e, field.onChange, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions)}
+                              onFocus={() => {
+                                if (pickupInputValue.length > 1 && pickupSuggestions.length > 0) {
+                                    setShowPickupSuggestions(true);
+                                }
+                              }}
+                              // Delay onBlur to allow click on suggestion
+                              onBlur={() => { field.onBlur(); setTimeout(() => setShowPickupSuggestions(false), 150);}}
+                            />
+                          </FormControl>
+                          {showPickupSuggestions && pickupSuggestions.length > 0 && (
+                            <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                              {pickupSuggestions.map((suggestion, index) => (
+                                <div
+                                  key={`pickup-${index}`}
+                                  className="p-2 text-sm hover:bg-muted cursor-pointer"
+                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setPickupInputValue, setShowPickupSuggestions)}
+                                >
+                                  {suggestion}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -116,9 +207,36 @@ export default function BookRidePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Type drop-off address, e.g., 456 Market Ave" {...field} />
-                        </FormControl>
+                        <div className="relative">
+                          <FormControl>
+                            <Input
+                              placeholder="Type drop-off address, e.g., 456 Market Ave"
+                              {...field} // Spread field to pass ref, name, onBlur
+                              value={dropoffInputValue} // Control input with local state
+                              onChange={(e) => handleAddressInputChange(e, field.onChange, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions)}
+                               onFocus={() => {
+                                if (dropoffInputValue.length > 1 && dropoffSuggestions.length > 0) {
+                                    setShowDropoffSuggestions(true);
+                                }
+                              }}
+                              // Delay onBlur to allow click on suggestion
+                              onBlur={() => { field.onBlur(); setTimeout(() => setShowDropoffSuggestions(false), 150);}}
+                            />
+                          </FormControl>
+                          {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
+                            <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                              {dropoffSuggestions.map((suggestion, index) => (
+                                <div
+                                  key={`dropoff-${index}`}
+                                  className="p-2 text-sm hover:bg-muted cursor-pointer"
+                                  onMouseDown={() => handleSuggestionClick(suggestion, field.onChange, setDropoffInputValue, setShowDropoffSuggestions)}
+                                >
+                                  {suggestion}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -195,3 +313,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
