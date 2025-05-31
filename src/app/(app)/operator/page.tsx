@@ -1,3 +1,4 @@
+
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -5,11 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import Image from 'next/image';
+import MapDisplay from '@/components/ui/map-display';
+
+// Default UK coordinates (London)
+const defaultUKCenter: [number, number] = [51.5074, -0.1278];
+const mockFleetMarkers = [
+    { position: [51.51, -0.10] as [number, number], popupText: "Driver 1 (John D) - Active" },
+    { position: [51.50, -0.13] as [number, number], popupText: "Driver 2 (Jane S) - Available" },
+    { position: [51.52, -0.12] as [number, number], popupText: "Driver 3 (Mike B) - On Break" },
+    { position: [51.49, -0.11] as [number, number], popupText: "Driver 4 (Sarah W) - Available" },
+];
 
 export default function OperatorDashboardPage() {
   const { user } = useAuth();
 
-  // Mock data for operator dashboard
   const activeRides = 12;
   const availableDrivers = 25;
   const totalDrivers = 30;
@@ -47,11 +57,17 @@ export default function OperatorDashboardPage() {
       <Card>
         <CardHeader>
             <CardTitle className="text-xl font-headline flex items-center gap-2">
-                <Map className="w-6 h-6 text-primary" /> Live Fleet Overview (Placeholder)
+                <Map className="w-6 h-6 text-primary" /> Live Fleet Overview
             </CardTitle>
         </CardHeader>
-        <CardContent className="h-80 bg-muted/50 rounded-md flex items-center justify-center">
-             <Image src="https://placehold.co/600x300.png?text=Live+Fleet+Map" alt="Live Fleet Map Placeholder" data-ai-hint="city map vehicles" width={600} height={300} className="rounded shadow" />
+        <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden">
+             <MapDisplay 
+                center={defaultUKCenter} 
+                zoom={12} 
+                markers={mockFleetMarkers} 
+                className="w-full h-full" 
+                scrollWheelZoom={true}
+             />
         </CardContent>
       </Card>
 

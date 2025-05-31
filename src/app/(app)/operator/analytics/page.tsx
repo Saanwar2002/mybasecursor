@@ -1,9 +1,9 @@
+
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Users, Clock, DollarSign, MapPin } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 
-// Mock data for charts
 const dailyRidesData = [
   { name: 'Mon', rides: 65 }, { name: 'Tue', rides: 59 }, { name: 'Wed', rides: 80 },
   { name: 'Thu', rides: 81 }, { name: 'Fri', rides: 95 }, { name: 'Sat', rides: 120 },
@@ -12,12 +12,12 @@ const dailyRidesData = [
 
 const hourlyActivityData = Array.from({ length: 24 }, (_, i) => ({
   hour: `${String(i).padStart(2, '0')}:00`,
-  rides: Math.floor(Math.random() * 30) + (i > 6 && i < 22 ? 10 : 0), // Peak hours
+  rides: Math.floor(Math.random() * 30) + (i > 6 && i < 22 ? 10 : 0), 
 }));
 
 const revenueData = [
-  { month: 'Jan', revenue: 4000 }, { month: 'Feb', revenue: 3000 }, { month: 'Mar', revenue: 5000 },
-  { month: 'Apr', revenue: 4500 }, { month: 'May', revenue: 6000 }, { month: 'Jun', revenue: 5500 },
+  { month: 'Jan', revenue: 40000 }, { month: 'Feb', revenue: 30000 }, { month: 'Mar', revenue: 50000 },
+  { month: 'Apr', revenue: 45000 }, { month: 'May', revenue: 60000 }, { month: 'Jun', revenue: 55000 },
 ];
 
 const popularZonesData = [
@@ -44,7 +44,7 @@ export default function OperatorAnalyticsPage() {
         <StatCard title="Total Rides This Week" value="510" icon={TrendingUp} />
         <StatCard title="Active Drivers Online" value="22" icon={Users} />
         <StatCard title="Average Wait Time" value="7 min" icon={Clock} />
-        <StatCard title="Total Revenue (Month)" value="$28,000" icon={DollarSign} />
+        <StatCard title="Total Revenue (Month)" value="£28,000" icon={DollarSign} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -80,10 +80,10 @@ export default function OperatorAnalyticsPage() {
             <BarChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value) => `$${value/1000}k`} />
-              <Tooltip formatter={(value:any) => `$${value.toLocaleString()}`} />
+              <YAxis tickFormatter={(value) => `£${value/1000}k`} />
+              <Tooltip formatter={(value: number) => `£${value.toLocaleString()}`} />
               <Legend />
-              <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -95,7 +95,7 @@ export default function OperatorAnalyticsPage() {
               <YAxis dataKey="zone" type="category" width={80} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="rides" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="rides" name="Rides" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

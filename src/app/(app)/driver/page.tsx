@@ -1,3 +1,4 @@
+
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -13,8 +14,7 @@ export default function DriverDashboardPage() {
   const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
 
-  // Mock data for dashboard
-  const activeRide = { pickup: "123 Main St", dropoff: "City Center Mall", passenger: "Alice Wonderland" };
+  const activeRide = { pickup: "123 Main St, London", dropoff: "City Center Mall, London", passenger: "Alice Wonderland" };
   const earningsToday = 75.50;
   const pendingRequests = 2;
 
@@ -71,7 +71,7 @@ export default function DriverDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">${earningsToday.toFixed(2)}</p>
+            <p className="text-3xl font-bold">£{earningsToday.toFixed(2)}</p>
             <Link href="/driver/earnings" className="text-sm text-accent hover:underline">View Detailed Earnings</Link>
           </CardContent>
         </Card>

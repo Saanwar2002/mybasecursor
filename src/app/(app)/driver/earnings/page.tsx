@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DollarSign, CalendarDays, TrendingUp, ListChecks, Filter } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // ShadCN charts use recharts
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Earning {
   id: string;
@@ -33,10 +34,7 @@ export default function DriverEarningsPage() {
   const totalNetEarnings = earnings.reduce((sum, e) => sum + e.netEarning, 0);
   const totalRides = earnings.reduce((sum, e) => sum + e.rides, 0);
 
-  // In a real app, useEffect would fetch data based on timeRange
   useEffect(() => {
-    // Filter/fetch logic based on timeRange
-    // For demo, we just use the mock data
     setEarnings(mockEarnings); 
   }, [timeRange]);
 
@@ -53,9 +51,9 @@ export default function DriverEarningsPage() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Net Earnings" value={`$${totalNetEarnings.toFixed(2)}`} icon={TrendingUp} color="text-green-500" />
+        <StatCard title="Total Net Earnings" value={`£${totalNetEarnings.toFixed(2)}`} icon={TrendingUp} color="text-green-500" />
         <StatCard title="Total Rides Completed" value={totalRides.toString()} icon={ListChecks} color="text-blue-500" />
-        <StatCard title="Average Earning/Ride" value={`$${(totalNetEarnings / (totalRides || 1)).toFixed(2)}`} icon={DollarSign} color="text-purple-500" />
+        <StatCard title="Average Earning/Ride" value={`£${(totalNetEarnings / (totalRides || 1)).toFixed(2)}`} icon={DollarSign} color="text-purple-500" />
         <StatCard title="Current Period" value={timeRange.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} icon={CalendarDays} color="text-orange-500" />
       </div>
 
@@ -82,10 +80,10 @@ export default function DriverEarningsPage() {
             <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
+                <YAxis tickFormatter={(value) => `£${value}`} />
+                <Tooltip formatter={(value: number, name: string, props: any) => [`£${value.toFixed(2)}`, props.payload.name]}/>
                 <Legend />
-                <Bar dataKey="earnings" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="earnings" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Net Earnings"/>
             </BarChart>
             </ResponsiveContainer>
         </CardContent>
@@ -112,9 +110,9 @@ export default function DriverEarningsPage() {
                 <TableRow key={earning.id}>
                   <TableCell>{earning.date}</TableCell>
                   <TableCell className="text-right">{earning.rides}</TableCell>
-                  <TableCell className="text-right">${earning.totalFare.toFixed(2)}</TableCell>
-                  <TableCell className="text-right text-red-500">-${earning.commission.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-semibold text-green-600">${earning.netEarning.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">£{earning.totalFare.toFixed(2)}</TableCell>
+                  <TableCell className="text-right text-red-500">-£{earning.commission.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-semibold text-green-600">£{earning.netEarning.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

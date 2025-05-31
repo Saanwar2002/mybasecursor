@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -21,9 +22,9 @@ interface Ride {
 }
 
 const mockRides: Ride[] = [
-  { id: '1', date: '2023-10-25', pickup: '123 Main St', dropoff: 'Central Park', driver: 'John Doe', driverAvatar: 'https://placehold.co/40x40.png?text=JD', vehicle: 'Toyota Prius', fare: 25.50, status: 'Completed', rating: 5 },
-  { id: '2', date: '2023-10-22', pickup: 'Airport Terminal B', dropoff: 'Grand Hotel', driver: 'Jane Smith', driverAvatar: 'https://placehold.co/40x40.png?text=JS', vehicle: 'Honda CRV', fare: 42.00, status: 'Completed' },
-  { id: '3', date: '2023-10-20', pickup: 'Downtown Mall', dropoff: 'Residential Area', driver: 'Mike Brown', driverAvatar: 'https://placehold.co/40x40.png?text=MB', vehicle: 'Ford Transit', fare: 18.75, status: 'Cancelled' },
+  { id: '1', date: '2023-10-25', pickup: '123 Main St, London', dropoff: 'Central Park, London', driver: 'John Doe', driverAvatar: 'https://placehold.co/40x40.png?text=JD', vehicle: 'Toyota Prius', fare: 25.50, status: 'Completed', rating: 5 },
+  { id: '2', date: '2023-10-22', pickup: 'Airport Terminal B, London', dropoff: 'Grand Hotel, London', driver: 'Jane Smith', driverAvatar: 'https://placehold.co/40x40.png?text=JS', vehicle: 'Honda CRV', fare: 42.00, status: 'Completed' },
+  { id: '3', date: '2023-10-20', pickup: 'Downtown Mall, London', dropoff: 'Residential Area, London', driver: 'Mike Brown', driverAvatar: 'https://placehold.co/40x40.png?text=MB', vehicle: 'Ford Transit', fare: 18.75, status: 'Cancelled' },
 ];
 
 export default function MyRidesPage() {
@@ -32,7 +33,6 @@ export default function MyRidesPage() {
   const [currentRating, setCurrentRating] = useState(0);
 
   useEffect(() => {
-    // Simulate fetching rides
     setRides(mockRides);
   }, []);
 
@@ -43,14 +43,13 @@ export default function MyRidesPage() {
 
   const submitRating = () => {
     if (selectedRide) {
-      // In a real app, submit this to the backend
       const updatedRides = rides.map(r => 
         r.id === selectedRide.id ? { ...r, rating: currentRating } : r
       );
       setRides(updatedRides);
       setSelectedRide(null);
       setCurrentRating(0);
-      // Add toast notification
+      // Add toast notification for successful rating
     }
   };
 
@@ -101,7 +100,7 @@ export default function MyRidesPage() {
               <div className="text-sm space-y-1">
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>From:</strong> {ride.pickup}</p>
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>To:</strong> {ride.dropoff}</p>
-                <p className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ${ride.fare.toFixed(2)}</p>
+                <p className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> £{ride.fare.toFixed(2)}</p>
               </div>
               {ride.status === 'Completed' && (
                 <div className="pt-2">

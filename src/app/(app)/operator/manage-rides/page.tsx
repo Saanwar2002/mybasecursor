@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,11 +21,11 @@ interface Ride {
 }
 
 const mockOperatorRides: Ride[] = [
-  { id: 'op1', passenger: 'David Lee', driver: 'John Doe', pickup: 'Downtown Hotel', dropoff: 'Airport T1', status: 'In Progress', fare: 35.00, requestedAt: '10:30 AM' },
-  { id: 'op2', passenger: 'Emily Clark', pickup: 'West Suburbs', dropoff: 'City Center', status: 'Pending', fare: 22.50, requestedAt: '10:45 AM' },
-  { id: 'op3', passenger: 'Michael Brown', driver: 'Jane Smith', pickup: 'North Mall', dropoff: 'South Station', status: 'Completed', fare: 18.75, requestedAt: '09:15 AM' },
-  { id: 'op4', passenger: 'Sarah Wilson', pickup: 'University Campus', dropoff: 'Library', status: 'Pending', fare: 12.00, requestedAt: '11:00 AM' },
-  { id: 'op5', passenger: 'Chris Green', driver: 'Robert Jones', pickup: 'Business Park', dropoff: 'Conference Center', status: 'Assigned', fare: 28.30, requestedAt: '10:50 AM' },
+  { id: 'op1', passenger: 'David Lee', driver: 'John Doe', pickup: 'Downtown Hotel, London', dropoff: 'Airport T1, London', status: 'In Progress', fare: 35.00, requestedAt: '10:30 AM' },
+  { id: 'op2', passenger: 'Emily Clark', pickup: 'West Suburbs, London', dropoff: 'City Center, London', status: 'Pending', fare: 22.50, requestedAt: '10:45 AM' },
+  { id: 'op3', passenger: 'Michael Brown', driver: 'Jane Smith', pickup: 'North Mall, London', dropoff: 'South Station, London', status: 'Completed', fare: 18.75, requestedAt: '09:15 AM' },
+  { id: 'op4', passenger: 'Sarah Wilson', pickup: 'University Campus, London', dropoff: 'Library, London', status: 'Pending', fare: 12.00, requestedAt: '11:00 AM' },
+  { id: 'op5', passenger: 'Chris Green', driver: 'Robert Jones', pickup: 'Business Park, London', dropoff: 'Conference Center, London', status: 'Assigned', fare: 28.30, requestedAt: '10:50 AM' },
 ];
 
 export default function OperatorManageRidesPage() {
@@ -42,9 +43,8 @@ export default function OperatorManageRidesPage() {
     );
 
   const assignDriver = (rideId: string) => {
-    // Mock assigning a driver
     setRides(prevRides => prevRides.map(r => r.id === rideId ? {...r, driver: "Driver " + Math.floor(Math.random()*100), status: "Assigned"} : r));
-    // Add toast
+    // Add toast for successful assignment
   };
 
 
@@ -109,8 +109,8 @@ export default function OperatorManageRidesPage() {
                     <Badge variant={
                       ride.status === 'Completed' ? 'default' :
                       ride.status === 'Cancelled' ? 'destructive' :
-                      ride.status === 'In Progress' ? 'outline' /* Using 'outline' as an example for 'In Progress' */ :
-                      'secondary' /* For 'Pending' and 'Assigned' */
+                      ride.status === 'In Progress' ? 'outline' 
+                      : 'secondary'
                     }
                     className={
                       ride.status === 'In Progress' ? 'border-blue-500 text-blue-500' : 
@@ -121,7 +121,7 @@ export default function OperatorManageRidesPage() {
                       {ride.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">${ride.fare.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">£{ride.fare.toFixed(2)}</TableCell>
                   <TableCell>{ride.requestedAt}</TableCell>
                   <TableCell className="text-center space-x-1">
                     {ride.status === 'Pending' && (

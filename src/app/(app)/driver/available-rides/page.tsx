@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { MapPin, User, Clock, Check, X, Navigation } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
+import MapDisplay from '@/components/ui/map-display';
 
 interface RideRequest {
   id: string;
@@ -13,20 +15,26 @@ interface RideRequest {
   passengerAvatar: string;
   pickupLocation: string;
   dropoffLocation: string;
-  estimatedTime: string; // e.g., "15 min away"
+  estimatedTime: string; 
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active';
+  pickupCoords?: [number, number]; // latitude, longitude
+  dropoffCoords?: [number, number];
 }
 
+// Default UK coordinates (London) for mock data
+const defaultUKCenter: [number, number] = [51.5074, -0.1278];
+
 const mockRideRequests: RideRequest[] = [
-  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St', dropoffLocation: 'City Mall', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending' },
-  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Central Station', dropoffLocation: 'Airport Terminal 2', estimatedTime: '5 min', fareEstimate: 28.00, status: 'pending' },
-  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Green Park', dropoffLocation: 'Downtown Office', estimatedTime: '12 min', fareEstimate: 12.75, status: 'active' }, // Already active
+  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St, London', dropoffLocation: 'City Mall, London', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending', pickupCoords: [51.510, -0.120], dropoffCoords: [51.505, -0.130] },
+  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Central Station, London', dropoffLocation: 'Airport Terminal 2, London', estimatedTime: '5 min', fareEstimate: 28.00, status: 'pending', pickupCoords: [51.500, -0.125], dropoffCoords: [51.470, -0.454] },
+  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Green Park, London', dropoffLocation: 'Downtown Office, London', estimatedTime: '12 min', fareEstimate: 12.75, status: 'active', pickupCoords: [51.507, -0.142], dropoffCoords: [51.515, -0.087] },
 ];
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
+  const [driverLocation] = useState<[number, number]>([51.500, -0.100]); // Mock driver location
 
   const handleRideAction = (rideId: string, newStatus: RideRequest['status']) => {
     setRideRequests(prevRequests =>
@@ -42,6 +50,16 @@ export default function AvailableRidesPage() {
 
   const activeRide = rideRequests.find(r => r.status === 'active');
   const pendingRides = rideRequests.filter(r => r.status === 'pending');
+
+  const getMapMarkersForActiveRide = () => {
+    if (!activeRide || !activeRide.pickupCoords) return [];
+    const markers = [{ position: driverLocation, popupText: "Your Location", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" }]; // Driver
+    markers.push({ position: activeRide.pickupCoords, popupText: `Pickup: ${activeRide.passengerName}` });
+    if (activeRide.dropoffCoords) {
+        markers.push({ position: activeRide.dropoffCoords, popupText: "Drop-off" });
+    }
+    return markers;
+  };
 
   return (
     <div className="space-y-6">
@@ -64,18 +82,23 @@ export default function AvailableRidesPage() {
             <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>From:</strong> {activeRide.pickupLocation}</p>
             <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>To:</strong> {activeRide.dropoffLocation}</p>
             <p className="flex items-center gap-1"><Clock className="w-4 h-4 text-muted-foreground" /> <strong>Est. Time:</strong> {activeRide.estimatedTime}</p>
-            <div className="flex items-center gap-2 pt-2">
+            <div className="mt-4">
+              <p className="text-sm font-medium mb-1">Live Ride Map:</p>
+              <div className="h-64 bg-muted rounded-md overflow-hidden">
+                <MapDisplay 
+                    center={activeRide.pickupCoords || driverLocation} 
+                    zoom={13} 
+                    markers={getMapMarkersForActiveRide()}
+                    className="w-full h-full"
+                    scrollWheelZoom={true}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-4">
               <Button className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"><Navigation className="mr-2 h-4 w-4" /> Navigate to Pickup</Button>
               <Button variant="outline" className="flex-1" onClick={() => handleRideAction(activeRide.id, 'pending')}>Mark as Completed (Demo)</Button>
             </div>
             <Button variant="destructive" className="w-full mt-2" onClick={() => handleRideAction(activeRide.id, 'pending')}>Cancel Ride (Demo)</Button>
-            <div className="mt-4">
-              <p className="text-sm font-medium mb-1">Update Location (Mock):</p>
-              <div className="flex items-center justify-center h-48 bg-muted rounded-md">
-                <Image src="https://placehold.co/300x150.png?text=Mock+Map+Updating" data-ai-hint="map navigation update" alt="Mock map update" width={300} height={150} className="rounded" />
-              </div>
-              <p className="text-xs text-center text-muted-foreground mt-1">Location updates automatically in a real app.</p>
-            </div>
           </CardContent>
         </Card>
       )}
@@ -97,7 +120,7 @@ export default function AvailableRidesPage() {
                 <Image src={req.passengerAvatar} alt={req.passengerName} width={40} height={40} className="rounded-full" data-ai-hint="avatar profile" />
                 <div>
                   <CardTitle className="text-lg">{req.passengerName}</CardTitle>
-                  <Badge variant="outline" className="mt-1">Fare: ${req.fareEstimate.toFixed(2)}</Badge>
+                  <Badge variant="outline" className="mt-1">Fare: £{req.fareEstimate.toFixed(2)}</Badge>
                 </div>
               </div>
             </CardHeader>
