@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Briefcase, Loader2, Zap, Route } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Briefcase, Loader2, Zap, Route, PlusCircle, XCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,6 +31,7 @@ const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
 const bookingFormSchema = z.object({
   pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
   dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
+  intermediateStop1Location: z.string().optional(),
   vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
 });
@@ -40,7 +41,7 @@ const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 // Fare Calculation Constants
 const BASE_FARE = 0.00;
 const PER_MILE_RATE = 1.00;
-const FIRST_MILE_SURCHARGE = 1.99;
+const FIRST_MILE_SURCHARGE = 1.99; 
 const PER_MINUTE_RATE = 0.10;
 const AVERAGE_SPEED_MPH = 15;
 const BOOKING_FEE = 0.75;
@@ -52,9 +53,10 @@ function deg2rad(deg: number): number {
 }
 
 function getDistanceInMiles(
-  coords1: google.maps.LatLngLiteral,
-  coords2: google.maps.LatLngLiteral
+  coords1: google.maps.LatLngLiteral | null,
+  coords2: google.maps.LatLngLiteral | null
 ): number {
+  if (!coords1 || !coords2) return 0;
   const R = 6371; // Radius of the earth in km
   const dLat = deg2rad(coords2.lat - coords1.lat);
   const dLon = deg2rad(coords2.lng - coords1.lng);
@@ -76,15 +78,18 @@ export default function BookRidePage() {
   
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
+  const [intermediateStop1Coords, setIntermediateStop1Coords] = useState<google.maps.LatLngLiteral | null>(null);
 
   const [isSurgeActive, setIsSurgeActive] = useState(false);
   const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
+  const [showIntermediateStop1, setShowIntermediateStop1] = useState(false);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       pickupLocation: "",
       dropoffLocation: "",
+      intermediateStop1Location: "",
       vehicleType: "car",
       passengers: 1,
     },
@@ -102,6 +107,12 @@ export default function BookRidePage() {
   const [isFetchingDropoffSuggestions, setIsFetchingDropoffSuggestions] = useState(false);
   const [isFetchingDropoffDetails, setIsFetchingDropoffDetails] = useState(false);
   
+  const [intermediateStop1InputValue, setIntermediateStop1InputValue] = useState("");
+  const [intermediateStop1Suggestions, setIntermediateStop1Suggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [showIntermediateStop1SuggestionsField, setShowIntermediateStop1SuggestionsField] = useState(false);
+  const [isFetchingIntermediateStop1Suggestions, setIsFetchingIntermediateStop1Suggestions] = useState(false);
+  const [isFetchingIntermediateStop1Details, setIsFetchingIntermediateStop1Details] = useState(false);
+
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
@@ -171,8 +182,7 @@ export default function BookRidePage() {
     setCoordsState(null); 
     setFareEstimate(null);
     setEstimatedDistance(null);
-    setIsSurgeActive(false);
-    setCurrentSurgeMultiplier(1);
+    // Note: Surge logic is triggered by coordinate changes, so it will reset naturally.
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -227,6 +237,7 @@ export default function BookRidePage() {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsState(null);
           }
+          // Refresh session token for next independent call
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
@@ -256,6 +267,7 @@ export default function BookRidePage() {
   const handleBlur = (
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
+    // Delay hiding suggestions to allow click event on suggestion item
     setTimeout(() => {
       setShowSuggestionsState(false);
     }, 150); 
@@ -264,10 +276,29 @@ export default function BookRidePage() {
   const watchedVehicleType = form.watch("vehicleType");
   const watchedPassengers = form.watch("passengers");
 
+  const toggleIntermediateStop = () => {
+    const newShowState = !showIntermediateStop1;
+    setShowIntermediateStop1(newShowState);
+    if (!newShowState) { // If hiding the stop
+      form.setValue("intermediateStop1Location", "");
+      setIntermediateStop1InputValue("");
+      setIntermediateStop1Coords(null);
+      setIntermediateStop1Suggestions([]);
+    }
+  };
+
   useEffect(() => {
     if (pickupCoords && dropoffCoords) {
-      const distanceMiles = getDistanceInMiles(pickupCoords, dropoffCoords);
-      setEstimatedDistance(distanceMiles);
+      let totalDistanceMiles = 0;
+      if (showIntermediateStop1 && intermediateStop1Coords) {
+        const dist1 = getDistanceInMiles(pickupCoords, intermediateStop1Coords);
+        const dist2 = getDistanceInMiles(intermediateStop1Coords, dropoffCoords);
+        totalDistanceMiles = dist1 + dist2;
+      } else {
+        totalDistanceMiles = getDistanceInMiles(pickupCoords, dropoffCoords);
+      }
+      
+      setEstimatedDistance(totalDistanceMiles);
       
       const isCurrentlySurge = Math.random() < 0.3; 
       setIsSurgeActive(isCurrentlySurge);
@@ -276,13 +307,14 @@ export default function BookRidePage() {
 
       let calculatedFareBeforeMultipliers = 0;
 
-      if (distanceMiles <= 0) {
+      if (totalDistanceMiles <= 0) {
         calculatedFareBeforeMultipliers = 0;
       } else {
-        const estimatedTripDurationMinutes = (distanceMiles / AVERAGE_SPEED_MPH) * 60;
+        const estimatedTripDurationMinutes = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
         const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
         
-        const distanceBasedFare = distanceMiles * PER_MILE_RATE + (distanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
+        // First mile surcharge applies to the overall journey's first mile.
+        const distanceBasedFare = (totalDistanceMiles * PER_MILE_RATE) + (totalDistanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
         
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
         const fareWithBookingFee = subTotal + BOOKING_FEE;
@@ -308,18 +340,21 @@ export default function BookRidePage() {
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, watchedVehicleType, watchedPassengers]);
+  }, [pickupCoords, dropoffCoords, intermediateStop1Coords, showIntermediateStop1, watchedVehicleType, watchedPassengers]);
 
  useEffect(() => {
     const newMarkers = [];
     if (pickupCoords) {
       newMarkers.push({ position: [pickupCoords.lat, pickupCoords.lng], popupText: `Pickup: ${form.getValues('pickupLocation')}` });
     }
+    if (showIntermediateStop1 && intermediateStop1Coords) {
+      newMarkers.push({ position: [intermediateStop1Coords.lat, intermediateStop1Coords.lng], popupText: `Stop: ${form.getValues('intermediateStop1Location')}` });
+    }
     if (dropoffCoords) {
       newMarkers.push({ position: [dropoffCoords.lat, dropoffCoords.lng], popupText: `Dropoff: ${form.getValues('dropoffLocation')}` });
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, form]);
+  }, [pickupCoords, dropoffCoords, intermediateStop1Coords, showIntermediateStop1, form]);
 
 
   function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
@@ -327,6 +362,14 @@ export default function BookRidePage() {
       toast({
         title: "Missing Location Details",
         description: "Please select valid pickup and drop-off locations from the suggestions.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (showIntermediateStop1 && values.intermediateStop1Location && !intermediateStop1Coords) {
+      toast({
+        title: "Missing Stop Details",
+        description: "Please select a valid intermediate stop location from the suggestions or remove it.",
         variant: "destructive",
       });
       return;
@@ -340,16 +383,25 @@ export default function BookRidePage() {
       return;
     }
 
+    let rideDescription = `Your ride from ${values.pickupLocation}`;
+    if (showIntermediateStop1 && values.intermediateStop1Location) {
+      rideDescription += ` via ${values.intermediateStop1Location}`;
+    }
+    rideDescription += ` to ${values.dropoffLocation} is confirmed. Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Pricing Applied)' : ''}. A driver will be assigned shortly.`;
+
     toast({
       title: "Booking Confirmed!",
-      description: `Your ride from ${values.pickupLocation} to ${values.dropoffLocation} is confirmed. Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Pricing Applied)' : ''}. A driver will be assigned shortly.`,
+      description: rideDescription,
       variant: "default",
     });
     form.reset();
     setPickupInputValue("");
     setDropoffInputValue("");
+    setIntermediateStop1InputValue("");
     setPickupCoords(null);
     setDropoffCoords(null);
+    setIntermediateStop1Coords(null);
+    setShowIntermediateStop1(false);
     setFareEstimate(null);
     setEstimatedDistance(null);
     setIsSurgeActive(false);
@@ -357,6 +409,7 @@ export default function BookRidePage() {
     setMapMarkers([]);
     setPickupSuggestions([]); 
     setDropoffSuggestions([]); 
+    setIntermediateStop1Suggestions([]);
   }
 
   const renderSuggestions = (
@@ -397,12 +450,14 @@ export default function BookRidePage() {
     </div>
   );
 
+  const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || (showIntermediateStop1 && isFetchingIntermediateStop1Details);
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-headline flex items-center gap-2"><Car className="w-8 h-8 text-primary" /> Book Your Ride</CardTitle>
-          <CardDescription>Enter your pickup and drop-off details to find a taxi.</CardDescription>
+          <CardDescription>Enter your pickup and drop-off details to find a taxi. You can add one intermediate stop.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
@@ -433,6 +488,45 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
+
+                  {!showIntermediateStop1 && (
+                    <Button type="button" variant="outline" onClick={toggleIntermediateStop} className="w-full text-sm">
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Intermediate Stop
+                    </Button>
+                  )}
+
+                  {showIntermediateStop1 && (
+                    <FormField
+                      control={form.control}
+                      name="intermediateStop1Location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center justify-between">
+                            <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Intermediate Stop</span>
+                            <Button type="button" variant="ghost" size="sm" onClick={toggleIntermediateStop} className="text-destructive hover:text-destructive-hover px-1 py-0 h-auto">
+                              <XCircle className="mr-1 h-4 w-4" /> Remove Stop
+                            </Button>
+                          </FormLabel>
+                          <div className="relative">
+                            <FormControl>
+                              <Input
+                                placeholder="Type intermediate stop address"
+                                {...field}
+                                value={intermediateStop1InputValue}
+                                onChange={(e) => handleAddressInputChange(e.target.value, setIntermediateStop1InputValue, setIntermediateStop1Suggestions, setShowIntermediateStop1SuggestionsField, setIsFetchingIntermediateStop1Suggestions, field.onChange, setIntermediateStop1Coords)}
+                                onFocus={() => handleFocus(intermediateStop1InputValue, intermediateStop1Suggestions, setIntermediateStop1Suggestions, setShowIntermediateStop1SuggestionsField, setIsFetchingIntermediateStop1Suggestions)}
+                                onBlur={() => handleBlur(setShowIntermediateStop1SuggestionsField)}
+                                autoComplete="off"
+                              />
+                            </FormControl>
+                            {showIntermediateStop1SuggestionsField && renderSuggestions(intermediateStop1Suggestions, isFetchingIntermediateStop1Suggestions, isFetchingIntermediateStop1Details, intermediateStop1InputValue, setIntermediateStop1InputValue, setShowIntermediateStop1SuggestionsField, field.onChange, setIntermediateStop1Coords, setIsFetchingIntermediateStop1Details, "intermediateStop1")}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
                   <FormField
                     control={form.control}
                     name="dropoffLocation"
@@ -494,7 +588,7 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
-                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || isFetchingPickupDetails || isFetchingDropoffDetails}>
+                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails}>
                     <Briefcase className="mr-2 h-4 w-4" /> Book Ride (£{fareEstimate ? fareEstimate.toFixed(2) : '---'}) {isSurgeActive && <Zap className="ml-2 h-4 w-4 text-yellow-300" />}
                   </Button>
                 </form>
@@ -504,7 +598,7 @@ export default function BookRidePage() {
               <div className="w-full h-64 md:h-80 mb-6">
                 <MapDisplay 
                     center={(pickupCoords && [pickupCoords.lat, pickupCoords.lng]) || defaultMapCenter} 
-                    zoom={pickupCoords || dropoffCoords ? 14 : 12} 
+                    zoom={(pickupCoords || dropoffCoords || (showIntermediateStop1 && intermediateStop1Coords)) ? 12 : 10} 
                     markers={mapMarkers} 
                     className="w-full h-full" 
                  />
@@ -514,7 +608,7 @@ export default function BookRidePage() {
                   <CardTitle className="text-2xl font-headline">Fare Estimate</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {isFetchingPickupDetails || isFetchingDropoffDetails ? (
+                  {anyFetchingDetails ? (
                      <div className="flex items-center justify-center">
                         <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
                         <p className="text-2xl font-bold text-muted-foreground">Calculating...</p>
@@ -538,7 +632,7 @@ export default function BookRidePage() {
                      <p className="text-xl text-muted-foreground">Select locations to see fare.</p>
                   )}
                   <p className="text-sm text-muted-foreground mt-1">
-                    {(isFetchingPickupDetails || isFetchingDropoffDetails || fareEstimate !== null) ? "This is an estimated fare. Actual fare may vary." : "Enter details to see your fare estimate here."}
+                    {(anyFetchingDetails || fareEstimate !== null) ? "This is an estimated fare. Actual fare may vary." : "Enter details to see your fare estimate here."}
                   </p>
                 </CardContent>
               </Card>
@@ -549,3 +643,6 @@ export default function BookRidePage() {
     </div>
   );
 }
+
+
+    
