@@ -31,15 +31,16 @@ const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
 const bookingFormSchema = z.object({
   pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
   dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
-  vehicleType: z.enum(["sedan", "suv", "van", "luxury"], { required_error: "Please select a vehicle type." }),
-  passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
+  vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
+  passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."), // Kept max 10 for now, can be refined.
 });
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
 // Fare Calculation Constants
 const BASE_FARE = 2.00; // £
-const PER_MILE_RATE = 0.80; // £ per mile
+const PER_MILE_RATE = 1.00; // £ per mile (Updated to £1 as per new request for subsequent miles)
+const FIRST_MILE_RATE = 2.99; // £ (New rate for the first mile)
 const PER_MINUTE_RATE = 0.15; // £ per minute
 const AVERAGE_SPEED_MPH = 15; // Assumed average speed for duration estimation
 const BOOKING_FEE = 1.50; // £
@@ -79,7 +80,7 @@ export default function BookRidePage() {
     defaultValues: {
       pickupLocation: "",
       dropoffLocation: "",
-      vehicleType: "sedan",
+      vehicleType: "car",
       passengers: 1,
     },
   });
@@ -266,20 +267,27 @@ export default function BookRidePage() {
       } else {
         const estimatedTripDurationMinutes = (distanceMiles / AVERAGE_SPEED_MPH) * 60;
         const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
-        const distanceFare = distanceMiles * PER_MILE_RATE;
         
-        const subTotal = BASE_FARE + timeFare + distanceFare;
+        let distanceBasedFare = 0;
+        if (distanceMiles <= 1) {
+          distanceBasedFare = FIRST_MILE_RATE;
+        } else {
+          distanceBasedFare = FIRST_MILE_RATE + (distanceMiles - 1) * PER_MILE_RATE;
+        }
+        
+        const subTotal = BASE_FARE + timeFare + distanceBasedFare;
         const fareWithBookingFee = subTotal + BOOKING_FEE;
         calculatedFareBeforeMultipliers = Math.max(fareWithBookingFee, MINIMUM_FARE);
       }
 
       let vehicleMultiplier = 1;
-      if (watchedVehicleType === "suv") vehicleMultiplier = 1.5;
-      if (watchedVehicleType === "van") vehicleMultiplier = 2;
-      if (watchedVehicleType === "luxury") vehicleMultiplier = 3;
+      // Updated vehicle multipliers
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.3;
+      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 2.0;
+      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 2.5;
       
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; // 10% extra per passenger beyond the first
       
       const finalCalculatedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
       setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
@@ -321,7 +329,7 @@ export default function BookRidePage() {
 
     toast({
       title: "Booking Confirmed!",
-      description: `Your ride from ${values.pickupLocation} to ${values.dropoffLocation} is confirmed. Estimated fare: £${fareEstimate}. A driver will be assigned shortly.`,
+      description: `Your ride from ${values.pickupLocation} to ${values.dropoffLocation} is confirmed. Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}. A driver will be assigned shortly.`,
       variant: "default",
     });
     form.reset();
@@ -446,10 +454,10 @@ export default function BookRidePage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="sedan">Sedan (Standard)</SelectItem>
-                            <SelectItem value="suv">SUV (More space)</SelectItem>
-                            <SelectItem value="van">Van (Large group)</SelectItem>
-                            <SelectItem value="luxury">Luxury (Premium)</SelectItem>
+                            <SelectItem value="car">Car (Standard)</SelectItem>
+                            <SelectItem value="estate">Estate Car</SelectItem>
+                            <SelectItem value="minibus_6">Minibus (6 people)</SelectItem>
+                            <SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -470,7 +478,7 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
-                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting}>
+                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || isFetchingPickupDetails || isFetchingDropoffDetails}>
                     <Briefcase className="mr-2 h-4 w-4" /> Book Ride (£{fareEstimate ? fareEstimate.toFixed(2) : '---'})
                   </Button>
                 </form>

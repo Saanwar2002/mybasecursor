@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -11,11 +12,12 @@ interface User {
   email: string;
   name: string;
   role: UserRole;
+  vehicleCategory?: string; // Added for drivers
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, name: string, role: UserRole) => void;
+  login: (email: string, name: string, role: UserRole, vehicleCategory?: string) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -36,11 +38,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const login = (email: string, name: string, role: UserRole) => {
-    const newUser: User = { id: Date.now().toString(), email, name, role };
+  const login = (email: string, name: string, role: UserRole, vehicleCategory?: string) => {
+    const newUser: User = { 
+      id: Date.now().toString(), 
+      email, 
+      name, 
+      role,
+      ...(role === 'driver' && vehicleCategory && { vehicleCategory }), // Add vehicleCategory if driver
+    };
     setUser(newUser);
     localStorage.setItem('taxiNowUser', JSON.stringify(newUser));
-    // Redirect based on role
+    
     if (role === 'passenger') router.push('/dashboard');
     else if (role === 'driver') router.push('/driver');
     else if (role === 'operator') router.push('/operator');
@@ -55,7 +63,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   useEffect(() => {
     if (!loading && !user && !['/login', '/register', '/'].includes(pathname) && !pathname.startsWith('/_next/')) {
-      // Allow access to root path for landing page
       if (pathname !== '/') {
           router.push('/login');
       }
