@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -9,7 +9,6 @@ import { Skeleton } from './skeleton';
 
 // Fix for default marker icon issue with Webpack.
 if (typeof window !== 'undefined') {
-    // Ensure this fix runs only once
     if (!(L.Icon.Default.prototype as any)._getIconUrlFixed) {
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
@@ -17,7 +16,7 @@ if (typeof window !== 'undefined') {
           iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
           shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
         });
-        (L.Icon.Default.prototype as any)._getIconUrlFixed = true; // Mark as fixed
+        (L.Icon.Default.prototype as any)._getIconUrlFixed = true;
     }
 }
 
@@ -27,8 +26,8 @@ interface MapDisplayProps {
   markers?: Array<{
     position: [number, number];
     popupText?: string;
-    iconUrl?: string; // URL for a custom marker icon
-    iconSize?: [number, number]; // [width, height] for custom icon
+    iconUrl?: string;
+    iconSize?: [number, number];
   }>;
   className?: string;
   style?: React.CSSProperties;
@@ -43,6 +42,12 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   style: propStyle,
   scrollWheelZoom = true,
 }) => {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const defaultStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
   const mapStyle = propStyle || defaultStyle;
 
@@ -55,10 +60,15 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     });
   };
 
-  // The placeholder for MapContainer should occupy the same space.
-  const mapPlaceholder = (
-    <Skeleton className={cn("rounded-md shadow-md w-full h-full min-h-[300px]", className)} style={mapStyle} />
-  );
+  if (!isMounted) {
+    return (
+      <Skeleton
+        className={cn("rounded-md shadow-md w-full h-full min-h-[300px]", className)}
+        style={mapStyle}
+        aria-label="Loading map..."
+      />
+    );
+  }
 
   return (
     <MapContainer
@@ -67,7 +77,6 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
       style={mapStyle}
       className={cn("rounded-md shadow-md", className)}
       scrollWheelZoom={scrollWheelZoom}
-      placeholder={mapPlaceholder} 
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -86,3 +95,4 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   );
 };
 export default MapDisplay;
+
