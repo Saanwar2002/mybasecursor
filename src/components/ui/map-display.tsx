@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { cn } from "@/lib/utils";
@@ -8,12 +8,16 @@ import { cn } from "@/lib/utils";
 // Fix for default marker icon issue with Webpack.
 // This needs to be done once, ideally when the module is first loaded client-side.
 if (typeof window !== 'undefined') {
-    delete (L.Icon.Default.prototype as any)._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    });
+    // Ensure this fix runs only once
+    if (!(L.Icon.Default.prototype as any)._getIconUrlFixed) {
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        });
+        (L.Icon.Default.prototype as any)._getIconUrlFixed = true; // Mark as fixed
+    }
 }
 
 // Lazy load react-leaflet components
@@ -42,7 +46,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   zoom = 13,
   markers,
   className,
-  style = { height: '100%', width: '100%' },
+  style: propStyle, // Rename to avoid conflict with internal stableStyle
   scrollWheelZoom = true,
 }) => {
   const [isClient, setIsClient] = useState(false);
@@ -50,6 +54,10 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   useEffect(() => {
     setIsClient(true); // Indicate that we are on the client-side
   }, []);
+
+  // Memoize the default style object to ensure stability
+  const defaultStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
+  const mapStyle = propStyle || defaultStyle;
 
   const createCustomIcon = (iconUrl: string, iconSize: [number, number] = [25, 41]) => {
     return L.icon({
@@ -60,7 +68,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     });
   };
 
-  const fallbackDiv = <div className={cn("flex items-center justify-center bg-muted rounded-md", className)} style={style}>Loading map...</div>;
+  const fallbackDiv = <div className={cn("flex items-center justify-center bg-muted rounded-md", className)} style={mapStyle}>Loading map...</div>;
 
   if (!isClient) {
     return fallbackDiv;
@@ -68,7 +76,13 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
 
   return (
     <Suspense fallback={fallbackDiv}>
-      <LazyMapContainer center={center} zoom={zoom} style={style} className={cn("rounded-md shadow-md", className)} scrollWheelZoom={scrollWheelZoom}>
+      <LazyMapContainer
+        center={center}
+        zoom={zoom}
+        style={mapStyle} // Use the potentially memoized style
+        className={cn("rounded-md shadow-md", className)}
+        scrollWheelZoom={scrollWheelZoom}
+      >
         <LazyTileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -77,7 +91,8 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
           <LazyMarker
             key={idx}
             position={marker.position}
-            icon={marker.iconUrl ? createCustomIcon(marker.iconUrl, marker.iconSize) : undefined}
+            // Use new L.Icon.Default() explicitly if no custom icon
+            icon={marker.iconUrl ? createCustomIcon(marker.iconUrl, marker.iconSize) : new L.Icon.Default()}
           >
             {marker.popupText && <LazyPopup>{marker.popupText}</LazyPopup>}
           </LazyMarker>
@@ -87,3 +102,4 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   );
 };
 export default MapDisplay;
+
