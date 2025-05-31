@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +22,7 @@ export default function LandingPage() {
           </Button>
         </div>
         <div className="mt-10 relative aspect-video max-w-3xl mx-auto rounded-lg overflow-hidden shadow-2xl">
-           <Image src="https://placehold.co/800x450.png" alt="Taxi illustration" data-ai-hint="city taxi" fill={true} objectFit="cover" />
+           <Image src="https://placehold.co/800x450.png" alt="Taxi illustration" data-ai-hint="city taxi" fill={true} />
         </div>
       </section>
 
