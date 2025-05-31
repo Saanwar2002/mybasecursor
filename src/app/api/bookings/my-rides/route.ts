@@ -23,7 +23,6 @@ interface Booking {
 }
 
 // Helper to convert Firestore Timestamp to a serializable format for JSON response
-// This matches the structure the frontend expects for JsonTimestamp
 function serializeTimestamp(timestamp: Timestamp): { _seconds: number; _nanoseconds: number } {
   return {
     _seconds: timestamp.seconds,
@@ -52,42 +51,44 @@ export async function GET(request: NextRequest) {
     const querySnapshot = await getDocs(q);
     console.log(`API /my-rides: Found ${querySnapshot.size} bookings for passengerId: ${passengerId}`);
     
-    const rides: any[] = []; // Use any[] for initial push, then type for response
+    const rides: any[] = []; 
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      console.log(`API /my-rides: Processing doc ${doc.id}, raw bookingTimestamp:`, data.bookingTimestamp);
+      console.log(`API /my-rides: Processing doc ${doc.id}, raw bookingTimestamp from Firestore:`, data.bookingTimestamp);
 
       let processedTimestamp: Timestamp;
       if (data.bookingTimestamp instanceof Timestamp) {
         processedTimestamp = data.bookingTimestamp;
       } else if (data.bookingTimestamp && typeof data.bookingTimestamp.seconds === 'number' && typeof data.bookingTimestamp.nanoseconds === 'number') {
-        // It might be an object from an earlier serialization attempt or non-server timestamp
+        // Handle cases where it might already be an object { seconds: ..., nanoseconds: ... }
+        // This can happen if it wasn't stored as a proper serverTimestamp initially
+        console.warn(`API /my-rides: doc ${doc.id} bookingTimestamp is an object, converting to Firestore Timestamp.`);
         processedTimestamp = new Timestamp(data.bookingTimestamp.seconds, data.bookingTimestamp.nanoseconds);
       } else {
         // Fallback if timestamp is missing or malformed
-        console.warn(`API /my-rides: doc ${doc.id} has missing or malformed bookingTimestamp. Using current time as fallback.`);
-        processedTimestamp = Timestamp.now();
+        console.warn(`API /my-rides: doc ${doc.id} has missing or malformed bookingTimestamp. Using current time as fallback. Value was:`, data.bookingTimestamp);
+        processedTimestamp = Timestamp.now(); // Use current server time as a fallback
       }
       
       rides.push({
         id: doc.id,
-        ...data, 
-        bookingTimestamp: serializeTimestamp(processedTimestamp), // Serialize timestamp
+        ...data,
+        bookingTimestamp: serializeTimestamp(processedTimestamp), // Ensure serialization
       });
     });
 
     return NextResponse.json(rides, { status: 200 });
   } catch (error) {
-    console.error('Error fetching bookings (API Route):', error); 
+    console.error('Error fetching bookings (API Route):', error);
 
     let errorMessage = 'An unknown server error occurred.';
     let errorDetails = '';
 
     if (error instanceof Error) {
         errorMessage = error.message;
-        const firebaseError = error as any;
+        const firebaseError = error as any; // Cast to any to access potential Firebase-specific properties
         if (firebaseError.code === 'failed-precondition' || (firebaseError.message && firebaseError.message.toLowerCase().includes('index'))) {
-             errorDetails = `Firestore query failed. This often indicates a missing composite index. Please check the server-side logs (terminal running 'npm run dev') for a Firestore error message, which may include a URL to create the required index. Firestore error code: ${firebaseError.code || 'N/A'}.`;
+             errorDetails = `The query requires an index. You can create it here: ${firebaseError.message.substring(firebaseError.message.indexOf('https://'))} Firestore query failed. This often indicates a missing composite index. Please check the server-side logs (terminal running 'npm run dev') for a Firestore error message, which may include a URL to create the required index. Firestore error code: ${firebaseError.code || 'N/A'}.`;
         } else {
             errorDetails = error.toString();
         }
@@ -103,3 +104,4 @@ export async function GET(request: NextRequest) {
   }
 }
 
+    

@@ -12,13 +12,13 @@ import { useToast } from '@/hooks/use-toast';
 
 // Interface for how Timestamp will look after JSON serialization from API
 interface JsonTimestamp {
-  _seconds: number; 
-  _nanoseconds: number; 
+  _seconds: number;
+  _nanoseconds: number;
 }
 
 interface Ride {
   id: string;
-  bookingTimestamp: JsonTimestamp;
+  bookingTimestamp?: JsonTimestamp | null;
   pickupLocation: { address: string };
   dropoffLocation: { address: string };
   driver?: string;
@@ -27,21 +27,22 @@ interface Ride {
   fareEstimate: number;
   status: string;
   rating?: number;
-  passengerName: string; 
+  passengerName: string;
   isSurgeApplied?: boolean;
 }
 
 // Helper function to format JSON serialized Firestore Timestamp
-const formatDate = (timestamp: JsonTimestamp | undefined | null): string => {
-  console.log("formatDate received timestamp:", timestamp); // Log input to formatDate
+const formatDate = (timestamp?: JsonTimestamp | null): string => {
+  console.log("formatDate received timestamp:", timestamp ? JSON.stringify(timestamp) : timestamp);
   if (!timestamp || typeof timestamp._seconds !== 'number' || typeof timestamp._nanoseconds !== 'number') {
     console.warn("formatDate: Invalid or missing timestamp structure. Received:", timestamp);
     return 'N/A';
   }
   try {
+    // Ensure nanoseconds are considered, even if toLocaleDateString might not use them for date part
     const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
     if (isNaN(date.getTime())) {
-      console.warn("formatDate: Created an invalid date. Seconds:", timestamp._seconds);
+      console.warn("formatDate: Created an invalid date. Seconds:", timestamp._seconds, "Nanoseconds:", timestamp._nanoseconds);
       return 'N/A (Invalid Date)';
     }
     return date.toLocaleDateString(undefined, {
@@ -67,7 +68,7 @@ export default function MyRidesPage() {
 
   useEffect(() => {
     if (user?.id) {
-      console.log("MyRidesPage: Attempting to fetch rides for passengerId:", user.id); 
+      console.log("MyRidesPage: Attempting to fetch rides for passengerId:", user.id);
       const fetchRides = async () => {
         setIsLoading(true);
         setError(null);
@@ -76,14 +77,14 @@ export default function MyRidesPage() {
           if (!response.ok) {
             let errorData = { message: `Failed to fetch rides: ${response.status}`, details: '' };
             try {
-              errorData = await response.json();
+              errorData = await response.json(); 
             } catch (e) {
               console.error("Response was not JSON:", response.statusText);
             }
             throw new Error(errorData.details || errorData.message || `Failed to fetch rides: ${response.status}`);
           }
           const data: Ride[] = await response.json();
-          console.log("MyRidesPage: Rides data received from API:", data); 
+          console.log("MyRidesPage: Rides data received from API:", data);
           setRides(data);
         } catch (err) {
           console.error("Error fetching rides (Client):", err);
@@ -93,7 +94,7 @@ export default function MyRidesPage() {
             title: "Error Fetching Rides",
             description: `${displayMessage} Check browser console or server logs for more details.`,
             variant: "destructive",
-            duration: 10000, 
+            duration: 10000,
           });
         } finally {
           setIsLoading(false);
@@ -114,22 +115,6 @@ export default function MyRidesPage() {
   const submitRating = async () => {
     if (selectedRide && user) {
       console.log(`Submitting rating ${currentRating} for ride ${selectedRide.id} by user ${user.id}`);
-      // TODO: API call to update rating in Firestore for selectedRide.id
-      // Example:
-      // try {
-      //   const response = await fetch('/api/bookings/rate-ride', {
-      //     method: 'POST',
-      //     headers: { 'Content-Type': 'application/json' },
-      //     body: JSON.stringify({ rideId: selectedRide.id, rating: currentRating, passengerId: user.id }),
-      //   });
-      //   if (!response.ok) throw new Error('Failed to submit rating');
-      //   const updatedRide = await response.json();
-      //   setRides(prevRides => prevRides.map(r => r.id === updatedRide.id ? updatedRide : r));
-      //   toast({ title: "Rating Submitted", description: `You rated your ride ${currentRating} stars.`});
-      // } catch (e) {
-      //   toast({ title: "Rating Error", description: e.message, variant: "destructive"});
-      // }
-
       // For demo purposes, update local state and show toast
       const updatedRides = rides.map(r =>
         r.id === selectedRide.id ? { ...r, rating: currentRating } : r
@@ -158,7 +143,7 @@ export default function MyRidesPage() {
     );
   }
 
-  if (error && rides.length === 0) { 
+  if (error && rides.length === 0) {
     return (
       <div className="space-y-6">
         <Card className="shadow-lg">
@@ -173,7 +158,7 @@ export default function MyRidesPage() {
             <p className="font-semibold">Could not load your rides.</p>
             <p className="text-sm">{error}</p>
             <Button variant="outline" onClick={() => {
-              if (user?.id) { 
+              if (user?.id) {
                  if (typeof window !== 'undefined') window.location.reload();
               } else {
                 if (typeof window !== 'undefined') window.location.reload();
@@ -202,7 +187,7 @@ export default function MyRidesPage() {
         </Card>
       )}
 
-      {error && rides.length > 0 && ( 
+      {error && rides.length > 0 && (
          <div className="p-4 mb-4 text-sm text-destructive-foreground bg-destructive rounded-md shadow-lg">
             <p><strong>Error:</strong> {error}</p>
             <p className="text-xs">Some data might be missing or outdated. Please try refreshing.</p>
@@ -305,4 +290,3 @@ export default function MyRidesPage() {
     </div>
   );
 }
-
