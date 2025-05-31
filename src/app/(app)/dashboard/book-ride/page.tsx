@@ -51,7 +51,12 @@ const mockAddresses: string[] = [
   "Heathrow Airport Terminal 5, Hounslow, TW6 2GA",
   "Gatwick Airport South Terminal, Horley, Gatwick, RH6 0NP",
   "Kings Cross Station, Euston Rd, London, N1 9AL",
-  "Paddington Station, Praed St, London, W2 1HQ"
+  "Paddington Station, Praed St, London, W2 1HQ",
+  "HD1 3AY, Huddersfield, Kirkgate Buildings",
+  "1 First Street, Manchester, M15 4FN",
+  "Birmingham New Street Station, Birmingham, B2 4QA",
+  "Leeds City Station, New Station St, Leeds, LS1 4DT",
+  "Bristol Temple Meads, Station Approach, Bristol, BS1 6QF"
 ];
 
 
@@ -70,12 +75,10 @@ export default function BookRidePage() {
     },
   });
 
-  // State for pickup autocomplete
   const [pickupInputValue, setPickupInputValue] = useState("");
   const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
 
-  // State for dropoff autocomplete
   const [dropoffInputValue, setDropoffInputValue] = useState("");
   const [dropoffSuggestions, setDropoffSuggestions] = useState<string[]>([]);
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
@@ -89,17 +92,33 @@ export default function BookRidePage() {
   ) => {
     const value = e.target.value;
     setInputValueState(value);
-    fieldOnChange(value); // Update react-hook-form state
+    fieldOnChange(value); 
     if (value.length > 1) {
-      setSuggestionsState(
-        mockAddresses.filter(addr => addr.toLowerCase().includes(value.toLowerCase()))
-      );
-      setShowSuggestionsState(true);
+      const filtered = mockAddresses.filter(addr => addr.toLowerCase().includes(value.toLowerCase()));
+      setSuggestionsState(filtered);
+      setShowSuggestionsState(filtered.length > 0);
     } else {
       setShowSuggestionsState(false);
       setSuggestionsState([]);
     }
   };
+
+  const handleFocus = (
+    currentValue: string,
+    setSuggestionsState: React.Dispatch<React.SetStateAction<string[]>>,
+    setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
+    if (currentValue.length > 1) {
+      const filtered = mockAddresses.filter(addr =>
+        addr.toLowerCase().includes(currentValue.toLowerCase())
+      );
+      setSuggestionsState(filtered);
+      setShowSuggestionsState(filtered.length > 0);
+    } else {
+      setShowSuggestionsState(false);
+    }
+  };
+
 
   const handleSuggestionClick = (
     address: string,
@@ -108,7 +127,7 @@ export default function BookRidePage() {
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
     setInputValueState(address);
-    fieldOnChange(address); // Update react-hook-form state
+    fieldOnChange(address); 
     setShowSuggestionsState(false);
   };
 
@@ -171,16 +190,12 @@ export default function BookRidePage() {
                           <FormControl>
                             <Input
                               placeholder="Type pickup address, e.g., 123 Main St"
-                              {...field} // Spread field to pass ref, name, onBlur
-                              value={pickupInputValue} // Control input with local state
+                              {...field}
+                              value={pickupInputValue}
                               onChange={(e) => handleAddressInputChange(e, field.onChange, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions)}
-                              onFocus={() => {
-                                if (pickupInputValue.length > 1 && pickupSuggestions.length > 0) {
-                                    setShowPickupSuggestions(true);
-                                }
-                              }}
-                              // Delay onBlur to allow click on suggestion
+                              onFocus={() => handleFocus(pickupInputValue, setPickupSuggestions, setShowPickupSuggestions)}
                               onBlur={() => { field.onBlur(); setTimeout(() => setShowPickupSuggestions(false), 150);}}
+                              autoComplete="off"
                             />
                           </FormControl>
                           {showPickupSuggestions && pickupSuggestions.length > 0 && (
@@ -211,16 +226,12 @@ export default function BookRidePage() {
                           <FormControl>
                             <Input
                               placeholder="Type drop-off address, e.g., 456 Market Ave"
-                              {...field} // Spread field to pass ref, name, onBlur
-                              value={dropoffInputValue} // Control input with local state
+                              {...field}
+                              value={dropoffInputValue}
                               onChange={(e) => handleAddressInputChange(e, field.onChange, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions)}
-                               onFocus={() => {
-                                if (dropoffInputValue.length > 1 && dropoffSuggestions.length > 0) {
-                                    setShowDropoffSuggestions(true);
-                                }
-                              }}
-                              // Delay onBlur to allow click on suggestion
+                              onFocus={() => handleFocus(dropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions)}
                               onBlur={() => { field.onBlur(); setTimeout(() => setShowDropoffSuggestions(false), 150);}}
+                              autoComplete="off"
                             />
                           </FormControl>
                           {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
@@ -313,4 +324,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
