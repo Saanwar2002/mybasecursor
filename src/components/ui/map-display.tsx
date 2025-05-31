@@ -1,9 +1,9 @@
 
 "use client";
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { cn } from "@/lib/utils"; 
+import { cn } from "@/lib/utils";
 
 // Fix for default marker icon issue with Webpack.
 // This needs to be done once, ideally when the module is first loaded client-side.
@@ -16,12 +16,19 @@ if (typeof window !== 'undefined') {
     });
 }
 
+// Lazy load react-leaflet components
+const LazyMapContainer = React.lazy(() => import('react-leaflet').then(module => ({ default: module.MapContainer })));
+const LazyTileLayer = React.lazy(() => import('react-leaflet').then(module => ({ default: module.TileLayer })));
+const LazyMarker = React.lazy(() => import('react-leaflet').then(module => ({ default: module.Marker })));
+const LazyPopup = React.lazy(() => import('react-leaflet').then(module => ({ default: module.Popup })));
+
+
 interface MapDisplayProps {
   center: [number, number]; // latitude, longitude
   zoom?: number;
-  markers?: Array<{ 
-    position: [number, number]; 
-    popupText?: string; 
+  markers?: Array<{
+    position: [number, number];
+    popupText?: string;
     iconUrl?: string; // URL for a custom marker icon
     iconSize?: [number, number]; // [width, height] for custom icon
   }>;
@@ -36,29 +43,13 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   markers,
   className,
   style = { height: '100%', width: '100%' },
-  scrollWheelZoom = true, // Default to true for better usability on larger maps
+  scrollWheelZoom = true,
 }) => {
-  const [MapContainer, setMapContainer] = useState<any>(null);
-  const [TileLayer, setTileLayer] = useState<any>(null);
-  const [Marker, setMarker] = useState<any>(null);
-  const [Popup, setPopup] = useState<any>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true); // Indicate that we are on the client-side
-    if (typeof window !== 'undefined') {
-      import('react-leaflet').then(RL => {
-        setMapContainer(() => RL.MapContainer);
-        setTileLayer(() => RL.TileLayer);
-        setMarker(() => RL.Marker);
-        setPopup(() => RL.Popup);
-      }).catch(error => console.error("Failed to load react-leaflet", error));
-    }
   }, []);
-
-  if (!isClient || !MapContainer || !TileLayer || !Marker || !Popup) {
-    return <div className={cn("flex items-center justify-center bg-muted rounded-md", className)} style={style}>Loading map...</div>;
-  }
 
   const createCustomIcon = (iconUrl: string, iconSize: [number, number] = [25, 41]) => {
     return L.icon({
@@ -69,22 +60,30 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     });
   };
 
+  const fallbackDiv = <div className={cn("flex items-center justify-center bg-muted rounded-md", className)} style={style}>Loading map...</div>;
+
+  if (!isClient) {
+    return fallbackDiv;
+  }
+
   return (
-    <MapContainer center={center} zoom={zoom} style={style} className={cn("rounded-md shadow-md", className)} scrollWheelZoom={scrollWheelZoom}>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      {markers?.map((marker, idx) => (
-        <Marker 
-          key={idx} 
-          position={marker.position} 
-          icon={marker.iconUrl ? createCustomIcon(marker.iconUrl, marker.iconSize) : L.Icon.Default.prototype}
-        >
-          {marker.popupText && <Popup>{marker.popupText}</Popup>}
-        </Marker>
-      ))}
-    </MapContainer>
+    <Suspense fallback={fallbackDiv}>
+      <LazyMapContainer center={center} zoom={zoom} style={style} className={cn("rounded-md shadow-md", className)} scrollWheelZoom={scrollWheelZoom}>
+        <LazyTileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {markers?.map((marker, idx) => (
+          <LazyMarker
+            key={idx}
+            position={marker.position}
+            icon={marker.iconUrl ? createCustomIcon(marker.iconUrl, marker.iconSize) : undefined}
+          >
+            {marker.popupText && <LazyPopup>{marker.popupText}</LazyPopup>}
+          </LazyMarker>
+        ))}
+      </LazyMapContainer>
+    </Suspense>
   );
 };
 export default MapDisplay;
