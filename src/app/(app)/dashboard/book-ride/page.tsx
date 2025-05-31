@@ -37,10 +37,34 @@ const bookingFormSchema = z.object({
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
+function deg2rad(deg: number): number {
+  return deg * (Math.PI / 180);
+}
+
+function getDistanceInMiles(
+  coords1: google.maps.LatLngLiteral,
+  coords2: google.maps.LatLngLiteral
+): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(coords2.lat - coords1.lat);
+  const dLon = deg2rad(coords2.lng - coords1.lng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(coords1.lat)) * Math.cos(deg2rad(coords2.lat)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d * 0.621371; // Distance in miles
+}
+
+
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const { toast } = useToast();
   const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
+  
+  const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
+  const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -56,16 +80,18 @@ export default function BookRidePage() {
   const [pickupSuggestions, setPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
   const [isFetchingPickupSuggestions, setIsFetchingPickupSuggestions] = useState(false);
+  const [isFetchingPickupDetails, setIsFetchingPickupDetails] = useState(false);
 
   const [dropoffInputValue, setDropoffInputValue] = useState("");
   const [dropoffSuggestions, setDropoffSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
   const [isFetchingDropoffSuggestions, setIsFetchingDropoffSuggestions] = useState(false);
+  const [isFetchingDropoffDetails, setIsFetchingDropoffDetails] = useState(false);
   
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
-  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+  const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
   useEffect(() => {
     const loader = new Loader({
@@ -76,12 +102,11 @@ export default function BookRidePage() {
 
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      // Create a dummy map div for PlacesService, it doesn't need to be visible
-      const mapDiv = document.createElement('div');
+      const mapDiv = document.createElement('div'); // Dummy div for PlacesService
       placesServiceRef.current = new google.maps.places.PlacesService(mapDiv);
-      sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+      autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
     }).catch(e => {
-      console.error("Failed to load Google Maps API", e);
+      console.error("Failed to load Google Maps API for address search", e);
       toast({ title: "Error", description: "Could not load address search. Please check API key or network.", variant: "destructive" });
     });
   }, [toast]);
@@ -101,8 +126,8 @@ export default function BookRidePage() {
     autocompleteServiceRef.current.getPlacePredictions(
       { 
         input: inputValue, 
-        sessionToken: sessionTokenRef.current,
-        componentRestrictions: { country: 'gb' } // Restrict to UK for better results
+        sessionToken: autocompleteSessionTokenRef.current,
+        componentRestrictions: { country: 'gb' } 
       },
       (predictions, status) => {
         setIsFetchingState(false);
@@ -111,7 +136,7 @@ export default function BookRidePage() {
         } else {
           setSuggestionsState([]);
           if (status !== google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-            console.warn("Autocomplete prediction error:", status);
+             console.warn("Autocomplete prediction error:", status);
           }
         }
       }
@@ -124,10 +149,13 @@ export default function BookRidePage() {
     setSuggestionsState: React.Dispatch<React.SetStateAction<google.maps.places.AutocompletePrediction[]>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
     setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>,
-    formOnChange: (value: string) => void
+    formOnChange: (value: string) => void,
+    setCoordsState: React.Dispatch<React.SetStateAction<google.maps.LatLngLiteral | null>>
   ) => {
     setInputValueState(inputValue);
-    formOnChange(inputValue); // Keep RHF updated with typed value
+    formOnChange(inputValue);
+    setCoordsState(null); // Clear coords if user types manually
+    setFareEstimate(null); // Clear fare estimate if address is manually changed
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -140,49 +168,72 @@ export default function BookRidePage() {
       return;
     }
     
-    setShowSuggestionsState(true); // Show dropdown (can show loading state here)
-    setIsFetchingState(true); // Set fetching to true before debounce
-    setSuggestionsState([]); // Clear previous suggestions
+    setShowSuggestionsState(true);
+    setIsFetchingState(true);
+    setSuggestionsState([]); 
 
     debounceTimeoutRef.current = setTimeout(() => {
       fetchAddressSuggestions(inputValue, setSuggestionsState, setIsFetchingState);
-    }, 300); // 300ms debounce
+    }, 300);
   }, [fetchAddressSuggestions]);
 
-  const handleSuggestionClick = (
+  const handleSuggestionClick = useCallback((
     suggestion: google.maps.places.AutocompletePrediction,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
-    formOnChange: (value: string) => void
+    formOnChange: (value: string) => void,
+    setCoordsState: React.Dispatch<React.SetStateAction<google.maps.LatLngLiteral | null>>,
+    setIsFetchingDetailsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
     const addressText = suggestion.description;
     setInputValueState(addressText);
     formOnChange(addressText); 
     setShowSuggestionsState(false);
-    // Optionally, fetch place details if needed for lat/lng
-    // if (placesServiceRef.current && suggestion.place_id) {
-    //   placesServiceRef.current.getDetails({ placeId: suggestion.place_id, sessionToken: sessionTokenRef.current }, (place, status) => {
-    //     if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-    //       console.log("Selected place coordinates:", place.geometry.location.lat(), place.geometry.location.lng());
-    //       // You might want to store these coordinates if needed
-    //     }
-    //   });
-    // }
-    // Renew session token for next set of autocompletes
-    sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
-  };
+
+    if (placesServiceRef.current && suggestion.place_id) {
+      setIsFetchingDetailsState(true);
+      placesServiceRef.current.getDetails(
+        { 
+          placeId: suggestion.place_id, 
+          fields: ['geometry.location'], 
+          sessionToken: autocompleteSessionTokenRef.current // Use the same token for getDetails
+        }, 
+        (place, status) => {
+          setIsFetchingDetailsState(false);
+          if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+            setCoordsState({
+              lat: place.geometry.location.lat(),
+              lng: place.geometry.location.lng(),
+            });
+            toast({ title: "Location Selected", description: `${addressText} coordinates captured.`});
+          } else {
+            toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
+            setCoordsState(null);
+          }
+          // Renew autocomplete session token for the next set of autocompletes
+          autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+        }
+      );
+    } else {
+      setCoordsState(null);
+      toast({ title: "Warning", description: "Could not fetch location details (missing place ID or service).", variant: "default" });
+    }
+  }, [toast]);
   
   const handleFocus = (
     inputValue: string,
+    suggestions: google.maps.places.AutocompletePrediction[],
     setSuggestionsState: React.Dispatch<React.SetStateAction<google.maps.places.AutocompletePrediction[]>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
     setIsFetchingState: React.Dispatch<React.SetStateAction<boolean>>,
   ) => {
-    if (inputValue.length >= 2 && autocompleteServiceRef.current) {
+    if (inputValue.length >=2 && suggestions.length > 0) {
+        setShowSuggestionsState(true);
+    } else if (inputValue.length >= 2 && autocompleteServiceRef.current) {
         fetchAddressSuggestions(inputValue, setSuggestionsState, setIsFetchingState);
         setShowSuggestionsState(true);
     } else {
-        setShowSuggestionsState(false); // Don't show if less than 2 chars or service not ready
+        setShowSuggestionsState(false);
     }
   };
   
@@ -191,68 +242,114 @@ export default function BookRidePage() {
   ) => {
     setTimeout(() => {
       setShowSuggestionsState(false);
-    }, 150);
+    }, 150); // Delay to allow click on suggestion
   };
 
-  function onSubmit(values: z.infer<typeof bookingFormSchema>) {
-    const baseFare = 5;
-    const distanceFare = Math.random() * 20 + 5; 
-    let vehicleMultiplier = 1;
-    if (values.vehicleType === "suv") vehicleMultiplier = 1.5;
-    if (values.vehicleType === "van") vehicleMultiplier = 2;
-    if (values.vehicleType === "luxury") vehicleMultiplier = 3;
-    
-    const calculatedFare = baseFare + distanceFare * vehicleMultiplier * (1 + (values.passengers -1) * 0.1);
-    setFareEstimate(parseFloat(calculatedFare.toFixed(2)));
+  const watchedVehicleType = form.watch("vehicleType");
+  const watchedPassengers = form.watch("passengers");
 
-    const newMarkers = [
-        { position: [defaultMapCenter[0] + 0.01, defaultMapCenter[1] + 0.01] as [number, number], popupText: `Pickup: ${values.pickupLocation}` },
-        { position: [defaultMapCenter[0] - 0.01, defaultMapCenter[1] - 0.01] as [number, number], popupText: `Dropoff: ${values.dropoffLocation}` }
-    ];
+  useEffect(() => {
+    if (pickupCoords && dropoffCoords) {
+      const distanceMiles = getDistanceInMiles(pickupCoords, dropoffCoords);
+      
+      let milesFare;
+      if (distanceMiles <= 0) milesFare = 0;
+      else if (distanceMiles <= 1) milesFare = 2.99;
+      else milesFare = 2.99 + (distanceMiles - 1) * 1.00;
+
+      let vehicleMultiplier = 1;
+      if (watchedVehicleType === "suv") vehicleMultiplier = 1.5;
+      if (watchedVehicleType === "van") vehicleMultiplier = 2;
+      if (watchedVehicleType === "luxury") vehicleMultiplier = 3;
+      
+      const passengerCount = Number(watchedPassengers) || 1;
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
+      
+      const calculatedFare = milesFare * vehicleMultiplier * passengerAdjustment;
+      setFareEstimate(parseFloat(calculatedFare.toFixed(2)));
+
+    } else {
+      setFareEstimate(null);
+    }
+  }, [pickupCoords, dropoffCoords, watchedVehicleType, watchedPassengers]);
+
+ useEffect(() => {
+    const newMarkers = [];
+    if (pickupCoords) {
+      newMarkers.push({ position: [pickupCoords.lat, pickupCoords.lng], popupText: `Pickup: ${form.getValues('pickupLocation')}` });
+    }
+    if (dropoffCoords) {
+      newMarkers.push({ position: [dropoffCoords.lat, dropoffCoords.lng], popupText: `Dropoff: ${form.getValues('dropoffLocation')}` });
+    }
     setMapMarkers(newMarkers);
+  }, [pickupCoords, dropoffCoords, form]);
 
-    toast({
-      title: "Ride Details Submitted",
-      description: "Checking for available taxis and calculating fare...",
-    });
-  }
 
-  const handleConfirmBooking = () => {
+  function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
+     if (!pickupCoords || !dropoffCoords) {
+      toast({
+        title: "Missing Location Details",
+        description: "Please select valid pickup and drop-off locations from the suggestions.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (fareEstimate === null) {
+      toast({
+        title: "Fare Not Calculated",
+        description: "Could not calculate fare. Please ensure addresses are valid.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Booking Confirmed!",
-      description: `Your ride is confirmed. Estimated fare: £${fareEstimate}. A driver will be assigned shortly.`,
+      description: `Your ride from ${values.pickupLocation} to ${values.dropoffLocation} is confirmed. Estimated fare: £${fareEstimate}. A driver will be assigned shortly.`,
       variant: "default",
     });
     form.reset();
     setPickupInputValue("");
     setDropoffInputValue("");
+    setPickupCoords(null);
+    setDropoffCoords(null);
     setFareEstimate(null);
     setMapMarkers([]);
-  };
+    setPickupSuggestions([]);
+    setDropoffSuggestions([]);
+  }
 
   const renderSuggestions = (
     suggestions: google.maps.places.AutocompletePrediction[],
-    isFetching: boolean,
+    isFetchingSuggestions: boolean,
+    isFetchingDetails: boolean,
     inputValue: string,
     setInputValueState: React.Dispatch<React.SetStateAction<string>>,
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>,
     formOnChange: (value: string) => void,
+    setCoordsState: React.Dispatch<React.SetStateAction<google.maps.LatLngLiteral | null>>,
+    setIsFetchingDetailsState: React.Dispatch<React.SetStateAction<boolean>>,
     fieldKey: string
   ) => (
     <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
-      {isFetching && (
+      {isFetchingSuggestions && (
         <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
         </div>
       )}
-      {!isFetching && suggestions.length === 0 && inputValue.length >= 2 && (
+      {isFetchingDetails && (
+         <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching location details...
+        </div>
+      )}
+      {!isFetchingSuggestions && !isFetchingDetails && suggestions.length === 0 && inputValue.length >= 2 && (
          <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
       )}
-      {!isFetching && suggestions.map((suggestion) => (
+      {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestion) => (
         <div
           key={`${fieldKey}-${suggestion.place_id}`}
           className="p-2 text-sm hover:bg-muted cursor-pointer"
-          onMouseDown={() => handleSuggestionClick(suggestion, setInputValueState, setShowSuggestionsState, formOnChange)}
+          onMouseDown={() => handleSuggestionClick(suggestion, setInputValueState, setShowSuggestionsState, formOnChange, setCoordsState, setIsFetchingDetailsState)}
         >
           {suggestion.description}
         </div>
@@ -271,7 +368,7 @@ export default function BookRidePage() {
           <div className="grid md:grid-cols-2 gap-8">
             <div>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
                   <FormField
                     control={form.control}
                     name="pickupLocation"
@@ -284,13 +381,13 @@ export default function BookRidePage() {
                               placeholder="Type pickup address"
                               {...field}
                               value={pickupInputValue}
-                              onChange={(e) => handleAddressInputChange(e.target.value, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions, field.onChange)}
-                              onFocus={() => handleFocus(pickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions)}
+                              onChange={(e) => handleAddressInputChange(e.target.value, setPickupInputValue, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions, field.onChange, setPickupCoords)}
+                              onFocus={() => handleFocus(pickupInputValue, pickupSuggestions, setPickupSuggestions, setShowPickupSuggestions, setIsFetchingPickupSuggestions)}
                               onBlur={() => handleBlur(setShowPickupSuggestions)}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showPickupSuggestions && renderSuggestions(pickupSuggestions, isFetchingPickupSuggestions, pickupInputValue, setPickupInputValue, setShowPickupSuggestions, field.onChange, "pickup")}
+                          {showPickupSuggestions && renderSuggestions(pickupSuggestions, isFetchingPickupSuggestions, isFetchingPickupDetails, pickupInputValue, setPickupInputValue, setShowPickupSuggestions, field.onChange, setPickupCoords, setIsFetchingPickupDetails, "pickup")}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -308,13 +405,13 @@ export default function BookRidePage() {
                               placeholder="Type drop-off address"
                               {...field}
                               value={dropoffInputValue}
-                              onChange={(e) => handleAddressInputChange(e.target.value, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions, field.onChange)}
-                              onFocus={() => handleFocus(dropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions)}
+                              onChange={(e) => handleAddressInputChange(e.target.value, setDropoffInputValue, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions, field.onChange, setDropoffCoords)}
+                              onFocus={() => handleFocus(dropoffInputValue, dropoffSuggestions, setDropoffSuggestions, setShowDropoffSuggestions, setIsFetchingDropoffSuggestions)}
                               onBlur={() => handleBlur(setShowDropoffSuggestions)}
                               autoComplete="off"
                             />
                           </FormControl>
-                          {showDropoffSuggestions && renderSuggestions(dropoffSuggestions, isFetchingDropoffSuggestions, dropoffInputValue, setDropoffInputValue, setShowDropoffSuggestions, field.onChange, "dropoff")}
+                          {showDropoffSuggestions && renderSuggestions(dropoffSuggestions, isFetchingDropoffSuggestions, isFetchingDropoffDetails, dropoffInputValue, setDropoffInputValue, setShowDropoffSuggestions, field.onChange, setDropoffCoords, setIsFetchingDropoffDetails, "dropoff")}
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -350,41 +447,48 @@ export default function BookRidePage() {
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> Number of Passengers</FormLabel>
                         <FormControl>
-                          <Input type="number" min="1" max="10" placeholder="1" {...field} />
+                          <Input type="number" min="1" max="10" placeholder="1" {...field} 
+                           onChange={e => field.onChange(parseInt(e.target.value,10) || 1)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                    <DollarSign className="mr-2 h-4 w-4" /> Get Fare Estimate
+                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting}>
+                    <Briefcase className="mr-2 h-4 w-4" /> Book Ride (£{fareEstimate ? fareEstimate.toFixed(2) : '---'})
                   </Button>
                 </form>
               </Form>
             </div>
             <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-64 md:h-80 mb-6">
-                <MapDisplay center={defaultMapCenter} zoom={12} markers={mapMarkers} className="w-full h-full" />
+                <MapDisplay 
+                    center={(pickupCoords && [pickupCoords.lat, pickupCoords.lng]) || defaultMapCenter} 
+                    zoom={pickupCoords || dropoffCoords ? 14 : 12} 
+                    markers={mapMarkers} 
+                    className="w-full h-full" 
+                 />
               </div>
-              {fareEstimate !== null && (
-                <Card className="w-full text-center shadow-md">
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-headline">Fare Estimate</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-4xl font-bold text-accent">£{fareEstimate}</p>
-                    <p className="text-sm text-muted-foreground mt-1">This is an estimated fare. Actual fare may vary.</p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button onClick={handleConfirmBooking} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                      <Briefcase className="mr-2 h-4 w-4" /> Confirm Booking
-                    </Button>
-                  </CardFooter>
-                </Card>
-              )}
-              {fareEstimate === null && (
-                 <p className="text-muted-foreground">Enter details to see your fare estimate here.</p>
-              )}
+              <Card className="w-full text-center shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-headline">Fare Estimate</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isFetchingPickupDetails || isFetchingDropoffDetails ? (
+                     <div className="flex items-center justify-center">
+                        <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+                        <p className="text-2xl font-bold text-muted-foreground">Calculating...</p>
+                     </div>
+                  ) : fareEstimate !== null ? (
+                    <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                  ) : (
+                     <p className="text-xl text-muted-foreground">Select locations to see fare.</p>
+                  )}
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {(isFetchingPickupDetails || isFetchingDropoffDetails || fareEstimate !== null) ? "This is an estimated fare. Actual fare may vary." : "Enter details to see your fare estimate here."}
+                  </p>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </CardContent>
@@ -392,3 +496,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
