@@ -119,8 +119,13 @@ export default function BookRidePage() {
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
   useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      console.warn("Google Maps API Key is missing. Address autocomplete will not work.");
+      toast({ title: "Configuration Error", description: "Google Maps API Key is not set. Address search is disabled.", variant: "destructive" });
+      return;
+    }
     const loader = new Loader({
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
       libraries: ["places"],
     });
@@ -236,6 +241,7 @@ export default function BookRidePage() {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsState(null);
           }
+          // Renew the session token after each getDetails call
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
@@ -265,6 +271,7 @@ export default function BookRidePage() {
   const handleBlur = (
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
+    // Delay hiding suggestions to allow click event on suggestion item
     setTimeout(() => {
       setShowSuggestionsState(false);
     }, 150); 
@@ -276,7 +283,7 @@ export default function BookRidePage() {
   const toggleIntermediateStop = () => {
     const newShowState = !showIntermediateStop1;
     setShowIntermediateStop1(newShowState);
-    if (!newShowState) { 
+    if (!newShowState) { // If hiding the stop
       form.setValue("intermediateStop1Location", "");
       setIntermediateStop1InputValue("");
       setIntermediateStop1Coords(null);
@@ -310,6 +317,7 @@ export default function BookRidePage() {
         const estimatedTripDurationMinutes = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
         const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
         
+        // Adjusted distance fare: First mile has a surcharge
         const distanceBasedFare = (totalDistanceMiles * PER_MILE_RATE) + (totalDistanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
         
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
@@ -320,11 +328,12 @@ export default function BookRidePage() {
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
-      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; // Same as car
+      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; // Car + 50%
+      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6; // Car + 60%
       
       const passengerCount = Number(watchedPassengers) || 1;
+      // Example: 10% extra for each additional passenger beyond the first
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
       
       const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
@@ -486,9 +495,16 @@ export default function BookRidePage() {
                   />
 
                   {!showIntermediateStop1 && (
-                    <Button type="button" variant="outline" onClick={toggleIntermediateStop} className="w-full text-sm">
-                      <PlusCircle className="mr-2 h-4 w-4" /> (+ Stop/Pickup)
-                    </Button>
+                    <div className="flex justify-center my-3">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={toggleIntermediateStop}
+                            className="text-sm font-semibold text-accent hover:text-accent/90 bg-accent/10 hover:bg-accent/20 px-6 py-2 rounded-lg shadow-sm"
+                        >
+                            <PlusCircle className="mr-2 h-4 w-4" /> (+ Stop/Pickup)
+                        </Button>
+                    </div>
                   )}
 
                   {showIntermediateStop1 && (
@@ -639,3 +655,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
