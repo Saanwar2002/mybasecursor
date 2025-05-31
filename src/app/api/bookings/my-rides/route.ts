@@ -18,7 +18,7 @@ interface Booking {
   surgeMultiplier: number;
   stopSurchargeTotal: number;
   status: string;
-  bookingTimestamp: Timestamp; // Firestore Timestamp
+  bookingTimestamp: Timestamp; // Firestore Timestamp on server
   // Add any other fields you expect from your booking documents
 }
 
@@ -42,23 +42,42 @@ export async function GET(request: NextRequest) {
     const rides: Booking[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      // Ensure bookingTimestamp is converted correctly if needed, or handle if it might be missing
-      const bookingTimestamp = data.bookingTimestamp instanceof Timestamp ? data.bookingTimestamp : Timestamp.now();
+      // Ensure bookingTimestamp is a Firestore Timestamp before sending
+      const bookingTimestamp = data.bookingTimestamp instanceof Timestamp ? data.bookingTimestamp : Timestamp.fromDate(new Date(data.bookingTimestamp?.seconds * 1000 || Date.now()));
       
       rides.push({
         id: doc.id,
-        ...(data as Omit<Booking, 'id' | 'bookingTimestamp'>), // Cast other fields
-        bookingTimestamp, // Ensure it's a Firestore Timestamp
+        ...(data as Omit<Booking, 'id' | 'bookingTimestamp'>),
+        bookingTimestamp,
       });
     });
 
     return NextResponse.json(rides, { status: 200 });
   } catch (error) {
-    console.error('Error fetching bookings:', error);
-    let errorMessage = 'Internal Server Error';
+    console.error('Error fetching bookings (API Route):', error); // Log the full error object
+
+    let errorMessage = 'An unknown server error occurred.';
+    let errorDetails = '';
+
     if (error instanceof Error) {
-        errorMessage = error.message;
+        errorMessage = error.message; 
+        // Check for Firestore specific errors that might indicate an index issue
+        // Firestore error codes are typically strings like 'firestore/failed-precondition'
+        const firebaseError = error as any; // Cast to access potential 'code' property
+        if (firebaseError.code === 'failed-precondition') {
+             errorDetails = `Firestore query failed. This often indicates a missing composite index. Please check the server-side logs (terminal running 'npm run dev') for a Firestore error message, which may include a URL to create the required index. Firestore error code: ${firebaseError.code}.`;
+        } else {
+            errorDetails = error.toString();
+        }
+    } else if (typeof error === 'string') {
+        errorMessage = error;
+        errorDetails = error;
     }
-    return NextResponse.json({ message: 'Failed to fetch bookings', details: errorMessage }, { status: 500 });
+    
+    return NextResponse.json({ 
+      message: 'Failed to retrieve your rides. Please check server logs for more details, especially regarding Firestore indexes.', 
+      details: `${errorMessage} ${errorDetails}`.trim() 
+    }, { status: 500 });
   }
 }
+
