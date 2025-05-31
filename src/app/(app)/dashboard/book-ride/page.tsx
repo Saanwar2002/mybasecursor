@@ -117,7 +117,7 @@ export default function BookRidePage() {
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., 456 Market Ave, Anytown" {...field} />
+                          <Input placeholder="Type drop-off address, e.g., 456 Market Ave" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
