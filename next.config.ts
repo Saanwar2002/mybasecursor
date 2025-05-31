@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
+    // If you are accessing your development server via a cloudworkstations.dev URL (or similar proxy),
+    // ensure the EXACT origin URL you are using in your browser is listed here.
+    // These URLs can sometimes be dynamic. If your URL changes, you'll need to update this list
+    // and restart your development server.
+    // Example: 'https://YOUR_PORT-YOUR_SERVICE-YOUR_HASH.REGION.cloudworkstations.dev'
     allowedDevOrigins: ['https://9003-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev'],
   },
 };
