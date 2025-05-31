@@ -9,22 +9,22 @@ body {
 @layer base {
   :root {
     --background: 210 40% 98%; /* Off-white #F8FAFC */
-    --foreground: 215 39% 17%; /* Dark Slate Gray #1E293B */
+    --foreground: 215 39% 10%; /* Darker Slate Gray - Was 17% L */
 
     --card: 0 0% 100%; /* White */
-    --card-foreground: 215 39% 17%;
+    --card-foreground: 215 39% 10%; /* Darker - Was 17% L */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 39% 17%;
+    --popover-foreground: 215 39% 10%; /* Darker - Was 17% L */
 
     --primary: 172 80% 40%; /* Vibrant Teal #14B8A6 */
     --primary-foreground: 0 0% 100%; /* White for contrast on teal */
 
     --secondary: 210 30% 94%; /* Light Gray */
-    --secondary-foreground: 215 30% 30%; /* Darker Gray */
+    --secondary-foreground: 215 30% 25%; /* Darker Gray - Was 30% L */
 
     --muted: 210 30% 90%; /* Muted Gray */
-    --muted-foreground: 215 25% 45%; /* Medium Gray */
+    --muted-foreground: 215 25% 30%; /* Darker Medium Gray - Was 45% L */
 
     --accent: 25 95% 53%; /* Bright Orange #F97316 */
     --accent-foreground: 0 0% 100%; /* White for contrast on orange */
@@ -45,7 +45,7 @@ body {
 
     /* Sidebar specific colors */
     --sidebar-background: 172 30% 96%; /* Very Light Teal */
-    --sidebar-foreground: 215 39% 17%; /* Dark Slate Gray */
+    --sidebar-foreground: 215 39% 10%; /* Darker Slate Gray - Was 17% L */
     --sidebar-primary: 172 80% 40%; /* Vibrant Teal */
     --sidebar-primary-foreground: 0 0% 100%; /* White */
     --sidebar-accent: 25 95% 53%; /* Bright Orange */
@@ -56,22 +56,22 @@ body {
 
   .dark {
     --background: 222 47% 11%; /* Dark Slate #111827 */
-    --foreground: 220 13% 90%; /* Light Gray #E5E7EB */
+    --foreground: 220 13% 95%; /* Brighter Light Gray - Was 90% L */
 
     --card: 215 28% 17%; /* Cool Gray 800 #1F2937 */
-    --card-foreground: 220 13% 90%;
+    --card-foreground: 220 13% 95%; /* Brighter - Was 90% L */
 
     --popover: 215 28% 17%;
-    --popover-foreground: 220 13% 90%;
+    --popover-foreground: 220 13% 95%; /* Brighter - Was 90% L */
 
     --primary: 172 70% 50%; /* Slightly Lighter/Brighter Teal */
     --primary-foreground: 172 80% 15%; /* Very Dark Teal */
 
     --secondary: 215 25% 25%; /* Darker Gray */
-    --secondary-foreground: 220 10% 75%; /* Lighter Gray */
+    --secondary-foreground: 220 10% 80%; /* Lighter Gray - Was 75% L */
 
     --muted: 215 20% 20%; /* Very Dark Gray */
-    --muted-foreground: 220 10% 55%; /* Medium Gray */
+    --muted-foreground: 220 10% 65%; /* Brighter Medium Gray - Was 55% L */
 
     --accent: 25 90% 60%; /* Slightly Lighter/Brighter Orange */
     --accent-foreground: 25 80% 15%; /* Dark Orange/Brown */
@@ -92,7 +92,7 @@ body {
 
     /* Sidebar dark theme */
     --sidebar-background: 222 40% 13%; /* Slightly different from main dark bg */
-    --sidebar-foreground: 220 13% 90%;
+    --sidebar-foreground: 220 13% 95%; /* Brighter - Was 90% L */
     --sidebar-primary: 172 70% 50%;
     --sidebar-primary-foreground: 172 80% 15%;
     --sidebar-accent: 25 90% 60%;

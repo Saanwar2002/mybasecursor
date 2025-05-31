@@ -9,6 +9,13 @@ export default {
   ],
   theme: {
     extend: {
+      fontSize: {
+        'xs': '0.8rem', // default 0.75rem
+        'sm': '0.925rem', // default 0.875rem
+        'base': '1.05rem', // default 1rem
+        'lg': '1.175rem', // default 1.125rem
+        'xl': '1.3rem', // default 1.25rem
+      },
       fontFamily: {
         body: ['PT Sans', 'sans-serif'],
         headline: ['PT Sans', 'sans-serif'],
