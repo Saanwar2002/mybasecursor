@@ -1,13 +1,13 @@
 
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'; // Direct imports
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { cn } from "@/lib/utils";
+import { Skeleton } from './skeleton';
 
 // Fix for default marker icon issue with Webpack.
-// This needs to be done once, ideally when the module is first loaded client-side.
 if (typeof window !== 'undefined') {
     // Ensure this fix runs only once
     if (!(L.Icon.Default.prototype as any)._getIconUrlFixed) {
@@ -43,6 +43,12 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   style: propStyle,
   scrollWheelZoom = true,
 }) => {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const defaultStyle = useMemo(() => ({ height: '100%', width: '100%' }), []);
   const mapStyle = propStyle || defaultStyle;
 
@@ -55,7 +61,13 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     });
   };
 
-  // The <Suspense> fallback is now handled by the next/dynamic import in the parent component
+  if (!isMounted) {
+    // Render a skeleton or null while waiting for client-side mount
+    // The parent dynamic import already provides a loading skeleton,
+    // but this internal one ensures MapContainer isn't rendered prematurely.
+    return <Skeleton className={cn("rounded-md shadow-md w-full h-full min-h-[300px]", className)} style={mapStyle} />;
+  }
+
   return (
     <MapContainer
       center={center}
