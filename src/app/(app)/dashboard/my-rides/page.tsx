@@ -33,17 +33,26 @@ interface Ride {
 
 // Helper function to format JSON serialized Firestore Timestamp
 const formatDate = (timestamp?: JsonTimestamp | null): string => {
-  console.log("formatDate received timestamp:", timestamp ? JSON.stringify(timestamp) : timestamp);
-  if (!timestamp || typeof timestamp._seconds !== 'number' || typeof timestamp._nanoseconds !== 'number') {
-    console.warn("formatDate: Invalid or missing timestamp structure. Received:", timestamp);
-    return 'N/A';
+  console.log("formatDate: Received timestamp object:", timestamp ? JSON.stringify(timestamp) : String(timestamp));
+
+  if (!timestamp) {
+    console.warn("formatDate: Timestamp object is null or undefined.");
+    return 'Date N/A (Missing)';
   }
+  if (typeof timestamp._seconds !== 'number') {
+    console.warn(`formatDate: timestamp._seconds is not a number. Value: ${timestamp._seconds}, Type: ${typeof timestamp._seconds}`);
+    return 'Date N/A (Bad Seconds)';
+  }
+  if (typeof timestamp._nanoseconds !== 'number') {
+    console.warn(`formatDate: timestamp._nanoseconds is not a number. Value: ${timestamp._nanoseconds}, Type: ${typeof timestamp._nanoseconds}`);
+    return 'Date N/A (Bad Nanos)';
+  }
+
   try {
-    // Ensure nanoseconds are considered, even if toLocaleDateString might not use them for date part
     const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
     if (isNaN(date.getTime())) {
-      console.warn("formatDate: Created an invalid date. Seconds:", timestamp._seconds, "Nanoseconds:", timestamp._nanoseconds);
-      return 'N/A (Invalid Date)';
+      console.warn("formatDate: Created an invalid date (isNaN). Seconds:", timestamp._seconds, "Nanoseconds:", timestamp._nanoseconds);
+      return 'Date N/A (Invalid Date Obj)';
     }
     return date.toLocaleDateString(undefined, {
       year: 'numeric',
@@ -51,8 +60,8 @@ const formatDate = (timestamp?: JsonTimestamp | null): string => {
       day: 'numeric',
     });
   } catch (e) {
-    console.error("formatDate: Error creating date:", e, "from timestamp:", timestamp);
-    return 'N/A (Error)';
+    console.error("formatDate: Error creating Date object:", e, "from timestamp:", JSON.stringify(timestamp));
+    return 'Date N/A (Conversion Error)';
   }
 };
 
@@ -84,7 +93,10 @@ export default function MyRidesPage() {
             throw new Error(errorData.details || errorData.message || `Failed to fetch rides: ${response.status}`);
           }
           const data: Ride[] = await response.json();
-          console.log("MyRidesPage: Rides data received from API:", data);
+          console.log("MyRidesPage: Rides data received from API:", JSON.stringify(data, null, 2));
+          if (data.length > 0) {
+            console.log("MyRidesPage: Inspecting bookingTimestamp of first ride:", JSON.stringify(data[0].bookingTimestamp));
+          }
           setRides(data);
         } catch (err) {
           console.error("Error fetching rides (Client):", err);
@@ -290,3 +302,5 @@ export default function MyRidesPage() {
     </div>
   );
 }
+
+    
