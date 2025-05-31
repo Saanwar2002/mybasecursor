@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Briefcase, Loader2, Zap, Route, PlusCircle, XCircle } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -241,7 +241,6 @@ export default function BookRidePage() {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsState(null);
           }
-          // Renew the session token after each getDetails call
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
@@ -271,7 +270,6 @@ export default function BookRidePage() {
   const handleBlur = (
     setShowSuggestionsState: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
-    // Delay hiding suggestions to allow click event on suggestion item
     setTimeout(() => {
       setShowSuggestionsState(false);
     }, 150); 
@@ -283,7 +281,7 @@ export default function BookRidePage() {
   const toggleIntermediateStop = () => {
     const newShowState = !showIntermediateStop1;
     setShowIntermediateStop1(newShowState);
-    if (!newShowState) { // If hiding the stop
+    if (!newShowState) { 
       form.setValue("intermediateStop1Location", "");
       setIntermediateStop1InputValue("");
       setIntermediateStop1Coords(null);
@@ -316,10 +314,7 @@ export default function BookRidePage() {
       } else {
         const estimatedTripDurationMinutes = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
         const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
-        
-        // Adjusted distance fare: First mile has a surcharge
         const distanceBasedFare = (totalDistanceMiles * PER_MILE_RATE) + (totalDistanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
-        
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
         const fareWithBookingFee = subTotal + BOOKING_FEE;
         calculatedFareBeforeMultipliers = Math.max(fareWithBookingFee, MINIMUM_FARE);
@@ -328,12 +323,11 @@ export default function BookRidePage() {
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; // Same as car
-      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; // Car + 50%
-      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6; // Car + 60%
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
+      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; 
+      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6; 
       
       const passengerCount = Number(watchedPassengers) || 1;
-      // Example: 10% extra for each additional passenger beyond the first
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
       
       const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
@@ -601,23 +595,17 @@ export default function BookRidePage() {
                     )}
                   />
                    <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails}>
-                    <Briefcase className="mr-2 h-4 w-4" /> Book Ride (£{fareEstimate ? fareEstimate.toFixed(2) : '---'}) {isSurgeActive && <Zap className="ml-2 h-4 w-4 text-yellow-300" />}
+                     Book Ride
                   </Button>
                 </form>
               </Form>
-            </div>
-            <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
-              <div className="w-full h-64 md:h-80 mb-6">
-                <MapDisplay 
-                    center={(pickupCoords && [pickupCoords.lat, pickupCoords.lng]) || defaultMapCenter} 
-                    zoom={(pickupCoords || dropoffCoords || (showIntermediateStop1 && intermediateStop1Coords)) ? 12 : 10} 
-                    markers={mapMarkers} 
-                    className="w-full h-full" 
-                 />
-              </div>
-              <Card className="w-full text-center shadow-md">
+
+              {/* Moved Fare Estimate Card */}
+              <Card className="w-full text-center shadow-md mt-6">
                 <CardHeader>
-                  <CardTitle className="text-2xl font-headline">Fare Estimate</CardTitle>
+                  <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
+                    <DollarSign className="w-7 h-7 text-accent" /> Fare Estimate
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {anyFetchingDetails ? (
@@ -648,6 +636,19 @@ export default function BookRidePage() {
                   </p>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Right Column for Map */}
+            <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
+              <div className="w-full h-64 md:h-80 mb-6">
+                <MapDisplay 
+                    center={(pickupCoords && [pickupCoords.lat, pickupCoords.lng]) || defaultMapCenter} 
+                    zoom={(pickupCoords || dropoffCoords || (showIntermediateStop1 && intermediateStop1Coords)) ? 12 : 10} 
+                    markers={mapMarkers} 
+                    className="w-full h-full" 
+                 />
+              </div>
+               {/* Removed the original Fare Estimate card from here, keeping the map container */}
             </div>
           </div>
         </CardContent>
