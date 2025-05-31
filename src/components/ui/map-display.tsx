@@ -1,8 +1,9 @@
 
 "use client";
-import React, { Suspense, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'; // Direct imports
 import { cn } from "@/lib/utils";
 
 // Fix for default marker icon issue with Webpack.
@@ -19,13 +20,6 @@ if (typeof window !== 'undefined') {
         (L.Icon.Default.prototype as any)._getIconUrlFixed = true; // Mark as fixed
     }
 }
-
-// Lazy load react-leaflet components
-const LazyMapContainer = React.lazy(() => import('react-leaflet').then(module => ({ default: module.MapContainer })));
-const LazyTileLayer = React.lazy(() => import('react-leaflet').then(module => ({ default: module.TileLayer })));
-const LazyMarker = React.lazy(() => import('react-leaflet').then(module => ({ default: module.Marker })));
-const LazyPopup = React.lazy(() => import('react-leaflet').then(module => ({ default: module.Popup })));
-
 
 interface MapDisplayProps {
   center: [number, number]; // latitude, longitude
@@ -61,34 +55,29 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     });
   };
 
-  // Fallback for Suspense, though loading state is typically handled by next/dynamic
-  const fallbackDiv = <div className={cn("flex items-center justify-center bg-muted rounded-md", className)} style={mapStyle}>Loading map...</div>;
-
+  // The <Suspense> fallback is now handled by the next/dynamic import in the parent component
   return (
-    <Suspense fallback={fallbackDiv}>
-      <LazyMapContainer
-        center={center}
-        zoom={zoom}
-        style={mapStyle}
-        className={cn("rounded-md shadow-md", className)}
-        scrollWheelZoom={scrollWheelZoom}
-      >
-        <LazyTileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {markers?.map((marker, idx) => (
-          <LazyMarker
-            key={idx}
-            position={marker.position}
-            icon={marker.iconUrl ? createCustomIcon(marker.iconUrl, marker.iconSize) : new L.Icon.Default()}
-          >
-            {marker.popupText && <LazyPopup>{marker.popupText}</LazyPopup>}
-          </LazyMarker>
-        ))}
-      </LazyMapContainer>
-    </Suspense>
+    <MapContainer
+      center={center}
+      zoom={zoom}
+      style={mapStyle}
+      className={cn("rounded-md shadow-md", className)}
+      scrollWheelZoom={scrollWheelZoom}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {markers?.map((marker, idx) => (
+        <Marker
+          key={idx}
+          position={marker.position}
+          icon={marker.iconUrl ? createCustomIcon(marker.iconUrl, marker.iconSize) : new L.Icon.Default()}
+        >
+          {marker.popupText && <Popup>{marker.popupText}</Popup>}
+        </Marker>
+      ))}
+    </MapContainer>
   );
 };
 export default MapDisplay;
-
