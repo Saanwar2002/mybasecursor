@@ -40,11 +40,10 @@ const nextConfig: NextConfig = {
     // allowedDevOrigins: ['https://studio.firebase.google.com']
 
     allowedDevOrigins: [
-      // This URL is taken directly from the error message in your terminal.
-      // Ensure your browser is accessing the app via this exact origin (scheme + hostname + port).
-      'https://9004-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev'
-      // If you are also using 'https://studio.firebase.google.com', add it here as well:
-      // , 'https://studio.firebase.google.com'
+      // This URL is taken from the error message in your terminal.
+      'https://9004-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev',
+      // This URL is from your browser's address bar.
+      'https://studio.firebase.google.com'
     ],
   },
 };
