@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Briefcase, Loader2, Zap } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Briefcase, Loader2, Zap, Route } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,15 +37,15 @@ const bookingFormSchema = z.object({
 
 const defaultMapCenter: [number, number] = [51.5074, -0.1278]; // London
 
-// Fare Calculation Constants - Adjusted
-const BASE_FARE = 0.00; 
-const PER_MILE_RATE = 1.00; 
-const FIRST_MILE_SURCHARGE = 1.99; 
-const PER_MINUTE_RATE = 0.10; 
-const AVERAGE_SPEED_MPH = 15; 
-const BOOKING_FEE = 0.75; 
-const MINIMUM_FARE = 4.00; 
-const SURGE_MULTIPLIER_VALUE = 1.5; 
+// Fare Calculation Constants
+const BASE_FARE = 0.00;
+const PER_MILE_RATE = 1.00;
+const FIRST_MILE_SURCHARGE = 1.99;
+const PER_MINUTE_RATE = 0.10;
+const AVERAGE_SPEED_MPH = 15;
+const BOOKING_FEE = 0.75;
+const MINIMUM_FARE = 4.00;
+const SURGE_MULTIPLIER_VALUE = 1.5;
 
 function deg2rad(deg: number): number {
   return deg * (Math.PI / 180);
@@ -70,6 +70,7 @@ function getDistanceInMiles(
 
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
+  const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const { toast } = useToast();
   const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
   
@@ -168,7 +169,8 @@ export default function BookRidePage() {
     setInputValueState(inputValue);
     formOnChange(inputValue);
     setCoordsState(null); 
-    setFareEstimate(null); 
+    setFareEstimate(null);
+    setEstimatedDistance(null);
     setIsSurgeActive(false);
     setCurrentSurgeMultiplier(1);
 
@@ -265,6 +267,7 @@ export default function BookRidePage() {
   useEffect(() => {
     if (pickupCoords && dropoffCoords) {
       const distanceMiles = getDistanceInMiles(pickupCoords, dropoffCoords);
+      setEstimatedDistance(distanceMiles);
       
       const isCurrentlySurge = Math.random() < 0.3; 
       setIsSurgeActive(isCurrentlySurge);
@@ -288,10 +291,10 @@ export default function BookRidePage() {
 
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
-      let vehicleMultiplier = 1; // Default for 'car'
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; // Same as car
-      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; // Car fare + 50%
-      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6; // Car fare + 60%
+      let vehicleMultiplier = 1;
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
+      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
+      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
       
       const passengerCount = Number(watchedPassengers) || 1;
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
@@ -301,6 +304,7 @@ export default function BookRidePage() {
 
     } else {
       setFareEstimate(null);
+      setEstimatedDistance(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
@@ -347,6 +351,7 @@ export default function BookRidePage() {
     setPickupCoords(null);
     setDropoffCoords(null);
     setFareEstimate(null);
+    setEstimatedDistance(null);
     setIsSurgeActive(false);
     setCurrentSurgeMultiplier(1);
     setMapMarkers([]);
@@ -523,6 +528,11 @@ export default function BookRidePage() {
                         </p>
                       )}
                        {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                       {estimatedDistance !== null && (
+                          <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                            <Route className="w-4 h-4" /> Estimated Distance: {estimatedDistance.toFixed(2)} miles
+                          </p>
+                        )}
                     </>
                   ) : (
                      <p className="text-xl text-muted-foreground">Select locations to see fare.</p>
