@@ -600,7 +600,6 @@ export default function BookRidePage() {
                 </form>
               </Form>
 
-              {/* Moved Fare Estimate Card */}
               <Card className="w-full text-center shadow-md mt-6">
                 <CardHeader>
                   <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
@@ -622,11 +621,7 @@ export default function BookRidePage() {
                         </p>
                       )}
                        {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
-                       {estimatedDistance !== null && (
-                          <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                            <Route className="w-4 h-4" /> Estimated Distance: {estimatedDistance.toFixed(2)} miles
-                          </p>
-                        )}
+                       {/* Estimated distance display removed from here */}
                     </>
                   ) : (
                      <p className="text-xl text-muted-foreground">Select locations to see fare.</p>
@@ -638,7 +633,6 @@ export default function BookRidePage() {
               </Card>
             </div>
 
-            {/* Right Column for Map */}
             <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-64 md:h-80 mb-6">
                 <MapDisplay 
@@ -648,7 +642,6 @@ export default function BookRidePage() {
                     className="w-full h-full" 
                  />
               </div>
-               {/* Removed the original Fare Estimate card from here, keeping the map container */}
             </div>
           </div>
         </CardContent>
