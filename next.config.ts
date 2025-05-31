@@ -36,12 +36,15 @@ const nextConfig: NextConfig = {
     // Example if your browser URL is 'https://YOUR_PORT-YOUR_SERVICE-YOUR_HASH.REGION.cloudworkstations.dev/some/path':
     // allowedDevOrigins: ['https://YOUR_PORT-YOUR_SERVICE-YOUR_HASH.REGION.cloudworkstations.dev']
     //
-    // Example if your browser URL is 'https://studio.firebase.google.com/some-path':
+    // Example if your browser URL is 'https://studio.firebase.google.com/some/path':
     // allowedDevOrigins: ['https://studio.firebase.google.com']
 
     allowedDevOrigins: [
-      'https://9004-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev', // Previous example
-      'https://studio.firebase.google.com', // Added based on current user URL
+      // This URL is taken directly from the error message in your terminal.
+      // Ensure your browser is accessing the app via this exact origin (scheme + hostname + port).
+      'https://9004-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev'
+      // If you are also using 'https://studio.firebase.google.com', add it here as well:
+      // , 'https://studio.firebase.google.com'
     ],
   },
 };
