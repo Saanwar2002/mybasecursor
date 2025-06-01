@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { cn } from "@/lib/utils";
 import { Skeleton } from './skeleton';
@@ -26,25 +26,35 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   markers,
   className,
   style: propStyle,
-  mapId,
+  mapId: mapIdProp, // Renamed to avoid conflict with internal mapId variable
 }) => {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const currentMarkersRef = useRef<google.maps.Marker[]>([]);
+  
   const [isSdkReady, setIsSdkReady] = useState(false);
   const [mapInitError, setMapInitError] = useState<string | null>(null);
-  const currentMarkersRef = useRef<google.maps.Marker[]>([]);
+  const [mapDivNode, setMapDivNode] = useState<HTMLDivElement | null>(null);
+
+  const mapRefCallback = useCallback((node: HTMLDivElement | null) => {
+    if (node !== null) {
+      console.log("GoogleMapDisplay: mapRefCallback - div node IS available.");
+      setMapDivNode(node);
+    } else {
+      console.log("GoogleMapDisplay: mapRefCallback - div node is NULL (likely unmounting).");
+    }
+  }, []);
 
   const defaultStyle = useMemo(() => ({ height: '100%', width: '100%', minHeight: '300px' }), []);
   const mapStyle = propStyle ? { ...defaultStyle, ...propStyle } : defaultStyle;
   
-  const diagnosticStyle = process.env.NODE_ENV === 'development' ? { border: '2px solid green' } : {}; // Changed border for successful render
-  const skeletonDiagnosticStyle = process.env.NODE_ENV === 'development' ? { border: '2px dashed blue' } : {};
+  const diagnosticStyle = process.env.NODE_ENV === 'development' ? { border: '2px solid green' } : {};
   const errorDiagnosticStyle = process.env.NODE_ENV === 'development' ? { border: '2px solid orange' } : {};
+
 
   // Effect for loading the Google Maps SDK
   useEffect(() => {
     let isEffectMounted = true;
-    console.log("GoogleMapDisplay: SDK Loading effect triggered. Current mapId:", mapId);
+    console.log("GoogleMapDisplay: SDK Loading effect triggered.");
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
@@ -56,11 +66,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       return;
     }
     
-    // If API key is present, clear any previous key-related error
-    // and ensure SDK ready state is false before attempting to load.
-    setMapInitError(null);
-    setIsSdkReady(false); 
-
+    setMapInitError(null); // Clear previous errors if API key is present
+    
     const loader = new Loader({
       apiKey: apiKey,
       version: "weekly",
@@ -89,63 +96,56 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       isEffectMounted = false;
       console.log("GoogleMapDisplay: SDK Loading effect CLEANUP.");
     };
-  }, [mapId]); // Re-run if mapId (which is a prop for map features, not React key) changes.
+  }, []); // Only run once on mount
 
   // Effect for initializing and updating the map instance & markers
   useEffect(() => {
-    if (!isSdkReady) {
-      console.log("GoogleMapDisplay: Map Init/Update - SDK not ready, skipping.");
+    if (!isSdkReady || !mapDivNode) {
+      if (!isSdkReady) console.log("GoogleMapDisplay: Map Init/Update - SDK not ready, skipping.");
+      if (!mapDivNode) console.log("GoogleMapDisplay: Map Init/Update - mapDivNode is NULL, skipping.");
       return;
     }
 
-    if (!mapRef.current) {
-      // This is the critical check now. If this happens, the div is not in the DOM.
-      console.error("GoogleMapDisplay Critical: Map Init/Update - mapRef.current is NULL, but SDK is ready. This indicates the map container div is not rendered.");
-      setMapInitError("Map container DOM element not found. Please refresh or check for rendering issues.");
-      return;
-    }
+    console.log("GoogleMapDisplay: Map Init/Update - SDK is ready AND mapDivNode IS available.");
 
-    console.log("GoogleMapDisplay: Map Init/Update - SDK is ready, mapRef.current IS available.");
-
-    let currentMap = mapInstance;
-
-    if (!currentMap) {
-      console.log("GoogleMapDisplay: Initializing NEW map instance with center:", center, "zoom:", zoom, "mapId prop:", mapId);
-      currentMap = new google.maps.Map(mapRef.current, {
+    // Initialize map if it hasn't been, or if mapIdProp has changed
+    if (!mapInstanceRef.current || mapInstanceRef.current.getMapTypeId() !== mapIdProp) {
+      console.log("GoogleMapDisplay: Initializing NEW map instance with center:", center, "zoom:", zoom, "mapId prop:", mapIdProp);
+      mapInstanceRef.current = new google.maps.Map(mapDivNode, {
         center,
         zoom,
-        mapId: mapId, 
+        mapId: mapIdProp, 
         disableDefaultUI: true,
         zoomControl: true,
         streetViewControl: false,
         mapTypeControl: false,
       });
-      setMapInstance(currentMap);
     } else {
+      // Update existing map
       console.log("GoogleMapDisplay: UPDATING existing map instance.");
-      const currentMapCenter = currentMap.getCenter();
+      const currentMapCenter = mapInstanceRef.current.getCenter();
       if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
-        currentMap.setCenter(center);
+        mapInstanceRef.current.setCenter(center);
       }
-      if (currentMap.getZoom() !== zoom) {
-        currentMap.setZoom(zoom);
+      if (mapInstanceRef.current.getZoom() !== zoom) {
+        mapInstanceRef.current.setZoom(zoom);
       }
     }
     
     // Marker logic
-    currentMarkersRef.current.forEach(marker => marker.setMap(null));
+    currentMarkersRef.current.forEach(marker => marker.setMap(null)); // Clear existing markers
     currentMarkersRef.current = [];
 
-    if (markers && currentMap && typeof google !== 'undefined' && google.maps && google.maps.Marker) {
+    if (markers && mapInstanceRef.current && typeof google !== 'undefined' && google.maps && google.maps.Marker) {
       console.log("GoogleMapDisplay: Updating/adding markers:", markers.length);
       markers.forEach(markerData => {
         let markerOptions: google.maps.MarkerOptions = {
           position: markerData.position,
-          map: currentMap,
+          map: mapInstanceRef.current,
           title: markerData.title,
         };
 
-        if (markerData.iconUrl && google.maps.Size) {
+        if (markerData.iconUrl && google.maps.Size) { // Check for google.maps.Size
           markerOptions.icon = {
             url: markerData.iconUrl,
             scaledSize: markerData.iconScaledSize 
@@ -157,20 +157,18 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         currentMarkersRef.current.push(newMarker);
       });
     }
-  }, [isSdkReady, mapInstance, center, zoom, mapId, markers]); // Dependencies for map updates
+  }, [isSdkReady, mapDivNode, center, zoom, mapIdProp, markers]); // Dependencies for map updates
 
   // Effect for component unmount cleanup
   useEffect(() => {
     return () => {
-      console.log("GoogleMapDisplay: Component UNMOUNTING. Cleaning up markers and map instance state.");
+      console.log("GoogleMapDisplay: Component UNMOUNTING. Cleaning up markers. Map instance is handled by Google.");
       currentMarkersRef.current.forEach(marker => marker.setMap(null));
       currentMarkersRef.current = [];
-      // Note: Google Maps API handles its own internal cleanup of the map object
-      // when the DOM element is removed. Setting mapInstance to null is for React state.
-      setMapInstance(null); 
-      setIsSdkReady(false);
+      mapInstanceRef.current = null; 
     };
-  }, []); // Empty dependency array means this runs only on unmount
+  }, []);
+
 
   if (mapInitError) {
     return (
@@ -181,17 +179,17 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     );
   }
   
-  // Show skeleton if SDK is not ready OR if SDK is ready but mapInstance is not yet created (brief init phase)
-  // AND there's no error.
-  const showSkeleton = (!isSdkReady && !mapInitError) || (isSdkReady && !mapInstance && !mapInitError);
-
-  if (showSkeleton) {
-     console.log("GoogleMapDisplay: Rendering Skeleton. isSdkReady:", isSdkReady, "mapInstance:", !!mapInstance, "mapInitError:", mapInitError);
-    return <Skeleton className={cn("rounded-md shadow-md", className)} style={{ ...mapStyle, ...skeletonDiagnosticStyle }} aria-label="Loading map..." />;
+  // If SDK is not ready yet, or if the div node isn't set yet, show skeleton.
+  // The dynamic import's loading prop will also show a skeleton, so this might be brief or not visible.
+  if (!isSdkReady || !mapDivNode) {
+     console.log("GoogleMapDisplay: Rendering Skeleton (or relying on dynamic import's loader). isSdkReady:", isSdkReady, "mapDivNode:", !!mapDivNode);
+    return <Skeleton className={cn("rounded-md shadow-md", className)} style={mapStyle} aria-label="Loading map..." />;
   }
 
-  console.log("GoogleMapDisplay: Rendering map container div. isSdkReady:", isSdkReady, "mapInstance:", !!mapInstance, "mapInitError:", mapInitError);
-  return <div ref={mapRef} style={{ ...mapStyle, ...diagnosticStyle }} className={cn("rounded-md shadow-md bg-muted/30", className)} />;
+  // Render the div that will hold the map
+  // The actual map is created/updated in the useEffect hook
+  console.log("GoogleMapDisplay: Rendering map container div for Google Maps.");
+  return <div ref={mapRefCallback} style={{ ...mapStyle, ...diagnosticStyle }} className={cn("rounded-md shadow-md bg-muted/30", className)} />;
 };
 
 export default GoogleMapDisplay;
