@@ -10,7 +10,7 @@ export function PublicHeader() {
       <div className="container mx-auto flex justify-between items-center">
         <Link href="/" className="flex items-center gap-2 text-xl font-bold text-primary-foreground bg-primary py-2 px-3 rounded-md">
           <Car className="h-6 w-6" />
-          <span className="font-headline">TaxiNow</span>
+          <span className="font-headline">Link Cabs</span>
         </Link>
         <nav className="space-x-4">
           <Button variant="ghost" asChild>

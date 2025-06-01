@@ -58,7 +58,7 @@ export function RegisterForm() {
     login(values.email, values.name, values.role as UserRole, values.role === 'driver' ? values.vehicleCategory : undefined);
     toast({
       title: "Registration Successful",
-      description: `Welcome to TaxiNow, ${values.name}!`,
+      description: `Welcome to Link Cabs, ${values.name}!`,
     });
   }
 

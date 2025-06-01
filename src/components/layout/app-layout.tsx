@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -74,7 +73,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold text-primary">
             <Car className="h-6 w-6" />
-            <span className="font-headline text-lg">TaxiNow</span>
+            <span className="font-headline text-lg">Link Cabs</span>
           </Link>
         </div>
         <ScrollArea className="flex-1 py-4">
@@ -96,7 +95,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/" className="flex items-center gap-2 font-semibold text-primary">
                   <Car className="h-6 w-6" />
-                  <span className="font-headline text-lg">TaxiNow</span>
+                  <span className="font-headline text-lg">Link Cabs</span>
                 </Link>
               </div>
               <ScrollArea className="h-[calc(100vh-4rem)] py-4">

@@ -10,7 +10,7 @@ export default function RegisterPage() {
            <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
             <UserPlus className="h-8 w-8" />
           </div>
-          <CardTitle className="text-3xl font-headline">Create your TaxiNow Account</CardTitle>
+          <CardTitle className="text-3xl font-headline">Create your Link Cabs Account</CardTitle>
           <CardDescription>Join us today! Choose your role and fill in your details.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TaxiNow',
-  description: 'Your reliable taxi booking service.',
+  title: 'Link Cabs',
+  description: 'Your reliable cab booking service.',
 };
 
 export default function RootLayout({

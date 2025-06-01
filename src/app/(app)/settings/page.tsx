@@ -34,7 +34,7 @@ export default function SettingsPage() {
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
             <Settings className="w-8 h-8 text-primary" /> App Settings
           </CardTitle>
-          <CardDescription>Customize your TaxiNow experience.</CardDescription>
+          <CardDescription>Customize your Link Cabs experience.</CardDescription>
         </CardHeader>
       </Card>
 

@@ -14,7 +14,7 @@ export default function PassengerDashboardPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-headline">Welcome, {user?.name || 'Passenger'}!</CardTitle>
-          <CardDescription>Manage your rides and explore TaxiNow features.</CardDescription>
+          <CardDescription>Manage your rides and explore Link Cabs features.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row items-center gap-6">
           <div className="flex-1 space-y-4">

@@ -10,7 +10,7 @@ export default function LoginPage() {
           <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
             <LogIn className="h-8 w-8" />
           </div>
-          <CardTitle className="text-3xl font-headline">Login to TaxiNow</CardTitle>
+          <CardTitle className="text-3xl font-headline">Login to Link Cabs</CardTitle>
           <CardDescription>Enter your credentials to access your account.</CardDescription>
         </CardHeader>
         <CardContent>

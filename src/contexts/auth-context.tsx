@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('taxiNowUser');
+    const storedUser = localStorage.getItem('linkCabsUser');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ...(role === 'driver' && vehicleCategory && { vehicleCategory }), // Add vehicleCategory if driver
     };
     setUser(newUser);
-    localStorage.setItem('taxiNowUser', JSON.stringify(newUser));
+    localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
     
     if (role === 'passenger') router.push('/dashboard');
     else if (role === 'driver') router.push('/driver');
@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('taxiNowUser');
+    localStorage.removeItem('linkCabsUser');
     router.push('/login');
   };
   

@@ -9,7 +9,7 @@ export default function LandingPage() {
   return (
     <div className="space-y-12">
       <section className="text-center py-12 bg-primary/10 rounded-lg shadow-lg">
-        <h1 className="text-5xl font-bold font-headline text-primary mb-4">Welcome to TaxiNow</h1>
+        <h1 className="text-5xl font-bold font-headline text-primary mb-4">Welcome to Link Cabs</h1>
         <p className="text-xl text-foreground mb-8 max-w-2xl mx-auto">
           Your next ride is just a click away. Experience seamless, safe, and smart taxi services.
         </p>
@@ -27,7 +27,7 @@ export default function LandingPage() {
       </section>
 
       <section className="py-12">
-        <h2 className="text-3xl font-bold font-headline text-center mb-10">Why Choose TaxiNow?</h2>
+        <h2 className="text-3xl font-bold font-headline text-center mb-10">Why Choose Link Cabs?</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {[
             { icon: Car, title: "Easy Booking", description: "Book your ride in seconds with our intuitive interface." },
