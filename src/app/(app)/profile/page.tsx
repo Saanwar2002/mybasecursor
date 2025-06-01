@@ -217,7 +217,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           userId: user.id,
           label: values.label,
-          address: values.address, // This is the text from the input, which should match the selected suggestion
+          address: values.address, 
           latitude: newFavLocationCoords.lat,
           longitude: newFavLocationCoords.lng,
         }),
@@ -227,7 +227,18 @@ export default function ProfilePage() {
         throw new Error(errorData.message || 'Failed to add favorite.');
       }
       const newFavorite = await response.json();
-      setFavoriteLocations(prev => [newFavorite.data, ...prev]); // Add to list
+      // Correctly structure the new favorite object for client-side state
+      setFavoriteLocations(prev => [{ 
+        id: newFavorite.id, 
+        label: newFavorite.data.label,
+        address: newFavorite.data.address,
+        latitude: newFavorite.data.latitude,
+        longitude: newFavorite.data.longitude,
+        createdAt: newFavorite.data.createdAt ? { // Handle potential ISO string from API
+            _seconds: Math.floor(new Date(newFavorite.data.createdAt).getTime() / 1000),
+            _nanoseconds: (new Date(newFavorite.data.createdAt).getTime() % 1000) * 1000000
+        } : undefined // Or handle if createdAt might be missing from newFavorite.data
+      }, ...prev]);
       toast({ title: "Favorite Added!", description: `${values.label} saved.` });
       favoriteForm.reset();
       setNewFavLocationAddress("");
