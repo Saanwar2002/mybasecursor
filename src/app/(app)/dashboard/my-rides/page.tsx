@@ -77,13 +77,16 @@ const formatDate = (timestamp?: JsonTimestamp | null, isoString?: string | null)
   try {
     const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
     if (isNaN(date.getTime())) {
+      console.warn(`formatDate (Object): Created an invalid date from object:`, timestamp);
       return 'Date/Time N/A (Invalid Date Obj)';
     }
-    return date.toLocaleString('en-US', {
+    const formattedDateTime = date.toLocaleString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true,
     });
+    return formattedDateTime;
   } catch (e) {
+    console.error("formatDate (Object): Error converting object to date string:", e, "from timestamp object:", timestamp);
     return 'Date/Time N/A (Conversion Error)';
   }
 };
@@ -92,7 +95,6 @@ const editTimeFormSchema = z.object({
   desiredPickupDate: z.date().optional(),
   desiredPickupTime: z.string().optional(), // HH:mm format
 }).refine(data => {
-  // If one is set, the other must be set. If both are clear, it's also valid (ASAP).
   if ((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)) {
     return false;
   }
@@ -162,8 +164,9 @@ export default function MyRidesPage() {
 
   const submitRating = async () => {
     if (!selectedRideForRating || !user) return;
+    // In a real app, you'd send this to a backend
     const updatedRides = rides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r);
-    setRides(updatedRides);
+    setRides(updatedRides); // Optimistic update
     toast({ title: "Rating Submitted", description: `You rated your ride ${currentRating} stars.`});
     setSelectedRideForRating(null);
     setCurrentRating(0);
@@ -183,7 +186,7 @@ export default function MyRidesPage() {
         const errorData = await response.json().catch(() => ({ message: "Cancellation failed."}));
         throw new Error(errorData.message);
       }
-      setRides(prevRides => prevRides.map(r => r.id === rideToCancel.id ? { ...r, status: 'cancelled', scheduledPickupAt: r.scheduledPickupAt } : r));
+      setRides(prevRides => prevRides.map(r => r.id === rideToCancel.id ? { ...r, status: 'cancelled' } : r));
       toast({ title: "Booking Cancelled", description: "Your ride has been successfully cancelled." });
     } catch (error) {
       toast({ title: "Cancellation Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
@@ -247,8 +250,45 @@ export default function MyRidesPage() {
     }
   }
 
-  if (isLoading) { /* ... loading JSX ... */ }
-  if (error && rides.length === 0) { /* ... error JSX ... */ }
+  if (isLoading) { 
+    return (
+      <div className="space-y-6">
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-3xl font-headline">My Rides</CardTitle>
+            <CardDescription>View your past rides, rate experiences, and manage upcoming bookings.</CardDescription>
+          </CardHeader>
+        </Card>
+        <div className="flex justify-center items-center py-10">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="ml-4 text-muted-foreground">Loading your rides...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && rides.length === 0) { 
+    return (
+      <div className="space-y-6">
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-3xl font-headline">My Rides</CardTitle>
+            <CardDescription>View your past rides, rate experiences, and manage upcoming bookings.</CardDescription>
+          </CardHeader>
+        </Card>
+        <Card className="border-destructive bg-destructive/10">
+          <CardContent className="pt-6 text-center text-destructive">
+            <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
+            <p className="font-semibold">Could not load your rides.</p>
+            <p className="text-sm">{error}</p>
+            <Button variant="outline" onClick={() => window.location.reload()} className="mt-4">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -295,14 +335,22 @@ export default function MyRidesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {ride.driver && ( /* ... driver info ... */ )}
+              {ride.driver && (
+                <div className="flex items-center gap-2">
+                    <Image src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver.charAt(0)}`} alt={ride.driver} width={40} height={40} className="rounded-full" data-ai-hint="avatar driver" />
+                    <div>
+                        <p className="font-medium">{ride.driver}</p>
+                        <p className="text-xs text-muted-foreground">Driver</p>
+                    </div>
+                </div>
+              )}
               {!ride.driver && ride.status !== 'completed' && ride.status !== 'cancelled' && <p className="text-sm text-muted-foreground">Waiting for driver assignment...</p>}
               <Separator />
               <div className="text-sm space-y-1">
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>To:</strong> {ride.dropoffLocation.address}</p>
                 <div className="flex items-center gap-1">
-                  <DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}{' '}
+                  <DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}
                   {ride.isSurgeApplied && <Badge variant="outline" className="ml-1 border-orange-500 text-orange-500">Surge</Badge>}
                 </div>
               </div>
@@ -310,7 +358,14 @@ export default function MyRidesPage() {
               <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
                 {ride.status === 'completed' && (
                   <>
-                    {ride.rating ? ( /* ... rating display ... */ ) : (
+                    {ride.rating ? (
+                        <div className="flex items-center">
+                            <p className="text-sm mr-2">Your Rating:</p>
+                            {[...Array(5)].map((_, i) => (
+                                <Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                            ))}
+                        </div>
+                    ) : (
                       <Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>
                     )}
                   </>
@@ -325,8 +380,9 @@ export default function MyRidesPage() {
                     </Button>
                   </>
                 )}
-                {ride.status !== 'pending_assignment' && ride.status !== 'cancelled' && ride.status !== 'completed' && (
-                  <Button variant="outline" size="sm" disabled className="w-full sm:w-auto">Cannot Modify</Button>
+                {/* Show a disabled "Cannot Modify" button for other active statuses */}
+                {['driver_assigned', 'in_progress'].includes(ride.status) && (
+                  <Button variant="outline" size="sm" disabled className="w-full sm:w-auto">Cannot Modify Ride</Button>
                 )}
               </div>
             </CardContent>
@@ -334,12 +390,40 @@ export default function MyRidesPage() {
         ))}
       </div>
 
-      {selectedRideForRating && ( /* ... rating dialog ... */ )}
+      {selectedRideForRating && (
+         <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl">
+           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRideForRating(null)} />
+           <div className="relative bg-card rounded-lg p-6">
+                <CardHeader>
+                <CardTitle>Rate your ride with {selectedRideForRating.driver || 'your driver'}</CardTitle>
+                <CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center space-x-1 py-4">
+                {[...Array(5)].map((_, i) => (
+                    <Star
+                    key={i}
+                    className={`w-8 h-8 cursor-pointer ${i < currentRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`}
+                    onClick={() => setCurrentRating(i + 1)}
+                    />
+                ))}
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setSelectedRideForRating(null)}>Cancel</Button>
+                <Button onClick={submitRating} className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit Rating</Button>
+                </CardFooter>
+            </div>
+        </Card>
+      )}
       
       <AlertDialog open={!!rideToCancel} onOpenChange={(open) => !open && setRideToCancel(null)}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Cancel this ride?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel disabled={isCancelling}>Back</AlertDialogCancel><AlertDialogAction onClick={handleConfirmCancel} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isCancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Yes, Cancel</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancelling}>Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCancel} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {isCancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Yes, Cancel
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -425,7 +509,3 @@ export default function MyRidesPage() {
   );
 }
 
-// Minimal JSX for loading and error states to keep snippet short
-if (isLoading) { return <div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-muted-foreground">Loading...</p></div>; }
-if (error && rides.length === 0) { return <div className="text-center text-destructive py-10"><AlertTriangle className="w-12 h-12 mx-auto mb-2" /><p>Error: {error}</p></div>; }
-if (selectedRideForRating) { return <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl p-6">Rating UI...</Card>;}
