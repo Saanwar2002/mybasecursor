@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone } from "lucide-react";
-import { Badge } from '@/components/ui/badge';
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
 import Link from 'next/link';
@@ -29,15 +29,17 @@ interface RideRequest {
   dropoffCoords?: [number, number];
   distanceMiles?: number;
   passengerCount: number; 
-  passengerPhone?: string; // Added for call customer
+  passengerPhone?: string;
+  passengerRating?: number;
 }
 
 const defaultUKCenter: [number, number] = [51.5074, -0.1278];
 
 const mockRideRequests: RideRequest[] = [
-  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St, London', dropoffLocation: 'City Mall, London', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending', pickupCoords: [51.510, -0.120], dropoffCoords: [51.505, -0.130], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101' },
-  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Central Station, London', dropoffLocation: 'Airport Terminal 2, London', estimatedTime: '5 min', fareEstimate: 28.00, status: 'pending', pickupCoords: [51.500, -0.125], dropoffCoords: [51.470, -0.454], distanceMiles: 15.2, passengerCount: 2, passengerPhone: '555-0102' },
-  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Green Park, London', dropoffLocation: 'Downtown Office, London', estimatedTime: '12 min', fareEstimate: 12.75, status: 'pending', pickupCoords: [51.507, -0.142], dropoffCoords: [51.515, -0.087], distanceMiles: 3.1, passengerCount: 1, passengerPhone: '555-0103' },
+  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St, London', dropoffLocation: 'City Mall, London', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending', pickupCoords: [51.510, -0.120], dropoffCoords: [51.505, -0.130], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
+  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Central Station, London', dropoffLocation: 'Airport Terminal 2, London', estimatedTime: '5 min', fareEstimate: 28.00, status: 'pending', pickupCoords: [51.500, -0.125], dropoffCoords: [51.470, -0.454], distanceMiles: 15.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
+  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Green Park, London', dropoffLocation: 'Downtown Office, London', estimatedTime: '12 min', fareEstimate: 12.75, status: 'pending', pickupCoords: [51.507, -0.142], dropoffCoords: [51.515, -0.087], distanceMiles: 3.1, passengerCount: 1, passengerPhone: '555-0103', passengerRating: 3.2 },
+  { id: 'r4', passengerName: 'David Lee', passengerAvatar: 'https://placehold.co/40x40.png?text=DL', pickupLocation: 'Museum District, London', dropoffLocation: 'Theatre Royal, London', estimatedTime: '8 min', fareEstimate: 10.00, status: 'pending', pickupCoords: [51.519, -0.128], dropoffCoords: [51.510, -0.127], distanceMiles: 1.5, passengerCount: 3, passengerPhone: '555-0104', passengerRating: 5.0 },
 ];
 
 export default function AvailableRidesPage() {
@@ -50,7 +52,7 @@ export default function AvailableRidesPage() {
       if (newStatus === 'active') {
         return prevRequests.map(req => {
           if (req.id === rideId) return { ...req, status: 'active' };
-          if (req.status === 'active') return { ...req, status: 'pending' };
+          if (req.status === 'active' && req.id !== rideId) return { ...req, status: 'pending' }; 
           return req;
         });
       }
@@ -59,7 +61,8 @@ export default function AvailableRidesPage() {
       );
     });
 
-    const ridePassengerName = rideRequests.find(r => r.id === rideId)?.passengerName;
+    const ride = rideRequests.find(r => r.id === rideId);
+    const ridePassengerName = ride?.passengerName;
     let toastMessage = `Ride request from ${ridePassengerName} has been ${newStatus}.`;
     let toastTitle = `Ride ${newStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
 
@@ -85,25 +88,35 @@ export default function AvailableRidesPage() {
 
   const activeRide = rideRequests.find(r => r.status === 'active');
   const pendingRides = rideRequests.filter(r => r.status === 'pending');
-
-  // const getMapMarkersForActiveRide = () => {
-  //   if (!activeRide || !activeRide.pickupCoords) return [];
-  //   const markers = [{ position: driverLocation, popupText: "Your Location", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" }];
-  //   markers.push({ position: activeRide.pickupCoords, popupText: `Pickup: ${activeRide.passengerName}` });
-  //   if (activeRide.dropoffCoords) {
-  //       markers.push({ position: activeRide.dropoffCoords, popupText: "Drop-off" });
-  //   }
-  //   return markers;
-  // };
   
   const handleCallCustomer = (phoneNumber?: string) => {
     if (phoneNumber) {
-      alert(`Calling customer at ${phoneNumber}... (Demo)`);
+      toast({ title: "Calling Customer", description: `Initiating call to ${phoneNumber}... (Demo)`});
       // In a real app: window.location.href = `tel:${phoneNumber}`;
     } else {
-      alert("Customer phone number not available. (Demo)");
+      toast({ title: "Call Not Available", description: "Customer phone number not provided.", variant: "default"});
     }
   };
+
+  const renderPassengerRating = (rating?: number) => {
+    if (typeof rating !== 'number' || rating <= 0) {
+      return <span className="text-xs text-muted-foreground ml-1.5">(No rating)</span>;
+    }
+    const totalStars = 5;
+    const filledStars = Math.round(rating);
+    return (
+      <div className="flex items-center ml-1.5">
+        {[...Array(totalStars)].map((_, i) => (
+          <Star
+            key={i}
+            className={`w-3.5 h-3.5 ${i < filledStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+          />
+        ))}
+        <span className="ml-1 text-xs text-muted-foreground">({rating.toFixed(1)})</span>
+      </div>
+    );
+  };
+
 
   return (
     <div className="space-y-6">
@@ -130,7 +143,10 @@ export default function AvailableRidesPage() {
             <div className="flex items-center gap-3 mb-3">
                 <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger" />
                 <div>
-                  <p className="text-lg font-semibold">{activeRide.passengerName}</p>
+                  <div className="flex items-center">
+                    <p className="text-lg font-semibold">{activeRide.passengerName}</p>
+                    {renderPassengerRating(activeRide.passengerRating)}
+                  </div>
                   <Badge variant="outline" className="border-primary text-primary mr-2">Fare: £{activeRide.fareEstimate.toFixed(2)}</Badge>
                   <Badge variant="secondary" className="mt-1">
                     <UsersIcon className="w-3 h-3 mr-1" /> {activeRide.passengerCount} Passenger{activeRide.passengerCount > 1 ? 's' : ''}
@@ -147,21 +163,7 @@ export default function AvailableRidesPage() {
             <div className="mt-4">
               <p className="text-md font-medium mb-1">Live Ride Map:</p>
               <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm flex items-center justify-center text-muted-foreground">
-                 Map display temporarily disabled for debugging.
-                 {/* 
-                 {activeRide.pickupCoords ? (
-                    <MapDisplay
-                        key={activeRide.id} 
-                        center={activeRide.pickupCoords || driverLocation}
-                        zoom={13}
-                        markers={getMapMarkersForActiveRide()}
-                        className="w-full h-full"
-                        scrollWheelZoom={true}
-                    />
-                  ) : (
-                    <p>Map data not available for this ride.</p>
-                  )}
-                */}
+                 Map display temporarily disabled.
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
@@ -179,10 +181,10 @@ export default function AvailableRidesPage() {
                 </Link>
               </Button>
               <Button variant="outline" className="w-full text-base py-3" onClick={() => handleCallCustomer(activeRide.passengerPhone)}>
-                  <Phone className="mr-2 h-5 w-5" /> Call
+                  <Phone className="mr-2 h-5 w-5" /> Call Customer
               </Button>
               <Button variant="destructive" className="w-full text-base py-3" onClick={() => handleRideAction(activeRide.id, 'cancelled_by_driver')}>
-                  <XCircle className="mr-2 h-5 w-5" /> Cancel
+                  <XCircle className="mr-2 h-5 w-5" /> Cancel Ride
               </Button>
             </div>
           </CardContent>
@@ -204,7 +206,10 @@ export default function AvailableRidesPage() {
                   <div className="flex items-center gap-3 mb-2">
                     <Image src={req.passengerAvatar} alt={req.passengerName} width={40} height={40} className="rounded-full" data-ai-hint="avatar passenger" />
                     <div>
-                      <CardTitle className="text-lg">{req.passengerName}</CardTitle>
+                      <div className="flex items-center">
+                         <CardTitle className="text-lg">{req.passengerName}</CardTitle>
+                         {renderPassengerRating(req.passengerRating)}
+                      </div>
                       <Badge variant="outline" className="mt-1 mr-1">Fare: £{req.fareEstimate.toFixed(2)}</Badge>
                        <Badge variant="secondary" className="mt-1">
                         <UsersIcon className="w-3 h-3 mr-1" /> {req.passengerCount} Passenger{req.passengerCount > 1 ? 's' : ''}
