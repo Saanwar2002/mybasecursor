@@ -545,7 +545,6 @@ const handleDialogFocusFactory = (formFieldNameOrStopIndex: 'pickupLocation' | '
                 <div>
                   <CardTitle className="text-xl flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> {ride.vehicleType?.charAt(0).toUpperCase() + ride.vehicleType?.slice(1).replace(/_/g, ' ') || 'Vehicle'}</CardTitle>
                   <CardDescription className="flex items-center gap-1 text-sm"><CalendarIconLucide className="w-4 h-4" /> Booked: {formatDate(ride.bookingTimestamp)}</CardDescription>
-                  {ride.scheduledPickupAt && (<CardDescription className="flex items-center gap-1 text-sm mt-1"><Clock className="w-4 h-4 text-blue-500" /> Scheduled: {formatDate(null, ride.scheduledPickupAt)}</CardDescription>)}
                 </div>
                 <Badge variant={ ride.status === 'completed' ? 'default' : ride.status === 'cancelled' ? 'destructive' : ride.status === 'in_progress' ? 'outline' : 'secondary' }
                   className={ cn( ride.status === 'in_progress' && 'border-blue-500 text-blue-500', ride.status === 'pending_assignment' && 'bg-yellow-400/80 text-yellow-900', ride.status === 'driver_assigned' && 'bg-sky-400/80 text-sky-900', ride.status === 'completed' && 'bg-green-500/80 text-green-950', ride.status === 'cancelled' && 'bg-red-500/80 text-red-950' )}>
@@ -561,6 +560,19 @@ const handleDialogFocusFactory = (formFieldNameOrStopIndex: 'pickupLocation' | '
                 </div>
               )}
               {!ride.driver && ride.status !== 'completed' && ride.status !== 'cancelled' && <p className="text-sm text-muted-foreground">Waiting for driver assignment...</p>}
+              
+              {ride.scheduledPickupAt && (
+                <div className="mt-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Scheduled Pickup:</p>
+                  <div 
+                    className="flex items-center gap-2 text-sm bg-sky-100 dark:bg-sky-700/30 border border-sky-400 dark:border-sky-600 text-sky-800 dark:text-sky-100 px-3 py-1.5 rounded-lg shadow-sm"
+                  >
+                    <Clock className="w-5 h-5" /> 
+                    <span className="font-semibold">{formatDate(null, ride.scheduledPickupAt)}</span>
+                  </div>
+                </div>
+              )}
+
               <Separator />
               <div className="text-sm space-y-1">
                 <p className="flex items-start gap-1"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
@@ -653,5 +665,3 @@ const handleDialogFocusFactory = (formFieldNameOrStopIndex: 'pickupLocation' | '
   );
 }
 
-
-    
