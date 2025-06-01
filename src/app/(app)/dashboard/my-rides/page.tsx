@@ -18,7 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  // AlertDialogTrigger, // No longer needed directly for this button
 } from "@/components/ui/alert-dialog";
 
 // Interface for how Timestamp will look after JSON serialization from API
@@ -73,7 +73,7 @@ const formatDate = (timestamp?: JsonTimestamp | null): string => {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true, // Optional: use 12-hour format with AM/PM
+      hour12: true, 
     });
     console.log(`formatDate: Successfully formatted. Returning: "${formattedDateTimeString}" for input: ${JSON.stringify(timestamp)}`);
     return formattedDateTimeString;
@@ -341,11 +341,9 @@ export default function MyRidesPage() {
                   </>
                 )}
                 {ride.status === 'pending_assignment' && (
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" onClick={() => handleOpenCancelDialog(ride)} className="w-full sm:w-auto">
-                      <Trash2 className="mr-2 h-4 w-4" /> Cancel Ride
-                    </Button>
-                  </AlertDialogTrigger>
+                  <Button variant="destructive" size="sm" onClick={() => handleOpenCancelDialog(ride)} className="w-full sm:w-auto">
+                    <Trash2 className="mr-2 h-4 w-4" /> Cancel Ride
+                  </Button>
                 )}
                 {ride.status !== 'pending_assignment' && ride.status !== 'cancelled' && ride.status !== 'completed' && (
                   <Button variant="outline" size="sm" disabled className="w-full sm:w-auto">
@@ -408,3 +406,6 @@ export default function MyRidesPage() {
     </div>
   );
 }
+
+
+    
