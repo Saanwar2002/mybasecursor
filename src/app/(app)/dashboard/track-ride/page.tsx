@@ -6,24 +6,26 @@ import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+// Use the new GoogleMapDisplay component
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const defaultPassengerLocation: [number, number] = [51.5074, -0.1278]; 
-const initialTaxiLocation: [number, number] = [51.515, -0.10]; 
+const defaultPassengerLocation: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 }; 
+const initialTaxiLocation: google.maps.LatLngLiteral = { lat: 51.515, lng: -0.10 }; 
 
 export default function TrackRidePage() {
-  const [taxiLocation, setTaxiLocation] = useState<[number, number]>(initialTaxiLocation);
+  const [taxiLocation, setTaxiLocation] = useState<google.maps.LatLngLiteral>(initialTaxiLocation);
   const [estimatedArrival, setEstimatedArrival] = useState(5); 
 
   useEffect(() => {
+    // Simulate taxi movement
     const interval = setInterval(() => {
       setTaxiLocation(prev => {
-        const newLat = prev[0] - (prev[0] - defaultPassengerLocation[0]) * 0.1;
-        const newLng = prev[1] - (prev[1] - defaultPassengerLocation[1]) * 0.1;
-        return [newLat, newLng];
+        const newLat = prev.lat - (prev.lat - defaultPassengerLocation.lat) * 0.1;
+        const newLng = prev.lng - (prev.lng - defaultPassengerLocation.lng) * 0.1;
+        return { lat: newLat, lng: newLng };
       });
       setEstimatedArrival(prev => Math.max(0, prev - 1));
     }, 5000); 
@@ -32,8 +34,17 @@ export default function TrackRidePage() {
   }, []);
 
   const mapMarkers = [
-    { position: taxiLocation, popupText: "Your Taxi", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" },
-    { position: defaultPassengerLocation, popupText: "Your Location" }
+    { 
+      position: taxiLocation, 
+      title: "Your Taxi",
+      // Example custom icon (optional, ensure the URL is valid or remove for default Google marker)
+      // iconUrl: "/icons/taxi-marker.png", // Replace with your actual icon path
+      // iconScaledSize: { width: 32, height: 32 }
+    },
+    { 
+      position: defaultPassengerLocation, 
+      title: "Your Location" 
+    }
   ];
 
   return (
@@ -44,17 +55,16 @@ export default function TrackRidePage() {
             <MapPin className="w-8 h-8 text-primary" /> Real-Time Ride Tracking
           </CardTitle>
           <CardDescription>
-            Monitor your taxi's location live on the map.
+            Monitor your taxi's location live on the map. (Now using Google Maps)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative w-full h-96 md:h-[500px] rounded-lg overflow-hidden shadow-md border">
-            <MapDisplay 
+            <GoogleMapDisplay 
               center={defaultPassengerLocation} 
               zoom={14} 
               markers={mapMarkers} 
               className="h-full w-full"
-              scrollWheelZoom={true}
             />
           </div>
 
