@@ -48,7 +48,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["marker", "places"], // "marker" for Advanced Markers
+      libraries: ["places", "marker"], // Standardized order
     });
 
     let map: google.maps.Map | null = null;

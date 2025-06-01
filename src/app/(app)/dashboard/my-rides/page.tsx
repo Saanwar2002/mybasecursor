@@ -189,7 +189,7 @@ export default function MyRidesPage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["places"],
+      libraries: ["places", "marker"], // Standardized order
     });
 
     loader.load().then((google) => {
@@ -664,4 +664,3 @@ const handleDialogFocusFactory = (formFieldNameOrStopIndex: 'pickupLocation' | '
     </div>
   );
 }
-
