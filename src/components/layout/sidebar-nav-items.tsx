@@ -1,5 +1,6 @@
+
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users } from 'lucide-react';
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -16,6 +17,8 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/book-ride', label: 'Book a Ride', icon: Car, roles: ['passenger'] },
   { href: '/dashboard/ai-search', label: 'AI Taxi Search', icon: Sparkles, roles: ['passenger'] },
   { href: '/dashboard/my-rides', label: 'My Rides', icon: History, roles: ['passenger'] },
+  { href: '/dashboard/track-ride', label: 'Track Ride', icon: MapPin, roles: ['passenger'] },
+  { href: '/dashboard/favorites', label: 'Favorites', icon: Star, roles: ['passenger'] },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle, roles: ['passenger'] },
   
   // Driver
@@ -40,3 +43,5 @@ export const getNavItemsForRole = (role: UserRole | undefined): NavItem[] => {
   if (!role) return [];
   return navItems.filter(item => item.roles.includes(role));
 };
+
+    
