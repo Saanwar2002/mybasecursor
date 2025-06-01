@@ -125,6 +125,7 @@ function getDistanceInMiles(
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
+  const [estimatedWaitTime, setEstimatedWaitTime] = useState<number | null>(null);
   const { toast } = useToast();
   const { user } = useAuth(); 
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
@@ -186,7 +187,7 @@ export default function BookRidePage() {
     const loader = new Loader({
       apiKey: apiKey,
       version: "weekly",
-      libraries: ["places", "marker"], // Standardized to "places", "marker"
+      libraries: ["places", "marker"], 
     });
 
     loader.load().then((google) => {
@@ -261,6 +262,9 @@ export default function BookRidePage() {
     formOnChange(inputValue); 
     setFareEstimate(null);
     setEstimatedDistance(null);
+    if (formFieldNameOrStopIndex === 'pickupLocation') { // Reset wait time if pickup input changes
+      setEstimatedWaitTime(null);
+    }
 
     if (typeof formFieldNameOrStopIndex === 'number') { 
       setStopAutocompleteData(prev => prev.map((item, idx) => 
@@ -330,7 +334,7 @@ export default function BookRidePage() {
       if (typeof formFieldNameOrStopIndex === 'string') {
         if (formFieldNameOrStopIndex === 'pickupLocation') {
           setPickupInputValue(prev => form.getValues('pickupLocation') || prev); 
-          setPickupCoords(null); setShowPickupSuggestions(false);
+          setPickupCoords(null); setShowPickupSuggestions(false); setEstimatedWaitTime(null);
         } else { 
           setDropoffInputValue(prev => form.getValues('dropoffLocation') || prev);
           setDropoffCoords(null); setShowDropoffSuggestions(false);
@@ -391,6 +395,7 @@ export default function BookRidePage() {
           } else {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsFunc(null);
+            if (formFieldNameOrStopIndex === 'pickupLocation') setEstimatedWaitTime(null);
           }
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken(); 
         }
@@ -398,6 +403,7 @@ export default function BookRidePage() {
     } else {
       setIsFetchingDetailsFunc(false);
       setCoordsFunc(null);
+      if (formFieldNameOrStopIndex === 'pickupLocation') setEstimatedWaitTime(null);
       toast({ title: "Warning", description: "Could not fetch location details (missing place ID or service).", variant: "default" });
     }
   }, [toast, placesServiceRef, autocompleteSessionTokenRef, form]);
@@ -505,6 +511,23 @@ export default function BookRidePage() {
     remove(index); 
     setStopAutocompleteData(prev => prev.filter((_, i) => i !== index)); 
   };
+
+  const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
+
+  useEffect(() => {
+    let waitTimeoutId: NodeJS.Timeout;
+    if (pickupCoords && !anyFetchingDetails && !form.formState.isSubmitting) {
+      // Simulate wait time: random number between 3 and 10 minutes
+      // Adding a slight delay to simulate an API call
+      waitTimeoutId = setTimeout(() => {
+        const randomWaitTime = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
+        setEstimatedWaitTime(randomWaitTime);
+      }, 700); // 0.7 second delay
+    } else if (!pickupCoords) { // If pickupCoords is cleared, reset wait time immediately
+      setEstimatedWaitTime(null);
+    }
+    return () => clearTimeout(waitTimeoutId);
+  }, [pickupCoords, anyFetchingDetails, form.formState.isSubmitting]);
 
 
   useEffect(() => {
@@ -680,6 +703,7 @@ export default function BookRidePage() {
       setStopAutocompleteData([]); 
       setFareEstimate(null);
       setEstimatedDistance(null);
+      setEstimatedWaitTime(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
       setMapMarkers([]);
@@ -759,8 +783,6 @@ export default function BookRidePage() {
       </PopoverContent>
     </Popover>
   );
-
-  const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
 
   const currentMapCenter = pickupCoords || defaultMapCenter;
 
@@ -1020,14 +1042,14 @@ export default function BookRidePage() {
               <Card className="w-full text-center shadow-md mt-6">
                 <CardHeader>
                   <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                    <DollarSign className="w-7 h-7 text-accent" /> Fare Estimate
+                    <DollarSign className="w-7 h-7 text-accent" /> Fare & Wait Estimate
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {anyFetchingDetails ? (
-                     <div className="flex items-center justify-center">
+                  {anyFetchingDetails && pickupCoords ? (
+                     <div className="flex flex-col items-center justify-center space-y-2">
                         <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                        <p className="text-2xl font-bold text-muted-foreground">Calculating...</p>
+                        <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
                      </div>
                   ) : fareEstimate !== null ? (
                     <>
@@ -1040,10 +1062,29 @@ export default function BookRidePage() {
                        {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
                     </>
                   ) : (
-                     <p className="text-xl text-muted-foreground">Select locations to see fare.</p>
+                     <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                   )}
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {(anyFetchingDetails || fareEstimate !== null) ? "This is an estimated fare. Actual fare may vary." : "Enter details to see your fare estimate here."}
+
+                  {/* Estimated Wait Time Display Logic */}
+                  {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
+                    <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                      <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
+                    </p>
+                  )}
+                  {anyFetchingDetails && pickupCoords && !estimatedWaitTime && ( // Show estimating if pickup details are being fetched
+                     <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                       <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                    </p>
+                  )}
+                   {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && ( // Show estimating if pickup is set, not fetching, but wait time not calculated yet
+                     <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                       <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                    </p>
+                  )}
+
+
+                  <p className="text-sm text-muted-foreground mt-3">
+                    {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your fare & wait estimate here."}
                   </p>
                 </CardContent>
               </Card>
