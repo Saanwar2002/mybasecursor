@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -54,7 +55,8 @@ const formatDate = (timestamp?: JsonTimestamp | null): string => {
       return 'Date N/A (Invalid Date Obj)';
     }
     
-    const formattedDateString = date.toLocaleDateString('en-US', { // Explicitly use 'en-US' locale
+    // Original formatting:
+    const formattedDateString = date.toLocaleDateString('en-US', { 
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -257,7 +259,7 @@ export default function MyRidesPage() {
               <div className="text-sm space-y-1">
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
                 <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>To:</strong> {ride.dropoffLocation.address}</p>
-                <div className="flex items-center gap-1"> {/* Changed from p to div */}
+                <div className="flex items-center gap-1">
                   <DollarSign className="w-4 h-4 text-muted-foreground" /> 
                   <strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}{' '}
                   {ride.isSurgeApplied && (
