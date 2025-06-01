@@ -38,17 +38,21 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   const mapStyle = propStyle ? { ...defaultStyle, ...propStyle } : defaultStyle;
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      console.error("Google Maps API Key is missing.");
-      setError("Google Maps API Key is missing. Map cannot be loaded.");
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || apiKey.trim() === "") {
+      console.error("Google Maps API Key is missing or empty.");
+      setError("Google Maps API Key is missing or empty. Map cannot be loaded. Please check your .env file and Google Cloud Console setup.");
       setIsLoading(false);
       return;
     }
 
+    setIsLoading(true); // Ensure loading is true at the start of effect
+    setError(null); // Clear previous errors
+
     const loader = new Loader({
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+      apiKey: apiKey,
       version: "weekly",
-      libraries: ["places", "marker"], // Standardized order
+      libraries: ["places", "marker"], 
     });
 
     let map: google.maps.Map | null = null;
@@ -59,59 +63,75 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           map = new google.maps.Map(mapRef.current, {
             center,
             zoom,
-            mapId: mapId, // For Cloud-based Maps Styling
+            mapId: mapId, 
             disableDefaultUI: true,
             zoomControl: true,
             streetViewControl: false,
             mapTypeControl: false,
           });
           setMapInstance(map);
+        } else {
+          console.warn("GoogleMapDisplay: mapRef.current is null when trying to initialize map.");
+          setError("Map container not found. Cannot initialize map.");
         }
       })
       .catch(e => {
-        console.error("Failed to load Google Maps:", e);
-        setError("Failed to load Google Maps. Please check the console for details.");
+        console.error("Failed to load Google Maps SDK:", e);
+        setError("Failed to load Google Maps SDK. Check API key, network, and browser console for details.");
       })
       .finally(() => {
         setIsLoading(false);
       });
       
       return () => {
-        // Basic cleanup, though Google Maps instances on a div are usually handled by DOM removal.
-        // If more complex event listeners or resources were attached to the map instance directly,
-        // they would need to be cleaned up here.
+        // Clear markers when component unmounts or map instance changes
+        currentMarkersRef.current.forEach(marker => marker.setMap(null));
+        currentMarkersRef.current = [];
+        if (mapInstance) {
+          // Basic cleanup for Google Maps. More complex cleanup might be needed
+          // if many listeners or custom controls were added.
+          // For now, clearing the map instance state is enough.
+        }
+        setMapInstance(null); 
       };
-  }, [center, zoom, mapId]); // Rerun if center, zoom, or mapId changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center.lat, center.lng, zoom, mapId]); // Depend on lat/lng explicitly if center object identity changes often
 
   useEffect(() => {
-    if (!mapInstance || !markers) return;
+    if (!mapInstance) return;
+
+    // Update map center and zoom if props change after initial load
+    mapInstance.setCenter(center);
+    mapInstance.setZoom(zoom);
 
     // Clear existing markers
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
     // Add new markers
-    markers.forEach(markerData => {
-      let markerOptions: google.maps.MarkerOptions = {
-        position: markerData.position,
-        map: mapInstance,
-        title: markerData.title,
-      };
-
-      if (markerData.iconUrl) {
-        markerOptions.icon = {
-          url: markerData.iconUrl,
-          scaledSize: markerData.iconScaledSize 
-            ? new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height) 
-            : undefined,
+    if (markers) {
+      markers.forEach(markerData => {
+        let markerOptions: google.maps.MarkerOptions = {
+          position: markerData.position,
+          map: mapInstance,
+          title: markerData.title,
         };
-      }
-      
-      const newMarker = new google.maps.Marker(markerOptions);
-      currentMarkersRef.current.push(newMarker);
-    });
 
-  }, [mapInstance, markers]);
+        if (markerData.iconUrl) {
+          markerOptions.icon = {
+            url: markerData.iconUrl,
+            scaledSize: markerData.iconScaledSize 
+              ? new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height) 
+              : undefined,
+          };
+        }
+        
+        const newMarker = new google.maps.Marker(markerOptions);
+        currentMarkersRef.current.push(newMarker);
+      });
+    }
+
+  }, [mapInstance, markers, center, zoom]);
 
 
   if (isLoading) {
@@ -120,13 +140,14 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
   if (error) {
     return (
-      <div className={cn("flex items-center justify-center rounded-md shadow-md bg-destructive/10 text-destructive", className)} style={mapStyle}>
-        <p>{error}</p>
+      <div className={cn("flex flex-col items-center justify-center text-center rounded-md shadow-md bg-destructive/10 text-destructive p-4", className)} style={mapStyle}>
+        <p className="font-semibold mb-2">Map Error</p>
+        <p className="text-sm">{error}</p>
       </div>
     );
   }
 
-  return <div ref={mapRef} style={mapStyle} className={cn("rounded-md shadow-md", className)} />;
+  return <div ref={mapRef} style={mapStyle} className={cn("rounded-md shadow-md bg-muted/30", className)} />;
 };
 
 export default GoogleMapDisplay;

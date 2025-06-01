@@ -177,15 +177,16 @@ export default function BookRidePage() {
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      console.warn("Google Maps API Key is missing. Address autocomplete will not work.");
-      toast({ title: "Configuration Error", description: "Google Maps API Key is not set. Address search is disabled.", variant: "destructive" });
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || apiKey.trim() === "") {
+      console.warn("Google Maps API Key is missing or empty. Address autocomplete will not work.");
+      toast({ title: "Configuration Error", description: "Google Maps API Key is not set or empty. Address search is disabled.", variant: "destructive" });
       return;
     }
     const loader = new Loader({
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+      apiKey: apiKey,
       version: "weekly",
-      libraries: ["places", "marker"],
+      libraries: ["places", "marker"], // Standardized to "places", "marker"
     });
 
     loader.load().then((google) => {
@@ -1051,6 +1052,7 @@ export default function BookRidePage() {
             <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-64 md:h-80 mb-6">
                 <GoogleMapDisplay 
+                    key="book-ride-map"
                     center={currentMapCenter} 
                     zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 10} 
                     markers={mapMarkers} 
