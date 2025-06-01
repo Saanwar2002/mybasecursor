@@ -40,7 +40,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
-      console.error("Google Maps API Key is missing or empty.");
+      console.error("GoogleMapDisplay Error: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing or empty.");
       setError("Google Maps API Key is missing or empty. Map cannot be loaded. Please check your .env file and Google Cloud Console setup.");
       setIsLoading(false);
       return;
@@ -59,7 +59,6 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
     loader.load()
       .then((google) => {
-        // Critical Check: Ensure mapRef.current is available HERE
         if (mapRef.current) {
           localMap = new google.maps.Map(mapRef.current, {
             center,
@@ -72,8 +71,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           });
           setMapInstance(localMap);
         } else {
-          console.warn("GoogleMapDisplay: mapRef.current is null when trying to initialize map INSIDE loader.then().");
-          setError("Map container not found. Cannot initialize map.");
+          console.error("GoogleMapDisplay Critical: mapRef.current is null INSIDE loader.then() just before map creation.");
+          setError("Map container not found during initialization. Please refresh or check console.");
         }
       })
       .catch(e => {
@@ -85,18 +84,10 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       });
       
     return () => {
-      // Cleanup markers
       currentMarkersRef.current.forEach(marker => marker.setMap(null));
       currentMarkersRef.current = [];
-      // Attempt to clean up the map instance more directly if it exists
-      if (localMap && mapRef.current) {
-        // Google Maps doesn't have a formal "destroy" method.
-        // Setting mapRef.current.innerHTML = '' can sometimes help, but might be too aggressive.
-        // For now, just clearing the map instance from state.
-      }
       setMapInstance(null); 
     };
-  // Only re-run this effect if mapId changes, or if the component is re-mounted.
   }, [mapId]); 
 
   useEffect(() => {
@@ -134,19 +125,19 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
 
   if (isLoading) {
-    return <Skeleton className={cn("rounded-md shadow-md", className)} style={mapStyle} aria-label="Loading map..." />;
+    return <Skeleton className={cn("rounded-md shadow-md", className)} style={{ ...mapStyle, border: '2px dashed blue' }} aria-label="Loading map..." />;
   }
 
   if (error) {
     return (
-      <div className={cn("flex flex-col items-center justify-center text-center rounded-md shadow-md bg-destructive/10 text-destructive p-4", className)} style={mapStyle}>
+      <div className={cn("flex flex-col items-center justify-center text-center rounded-md shadow-md bg-destructive/10 text-destructive p-4", className)} style={{ ...mapStyle, border: '2px solid orange' }}>
         <p className="font-semibold mb-2">Map Error</p>
         <p className="text-sm">{error}</p>
       </div>
     );
   }
 
-  return <div ref={mapRef} style={mapStyle} className={cn("rounded-md shadow-md bg-muted/30", className)} />;
+  return <div ref={mapRef} style={{ ...mapStyle, border: '2px solid red' }} className={cn("rounded-md shadow-md bg-muted/30", className)} />;
 };
 
 export default GoogleMapDisplay;
