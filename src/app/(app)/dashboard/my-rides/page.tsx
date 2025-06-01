@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -37,36 +36,39 @@ const formatDate = (timestamp?: JsonTimestamp | null): string => {
 
   if (!timestamp) {
     console.warn("formatDate: Timestamp object is null or undefined.");
-    return 'Date N/A (Missing)';
+    return 'Date/Time N/A (Missing)';
   }
   if (typeof timestamp._seconds !== 'number') {
     console.warn(`formatDate: timestamp._seconds is not a number. Value: ${timestamp._seconds}, Type: ${typeof timestamp._seconds}`);
-    return 'Date N/A (Bad Seconds)';
+    return 'Date/Time N/A (Bad Seconds)';
   }
   if (typeof timestamp._nanoseconds !== 'number') {
     console.warn(`formatDate: timestamp._nanoseconds is not a number. Value: ${timestamp._nanoseconds}, Type: ${typeof timestamp._nanoseconds}`);
-    return 'Date N/A (Bad Nanos)';
+    return 'Date/Time N/A (Bad Nanos)';
   }
 
   try {
     const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
     if (isNaN(date.getTime())) {
       console.warn("formatDate: Created an invalid date (isNaN). Seconds:", timestamp._seconds, "Nanoseconds:", timestamp._nanoseconds);
-      return 'Date N/A (Invalid Date Obj)';
+      return 'Date/Time N/A (Invalid Date Obj)';
     }
     
-    // Original formatting:
-    const formattedDateString = date.toLocaleDateString('en-US', { 
+    // Changed to toLocaleString and added time options
+    const formattedDateTimeString = date.toLocaleString('en-US', { 
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true, // Optional: use 12-hour format with AM/PM
     });
-    console.log(`formatDate: Successfully formatted. Returning: "${formattedDateString}" for input: ${JSON.stringify(timestamp)}`);
-    return formattedDateString;
+    console.log(`formatDate: Successfully formatted. Returning: "${formattedDateTimeString}" for input: ${JSON.stringify(timestamp)}`);
+    return formattedDateTimeString;
 
   } catch (e) {
     console.error("formatDate: Error creating Date object:", e, "from timestamp:", JSON.stringify(timestamp));
-    return 'Date N/A (Conversion Error)';
+    return 'Date/Time N/A (Conversion Error)';
   }
 };
 
