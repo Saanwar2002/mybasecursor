@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -793,6 +794,9 @@ export default function BookRidePage() {
                             "pickup"
                           )}
                         </div>
+                        <FormDescription>
+                          If autocomplete doesn't provide a door number, please add it manually for accuracy.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -836,6 +840,9 @@ export default function BookRidePage() {
                                 `stop-${index}`
                               )}
                             </div>
+                            <FormDescription>
+                              If autocomplete doesn't provide a door number, please add it manually for accuracy.
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -883,6 +890,9 @@ export default function BookRidePage() {
                             "dropoff"
                           )}
                         </div>
+                        <FormDescription>
+                          If autocomplete doesn't provide a door number, please add it manually for accuracy.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

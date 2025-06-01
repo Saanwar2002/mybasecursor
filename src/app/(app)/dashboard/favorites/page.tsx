@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader } from '@googlemaps/js-api-loader';
 
 interface FavoriteLocation {
@@ -332,6 +332,9 @@ export default function FavoriteLocationsPage() {
                         (sugg) => handleNewFavSuggestionClick(sugg, field.onChange)
                     )}
                   </div>
+                  <FormDescription>
+                    If autocomplete doesn't provide a door number, please add it manually for accuracy.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -383,5 +386,3 @@ export default function FavoriteLocationsPage() {
     </div>
   );
 }
-
-    
