@@ -2,7 +2,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { z } from 'zod';
 
 // Helper to convert Firestore Timestamp to a serializable format
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -14,8 +15,6 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 }
 
 // Define the structure of a Driver document we expect to fetch/return
-// This should align with what src/app/(app)/operator/manage-drivers/page.tsx expects
-// and what is stored in Firestore for users with role 'driver'.
 interface Driver {
   id: string;
   name: string;
@@ -27,9 +26,9 @@ interface Driver {
   rating?: number;
   totalRides?: number;
   role: 'driver';
-  createdAt?: { _seconds: number; _nanoseconds: number } | null; // Serialized timestamp
-  // Add other fields as necessary, e.g., lastLogin
+  createdAt?: { _seconds: number; _nanoseconds: number } | null;
   lastLogin?: { _seconds: number; _nanoseconds: number } | null;
+  operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
 }
 
 
@@ -49,7 +48,7 @@ export async function GET(request: NextRequest, context: GetContext) {
   }
 
   try {
-    const driverRef = doc(db, 'users', driverId); // Assuming drivers are in 'users' collection
+    const driverRef = doc(db, 'users', driverId);
     const driverSnap = await getDoc(driverRef);
 
     if (!driverSnap.exists()) {
@@ -58,13 +57,10 @@ export async function GET(request: NextRequest, context: GetContext) {
 
     const driverData = driverSnap.data();
 
-    // Verify the user is actually a driver
     if (driverData.role !== 'driver') {
-      // Even if the user ID exists, if it's not a driver, treat as not found for this endpoint's purpose
       return NextResponse.json({ message: `User with ID ${driverId} is not a driver.` }, { status: 404 });
     }
 
-    // Ensure all known and potential timestamp fields are serialized
     const serializedDriver: Driver = {
       id: driverSnap.id,
       name: driverData.name || 'N/A',
@@ -75,10 +71,10 @@ export async function GET(request: NextRequest, context: GetContext) {
       status: driverData.status || 'Inactive',
       rating: driverData.rating,
       totalRides: driverData.totalRides,
-      role: 'driver', // Assert role
+      role: 'driver',
       createdAt: serializeTimestamp(driverData.createdAt as Timestamp | undefined),
       lastLogin: serializeTimestamp(driverData.lastLogin as Timestamp | undefined),
-      // Add other fields as necessary
+      operatorUpdatedAt: serializeTimestamp(driverData.operatorUpdatedAt as Timestamp | undefined),
     };
     
     return NextResponse.json(serializedDriver, { status: 200 });
@@ -87,5 +83,85 @@ export async function GET(request: NextRequest, context: GetContext) {
     console.error(`Error fetching driver ${driverId}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: `Failed to fetch driver ${driverId}`, details: errorMessage }, { status: 500 });
+  }
+}
+
+const driverUpdateSchema = z.object({
+  name: z.string().min(2, {message: "Name must be at least 2 characters."}).optional(),
+  email: z.string().email({message: "Invalid email format."}).optional(),
+  phone: z.string().optional(), // Consider adding more specific phone validation (e.g., regex) if needed
+  vehicleModel: z.string().optional(),
+  licensePlate: z.string().optional(),
+  status: z.enum(['Active', 'Inactive', 'Pending Approval']).optional(),
+}).min(1, { message: "At least one field must be provided for update." });
+
+export type DriverUpdatePayload = z.infer<typeof driverUpdateSchema>;
+
+export async function POST(request: NextRequest, context: GetContext) {
+  // TODO: Implement authentication/authorization for operator role.
+
+  const { driverId } = context.params;
+
+  if (!driverId || typeof driverId !== 'string' || driverId.trim() === '') {
+    return NextResponse.json({ message: 'A valid Driver ID path parameter is required.' }, { status: 400 });
+  }
+
+  try {
+    const body = await request.json();
+    const parsedPayload = driverUpdateSchema.safeParse(body);
+
+    if (!parsedPayload.success) {
+      return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
+    }
+
+    const updateDataFromPayload = parsedPayload.data;
+    
+    const driverRef = doc(db, 'users', driverId);
+    const driverSnap = await getDoc(driverRef);
+
+    if (!driverSnap.exists()) {
+      return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
+    }
+
+    const driverData = driverSnap.data();
+    if (driverData.role !== 'driver') {
+      return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be updated via this endpoint.` }, { status: 403 });
+    }
+
+    const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp }> = {
+      ...updateDataFromPayload,
+      operatorUpdatedAt: Timestamp.now(),
+    };
+    
+    await updateDoc(driverRef, updatePayload as any);
+
+    const updatedDriverSnap = await getDoc(driverRef);
+    const updatedDriverData = updatedDriverSnap.data()!;
+
+    const serializedUpdatedDriver: Driver = {
+        id: updatedDriverSnap.id,
+        name: updatedDriverData.name || 'N/A',
+        email: updatedDriverData.email || 'N/A',
+        phone: updatedDriverData.phone,
+        vehicleModel: updatedDriverData.vehicleModel,
+        licensePlate: updatedDriverData.licensePlate,
+        status: updatedDriverData.status || 'Inactive',
+        rating: updatedDriverData.rating,
+        totalRides: updatedDriverData.totalRides,
+        role: 'driver',
+        createdAt: serializeTimestamp(updatedDriverData.createdAt as Timestamp | undefined),
+        lastLogin: serializeTimestamp(updatedDriverData.lastLogin as Timestamp | undefined),
+        operatorUpdatedAt: serializeTimestamp(updatedDriverData.operatorUpdatedAt as Timestamp | undefined),
+    };
+
+    return NextResponse.json({ message: 'Driver details updated successfully', driver: serializedUpdatedDriver }, { status: 200 });
+
+  } catch (error) {
+    console.error(`Error updating driver ${driverId}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (error instanceof z.ZodError) { // Check if it's a Zod validation error
+        return NextResponse.json({ message: 'Invalid update payload.', errors: error.format() }, { status: 400 });
+    }
+    return NextResponse.json({ message: `Failed to update driver ${driverId}`, details: errorMessage }, { status: 500 });
   }
 }
