@@ -30,7 +30,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
@@ -42,6 +42,14 @@ interface FavoriteLocation {
   latitude: number;
   longitude: number;
 }
+
+interface MapMarker {
+  position: google.maps.LatLngLiteral;
+  title?: string;
+  iconUrl?: string;
+  iconScaledSize?: { width: number; height: number };
+}
+
 
 const bookingFormSchema = z.object({
   pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
@@ -78,7 +86,7 @@ type AutocompleteData = {
   coords: google.maps.LatLngLiteral | null;
 };
 
-const defaultMapCenter: [number, number] = [51.5074, -0.1278]; 
+const defaultMapCenter: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
 
 // Fare Calculation Constants
 const BASE_FARE = 0.00;
@@ -119,7 +127,7 @@ export default function BookRidePage() {
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const { toast } = useToast();
   const { user } = useAuth(); 
-  const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
+  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
@@ -177,7 +185,7 @@ export default function BookRidePage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["places"],
+      libraries: ["places", "marker"],
     });
 
     loader.load().then((google) => {
@@ -560,19 +568,19 @@ export default function BookRidePage() {
   }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form]);
 
  useEffect(() => {
-    const newMarkers = [];
+    const newMarkers: MapMarker[] = [];
     if (pickupCoords) {
-      newMarkers.push({ position: [pickupCoords.lat, pickupCoords.lng], popupText: `Pickup: ${form.getValues('pickupLocation')}` });
+      newMarkers.push({ position: pickupCoords, title: `Pickup: ${form.getValues('pickupLocation')}` });
     }
     const currentFormStops = form.getValues('stops');
     currentFormStops?.forEach((formStop, index) => {
         const stopData = stopAutocompleteData[index];
         if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
-             newMarkers.push({ position: [stopData.coords.lat, stopData.coords.lng], popupText: `Stop: ${formStop.location}` });
+             newMarkers.push({ position: stopData.coords, title: `Stop: ${formStop.location}` });
         }
     });
     if (dropoffCoords) {
-      newMarkers.push({ position: [dropoffCoords.lat, dropoffCoords.lng], popupText: `Dropoff: ${form.getValues('dropoffLocation')}` });
+      newMarkers.push({ position: dropoffCoords, title: `Dropoff: ${form.getValues('dropoffLocation')}` });
     }
     setMapMarkers(newMarkers);
   }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]); 
@@ -752,6 +760,8 @@ export default function BookRidePage() {
   );
 
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
+
+  const currentMapCenter = pickupCoords || defaultMapCenter;
 
   return (
     <div className="space-y-6">
@@ -1040,12 +1050,11 @@ export default function BookRidePage() {
 
             <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-64 md:h-80 mb-6">
-                <MapDisplay 
-                    center={(pickupCoords && [pickupCoords.lat, pickupCoords.lng]) || defaultMapCenter} 
+                <GoogleMapDisplay 
+                    center={currentMapCenter} 
                     zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 10} 
                     markers={mapMarkers} 
                     className="w-full h-full" 
-                    scrollWheelZoom={true}
                  />
               </div>
             </div>
