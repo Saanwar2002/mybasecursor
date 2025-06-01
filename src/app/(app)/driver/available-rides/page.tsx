@@ -118,14 +118,18 @@ export default function AvailableRidesPage() {
             )}
             <div className="mt-4">
               <p className="text-md font-medium mb-1">Live Ride Map:</p>
-              <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm">
+              <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm flex items-center justify-center text-muted-foreground">
+                Map display temporarily disabled.
+                {/* 
                 <MapDisplay 
+                    key={activeRide.id}
                     center={activeRide.pickupCoords || driverLocation} 
                     zoom={13} 
                     markers={getMapMarkersForActiveRide()}
                     className="w-full h-full"
                     scrollWheelZoom={true}
                 />
+                */}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
@@ -196,3 +200,5 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
+    

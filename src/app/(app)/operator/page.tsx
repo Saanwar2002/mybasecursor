@@ -66,7 +66,9 @@ export default function OperatorDashboardPage() {
                 <Map className="w-6 h-6 text-primary" /> Live Fleet Overview
             </CardTitle>
         </CardHeader>
-        <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden">
+        <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden flex items-center justify-center text-muted-foreground">
+            Map display temporarily disabled.
+             {/* 
              <MapDisplay 
                 center={defaultUKCenter} 
                 zoom={12} 
@@ -74,6 +76,7 @@ export default function OperatorDashboardPage() {
                 className="w-full h-full" 
                 scrollWheelZoom={true}
              />
+             */}
         </CardContent>
       </Card>
 
@@ -149,3 +152,5 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+
+    
