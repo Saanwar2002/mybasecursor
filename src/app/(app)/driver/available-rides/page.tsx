@@ -3,17 +3,18 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
-import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
+// import dynamic from 'next/dynamic';
+// import { Skeleton } from '@/components/ui/skeleton';
 
-const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
-  ssr: false,
-  loading: () => <Skeleton className="w-full h-full rounded-md" />,
-});
+// const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+//   ssr: false,
+//   loading: () => <Skeleton className="w-full h-full rounded-md" />,
+// });
 
 interface RideRequest {
   id: string;
@@ -21,49 +22,63 @@ interface RideRequest {
   passengerAvatar: string;
   pickupLocation: string;
   dropoffLocation: string;
-  estimatedTime: string; 
+  estimatedTime: string;
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active' | 'completed' | 'cancelled_by_driver';
-  pickupCoords?: [number, number]; 
+  pickupCoords?: [number, number];
   dropoffCoords?: [number, number];
   distanceMiles?: number;
+  passengerCount: number; 
+  passengerPhone?: string; // Added for call customer
 }
 
 const defaultUKCenter: [number, number] = [51.5074, -0.1278];
 
 const mockRideRequests: RideRequest[] = [
-  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St, London', dropoffLocation: 'City Mall, London', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending', pickupCoords: [51.510, -0.120], dropoffCoords: [51.505, -0.130], distanceMiles: 2.5 },
-  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Central Station, London', dropoffLocation: 'Airport Terminal 2, London', estimatedTime: '5 min', fareEstimate: 28.00, status: 'pending', pickupCoords: [51.500, -0.125], dropoffCoords: [51.470, -0.454], distanceMiles: 15.2 },
-  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Green Park, London', dropoffLocation: 'Downtown Office, London', estimatedTime: '12 min', fareEstimate: 12.75, status: 'pending', pickupCoords: [51.507, -0.142], dropoffCoords: [51.515, -0.087], distanceMiles: 3.1 },
+  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St, London', dropoffLocation: 'City Mall, London', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending', pickupCoords: [51.510, -0.120], dropoffCoords: [51.505, -0.130], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101' },
+  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Central Station, London', dropoffLocation: 'Airport Terminal 2, London', estimatedTime: '5 min', fareEstimate: 28.00, status: 'pending', pickupCoords: [51.500, -0.125], dropoffCoords: [51.470, -0.454], distanceMiles: 15.2, passengerCount: 2, passengerPhone: '555-0102' },
+  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Green Park, London', dropoffLocation: 'Downtown Office, London', estimatedTime: '12 min', fareEstimate: 12.75, status: 'pending', pickupCoords: [51.507, -0.142], dropoffCoords: [51.515, -0.087], distanceMiles: 3.1, passengerCount: 1, passengerPhone: '555-0103' },
 ];
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
-  const [driverLocation] = useState<[number, number]>([51.500, -0.100]); 
+  const [driverLocation] = useState<[number, number]>([51.500, -0.100]); // Mock driver location
 
   const handleRideAction = (rideId: string, newStatus: RideRequest['status']) => {
     setRideRequests(prevRequests => {
       if (newStatus === 'active') {
-        // Ensure only one ride is active
         return prevRequests.map(req => {
           if (req.id === rideId) return { ...req, status: 'active' };
-          if (req.status === 'active') return { ...req, status: 'pending' }; // Reset other active rides
+          if (req.status === 'active') return { ...req, status: 'pending' };
           return req;
         });
       }
-      return prevRequests.map(req => 
+      return prevRequests.map(req =>
         req.id === rideId ? { ...req, status: newStatus } : req
       );
     });
 
     const ridePassengerName = rideRequests.find(r => r.id === rideId)?.passengerName;
     let toastMessage = `Ride request from ${ridePassengerName} has been ${newStatus}.`;
-    if (newStatus === 'completed') toastMessage = `Ride with ${ridePassengerName} marked as completed.`;
-    if (newStatus === 'cancelled_by_driver') toastMessage = `Active ride with ${ridePassengerName} cancelled.`;
-    
+    let toastTitle = `Ride ${newStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+
+    if (newStatus === 'completed') {
+      toastMessage = `Ride with ${ridePassengerName} marked as completed.`;
+      toastTitle = "Ride Completed";
+    } else if (newStatus === 'cancelled_by_driver') {
+      toastMessage = `Active ride with ${ridePassengerName} cancelled.`;
+      toastTitle = "Ride Cancelled";
+    } else if (newStatus === 'active') {
+      toastMessage = `Ride with ${ridePassengerName} is now active.`;
+      toastTitle = "Ride Accepted";
+    } else if (newStatus === 'declined') {
+        toastMessage = `Ride request from ${ridePassengerName} declined.`;
+        toastTitle = "Ride Declined";
+    }
+
     toast({
-      title: `Ride ${newStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+      title: toastTitle,
       description: toastMessage,
     });
   };
@@ -71,14 +86,23 @@ export default function AvailableRidesPage() {
   const activeRide = rideRequests.find(r => r.status === 'active');
   const pendingRides = rideRequests.filter(r => r.status === 'pending');
 
-  const getMapMarkersForActiveRide = () => {
-    if (!activeRide || !activeRide.pickupCoords) return [];
-    const markers = [{ position: driverLocation, popupText: "Your Location", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" }]; // Placeholder for driver icon
-    markers.push({ position: activeRide.pickupCoords, popupText: `Pickup: ${activeRide.passengerName}` });
-    if (activeRide.dropoffCoords) {
-        markers.push({ position: activeRide.dropoffCoords, popupText: "Drop-off" });
+  // const getMapMarkersForActiveRide = () => {
+  //   if (!activeRide || !activeRide.pickupCoords) return [];
+  //   const markers = [{ position: driverLocation, popupText: "Your Location", iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png" }];
+  //   markers.push({ position: activeRide.pickupCoords, popupText: `Pickup: ${activeRide.passengerName}` });
+  //   if (activeRide.dropoffCoords) {
+  //       markers.push({ position: activeRide.dropoffCoords, popupText: "Drop-off" });
+  //   }
+  //   return markers;
+  // };
+  
+  const handleCallCustomer = (phoneNumber?: string) => {
+    if (phoneNumber) {
+      alert(`Calling customer at ${phoneNumber}... (Demo)`);
+      // In a real app: window.location.href = `tel:${phoneNumber}`;
+    } else {
+      alert("Customer phone number not available. (Demo)");
     }
-    return markers;
   };
 
   return (
@@ -87,9 +111,9 @@ export default function AvailableRidesPage() {
         <CardHeader>
           <CardTitle className="text-3xl font-headline">Ride Management</CardTitle>
           <CardDescription>
-            {activeRide 
-              ? "Focus on your current active ride." 
-              : "View and manage incoming ride requests. Update your location for active rides."}
+            {activeRide
+              ? "Focus on your current active ride."
+              : "View and manage incoming ride requests."}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -107,9 +131,13 @@ export default function AvailableRidesPage() {
                 <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger" />
                 <div>
                   <p className="text-lg font-semibold">{activeRide.passengerName}</p>
-                  <Badge variant="outline" className="border-primary text-primary">Fare: £{activeRide.fareEstimate.toFixed(2)}</Badge>
+                  <Badge variant="outline" className="border-primary text-primary mr-2">Fare: £{activeRide.fareEstimate.toFixed(2)}</Badge>
+                  <Badge variant="secondary" className="mt-1">
+                    <UsersIcon className="w-3 h-3 mr-1" /> {activeRide.passengerCount} Passenger{activeRide.passengerCount > 1 ? 's' : ''}
+                  </Badge>
                 </div>
             </div>
+            <p className="flex items-center gap-1.5 text-md"><Info className="w-5 h-5 text-muted-foreground" /> <strong>Ride ID:</strong> {activeRide.id}</p>
             <p className="flex items-center gap-1.5 text-md"><MapPin className="w-5 h-5 text-muted-foreground" /> <strong>From:</strong> {activeRide.pickupLocation}</p>
             <p className="flex items-center gap-1.5 text-md"><MapPin className="w-5 h-5 text-muted-foreground" /> <strong>To:</strong> {activeRide.dropoffLocation}</p>
             <p className="flex items-center gap-1.5 text-md"><Clock className="w-5 h-5 text-muted-foreground" /> <strong>Est. Time to Pickup:</strong> {activeRide.estimatedTime}</p>
@@ -119,16 +147,20 @@ export default function AvailableRidesPage() {
             <div className="mt-4">
               <p className="text-md font-medium mb-1">Live Ride Map:</p>
               <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm flex items-center justify-center text-muted-foreground">
-                Map display temporarily disabled.
-                {/* 
-                <MapDisplay 
-                    key={activeRide.id}
-                    center={activeRide.pickupCoords || driverLocation} 
-                    zoom={13} 
-                    markers={getMapMarkersForActiveRide()}
-                    className="w-full h-full"
-                    scrollWheelZoom={true}
-                />
+                 Map display temporarily disabled for debugging.
+                 {/* 
+                 {activeRide.pickupCoords ? (
+                    <MapDisplay
+                        key={activeRide.id} 
+                        center={activeRide.pickupCoords || driverLocation}
+                        zoom={13}
+                        markers={getMapMarkersForActiveRide()}
+                        className="w-full h-full"
+                        scrollWheelZoom={true}
+                    />
+                  ) : (
+                    <p>Map data not available for this ride.</p>
+                  )}
                 */}
               </div>
             </div>
@@ -138,11 +170,21 @@ export default function AvailableRidesPage() {
               </Button>
               <Button variant="outline" className="w-full text-base py-3 border-green-500 text-green-600 hover:bg-green-500 hover:text-white" onClick={() => handleRideAction(activeRide.id, 'completed')}>
                   <CheckCircle className="mr-2 h-5 w-5" /> Complete Ride
-                </Button>
+              </Button>
             </div>
-            <Button variant="destructive" className="w-full mt-3 text-base py-3" onClick={() => handleRideAction(activeRide.id, 'cancelled_by_driver')}>
-                <XCircle className="mr-2 h-5 w-5" /> Cancel Active Ride
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+             <Button asChild variant="outline" className="w-full text-base py-3">
+                <Link href="/driver/chat">
+                  <MessageSquare className="mr-2 h-5 w-5" /> Chat
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full text-base py-3" onClick={() => handleCallCustomer(activeRide.passengerPhone)}>
+                  <Phone className="mr-2 h-5 w-5" /> Call
+              </Button>
+              <Button variant="destructive" className="w-full text-base py-3" onClick={() => handleRideAction(activeRide.id, 'cancelled_by_driver')}>
+                  <XCircle className="mr-2 h-5 w-5" /> Cancel
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -163,7 +205,10 @@ export default function AvailableRidesPage() {
                     <Image src={req.passengerAvatar} alt={req.passengerName} width={40} height={40} className="rounded-full" data-ai-hint="avatar passenger" />
                     <div>
                       <CardTitle className="text-lg">{req.passengerName}</CardTitle>
-                      <Badge variant="outline" className="mt-1">Fare: £{req.fareEstimate.toFixed(2)}</Badge>
+                      <Badge variant="outline" className="mt-1 mr-1">Fare: £{req.fareEstimate.toFixed(2)}</Badge>
+                       <Badge variant="secondary" className="mt-1">
+                        <UsersIcon className="w-3 h-3 mr-1" /> {req.passengerCount} Passenger{req.passengerCount > 1 ? 's' : ''}
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
@@ -200,5 +245,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
-    
