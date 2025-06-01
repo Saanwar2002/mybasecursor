@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,11 +27,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
+
+interface FavoriteLocation {
+  id: string;
+  label: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
 
 const bookingFormSchema = z.object({
   pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
@@ -120,6 +129,9 @@ export default function BookRidePage() {
   const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
   const [isBooking, setIsBooking] = useState(false);
 
+  const [favoriteLocations, setFavoriteLocations] = useState<FavoriteLocation[]>([]);
+  const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
+
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -177,6 +189,26 @@ export default function BookRidePage() {
       toast({ title: "Error", description: "Could not load address search. Please check API key or network.", variant: "destructive" });
     });
   }, [toast]);
+
+  const fetchUserFavoriteLocations = useCallback(async () => {
+    if (!user) return;
+    setIsLoadingFavorites(true);
+    try {
+      const response = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
+      if (!response.ok) throw new Error("Failed to fetch favorites");
+      const data: FavoriteLocation[] = await response.json();
+      setFavoriteLocations(data);
+    } catch (err) {
+      toast({ title: "Error", description: "Could not load favorite locations.", variant: "destructive" });
+    } finally {
+      setIsLoadingFavorites(false);
+    }
+  }, [user, toast]);
+
+  useEffect(() => {
+    fetchUserFavoriteLocations();
+  }, [fetchUserFavoriteLocations]);
+
 
   const fetchAddressSuggestions = useCallback((
     inputValue: string,
@@ -410,6 +442,33 @@ export default function BookRidePage() {
       }
     }, 150); 
   };
+
+  const handleFavoriteSelectFactory = (
+    formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number,
+    formOnChange: (value: string) => void
+  ) => (fav: FavoriteLocation) => {
+    formOnChange(fav.address);
+    const newCoords = { lat: fav.latitude, lng: fav.longitude };
+
+    if (typeof formFieldNameOrStopIndex === 'number') {
+      const stopIndex = formFieldNameOrStopIndex;
+      setStopAutocompleteData(prev => prev.map((item, idx) =>
+        idx === stopIndex
+          ? { ...item, inputValue: fav.address, coords: newCoords, suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false }
+          : item
+      ));
+    } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+      setPickupInputValue(fav.address);
+      setPickupCoords(newCoords);
+      setShowPickupSuggestions(false);
+    } else { // dropoffLocation
+      setDropoffInputValue(fav.address);
+      setDropoffCoords(newCoords);
+      setShowDropoffSuggestions(false);
+    }
+    toast({ title: "Favorite Applied", description: `${fav.label}: ${fav.address} selected.` });
+  };
+
 
   const watchedVehicleType = form.watch("vehicleType");
   const watchedPassengers = form.watch("passengers");
@@ -658,7 +717,39 @@ export default function BookRidePage() {
       ))}
     </div>
   );
-  
+
+  const renderFavoriteLocationsPopover = (
+    onSelectFavorite: (fav: FavoriteLocation) => void,
+    triggerKey: string
+  ) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-accent" aria-label="Select from favorites">
+          <Star className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0">
+        <ScrollArea className="h-auto max-h-60">
+          <div className="p-2">
+            <p className="text-sm font-medium p-2">Your Favorites</p>
+            {isLoadingFavorites && <div className="p-2 text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...</div>}
+            {!isLoadingFavorites && favoriteLocations.length === 0 && <p className="p-2 text-sm text-muted-foreground">No favorites saved yet.</p>}
+            {!isLoadingFavorites && favoriteLocations.map(fav => (
+              <div
+                key={`${triggerKey}-fav-${fav.id}`}
+                className="p-2 text-sm hover:bg-muted cursor-pointer rounded-md"
+                onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }} // Close popover
+              >
+                <p className="font-semibold">{fav.label}</p>
+                <p className="text-xs text-muted-foreground">{fav.address}</p>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
 
   return (
@@ -679,7 +770,7 @@ export default function BookRidePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                        <div className="relative">
+                        <div className="relative flex items-center">
                           <FormControl>
                             <Input
                               placeholder="Type pickup address"
@@ -689,8 +780,10 @@ export default function BookRidePage() {
                               onFocus={handleFocusFactory('pickupLocation')}
                               onBlur={handleBlurFactory('pickupLocation')}
                               autoComplete="off"
+                              className="pr-10"
                             />
                           </FormControl>
+                          {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('pickupLocation', field.onChange), "pickup")}
                           {showPickupSuggestions && renderSuggestions(
                             pickupSuggestions, 
                             isFetchingPickupSuggestions, 
@@ -720,7 +813,7 @@ export default function BookRidePage() {
                                 <XCircle className="mr-1 h-4 w-4" /> Remove Stop
                               </Button>
                             </FormLabel>
-                            <div className="relative">
+                            <div className="relative flex items-center">
                               <FormControl>
                                 <Input
                                   placeholder={`Type stop ${index + 1} address`}
@@ -730,8 +823,10 @@ export default function BookRidePage() {
                                   onFocus={handleFocusFactory(index)}
                                   onBlur={handleBlurFactory(index)}
                                   autoComplete="off"
+                                  className="pr-10"
                                 />
                               </FormControl>
+                              {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange), `stop-${index}`)}
                               {currentStopData.showSuggestions && renderSuggestions(
                                 currentStopData.suggestions, 
                                 currentStopData.isFetchingSuggestions, 
@@ -765,7 +860,7 @@ export default function BookRidePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
-                        <div className="relative">
+                        <div className="relative flex items-center">
                           <FormControl>
                             <Input
                               placeholder="Type drop-off address"
@@ -775,8 +870,10 @@ export default function BookRidePage() {
                                onFocus={handleFocusFactory('dropoffLocation')}
                                onBlur={handleBlurFactory('dropoffLocation')}
                               autoComplete="off"
+                              className="pr-10"
                             />
                           </FormControl>
+                           {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('dropoffLocation', field.onChange), "dropoff")}
                           {showDropoffSuggestions && renderSuggestions(
                             dropoffSuggestions, 
                             isFetchingDropoffSuggestions, 
@@ -822,7 +919,7 @@ export default function BookRidePage() {
                               selected={field.value}
                               onSelect={(date) => {
                                 field.onChange(date);
-                                if (!date) { // Clear time if date is cleared
+                                if (!date) { 
                                   form.setValue("desiredPickupTime", "");
                                 }
                               }}
@@ -948,5 +1045,4 @@ export default function BookRidePage() {
     </div>
   );
 }
-
     
