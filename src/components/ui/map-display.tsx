@@ -72,6 +72,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
 
   return (
     <MapContainer
+      key="leaflet-map-container" // Added a static key here
       center={center}
       zoom={zoom}
       style={mapStyle}
@@ -96,3 +97,4 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   );
 };
 export default MapDisplay;
+
