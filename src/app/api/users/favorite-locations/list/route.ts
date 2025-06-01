@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore'; // Removed orderBy
 
 interface FavoriteLocationDoc {
   id: string;
@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const favLocationsRef = collection(db, 'favoriteLocations');
+    // Removed orderBy('label', 'asc') from the query
     const q = query(
       favLocationsRef,
-      where('userId', '==', userId),
-      orderBy('label', 'asc') // Order by label alphabetically, or createdAt for by date
+      where('userId', '==', userId)
     );
 
     const querySnapshot = await getDocs(q);
@@ -90,3 +90,4 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
