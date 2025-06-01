@@ -17,12 +17,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader } from '@googlemaps/js-api-loader';
-import { useAuth } from '@/contexts/auth-context'; // Added for passengerId
+import { useAuth } from '@/contexts/auth-context';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   ssr: false,
@@ -39,6 +43,19 @@ const bookingFormSchema = z.object({
   ).optional(),
   vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
+  desiredPickupDate: z.date().optional(),
+  desiredPickupTime: z.string().optional(), // HH:mm format
+}).refine(data => {
+  if (data.desiredPickupDate && !data.desiredPickupTime) {
+    return false; 
+  }
+  if (!data.desiredPickupDate && data.desiredPickupTime) {
+    return false; 
+  }
+  return true;
+}, {
+  message: "Both date and time must be provided for a scheduled pickup, or neither can be set.",
+  path: ["desiredPickupTime"], 
 });
 
 type AutocompleteData = {
@@ -91,7 +108,7 @@ export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user } = useAuth(); 
   const [mapMarkers, setMapMarkers] = useState<Array<{ position: [number, number]; popupText?: string }>>([]);
   
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
@@ -101,7 +118,7 @@ export default function BookRidePage() {
   const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
   
   const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
-  const [isBooking, setIsBooking] = useState(false); // Loading state for booking API call
+  const [isBooking, setIsBooking] = useState(false);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -111,6 +128,8 @@ export default function BookRidePage() {
       stops: [],
       vehicleType: "car",
       passengers: 1,
+      desiredPickupDate: undefined,
+      desiredPickupTime: "",
     },
   });
 
@@ -395,6 +414,7 @@ export default function BookRidePage() {
   const watchedVehicleType = form.watch("vehicleType");
   const watchedPassengers = form.watch("passengers");
   const watchedStops = form.watch("stops");
+  const watchedDesiredDate = form.watch("desiredPickupDate");
 
   const handleAddStop = () => {
     append({ location: "" });
@@ -529,6 +549,15 @@ export default function BookRidePage() {
         toast({ title: "Fare Not Calculated", description: "Could not calculate fare. Ensure addresses are valid.", variant: "destructive" });
         return;
     }
+    
+    let scheduledPickupAt: string | undefined = undefined;
+    if (values.desiredPickupDate && values.desiredPickupTime) {
+      const [hours, minutes] = values.desiredPickupTime.split(':').map(Number);
+      const combinedDateTime = new Date(values.desiredPickupDate);
+      combinedDateTime.setHours(hours, minutes, 0, 0);
+      scheduledPickupAt = combinedDateTime.toISOString();
+    }
+
 
     setIsBooking(true);
 
@@ -544,6 +573,7 @@ export default function BookRidePage() {
       isSurgeApplied: isSurgeActive,
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
+      scheduledPickupAt,
     };
 
     try {
@@ -564,9 +594,14 @@ export default function BookRidePage() {
       if (validStopsData.length > 0) {
           rideDescription += ` via ${validStopsData.map(s => s.address).join(' via ')}`;
       }
-      rideDescription += ` to ${values.dropoffLocation} is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}. A driver will be assigned.`;
+      rideDescription += ` to ${values.dropoffLocation} is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
+      if (scheduledPickupAt) {
+        rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
+      }
+      rideDescription += ` A driver will be assigned.`;
+
       
-      toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default" });
+      toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 7000 });
       
       form.reset(); 
       setPickupInputValue("");
@@ -631,7 +666,7 @@ export default function BookRidePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-headline flex items-center gap-2"><Car className="w-8 h-8 text-primary" /> Book Your Ride</CardTitle>
-          <CardDescription>Enter your pickup and drop-off details. You can add multiple intermediate stops.</CardDescription>
+          <CardDescription>Enter your pickup and drop-off details. You can add multiple intermediate stops and schedule for later.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
@@ -755,6 +790,71 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="desiredPickupDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel className="flex items-center gap-1"><CalendarIcon className="w-4 h-4 text-muted-foreground" /> Desired Pickup Date (Optional)</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={(date) => {
+                                field.onChange(date);
+                                if (!date) { // Clear time if date is cleared
+                                  form.setValue("desiredPickupTime", "");
+                                }
+                              }}
+                              disabled={(date) =>
+                                date < new Date(new Date().setHours(0,0,0,0)) 
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="desiredPickupTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1"><Clock className="w-4 h-4 text-muted-foreground" /> Desired Pickup Time (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="time" 
+                            {...field} 
+                            disabled={!watchedDesiredDate}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="vehicleType"
@@ -849,3 +949,4 @@ export default function BookRidePage() {
   );
 }
 
+    
