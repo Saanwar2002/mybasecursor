@@ -1,13 +1,25 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Car, Calendar, MapPin, DollarSign, Loader2, AlertTriangle } from "lucide-react";
+import { Star, Car, Calendar, MapPin, DollarSign, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Interface for how Timestamp will look after JSON serialization from API
 interface JsonTimestamp {
@@ -79,8 +91,10 @@ export default function MyRidesPage() {
   const [rides, setRides] = useState<Ride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
+  const [selectedRideForRating, setSelectedRideForRating] = useState<Ride | null>(null);
   const [currentRating, setCurrentRating] = useState(0);
+  const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -129,21 +143,57 @@ export default function MyRidesPage() {
   }, [user, toast]);
 
   const handleRateRide = (ride: Ride) => {
-    setSelectedRide(ride);
+    setSelectedRideForRating(ride);
     setCurrentRating(ride.rating || 0);
   };
 
   const submitRating = async () => {
-    if (selectedRide && user) {
-      console.log(`Submitting rating ${currentRating} for ride ${selectedRide.id} by user ${user.id}`);
+    if (selectedRideForRating && user) {
+      console.log(`Submitting rating ${currentRating} for ride ${selectedRideForRating.id} by user ${user.id}`);
       // For demo purposes, update local state and show toast
       const updatedRides = rides.map(r =>
-        r.id === selectedRide.id ? { ...r, rating: currentRating } : r
+        r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r
       );
       setRides(updatedRides);
       toast({ title: "Rating Submitted", description: `You rated your ride ${currentRating} stars.`});
-      setSelectedRide(null);
+      setSelectedRideForRating(null);
       setCurrentRating(0);
+    }
+  };
+
+  const handleOpenCancelDialog = (ride: Ride) => {
+    setRideToCancel(ride);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!rideToCancel || !user) return;
+    setIsCancelling(true);
+    try {
+      const response = await fetch('/api/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: rideToCancel.id, passengerId: user.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to cancel booking: ${response.status}`);
+      }
+
+      setRides(prevRides => prevRides.map(r => 
+        r.id === rideToCancel.id ? { ...r, status: 'cancelled' } : r
+      ));
+      toast({ title: "Booking Cancelled", description: "Your ride has been successfully cancelled." });
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      toast({ 
+        title: "Cancellation Failed", 
+        description: error instanceof Error ? error.message : "An unknown error occurred.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsCancelling(false);
+      setRideToCancel(null);
     }
   };
 
@@ -239,7 +289,8 @@ export default function MyRidesPage() {
                     ride.status === 'in_progress' ? 'border-blue-500 text-blue-500' :
                     ride.status === 'pending_assignment' ? 'bg-yellow-400/80 text-yellow-900' :
                     ride.status === 'driver_assigned' ? 'bg-sky-400/80 text-sky-900' :
-                    ride.status === 'completed' ? 'bg-green-500/80 text-green-950': ''
+                    ride.status === 'completed' ? 'bg-green-500/80 text-green-950': 
+                    ride.status === 'cancelled' ? 'bg-red-500/80 text-red-950': ''
                   }
                 >
                   {ride.status ? ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown'}
@@ -271,34 +322,50 @@ export default function MyRidesPage() {
                   )}
                 </div>
               </div>
-              {ride.status === 'completed' && (
-                <div className="pt-2">
-                  {ride.rating ? (
-                    <div className="flex items-center">
-                      <p className="text-sm mr-2">Your Rating:</p>
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
-                      ))}
-                    </div>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>
-                      Rate Ride
+              
+              <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center">
+                {ride.status === 'completed' && (
+                  <>
+                    {ride.rating ? (
+                      <div className="flex items-center">
+                        <p className="text-sm mr-2">Your Rating:</p>
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                        ))}
+                      </div>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>
+                        Rate Ride
+                      </Button>
+                    )}
+                  </>
+                )}
+                {ride.status === 'pending_assignment' && (
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" onClick={() => handleOpenCancelDialog(ride)} className="w-full sm:w-auto">
+                      <Trash2 className="mr-2 h-4 w-4" /> Cancel Ride
                     </Button>
-                  )}
-                </div>
-              )}
+                  </AlertDialogTrigger>
+                )}
+                {ride.status !== 'pending_assignment' && ride.status !== 'cancelled' && ride.status !== 'completed' && (
+                  <Button variant="outline" size="sm" disabled className="w-full sm:w-auto">
+                    Cannot Cancel
+                  </Button>
+                )}
+              </div>
+
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {selectedRide && (
+      {selectedRideForRating && (
         <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl">
-           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRide(null)} />
+           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRideForRating(null)} />
            <div className="relative bg-card rounded-lg p-6">
             <CardHeader>
-              <CardTitle>Rate your ride with {selectedRide.driver || 'your driver'}</CardTitle>
-              <CardDescription>{formatDate(selectedRide.bookingTimestamp)} - {selectedRide.pickupLocation.address} to {selectedRide.dropoffLocation.address}</CardDescription>
+              <CardTitle>Rate your ride with {selectedRideForRating.driver || 'your driver'}</CardTitle>
+              <CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address}</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center space-x-1 py-4">
               {[...Array(5)].map((_, i) => (
@@ -310,11 +377,33 @@ export default function MyRidesPage() {
               ))}
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setSelectedRide(null)}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setSelectedRideForRating(null)}>Cancel</Button>
               <Button onClick={submitRating} className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit Rating</Button>
             </CardFooter>
           </div>
         </Card>
+      )}
+
+      {rideToCancel && (
+        <AlertDialog open={!!rideToCancel} onOpenChange={(open) => !open && setRideToCancel(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. Your ride from <span className="font-semibold">{rideToCancel.pickupLocation.address}</span> to <span className="font-semibold">{rideToCancel.dropoffLocation.address}</span> will be cancelled.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setRideToCancel(null)} disabled={isCancelling}>
+                Back
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmCancel} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                {isCancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Yes, Cancel Ride
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
