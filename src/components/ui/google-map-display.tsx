@@ -12,12 +12,12 @@ interface GoogleMapDisplayProps {
   markers?: Array<{
     position: google.maps.LatLngLiteral;
     title?: string;
-    iconUrl?: string; // URL for a custom marker icon
-    iconScaledSize?: { width: number; height: number }; // e.g., { width: 30, height: 48 }
+    iconUrl?: string; 
+    iconScaledSize?: { width: number; height: number }; 
   }>;
   className?: string;
   style?: React.CSSProperties;
-  mapId?: string; // Optional: For using specific Map IDs (custom styles)
+  mapId?: string; 
 }
 
 const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
@@ -46,8 +46,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       return;
     }
 
-    setIsLoading(true); // Ensure loading is true at the start of effect
-    setError(null); // Clear previous errors
+    setIsLoading(true); 
+    setError(null); 
 
     const loader = new Loader({
       apiKey: apiKey,
@@ -55,21 +55,21 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       libraries: ["places", "marker"], 
     });
 
-    let map: google.maps.Map | null = null;
+    let localMapInstance: google.maps.Map | null = null;
 
     loader.load()
       .then((google) => {
         if (mapRef.current) {
-          map = new google.maps.Map(mapRef.current, {
-            center,
-            zoom,
+          localMapInstance = new google.maps.Map(mapRef.current, {
+            center, // Initial center
+            zoom,   // Initial zoom
             mapId: mapId, 
             disableDefaultUI: true,
             zoomControl: true,
             streetViewControl: false,
             mapTypeControl: false,
           });
-          setMapInstance(map);
+          setMapInstance(localMapInstance);
         } else {
           console.warn("GoogleMapDisplay: mapRef.current is null when trying to initialize map.");
           setError("Map container not found. Cannot initialize map.");
@@ -83,19 +83,15 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         setIsLoading(false);
       });
       
-      return () => {
-        // Clear markers when component unmounts or map instance changes
-        currentMarkersRef.current.forEach(marker => marker.setMap(null));
-        currentMarkersRef.current = [];
-        if (mapInstance) {
-          // Basic cleanup for Google Maps. More complex cleanup might be needed
-          // if many listeners or custom controls were added.
-          // For now, clearing the map instance state is enough.
-        }
-        setMapInstance(null); 
-      };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [center.lat, center.lng, zoom, mapId]); // Depend on lat/lng explicitly if center object identity changes often
+    return () => {
+      currentMarkersRef.current.forEach(marker => marker.setMap(null));
+      currentMarkersRef.current = [];
+      // Clear the map instance from state when the component unmounts or mapId changes
+      setMapInstance(null); 
+    };
+  // Only re-run this effect if mapId changes. API key presence is checked internally.
+  // Center and zoom are initial values; subsequent changes are handled by the next useEffect.
+  }, [mapId]); 
 
   useEffect(() => {
     if (!mapInstance) return;
