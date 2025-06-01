@@ -1,14 +1,13 @@
 
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-// MapContainer and other react-leaflet components are commented out
-// import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { cn } from "@/lib/utils";
-import { Skeleton } from './skeleton'; // Keep Skeleton for consistency if needed elsewhere
+import { Skeleton } from './skeleton';
 
-// Fix for default marker icon issue with Webpack - can remain as it's not harmful
+// Fix for default marker icon issue with Webpack
 if (typeof window !== 'undefined') {
     if (!(L.Icon.Default.prototype as any)._getIconUrlFixed) {
         delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -33,7 +32,7 @@ interface MapDisplayProps {
   className?: string;
   style?: React.CSSProperties;
   scrollWheelZoom?: boolean;
-  placeholder?: React.ReactNode; // Kept for interface consistency, but not used by MapContainer now
+  placeholder?: React.ReactNode;
 }
 
 const MapDisplay: React.FC<MapDisplayProps> = ({
@@ -44,27 +43,11 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
   style: propStyle,
   scrollWheelZoom = true,
 }) => {
-  const defaultStyle = useMemo(() => ({ height: '100%', width: '100%', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #ccc', borderRadius: '0.5rem', backgroundColor: '#f9f9f9' }), []);
+  const defaultStyle = useMemo(() => ({ height: '100%', width: '100%', minHeight: '300px' }), []);
   const mapStyle = propStyle ? { ...defaultStyle, ...propStyle } : defaultStyle;
 
-  // Render a placeholder instead of the map
-  return (
-    <div
-      style={mapStyle}
-      className={cn("map-display-placeholder", className)}
-      aria-label="Map container temporarily disabled"
-    >
-      <p className="text-muted-foreground text-center p-4">
-        Map rendering is temporarily disabled. <br />
-        Center: {center.join(', ')}, Zoom: {zoom}
-      </p>
-    </div>
-  );
-
-  // Original MapContainer logic is commented out:
-  /*
-  const [isMounted, setIsMounted] = React.useState(false);
-  React.useEffect(() => {
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
     setIsMounted(true);
   }, []);
 
@@ -82,8 +65,8 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     return L.icon({
       iconUrl,
       iconSize: iconSize,
-      iconAnchor: [iconSize[0] / 2, iconSize[1]],
-      popupAnchor: [0, -iconSize[1]],
+      iconAnchor: [iconSize[0] / 2, iconSize[1]], // point of the icon which will correspond to marker's location
+      popupAnchor: [0, -iconSize[1]] // point from which the popup should open relative to the iconAnchor
     });
   };
 
@@ -111,6 +94,5 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
       ))}
     </MapContainer>
   );
-  */
 };
 export default MapDisplay;
