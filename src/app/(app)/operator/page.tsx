@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map } from 'lucide-react';
+import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
   ssr: false,
@@ -23,13 +24,79 @@ const mockFleetMarkers = [
     { position: [51.49, -0.11] as [number, number], popupText: "Driver 4 (Sarah W) - Available" },
 ];
 
+interface Ride { id: string; status: string; }
+interface Driver { id: string; status: string; }
+
 export default function OperatorDashboardPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  const activeRides = 12;
-  const availableDrivers = 25;
-  const totalDrivers = 30;
-  const issuesReported = 3;
+  const [activeRidesCount, setActiveRidesCount] = useState<number | string>("...");
+  const [availableDriversCount, setAvailableDriversCount] = useState<number | string>("...");
+  const [totalDriversCount, setTotalDriversCount] = useState<number | string>("...");
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // Mocked: In a real app, fetch actual issues
+  const issuesReported = 3; 
+
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        // Fetch active rides (e.g., 'Assigned' or 'In Progress')
+        // For simplicity, we fetch a small list and use its length. 
+        // A real API might provide a count directly.
+        const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=50`);
+        const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In Progress&limit=50`);
+        
+        if (!ridesResponseAssigned.ok || !ridesResponseInProgress.ok) {
+            if (!ridesResponseAssigned.ok) console.error("Failed to fetch assigned rides", await ridesResponseAssigned.text());
+            if (!ridesResponseInProgress.ok) console.error("Failed to fetch in-progress rides", await ridesResponseInProgress.text());
+            throw new Error('Failed to fetch ride data for dashboard');
+        }
+        const assignedData = await ridesResponseAssigned.json();
+        const inProgressData = await ridesResponseInProgress.json();
+        const activeRides = (assignedData.bookings?.length || 0) + (inProgressData.bookings?.length || 0);
+        setActiveRidesCount(activeRides);
+
+        // Fetch available (active) drivers
+        const availableDriversResponse = await fetch(`/api/operator/drivers?status=Active&limit=100`); // Fetch more for a better count idea
+        if (!availableDriversResponse.ok) {
+            console.error("Failed to fetch available drivers", await availableDriversResponse.text());
+            throw new Error('Failed to fetch available drivers');
+        }
+        const availableDriversData = await availableDriversResponse.json();
+        setAvailableDriversCount(availableDriversData.drivers?.length || 0);
+
+        // Fetch total drivers (all statuses)
+        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=200`); // Fetch more for a better count idea
+        if (!totalDriversResponse.ok) {
+            console.error("Failed to fetch total drivers", await totalDriversResponse.text());
+            throw new Error('Failed to fetch total drivers');
+        }
+        const totalDriversData = await totalDriversResponse.json();
+        setTotalDriversCount(totalDriversData.drivers?.length || 0);
+
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+        toast({
+          title: "Error Loading Stats",
+          description: "Could not load some dashboard statistics.",
+          variant: "destructive",
+        });
+        // Set counts to N/A on error to indicate data couldn't be fetched
+        setActiveRidesCount("N/A");
+        setAvailableDriversCount("N/A");
+        setTotalDriversCount("N/A");
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    if (user) {
+      fetchDashboardStats();
+    }
+  }, [user, toast]);
 
   return (
     <div className="space-y-6">
@@ -54,8 +121,8 @@ export default function OperatorDashboardPage() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Active Rides" value={activeRides.toString()} icon={Car} color="text-green-500" />
-        <StatCard title="Available Drivers" value={`${availableDrivers} / ${totalDrivers}`} icon={Users} color="text-blue-500" />
+        <StatCard title="Active Rides" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : String(activeRidesCount)} icon={Car} color="text-green-500" />
+        <StatCard title="Available Drivers" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : `${availableDriversCount} / ${totalDriversCount}`} icon={Users} color="text-blue-500" />
         <StatCard title="Issues Reported" value={issuesReported.toString()} icon={AlertTriangle} color="text-red-500" />
         <StatCard title="System Status" value="Operational" icon={Briefcase} color="text-green-500" />
       </div>
@@ -109,7 +176,7 @@ export default function OperatorDashboardPage() {
 
 interface StatCardProps {
     title: string;
-    value: string;
+    value: string | React.ReactNode;
     icon: React.ElementType;
     color?: string;
 }
@@ -152,5 +219,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
-
-    
