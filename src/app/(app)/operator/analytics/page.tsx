@@ -17,19 +17,16 @@ interface HourlyActivityData {
   rides: number;
 }
 
-// Keep other mock data for now
-const revenueData = [
-  { month: 'Jan', revenue: 40000 }, { month: 'Feb', revenue: 30000 }, { month: 'Mar', revenue: 50000 },
-  { month: 'Apr', revenue: 45000 }, { month: 'May', revenue: 60000 }, { month: 'Jun', revenue: 55000 },
-];
+interface MonthlyRevenueData {
+  month: string; // "MMM yyyy"
+  revenue: number;
+}
 
-const popularZonesData = [
-    {zone: "Downtown", rides: 120},
-    {zone: "Airport", rides: 95},
-    {zone: "North Suburb", rides: 70},
-    {zone: "West End", rides: 60},
-    {zone: "University", rides: 50},
-]
+interface PopularAddressData {
+  address: string;
+  rides: number;
+}
+
 
 export default function OperatorAnalyticsPage() {
   const [dailyRidesData, setDailyRidesData] = useState<DailyRideData[]>([]);
@@ -39,6 +36,15 @@ export default function OperatorAnalyticsPage() {
   const [hourlyActivityData, setHourlyActivityData] = useState<HourlyActivityData[]>([]);
   const [isLoadingHourlyActivity, setIsLoadingHourlyActivity] = useState(true);
   const [errorHourlyActivity, setErrorHourlyActivity] = useState<string | null>(null);
+
+  const [monthlyRevenueData, setMonthlyRevenueData] = useState<MonthlyRevenueData[]>([]);
+  const [isLoadingMonthlyRevenue, setIsLoadingMonthlyRevenue] = useState(true);
+  const [errorMonthlyRevenue, setErrorMonthlyRevenue] = useState<string | null>(null);
+
+  const [popularAddressesData, setPopularAddressesData] = useState<PopularAddressData[]>([]);
+  const [isLoadingPopularAddresses, setIsLoadingPopularAddresses] = useState(true);
+  const [errorPopularAddresses, setErrorPopularAddresses] = useState<string | null>(null);
+
 
   const { toast } = useToast();
 
@@ -67,7 +73,6 @@ export default function OperatorAnalyticsPage() {
       setIsLoadingHourlyActivity(true);
       setErrorHourlyActivity(null);
       try {
-        // Fetches for today by default
         const response = await fetch(`/api/operator/analytics/hourly-rides?date=${format(new Date(), 'yyyy-MM-dd')}`);
         if (!response.ok) {
           const errorData = await response.json();
@@ -84,8 +89,50 @@ export default function OperatorAnalyticsPage() {
       }
     };
 
+    const fetchMonthlyRevenue = async () => {
+      setIsLoadingMonthlyRevenue(true);
+      setErrorMonthlyRevenue(null);
+      try {
+        const response = await fetch('/api/operator/analytics/monthly-revenue?months=6');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch monthly revenue: ${response.status}`);
+        }
+        const data = await response.json();
+        setMonthlyRevenueData(data.monthlyRevenue);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "An unknown error occurred while fetching monthly revenue.";
+        setErrorMonthlyRevenue(message);
+        toast({ title: "Error Fetching Monthly Revenue", description: message, variant: "destructive" });
+      } finally {
+        setIsLoadingMonthlyRevenue(false);
+      }
+    };
+
+    const fetchPopularAddresses = async () => {
+      setIsLoadingPopularAddresses(true);
+      setErrorPopularAddresses(null);
+      try {
+        const response = await fetch('/api/operator/analytics/popular-pickup-addresses?limit=5&days=30');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch popular addresses: ${response.status}`);
+        }
+        const data = await response.json();
+        setPopularAddressesData(data.popularAddresses);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "An unknown error occurred while fetching popular addresses.";
+        setErrorPopularAddresses(message);
+        toast({ title: "Error Fetching Popular Addresses", description: message, variant: "destructive" });
+      } finally {
+        setIsLoadingPopularAddresses(false);
+      }
+    };
+
     fetchDailyRides();
     fetchHourlyActivity();
+    fetchMonthlyRevenue();
+    fetchPopularAddresses();
   }, [toast]);
 
   return (
@@ -158,29 +205,53 @@ export default function OperatorAnalyticsPage() {
       </div>
       
        <div className="grid gap-6 lg:grid-cols-2">
-         <ChartCard title="Monthly Revenue Trend" description="Total revenue generated per month. (Mock data)">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value) => `£${value/1000}k`} />
-              <Tooltip formatter={(value: number) => `£${value.toLocaleString()}`} />
-              <Legend />
-              <Bar dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+         <ChartCard title="Monthly Revenue Trend" description="Total revenue generated per month for the last 6 months.">
+          {isLoadingMonthlyRevenue && <div className="h-[300px] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary"/></div>}
+          {errorMonthlyRevenue && !isLoadingMonthlyRevenue && (
+            <div className="h-[300px] flex flex-col items-center justify-center text-destructive">
+              <AlertTriangle className="w-8 h-8 mb-2"/>
+              <p>Error: {errorMonthlyRevenue}</p>
+            </div>
+          )}
+          {!isLoadingMonthlyRevenue && !errorMonthlyRevenue && monthlyRevenueData.length > 0 && (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyRevenueData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `£${value/1000}k`} />
+                <Tooltip formatter={(value: number) => `£${value.toLocaleString()}`} />
+                <Legend />
+                <Bar dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+          {!isLoadingMonthlyRevenue && !errorMonthlyRevenue && monthlyRevenueData.length === 0 && (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No revenue data available.</p></div>
+           )}
         </ChartCard>
-        <ChartCard title="Popular Pickup Zones" description="Most frequent pickup locations. (Mock data)">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart layout="vertical" data={popularZonesData} margin={{left: 20}}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis dataKey="zone" type="category" width={80} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="rides" name="Rides" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <ChartCard title="Popular Pickup Addresses" description="Most frequent pickup locations in the last 30 days.">
+          {isLoadingPopularAddresses && <div className="h-[300px] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-accent"/></div>}
+          {errorPopularAddresses && !isLoadingPopularAddresses && (
+            <div className="h-[300px] flex flex-col items-center justify-center text-destructive">
+              <AlertTriangle className="w-8 h-8 mb-2"/>
+              <p>Error: {errorPopularAddresses}</p>
+            </div>
+          )}
+          {!isLoadingPopularAddresses && !errorPopularAddresses && popularAddressesData.length > 0 && (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart layout="vertical" data={popularAddressesData} margin={{left: 20, right: 20}}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="address" type="category" width={150} tick={{fontSize: 10}}/>
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="rides" name="Rides" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+          {!isLoadingPopularAddresses && !errorPopularAddresses && popularAddressesData.length === 0 && (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No popular address data available.</p></div>
+           )}
         </ChartCard>
       </div>
 
@@ -237,3 +308,4 @@ function ChartCard({ title, description, children }: ChartCardProps) {
         </Card>
     );
 }
+
