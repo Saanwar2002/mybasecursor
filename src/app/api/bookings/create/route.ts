@@ -17,9 +17,10 @@ interface BookingPayload {
   isSurgeApplied: boolean;
   surgeMultiplier: number;
   stopSurchargeTotal: number;
-  scheduledPickupAt?: string | null; // Added to match existing functionality elsewhere
-  customerPhoneNumber?: string; // New: For operator bookings
-  bookedByOperatorId?: string; // New: ID of operator who made the booking
+  scheduledPickupAt?: string | null; 
+  customerPhoneNumber?: string; 
+  bookedByOperatorId?: string; 
+  driverNotes?: string; // New field for driver notes
 }
 
 export async function POST(request: NextRequest) {
@@ -34,9 +35,9 @@ export async function POST(request: NextRequest) {
     // In a real app, verify the passengerId/operatorId using an ID token from Firebase Auth
     // For now, we're trusting the client-sent IDs.
 
-    const newBooking: any = { // Use 'any' temporarily to allow extra fields
+    const newBooking: any = { 
       passengerId: bookingData.passengerId,
-      passengerName: bookingData.passengerName, // Customer's name
+      passengerName: bookingData.passengerName, 
       pickupLocation: bookingData.pickupLocation,
       dropoffLocation: bookingData.dropoffLocation,
       stops: bookingData.stops,
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest) {
       isSurgeApplied: bookingData.isSurgeApplied,
       surgeMultiplier: bookingData.surgeMultiplier,
       stopSurchargeTotal: bookingData.stopSurchargeTotal,
-      status: 'pending_assignment', // Initial status for a new booking
-      bookingTimestamp: serverTimestamp(), // Firestore server-side timestamp
+      status: 'pending_assignment', 
+      bookingTimestamp: serverTimestamp(), 
     };
 
     if (bookingData.scheduledPickupAt) {
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
     }
     if (bookingData.bookedByOperatorId) {
       newBooking.bookedByOperatorId = bookingData.bookedByOperatorId;
+    }
+    if (bookingData.driverNotes && bookingData.driverNotes.trim() !== "") { // Add driverNotes if provided
+      newBooking.driverNotes = bookingData.driverNotes.trim();
     }
 
 

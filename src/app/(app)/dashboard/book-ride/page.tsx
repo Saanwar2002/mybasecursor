@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +29,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea'; // Import Textarea
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -62,7 +63,8 @@ const bookingFormSchema = z.object({
   vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   desiredPickupDate: z.date().optional(),
-  desiredPickupTime: z.string().optional(), // HH:mm format
+  desiredPickupTime: z.string().optional(), 
+  driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(), // Added driverNotes
 }).refine(data => {
   if (data.desiredPickupDate && !data.desiredPickupTime) {
     return false; 
@@ -152,6 +154,7 @@ export default function BookRidePage() {
       passengers: 1,
       desiredPickupDate: undefined,
       desiredPickupTime: "",
+      driverNotes: "", // Initialize driverNotes
     },
   });
 
@@ -262,7 +265,7 @@ export default function BookRidePage() {
     formOnChange(inputValue); 
     setFareEstimate(null);
     setEstimatedDistance(null);
-    if (formFieldNameOrStopIndex === 'pickupLocation') { // Reset wait time if pickup input changes
+    if (formFieldNameOrStopIndex === 'pickupLocation') { 
       setEstimatedWaitTime(null);
     }
 
@@ -477,7 +480,7 @@ export default function BookRidePage() {
       setPickupInputValue(fav.address);
       setPickupCoords(newCoords);
       setShowPickupSuggestions(false);
-    } else { // dropoffLocation
+    } else { 
       setDropoffInputValue(fav.address);
       setDropoffCoords(newCoords);
       setShowDropoffSuggestions(false);
@@ -517,13 +520,11 @@ export default function BookRidePage() {
   useEffect(() => {
     let waitTimeoutId: NodeJS.Timeout;
     if (pickupCoords && !anyFetchingDetails && !form.formState.isSubmitting) {
-      // Simulate wait time: random number between 3 and 10 minutes
-      // Adding a slight delay to simulate an API call
       waitTimeoutId = setTimeout(() => {
         const randomWaitTime = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
         setEstimatedWaitTime(randomWaitTime);
-      }, 700); // 0.7 second delay
-    } else if (!pickupCoords) { // If pickupCoords is cleared, reset wait time immediately
+      }, 700); 
+    } else if (!pickupCoords) { 
       setEstimatedWaitTime(null);
     }
     return () => clearTimeout(waitTimeoutId);
@@ -666,6 +667,7 @@ export default function BookRidePage() {
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
+      driverNotes: values.driverNotes, // Include driver notes
     };
 
     try {
@@ -689,6 +691,9 @@ export default function BookRidePage() {
       rideDescription += ` to ${values.dropoffLocation} is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
       if (scheduledPickupAt) {
         rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
+      }
+      if (values.driverNotes && values.driverNotes.trim() !== "") {
+        rideDescription += ` Notes: "${values.driverNotes}".`;
       }
       rideDescription += ` A driver will be assigned.`;
 
@@ -772,7 +777,7 @@ export default function BookRidePage() {
               <div
                 key={`${triggerKey}-fav-${fav.id}`}
                 className="p-2 text-sm hover:bg-muted cursor-pointer rounded-md"
-                onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }} // Close popover
+                onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }} 
               >
                 <p className="font-semibold">{fav.label}</p>
                 <p className="text-xs text-muted-foreground">{fav.address}</p>
@@ -1032,6 +1037,23 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="driverNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1"><StickyNote className="w-4 h-4 text-muted-foreground" /> Notes for Driver (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="e.g., Ring doorbell on arrival, specific gate number, etc."
+                            className="min-h-[80px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                    <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}>
                      {isBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                      {isBooking ? 'Processing...' : 'Book Ride'}
@@ -1065,18 +1087,17 @@ export default function BookRidePage() {
                      <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                   )}
 
-                  {/* Estimated Wait Time Display Logic */}
                   {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
                     <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
                       <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
                     </p>
                   )}
-                  {anyFetchingDetails && pickupCoords && !estimatedWaitTime && ( // Show estimating if pickup details are being fetched
+                  {anyFetchingDetails && pickupCoords && !estimatedWaitTime && ( 
                      <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
                        <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
                     </p>
                   )}
-                   {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && ( // Show estimating if pickup is set, not fetching, but wait time not calculated yet
+                   {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && ( 
                      <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
                        <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
                     </p>
