@@ -5,18 +5,19 @@ import { BarChart3, TrendingUp, Users, Clock, DollarSign, MapPin, Loader2, Alert
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { format } from 'date-fns';
 
 interface DailyRideData {
   name: string; // e.g., 'Mon', 'Tue' or 'YYYY-MM-DD'
   rides: number;
 }
 
-// Keep other mock data for now
-const hourlyActivityData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${String(i).padStart(2, '0')}:00`,
-  rides: Math.floor(Math.random() * 30) + (i > 6 && i < 22 ? 10 : 0), 
-}));
+interface HourlyActivityData {
+  hour: string; // HH:00
+  rides: number;
+}
 
+// Keep other mock data for now
 const revenueData = [
   { month: 'Jan', revenue: 40000 }, { month: 'Feb', revenue: 30000 }, { month: 'Mar', revenue: 50000 },
   { month: 'Apr', revenue: 45000 }, { month: 'May', revenue: 60000 }, { month: 'Jun', revenue: 55000 },
@@ -34,6 +35,11 @@ export default function OperatorAnalyticsPage() {
   const [dailyRidesData, setDailyRidesData] = useState<DailyRideData[]>([]);
   const [isLoadingDailyRides, setIsLoadingDailyRides] = useState(true);
   const [errorDailyRides, setErrorDailyRides] = useState<string | null>(null);
+
+  const [hourlyActivityData, setHourlyActivityData] = useState<HourlyActivityData[]>([]);
+  const [isLoadingHourlyActivity, setIsLoadingHourlyActivity] = useState(true);
+  const [errorHourlyActivity, setErrorHourlyActivity] = useState<string | null>(null);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,7 +47,6 @@ export default function OperatorAnalyticsPage() {
       setIsLoadingDailyRides(true);
       setErrorDailyRides(null);
       try {
-        // Fetch for the last 7 days by default
         const response = await fetch('/api/operator/analytics/daily-rides?days=7');
         if (!response.ok) {
           const errorData = await response.json();
@@ -50,14 +55,37 @@ export default function OperatorAnalyticsPage() {
         const data = await response.json();
         setDailyRidesData(data.dailyRideCounts);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "An unknown error occurred.";
+        const message = err instanceof Error ? err.message : "An unknown error occurred while fetching daily rides.";
         setErrorDailyRides(message);
         toast({ title: "Error Fetching Daily Rides", description: message, variant: "destructive" });
       } finally {
         setIsLoadingDailyRides(false);
       }
     };
+
+    const fetchHourlyActivity = async () => {
+      setIsLoadingHourlyActivity(true);
+      setErrorHourlyActivity(null);
+      try {
+        // Fetches for today by default
+        const response = await fetch(`/api/operator/analytics/hourly-rides?date=${format(new Date(), 'yyyy-MM-dd')}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch hourly activity: ${response.status}`);
+        }
+        const data = await response.json();
+        setHourlyActivityData(data.hourlyActivity);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "An unknown error occurred while fetching hourly activity.";
+        setErrorHourlyActivity(message);
+        toast({ title: "Error Fetching Hourly Activity", description: message, variant: "destructive" });
+      } finally {
+        setIsLoadingHourlyActivity(false);
+      }
+    };
+
     fetchDailyRides();
+    fetchHourlyActivity();
   }, [toast]);
 
   return (
@@ -103,17 +131,29 @@ export default function OperatorAnalyticsPage() {
             <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No ride data for this period.</p></div>
            )}
         </ChartCard>
-        <ChartCard title="Hourly Ride Activity" description="Average number of rides per hour. (Mock data)">
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={hourlyActivityData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour" tickFormatter={(tick) => tick.split(':')[0]} />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="rides" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}/>
-            </LineChart>
-          </ResponsiveContainer>
+        <ChartCard title="Today's Hourly Ride Activity" description="Number of rides per hour for today.">
+           {isLoadingHourlyActivity && <div className="h-[300px] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-accent"/></div>}
+          {errorHourlyActivity && !isLoadingHourlyActivity && (
+            <div className="h-[300px] flex flex-col items-center justify-center text-destructive">
+              <AlertTriangle className="w-8 h-8 mb-2"/>
+              <p>Error: {errorHourlyActivity}</p>
+            </div>
+          )}
+          {!isLoadingHourlyActivity && !errorHourlyActivity && hourlyActivityData.length > 0 && (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={hourlyActivityData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" tickFormatter={(tick) => tick.split(':')[0]} />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="rides" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Rides"/>
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          {!isLoadingHourlyActivity && !errorHourlyActivity && hourlyActivityData.length === 0 && (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No ride data for today.</p></div>
+           )}
         </ChartCard>
       </div>
       
