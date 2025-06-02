@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact } from 'lucide-react';
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -34,6 +34,8 @@ export const navItems: NavItem[] = [
   { href: '/operator/manage-drivers', label: 'Manage Drivers', icon: Users, roles: ['operator'] },
   { href: '/operator/manage-passengers', label: 'Manage Passengers', icon: Contact, roles: ['operator'] },
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
+  { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
+
 
   // Common
   { href: '/profile', label: 'Profile', icon: UserCircle, roles: ['passenger', 'driver', 'operator'] },
