@@ -868,30 +868,32 @@ export default function BookRidePage() {
     onSuggestionClick: (suggestion: google.maps.places.AutocompletePrediction) => void,
     fieldKey: string
   ) => (
-    <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
-      {isFetchingSuggestions && (
-        <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
-        </div>
-      )}
-      {isFetchingDetails && (
-         <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching location details...
-        </div>
-      )}
-      {!isFetchingSuggestions && !isFetchingDetails && suggestions.length === 0 && inputValue.length >= 2 && (
-         <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
-      )}
-      {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestionItem) => (
-        <div
-          key={`${fieldKey}-${suggestionItem.place_id}`}
-          className="p-2 text-sm hover:bg-muted cursor-pointer"
-          onMouseDown={() => onSuggestionClick(suggestionItem)}
-        >
-          {suggestionItem.description}
-        </div>
-      ))}
-    </div>
+    <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60">
+      <div className="space-y-1 p-1">
+        {isFetchingSuggestions && (
+          <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
+          </div>
+        )}
+        {isFetchingDetails && (
+          <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching location details...
+          </div>
+        )}
+        {!isFetchingSuggestions && !isFetchingDetails && suggestions.length === 0 && inputValue.length >= 2 && (
+          <div className="p-2 text-sm text-muted-foreground">No suggestions found.</div>
+        )}
+        {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestionItem) => (
+          <div
+            key={`${fieldKey}-${suggestionItem.place_id}`}
+            className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm"
+            onMouseDown={() => onSuggestionClick(suggestionItem)}
+          >
+            {suggestionItem.description}
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
   );
 
   const renderFavoriteLocationsPopover = (
