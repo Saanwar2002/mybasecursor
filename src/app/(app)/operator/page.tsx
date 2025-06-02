@@ -47,7 +47,7 @@ export default function OperatorDashboardPage() {
         // For simplicity, we fetch a small list and use its length. 
         // A real API might provide a count directly.
         const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=50`);
-        const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In Progress&limit=50`);
+        const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In%20Progress&limit=50`);
         
         if (!ridesResponseAssigned.ok || !ridesResponseInProgress.ok) {
             if (!ridesResponseAssigned.ok) console.error("Failed to fetch assigned rides", await ridesResponseAssigned.text());
@@ -69,10 +69,10 @@ export default function OperatorDashboardPage() {
         setAvailableDriversCount(availableDriversData.drivers?.length || 0);
 
         // Fetch total drivers (all statuses)
-        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=200`); // Fetch more for a better count idea
+        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=100`); // Fetch more for a better count idea
         if (!totalDriversResponse.ok) {
             console.error("Failed to fetch total drivers", await totalDriversResponse.text());
-            throw new Error('Failed to fetch total drivers');
+            throw new Error(`Failed to fetch total drivers "${await totalDriversResponse.text()}"`);
         }
         const totalDriversData = await totalDriversResponse.json();
         setTotalDriversCount(totalDriversData.drivers?.length || 0);
