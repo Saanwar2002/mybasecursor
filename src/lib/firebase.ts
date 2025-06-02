@@ -21,6 +21,19 @@ if (!getApps().length) {
 }
 
 const db: Firestore = getFirestore(app);
-const auth: Auth = getAuth(app);
+let auth: Auth | null = null;
+
+if (firebaseConfig.apiKey) {
+  try {
+    auth = getAuth(app);
+  } catch (e) {
+    console.error("Failed to initialize Firebase Auth. API key might be missing or invalid in your .env file.", e);
+  }
+} else {
+  console.warn(
+    "Firebase API key (NEXT_PUBLIC_FIREBASE_API_KEY) is missing in your .env file. " +
+    "Firebase Authentication will not be available. Please ensure all NEXT_PUBLIC_FIREBASE_ environment variables are set."
+  );
+}
 
 export { app, db, auth };
