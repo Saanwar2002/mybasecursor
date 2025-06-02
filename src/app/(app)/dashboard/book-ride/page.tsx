@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,7 +29,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea'; // Import Textarea
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -42,6 +44,19 @@ interface FavoriteLocation {
   address: string;
   latitude: number;
   longitude: number;
+}
+
+interface SavedRouteLocationPoint {
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+interface SavedRoute {
+  id: string;
+  label: string;
+  pickupLocation: SavedRouteLocationPoint;
+  dropoffLocation: SavedRouteLocationPoint;
+  stops?: SavedRouteLocationPoint[];
 }
 
 interface MapMarker {
@@ -63,23 +78,23 @@ const bookingFormSchema = z.object({
   vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   desiredPickupDate: z.date().optional(),
-  desiredPickupTime: z.string().optional(), 
-  driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(), // Added driverNotes
+  desiredPickupTime: z.string().optional(),
+  driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
 }).refine(data => {
   if (data.desiredPickupDate && !data.desiredPickupTime) {
-    return false; 
+    return false;
   }
   if (!data.desiredPickupDate && data.desiredPickupTime) {
-    return false; 
+    return false;
   }
   return true;
 }, {
   message: "Both date and time must be provided for a scheduled pickup, or neither can be set.",
-  path: ["desiredPickupTime"], 
+  path: ["desiredPickupTime"],
 });
 
 type AutocompleteData = {
-  fieldId: string; 
+  fieldId: string;
   inputValue: string;
   suggestions: google.maps.places.AutocompletePrediction[];
   showSuggestions: boolean;
@@ -90,7 +105,6 @@ type AutocompleteData = {
 
 const defaultMapCenter: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
 
-// Fare Calculation Constants
 const BASE_FARE = 0.00;
 const PER_MILE_RATE = 1.00;
 const FIRST_MILE_SURCHARGE = 1.99;
@@ -111,7 +125,7 @@ function getDistanceInMiles(
   coords2: google.maps.LatLngLiteral | null
 ): number {
   if (!coords1 || !coords2) return 0;
-  const R = 6371; // Radius of the earth in km
+  const R = 6371;
   const dLat = deg2rad(coords2.lat - coords1.lat);
   const dLon = deg2rad(coords2.lng - coords1.lng);
   const a =
@@ -119,8 +133,8 @@ function getDistanceInMiles(
     Math.cos(deg2rad(coords1.lat)) * Math.cos(deg2rad(coords2.lat)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d * 0.621371; // Distance in miles
+  const d = R * c;
+  return d * 0.621371;
 }
 
 
@@ -129,20 +143,27 @@ export default function BookRidePage() {
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const [estimatedWaitTime, setEstimatedWaitTime] = useState<number | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth(); 
+  const { user } = useAuth();
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
-  
+
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
   const [isSurgeActive, setIsSurgeActive] = useState(false);
   const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
-  
+
   const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
   const [isBooking, setIsBooking] = useState(false);
 
   const [favoriteLocations, setFavoriteLocations] = useState<FavoriteLocation[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
+
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
+  const [isLoadingSavedRoutes, setIsLoadingSavedRoutes] = useState(false);
+  const [isSavingRoute, setIsSavingRoute] = useState(false);
+  const [isDeletingRouteId, setIsDeletingRouteId] = useState<string | null>(null);
+  const [saveRouteDialogOpen, setSaveRouteDialogOpen] = useState(false);
+  const [newRouteLabel, setNewRouteLabel] = useState("");
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -154,11 +175,11 @@ export default function BookRidePage() {
       passengers: 1,
       desiredPickupDate: undefined,
       desiredPickupTime: "",
-      driverNotes: "", // Initialize driverNotes
+      driverNotes: "",
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "stops",
   });
@@ -174,7 +195,7 @@ export default function BookRidePage() {
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
   const [isFetchingDropoffSuggestions, setIsFetchingDropoffSuggestions] = useState(false);
   const [isFetchingDropoffDetails, setIsFetchingDropoffDetails] = useState(false);
-  
+
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
@@ -190,12 +211,12 @@ export default function BookRidePage() {
     const loader = new Loader({
       apiKey: apiKey,
       version: "weekly",
-      libraries: ["places", "marker"], 
+      libraries: ["places", "marker"],
     });
 
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      const mapDiv = document.createElement('div'); 
+      const mapDiv = document.createElement('div');
       placesServiceRef.current = new google.maps.places.PlacesService(mapDiv);
       autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
     }).catch(e => {
@@ -219,9 +240,25 @@ export default function BookRidePage() {
     }
   }, [user, toast]);
 
+  const fetchUserSavedRoutes = useCallback(async () => {
+    if (!user) return;
+    setIsLoadingSavedRoutes(true);
+    try {
+      const response = await fetch(`/api/users/saved-routes/list?userId=${user.id}`);
+      if (!response.ok) throw new Error("Failed to fetch saved routes");
+      const data: SavedRoute[] = await response.json();
+      setSavedRoutes(data);
+    } catch (err) {
+      toast({ title: "Error", description: "Could not load saved routes.", variant: "destructive" });
+    } finally {
+      setIsLoadingSavedRoutes(false);
+    }
+  }, [user, toast]);
+
   useEffect(() => {
     fetchUserFavoriteLocations();
-  }, [fetchUserFavoriteLocations]);
+    fetchUserSavedRoutes();
+  }, [fetchUserFavoriteLocations, fetchUserSavedRoutes]);
 
 
   const fetchAddressSuggestions = useCallback((
@@ -237,10 +274,10 @@ export default function BookRidePage() {
 
     setIsFetchingFunc(true);
     autocompleteServiceRef.current.getPlacePredictions(
-      { 
-        input: inputValue, 
+      {
+        input: inputValue,
         sessionToken: autocompleteSessionTokenRef.current,
-        componentRestrictions: { country: 'gb' } 
+        componentRestrictions: { country: 'gb' }
       },
       (predictions, status) => {
         setIsFetchingFunc(false);
@@ -262,17 +299,17 @@ export default function BookRidePage() {
     inputValue: string,
     formOnChange: (value: string) => void,
   ) => {
-    formOnChange(inputValue); 
+    formOnChange(inputValue);
     setFareEstimate(null);
     setEstimatedDistance(null);
-    if (formFieldNameOrStopIndex === 'pickupLocation') { 
+    if (formFieldNameOrStopIndex === 'pickupLocation') {
       setEstimatedWaitTime(null);
     }
 
-    if (typeof formFieldNameOrStopIndex === 'number') { 
-      setStopAutocompleteData(prev => prev.map((item, idx) => 
-        idx === formFieldNameOrStopIndex 
-        ? { ...item, inputValue, coords: null, suggestions: inputValue.length >= 2 ? item.suggestions : [], showSuggestions: inputValue.length >=2, isFetchingSuggestions: inputValue.length >=2 } 
+    if (typeof formFieldNameOrStopIndex === 'number') {
+      setStopAutocompleteData(prev => prev.map((item, idx) =>
+        idx === formFieldNameOrStopIndex
+        ? { ...item, inputValue, coords: null, suggestions: inputValue.length >= 2 ? item.suggestions : [], showSuggestions: inputValue.length >=2, isFetchingSuggestions: inputValue.length >=2 }
         : item
       ));
     } else if (formFieldNameOrStopIndex === 'pickupLocation') {
@@ -280,19 +317,19 @@ export default function BookRidePage() {
       setPickupCoords(null);
       setShowPickupSuggestions(inputValue.length >=2);
       if(inputValue.length >=2) {
-        setIsFetchingPickupSuggestions(true); 
-        setPickupSuggestions([]); 
+        setIsFetchingPickupSuggestions(true);
+        setPickupSuggestions([]);
       } else {
         setIsFetchingPickupSuggestions(false);
         setPickupSuggestions([]);
       }
-    } else { 
+    } else {
       setDropoffInputValue(inputValue);
       setDropoffCoords(null);
       setShowDropoffSuggestions(inputValue.length >=2);
        if(inputValue.length >=2) {
         setIsFetchingDropoffSuggestions(true);
-        setDropoffSuggestions([]); 
+        setDropoffSuggestions([]);
       } else {
         setIsFetchingDropoffSuggestions(false);
         setDropoffSuggestions([]);
@@ -302,18 +339,18 @@ export default function BookRidePage() {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
-    
+
     if (inputValue.length < 2) return;
 
     debounceTimeoutRef.current = setTimeout(() => {
       if (typeof formFieldNameOrStopIndex === 'number') {
-        fetchAddressSuggestions(inputValue, 
+        fetchAddressSuggestions(inputValue,
           (sugg) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, suggestions: sugg } : item)),
           (fetch) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingSuggestions: fetch } : item))
         );
       } else if (formFieldNameOrStopIndex === 'pickupLocation') {
         fetchAddressSuggestions(inputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
-      } else { 
+      } else {
         fetchAddressSuggestions(inputValue, setDropoffSuggestions, setIsFetchingDropoffSuggestions);
       }
     }, 300);
@@ -336,31 +373,31 @@ export default function BookRidePage() {
       });
       if (typeof formFieldNameOrStopIndex === 'string') {
         if (formFieldNameOrStopIndex === 'pickupLocation') {
-          setPickupInputValue(prev => form.getValues('pickupLocation') || prev); 
+          setPickupInputValue(prev => form.getValues('pickupLocation') || prev);
           setPickupCoords(null); setShowPickupSuggestions(false); setEstimatedWaitTime(null);
-        } else { 
+        } else {
           setDropoffInputValue(prev => form.getValues('dropoffLocation') || prev);
           setDropoffCoords(null); setShowDropoffSuggestions(false);
         }
-      } else { 
+      } else {
         const stopIndex = formFieldNameOrStopIndex;
-        setStopAutocompleteData(prev => prev.map((item, idx) => 
-          idx === stopIndex 
-          ? { ...item, inputValue: form.getValues(`stops.${stopIndex}.location`) || item.inputValue, coords: null, showSuggestions: false } 
+        setStopAutocompleteData(prev => prev.map((item, idx) =>
+          idx === stopIndex
+          ? { ...item, inputValue: form.getValues(`stops.${stopIndex}.location`) || item.inputValue, coords: null, showSuggestions: false }
           : item
         ));
       }
       return;
     }
 
-    formOnChange(addressText); 
+    formOnChange(addressText);
 
     const setIsFetchingDetailsFunc = (isFetching: boolean) => {
       if (typeof formFieldNameOrStopIndex === 'number') {
         setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
       } else if (formFieldNameOrStopIndex === 'pickupLocation') {
         setIsFetchingPickupDetails(isFetching);
-      } else { 
+      } else {
         setIsFetchingDropoffDetails(isFetching);
       }
     };
@@ -372,21 +409,21 @@ export default function BookRidePage() {
         setPickupCoords(coords);
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
-      } else { 
+      } else {
         setDropoffCoords(coords);
         setDropoffInputValue(addressText);
         setShowDropoffSuggestions(false);
       }
     };
-    
+
     setIsFetchingDetailsFunc(true);
     if (placesServiceRef.current && suggestion.place_id) {
       placesServiceRef.current.getDetails(
-        { 
-          placeId: suggestion.place_id, 
-          fields: ['geometry.location'], 
-          sessionToken: autocompleteSessionTokenRef.current 
-        }, 
+        {
+          placeId: suggestion.place_id,
+          fields: ['geometry.location'],
+          sessionToken: autocompleteSessionTokenRef.current
+        },
         (place, status) => {
           setIsFetchingDetailsFunc(false);
           if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
@@ -400,7 +437,7 @@ export default function BookRidePage() {
             setCoordsFunc(null);
             if (formFieldNameOrStopIndex === 'pickupLocation') setEstimatedWaitTime(null);
           }
-          autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken(); 
+          autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
     } else {
@@ -416,7 +453,7 @@ export default function BookRidePage() {
     let currentInputValue: string;
     let currentSuggestions: google.maps.places.AutocompletePrediction[];
 
-    if (typeof formFieldNameOrStopIndex === 'number') { 
+    if (typeof formFieldNameOrStopIndex === 'number') {
         const stopData = stopAutocompleteData[formFieldNameOrStopIndex];
         if (!stopData) return;
         currentInputValue = stopData.inputValue;
@@ -424,7 +461,7 @@ export default function BookRidePage() {
         if (currentInputValue.length >= 2 && currentSuggestions.length > 0) {
              setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, showSuggestions: true } : item));
         } else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
-            fetchAddressSuggestions(currentInputValue, 
+            fetchAddressSuggestions(currentInputValue,
                 (sugg) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, suggestions: sugg, showSuggestions: true } : item)),
                 (fetch) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingSuggestions: fetch } : item))
             );
@@ -439,7 +476,7 @@ export default function BookRidePage() {
             fetchAddressSuggestions(currentInputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
             setShowPickupSuggestions(true);
         } else setShowPickupSuggestions(false);
-    } else { 
+    } else {
         currentInputValue = dropoffInputValue;
         currentSuggestions = dropoffSuggestions;
         if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowDropoffSuggestions(true);
@@ -449,17 +486,17 @@ export default function BookRidePage() {
         } else setShowDropoffSuggestions(false);
     }
   };
-  
+
   const handleBlurFactory = (formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
     setTimeout(() => {
       if (typeof formFieldNameOrStopIndex === 'number') {
         setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, showSuggestions: false } : item));
       } else if (formFieldNameOrStopIndex === 'pickupLocation') {
         setShowPickupSuggestions(false);
-      } else { 
+      } else {
         setShowDropoffSuggestions(false);
       }
-    }, 150); 
+    }, 150);
   };
 
   const handleFavoriteSelectFactory = (
@@ -480,14 +517,13 @@ export default function BookRidePage() {
       setPickupInputValue(fav.address);
       setPickupCoords(newCoords);
       setShowPickupSuggestions(false);
-    } else { 
+    } else {
       setDropoffInputValue(fav.address);
       setDropoffCoords(newCoords);
       setShowDropoffSuggestions(false);
     }
     toast({ title: "Favorite Applied", description: `${fav.label}: ${fav.address} selected.` });
   };
-
 
   const watchedVehicleType = form.watch("vehicleType");
   const watchedPassengers = form.watch("passengers");
@@ -499,7 +535,7 @@ export default function BookRidePage() {
     setStopAutocompleteData(prev => [
       ...prev,
       {
-        fieldId: `stop-temp-${prev.length}-${Date.now()}`, 
+        fieldId: `stop-temp-${prev.length}-${Date.now()}`,
         inputValue: "",
         suggestions: [],
         showSuggestions: false,
@@ -509,10 +545,10 @@ export default function BookRidePage() {
       }
     ]);
   };
-  
+
   const handleRemoveStop = (index: number) => {
-    remove(index); 
-    setStopAutocompleteData(prev => prev.filter((_, i) => i !== index)); 
+    remove(index);
+    setStopAutocompleteData(prev => prev.filter((_, i) => i !== index));
   };
 
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
@@ -523,8 +559,8 @@ export default function BookRidePage() {
       waitTimeoutId = setTimeout(() => {
         const randomWaitTime = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
         setEstimatedWaitTime(randomWaitTime);
-      }, 700); 
-    } else if (!pickupCoords) { 
+      }, 700);
+    } else if (!pickupCoords) {
       setEstimatedWaitTime(null);
     }
     return () => clearTimeout(waitTimeoutId);
@@ -537,19 +573,19 @@ export default function BookRidePage() {
         const formStopValue = form.getValues(`stops.${index}.location`);
         return stopData.coords && formStopValue && formStopValue.trim() !== "";
     });
-    
+
     if (pickupCoords && dropoffCoords) {
       let currentPoint = pickupCoords;
-      for (const stopData of validStopsForFare) { 
-        if (stopData.coords) { 
+      for (const stopData of validStopsForFare) {
+        if (stopData.coords) {
           totalDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
           currentPoint = stopData.coords;
         }
       }
       totalDistanceMiles += getDistanceInMiles(currentPoint, dropoffCoords);
       setEstimatedDistance(parseFloat(totalDistanceMiles.toFixed(2)));
-      
-      const isCurrentlySurge = Math.random() < 0.3; 
+
+      const isCurrentlySurge = Math.random() < 0.3;
       setIsSurgeActive(isCurrentlySurge);
       const surgeMultiplierToApply = isCurrentlySurge ? SURGE_MULTIPLIER_VALUE : 1;
       setCurrentSurgeMultiplier(surgeMultiplierToApply);
@@ -565,22 +601,22 @@ export default function BookRidePage() {
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
         calculatedFareBeforeMultipliers = subTotal + BOOKING_FEE;
       }
-      
+
       const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
       calculatedFareBeforeMultipliers += stopSurchargeAmount;
-      
+
       calculatedFareBeforeMultipliers = Math.max(calculatedFareBeforeMultipliers, MINIMUM_FARE);
 
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
-      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; 
-      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6; 
-      
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
+      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
+      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
+
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
-      
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
+
       const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
       setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
 
@@ -608,7 +644,7 @@ export default function BookRidePage() {
       newMarkers.push({ position: dropoffCoords, title: `Dropoff: ${form.getValues('dropoffLocation')}` });
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]); 
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
 
 
   async function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
@@ -642,7 +678,7 @@ export default function BookRidePage() {
         toast({ title: "Fare Not Calculated", description: "Could not calculate fare. Ensure addresses are valid.", variant: "destructive" });
         return;
     }
-    
+
     let scheduledPickupAt: string | undefined = undefined;
     if (values.desiredPickupDate && values.desiredPickupTime) {
       const [hours, minutes] = values.desiredPickupTime.split(':').map(Number);
@@ -667,7 +703,7 @@ export default function BookRidePage() {
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
-      driverNotes: values.driverNotes, // Include driver notes
+      driverNotes: values.driverNotes,
     };
 
     try {
@@ -683,7 +719,7 @@ export default function BookRidePage() {
       }
 
       const result = await response.json();
-      
+
       let rideDescription = `Your ride from ${values.pickupLocation}`;
       if (validStopsData.length > 0) {
           rideDescription += ` via ${validStopsData.map(s => s.address).join(' via ')}`;
@@ -697,23 +733,23 @@ export default function BookRidePage() {
       }
       rideDescription += ` A driver will be assigned.`;
 
-      
+
       toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 7000 });
-      
-      form.reset(); 
+
+      form.reset();
       setPickupInputValue("");
       setDropoffInputValue("");
       setPickupCoords(null);
       setDropoffCoords(null);
-      setStopAutocompleteData([]); 
+      setStopAutocompleteData([]);
       setFareEstimate(null);
       setEstimatedDistance(null);
       setEstimatedWaitTime(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
       setMapMarkers([]);
-      setPickupSuggestions([]); 
-      setDropoffSuggestions([]); 
+      setPickupSuggestions([]);
+      setDropoffSuggestions([]);
 
     } catch (error) {
         console.error("Booking error:", error);
@@ -723,13 +759,114 @@ export default function BookRidePage() {
     }
   }
 
+  const handleSaveCurrentRoute = () => {
+    if (!pickupCoords || !dropoffCoords || !form.getValues('pickupLocation') || !form.getValues('dropoffLocation')) {
+      toast({ title: "Cannot Save Route", description: "Please select valid pickup and drop-off locations before saving.", variant: "destructive"});
+      return;
+    }
+    setNewRouteLabel(""); // Reset label
+    setSaveRouteDialogOpen(true);
+  };
+
+  const submitSaveRoute = async () => {
+    if (!user || !pickupCoords || !dropoffCoords || !form.getValues('pickupLocation') || !form.getValues('dropoffLocation') || !newRouteLabel.trim()) {
+      toast({ title: "Error", description: "Missing information to save route or label is empty.", variant: "destructive"});
+      return;
+    }
+    setIsSavingRoute(true);
+    const currentStops = form.getValues('stops') || [];
+    const currentStopData = stopAutocompleteData;
+
+    const routeStops: SavedRouteLocationPoint[] = currentStops
+      .map((stop, index) => {
+        const stopData = currentStopData[index];
+        if (stop.location && stopData && stopData.coords) {
+          return { address: stop.location, latitude: stopData.coords.lat, longitude: stopData.coords.lng };
+        }
+        return null;
+      })
+      .filter(s => s !== null) as SavedRouteLocationPoint[];
+
+    const payload = {
+      userId: user.id,
+      label: newRouteLabel,
+      pickupLocation: { address: form.getValues('pickupLocation'), latitude: pickupCoords.lat, longitude: pickupCoords.lng },
+      dropoffLocation: { address: form.getValues('dropoffLocation'), latitude: dropoffCoords.lat, longitude: dropoffCoords.lng },
+      stops: routeStops,
+    };
+
+    try {
+      const response = await fetch('/api/users/saved-routes/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error (await response.json().then(e => e.message || "Failed to save route"));
+      const newSavedRoute: SavedRoute = await response.json().then(r => r.route);
+      setSavedRoutes(prev => [newSavedRoute, ...prev]);
+      toast({ title: "Route Saved!", description: `"${newRouteLabel}" has been added to your saved routes.`});
+      setSaveRouteDialogOpen(false);
+    } catch (error) {
+      toast({ title: "Save Failed", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+    } finally {
+      setIsSavingRoute(false);
+    }
+  };
+
+  const handleApplySavedRoute = (route: SavedRoute) => {
+    form.setValue('pickupLocation', route.pickupLocation.address);
+    setPickupInputValue(route.pickupLocation.address);
+    setPickupCoords({ lat: route.pickupLocation.latitude, lng: route.pickupLocation.longitude });
+    setShowPickupSuggestions(false);
+
+    form.setValue('dropoffLocation', route.dropoffLocation.address);
+    setDropoffInputValue(route.dropoffLocation.address);
+    setDropoffCoords({ lat: route.dropoffLocation.latitude, lng: route.dropoffLocation.longitude });
+    setShowDropoffSuggestions(false);
+
+    const newStopsForForm = route.stops?.map(s => ({ location: s.address })) || [];
+    replace(newStopsForForm); // Replaces all current stops
+
+    const newStopAutocompleteData: AutocompleteData[] = route.stops?.map((s, index) => ({
+      fieldId: `stop-applied-${index}-${Date.now()}`,
+      inputValue: s.address,
+      coords: { lat: s.latitude, lng: s.longitude },
+      suggestions: [],
+      showSuggestions: false,
+      isFetchingSuggestions: false,
+      isFetchingDetails: false,
+    })) || [];
+    setStopAutocompleteData(newStopAutocompleteData);
+
+    toast({ title: "Route Applied", description: `Route "${route.label}" loaded into the form.`});
+    // Close popover, assuming it's controlled externally or by Radix UI itself.
+  };
+
+  const handleDeleteSavedRoute = async (routeId: string) => {
+    if (!user) return;
+    setIsDeletingRouteId(routeId);
+    try {
+      const response = await fetch(`/api/users/saved-routes/remove?id=${routeId}&userId=${user.id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error (await response.json().then(e => e.message || "Failed to delete route"));
+      setSavedRoutes(prev => prev.filter(r => r.id !== routeId));
+      toast({ title: "Route Deleted", description: "The saved route has been removed."});
+    } catch (error) {
+      toast({ title: "Delete Failed", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
+    } finally {
+      setIsDeletingRouteId(null);
+    }
+  };
+
+
   const renderSuggestions = (
     suggestions: google.maps.places.AutocompletePrediction[],
     isFetchingSuggestions: boolean,
     isFetchingDetails: boolean,
     inputValue: string,
-    onSuggestionClick: (suggestion: google.maps.places.AutocompletePrediction) => void, 
-    fieldKey: string 
+    onSuggestionClick: (suggestion: google.maps.places.AutocompletePrediction) => void,
+    fieldKey: string
   ) => (
     <div className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60 overflow-y-auto">
       {isFetchingSuggestions && (
@@ -737,7 +874,7 @@ export default function BookRidePage() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading suggestions...
         </div>
       )}
-      {isFetchingDetails && ( 
+      {isFetchingDetails && (
          <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching location details...
         </div>
@@ -747,7 +884,7 @@ export default function BookRidePage() {
       )}
       {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestionItem) => (
         <div
-          key={`${fieldKey}-${suggestionItem.place_id}`} 
+          key={`${fieldKey}-${suggestionItem.place_id}`}
           className="p-2 text-sm hover:bg-muted cursor-pointer"
           onMouseDown={() => onSuggestionClick(suggestionItem)}
         >
@@ -777,7 +914,7 @@ export default function BookRidePage() {
               <div
                 key={`${triggerKey}-fav-${fav.id}`}
                 className="p-2 text-sm hover:bg-muted cursor-pointer rounded-md"
-                onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }} 
+                onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }}
               >
                 <p className="font-semibold">{fav.label}</p>
                 <p className="text-xs text-muted-foreground">{fav.address}</p>
@@ -795,8 +932,51 @@ export default function BookRidePage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline flex items-center gap-2"><Car className="w-8 h-8 text-primary" /> Book Your Ride</CardTitle>
-          <CardDescription>Enter your pickup and drop-off details. You can add multiple intermediate stops and schedule for later.</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+              <CardTitle className="text-3xl font-headline flex items-center gap-2"><Car className="w-8 h-8 text-primary" /> Book Your Ride</CardTitle>
+              <CardDescription>Enter details, or load a saved route. Add stops and schedule for later.</CardDescription>
+            </div>
+            <div className="flex gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
+               <Button variant="outline" onClick={handleSaveCurrentRoute} disabled={!pickupCoords || !dropoffCoords || saveRouteDialogOpen} className="w-1/2 sm:w-auto">
+                <Save className="mr-2 h-4 w-4" /> Save Route
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-1/2 sm:w-auto">
+                    <List className="mr-2 h-4 w-4" /> Load Route
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0">
+                  <ScrollArea className="h-auto max-h-72">
+                    <div className="p-2">
+                      <p className="text-sm font-medium p-2">Your Saved Routes</p>
+                      {isLoadingSavedRoutes && <div className="p-2 text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...</div>}
+                      {!isLoadingSavedRoutes && savedRoutes.length === 0 && <p className="p-2 text-sm text-muted-foreground">No routes saved yet.</p>}
+                      {!isLoadingSavedRoutes && savedRoutes.map(route => (
+                        <div key={route.id} className="p-2 hover:bg-muted rounded-md">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-semibold">{route.label}</p>
+                              <p className="text-xs text-muted-foreground truncate w-48" title={`${route.pickupLocation.address} to ${route.dropoffLocation.address}`}>
+                                {route.pickupLocation.address.split(',')[0]} to {route.dropoffLocation.address.split(',')[0]}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-accent" onClick={() => handleApplySavedRoute(route)}>Apply</Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteSavedRoute(route.id)} disabled={isDeletingRouteId === route.id}>
+                                {isDeletingRouteId === route.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
@@ -824,10 +1004,10 @@ export default function BookRidePage() {
                           </FormControl>
                           {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('pickupLocation', field.onChange), "pickup")}
                           {showPickupSuggestions && renderSuggestions(
-                            pickupSuggestions, 
-                            isFetchingPickupSuggestions, 
-                            isFetchingPickupDetails, 
-                            pickupInputValue, 
+                            pickupSuggestions,
+                            isFetchingPickupSuggestions,
+                            isFetchingPickupDetails,
+                            pickupInputValue,
                             (sugg) => handleSuggestionClickFactory('pickupLocation')(sugg, field.onChange),
                             "pickup"
                           )}
@@ -839,12 +1019,12 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   {fields.map((stopField, index) => {
                     const currentStopData = stopAutocompleteData[index] || { inputValue: '', suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null, fieldId: stopField.id };
                     return (
                       <FormField
-                        key={stopField.id} 
+                        key={stopField.id}
                         control={form.control}
                         name={`stops.${index}.location`}
                         render={({ field }) => (
@@ -870,10 +1050,10 @@ export default function BookRidePage() {
                               </FormControl>
                               {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange), `stop-${index}`)}
                               {currentStopData.showSuggestions && renderSuggestions(
-                                currentStopData.suggestions, 
-                                currentStopData.isFetchingSuggestions, 
-                                currentStopData.isFetchingDetails, 
-                                currentStopData.inputValue, 
+                                currentStopData.suggestions,
+                                currentStopData.isFetchingSuggestions,
+                                currentStopData.isFetchingDetails,
+                                currentStopData.inputValue,
                                 (sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange),
                                 `stop-${index}`
                               )}
@@ -920,11 +1100,11 @@ export default function BookRidePage() {
                           </FormControl>
                            {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('dropoffLocation', field.onChange), "dropoff")}
                           {showDropoffSuggestions && renderSuggestions(
-                            dropoffSuggestions, 
-                            isFetchingDropoffSuggestions, 
-                            isFetchingDropoffDetails, 
-                            dropoffInputValue, 
-                            (sugg) => handleSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), 
+                            dropoffSuggestions,
+                            isFetchingDropoffSuggestions,
+                            isFetchingDropoffDetails,
+                            dropoffInputValue,
+                            (sugg) => handleSuggestionClickFactory('dropoffLocation')(sugg, field.onChange),
                             "dropoff"
                           )}
                         </div>
@@ -967,12 +1147,12 @@ export default function BookRidePage() {
                               selected={field.value}
                               onSelect={(date) => {
                                 field.onChange(date);
-                                if (!date) { 
+                                if (!date) {
                                   form.setValue("desiredPickupTime", "");
                                 }
                               }}
                               disabled={(date) =>
-                                date < new Date(new Date().setHours(0,0,0,0)) 
+                                date < new Date(new Date().setHours(0,0,0,0))
                               }
                               initialFocus
                             />
@@ -989,9 +1169,9 @@ export default function BookRidePage() {
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><Clock className="w-4 h-4 text-muted-foreground" /> Desired Pickup Time (Optional)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="time" 
-                            {...field} 
+                          <Input
+                            type="time"
+                            {...field}
                             disabled={!watchedDesiredDate}
                           />
                         </FormControl>
@@ -1030,7 +1210,7 @@ export default function BookRidePage() {
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> Number of Passengers</FormLabel>
                         <FormControl>
-                          <Input type="number" min="1" max="10" placeholder="1" {...field} 
+                          <Input type="number" min="1" max="10" placeholder="1" {...field}
                            onChange={e => field.onChange(parseInt(e.target.value,10) || 1)} />
                         </FormControl>
                         <FormMessage />
@@ -1092,17 +1272,16 @@ export default function BookRidePage() {
                       <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
                     </p>
                   )}
-                  {anyFetchingDetails && pickupCoords && !estimatedWaitTime && ( 
+                  {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
                      <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
                        <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
                     </p>
                   )}
-                   {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && ( 
+                   {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
                      <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
                        <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
                     </p>
                   )}
-
 
                   <p className="text-sm text-muted-foreground mt-3">
                     {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your fare & wait estimate here."}
@@ -1113,19 +1292,50 @@ export default function BookRidePage() {
 
             <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-64 md:h-80 mb-6">
-                <GoogleMapDisplay 
+                <GoogleMapDisplay
                     key="book-ride-map"
-                    center={currentMapCenter} 
-                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 10} 
-                    markers={mapMarkers} 
-                    className="w-full h-full" 
+                    center={currentMapCenter}
+                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 10}
+                    markers={mapMarkers}
+                    className="w-full h-full"
                  />
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={saveRouteDialogOpen} onOpenChange={setSaveRouteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Current Route</DialogTitle>
+            <DialogDescription>
+              Enter a label for this route (e.g., Home to Work, Airport Trip).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="routeLabel" className="sr-only">Route Label</Label>
+            <Input
+              id="routeLabel"
+              value={newRouteLabel}
+              onChange={(e) => setNewRouteLabel(e.target.value)}
+              placeholder="e.g., My Daily Commute"
+              disabled={isSavingRoute}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isSavingRoute}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={submitSaveRoute} disabled={isSavingRoute || !newRouteLabel.trim()}>
+              {isSavingRoute ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Route
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
-    
+
