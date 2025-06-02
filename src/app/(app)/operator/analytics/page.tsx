@@ -1,15 +1,17 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, TrendingUp, Users, Clock, DollarSign, MapPin } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Clock, DollarSign, MapPin, Loader2, AlertTriangle } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
-const dailyRidesData = [
-  { name: 'Mon', rides: 65 }, { name: 'Tue', rides: 59 }, { name: 'Wed', rides: 80 },
-  { name: 'Thu', rides: 81 }, { name: 'Fri', rides: 95 }, { name: 'Sat', rides: 120 },
-  { name: 'Sun', rides: 110 },
-];
+interface DailyRideData {
+  name: string; // e.g., 'Mon', 'Tue' or 'YYYY-MM-DD'
+  rides: number;
+}
 
+// Keep other mock data for now
 const hourlyActivityData = Array.from({ length: 24 }, (_, i) => ({
   hour: `${String(i).padStart(2, '0')}:00`,
   rides: Math.floor(Math.random() * 30) + (i > 6 && i < 22 ? 10 : 0), 
@@ -29,6 +31,35 @@ const popularZonesData = [
 ]
 
 export default function OperatorAnalyticsPage() {
+  const [dailyRidesData, setDailyRidesData] = useState<DailyRideData[]>([]);
+  const [isLoadingDailyRides, setIsLoadingDailyRides] = useState(true);
+  const [errorDailyRides, setErrorDailyRides] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchDailyRides = async () => {
+      setIsLoadingDailyRides(true);
+      setErrorDailyRides(null);
+      try {
+        // Fetch for the last 7 days by default
+        const response = await fetch('/api/operator/analytics/daily-rides?days=7');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch daily rides: ${response.status}`);
+        }
+        const data = await response.json();
+        setDailyRidesData(data.dailyRideCounts);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "An unknown error occurred.";
+        setErrorDailyRides(message);
+        toast({ title: "Error Fetching Daily Rides", description: message, variant: "destructive" });
+      } finally {
+        setIsLoadingDailyRides(false);
+      }
+    };
+    fetchDailyRides();
+  }, [toast]);
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -36,7 +67,7 @@ export default function OperatorAnalyticsPage() {
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
             <BarChart3 className="w-8 h-8 text-primary" /> Fleet Analytics
           </CardTitle>
-          <CardDescription>Gain insights into your taxi operations with detailed analytics and reports. (Placeholder data)</CardDescription>
+          <CardDescription>Gain insights into your taxi operations with detailed analytics and reports.</CardDescription>
         </CardHeader>
       </Card>
 
@@ -48,19 +79,31 @@ export default function OperatorAnalyticsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Daily Rides Overview" description="Number of rides per day for the current week.">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dailyRidesData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="rides" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <ChartCard title="Daily Rides Overview" description="Number of completed rides per day for the last 7 days.">
+          {isLoadingDailyRides && <div className="h-[300px] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary"/></div>}
+          {errorDailyRides && !isLoadingDailyRides && (
+            <div className="h-[300px] flex flex-col items-center justify-center text-destructive">
+              <AlertTriangle className="w-8 h-8 mb-2"/>
+              <p>Error: {errorDailyRides}</p>
+            </div>
+          )}
+          {!isLoadingDailyRides && !errorDailyRides && dailyRidesData.length > 0 && (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dailyRidesData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="rides" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Completed Rides" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+           {!isLoadingDailyRides && !errorDailyRides && dailyRidesData.length === 0 && (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No ride data for this period.</p></div>
+           )}
         </ChartCard>
-        <ChartCard title="Hourly Ride Activity" description="Average number of rides per hour.">
+        <ChartCard title="Hourly Ride Activity" description="Average number of rides per hour. (Mock data)">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={hourlyActivityData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -75,7 +118,7 @@ export default function OperatorAnalyticsPage() {
       </div>
       
        <div className="grid gap-6 lg:grid-cols-2">
-         <ChartCard title="Monthly Revenue Trend" description="Total revenue generated per month.">
+         <ChartCard title="Monthly Revenue Trend" description="Total revenue generated per month. (Mock data)">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -87,7 +130,7 @@ export default function OperatorAnalyticsPage() {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Popular Pickup Zones" description="Most frequent pickup locations.">
+        <ChartCard title="Popular Pickup Zones" description="Most frequent pickup locations. (Mock data)">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart layout="vertical" data={popularZonesData} margin={{left: 20}}>
               <CartesianGrid strokeDasharray="3 3" />
