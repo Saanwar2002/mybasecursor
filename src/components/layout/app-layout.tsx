@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -12,11 +13,20 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
 import { Skeleton } from '../ui/skeleton';
+import React, { useEffect } from 'react';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    // Redirect to login if not loading, no user, and not on a public/login/register path
+    if (!loading && !user && !['/login', '/register', '/'].includes(pathname) && !pathname.startsWith('/_next/')) {
+      router.push('/login');
+    }
+  }, [user, loading, router, pathname]);
+
 
   if (loading) {
     return (
@@ -42,9 +52,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    // This should ideally be handled by AuthProvider, but as a fallback:
-    if (typeof window !== 'undefined') router.push('/login');
-    return null; 
+    // User is not authenticated and not loading, useEffect above will handle redirect.
+    // Render null or a minimal loading state to avoid rendering main layout briefly.
+    return null;
   }
 
   const navItems = getNavItemsForRole(user.role);
