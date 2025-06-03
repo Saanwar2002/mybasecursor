@@ -16,11 +16,31 @@ const requiredEnvVars = [
 let firebaseConfigError = false;
 console.log("Checking Firebase environment variables...");
 for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.error(`Firebase config error: Environment variable ${envVar} is missing.`);
+  const value = process.env[envVar];
+  if (value === undefined) {
+    console.error(`Firebase config error: Environment variable ${envVar} is UNDEFINED (completely missing).`);
     firebaseConfigError = true;
+  } else if (value.trim() === "") {
+    // This case might not be hit often for NEXT_PUBLIC_ prefixed vars if they are simply not defined,
+    // as process.env[envVar] would be undefined, not an empty string, unless explicitly set so.
+    console.error(`Firebase config error: Environment variable ${envVar} is an EMPTY STRING.`);
+    firebaseConfigError = true;
+  } else {
+    // For debugging, you could log the value, but be cautious with sensitive keys.
+    // console.log(`Firebase config: ${envVar} loaded with value: ${value.substring(0, 5)}...`); // Example: Log first 5 chars
+    console.log(`Firebase config: ${envVar} appears to be loaded correctly.`);
   }
 }
+
+// Additional check specifically for core auth/db related variables before attempting to use them in firebaseConfig
+if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+    console.error(
+        "Critical Firebase config error: One or more of API_KEY, AUTH_DOMAIN, or PROJECT_ID are effectively missing for client-side Firebase. " +
+        "Firebase SDK will likely fail to initialize auth and other services."
+    );
+    // firebaseConfigError is already true from the loop if any of these were undefined/empty.
+}
+
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -36,7 +56,11 @@ let db: Firestore | null = null;
 let auth: Auth | null = null;
 
 if (firebaseConfigError) {
-  console.error("Firebase initialization WILL BE SKIPPED due to missing environment variables. 'db' and 'auth' will remain null. Please check your .env file and ensure all NEXT_PUBLIC_FIREBASE_ variables are set.");
+  console.error(
+    "Firebase initialization WILL BE SKIPPED due to missing or empty environment variables. " +
+    "'db' and 'auth' will remain null. Please check your .env file (and .env.local if it exists, as it overrides .env for local development) " +
+    "and ensure all NEXT_PUBLIC_FIREBASE_ variables are correctly set, then RESTART your development server."
+  );
 } else {
   try {
     if (!getApps().length) {
@@ -44,7 +68,7 @@ if (firebaseConfigError) {
       console.log("Firebase app initialized successfully using firebaseConfig for project:", firebaseConfig.projectId);
     } else {
       app = getApp();
-      console.log("Firebase app retrieved successfully for project:", firebaseConfig.projectId);
+      console.log("Firebase app retrieved successfully (already initialized) for project:", firebaseConfig.projectId);
     }
 
     if (app) {
@@ -56,20 +80,12 @@ if (firebaseConfigError) {
           // db remains null
         }
 
-        // Check for essential auth config values before attempting to initialize Auth
-        if (firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId) {
-          try {
-            auth = getAuth(app);
-            console.log("Firebase Auth instance initialized successfully.");
-          } catch (authError) {
-            console.error("Failed to initialize Firebase Auth:", authError);
-            // auth remains null
-          }
-        } else {
-          console.error(
-            "One or more core Firebase config values (apiKey, authDomain, projectId) are missing in firebaseConfig. " +
-            "Firebase Authentication will NOT be available. 'auth' will be null. Check NEXT_PUBLIC_FIREBASE_ environment variables."
-          );
+        // Auth initialization check (already covered by the initial loop for requiredEnvVars)
+        try {
+          auth = getAuth(app);
+          console.log("Firebase Auth instance initialized successfully.");
+        } catch (authError) {
+          console.error("Failed to initialize Firebase Auth:", authError);
           // auth remains null
         }
     } else {
