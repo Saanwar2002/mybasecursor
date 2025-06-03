@@ -1,10 +1,19 @@
+
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Car, MapPin, Sparkles, History, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import Image from 'next/image';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-lg shadow-md" />,
+});
+
+const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
 export default function PassengerDashboardPage() {
   const { user } = useAuth();
@@ -25,8 +34,12 @@ export default function PassengerDashboardPage() {
               </Link>
             </Button>
           </div>
-          <div className="flex-shrink-0">
-            <Image src="https://placehold.co/300x200.png" alt="Happy passenger in a taxi" data-ai-hint="passenger taxi" width={300} height={200} className="rounded-lg shadow-md" />
+          <div className="flex-shrink-0 w-full md:w-[300px] h-[200px] rounded-lg shadow-md overflow-hidden border border-muted">
+            <GoogleMapDisplay
+              center={huddersfieldCenter}
+              zoom={13}
+              className="w-full h-full"
+            />
           </div>
         </CardContent>
       </Card>
