@@ -144,11 +144,11 @@ const lucideIconToDataURI = (
   IconComponent: React.FC<LucideProps>,
   options: { size?: number; color?: string; strokeWidth?: number; fill?: string } = {}
 ) => {
-  const { size = 32, color = '#000000', strokeWidth = 2, fill = 'none' } = options; // Default to black if color not resolved
+  const { size = 32, color = '#000000', strokeWidth = 2, fill = 'none' } = options;
   const iconElement = <IconComponent size={size} color={color} strokeWidth={strokeWidth} fill={fill} />;
   const svgString = renderToStaticMarkup(iconElement);
   const fullSvgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-  return `data:image/svg+xml;base64,${btoa(fullSvgString)}`;
+  return `data:image/svg+xml,${encodeURIComponent(fullSvgString)}`;
 };
 
 
@@ -215,10 +215,9 @@ export default function BookRidePage() {
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
   
-  // Use direct hex colors from your theme for icons
-  const primaryColor = '#14B8A6'; // from --primary: 172 80% 40%; (Teal)
-  const accentColor = '#F97316'; // from --accent: 25 95% 53%; (Orange)
-  const mutedForegroundColor = '#64748B'; // Example: Slate 500 (Darker Medium Gray)
+  const primaryColor = '#14B8A6'; 
+  const accentColor = '#F97316'; 
+  const mutedForegroundColor = '#64748B'; 
 
   const pickupIconUrl = useMemo(() => lucideIconToDataURI(UserIcon, { color: primaryColor, size: 36, strokeWidth: 1.5, fill: primaryColor }), [primaryColor]);
   const dropoffIconUrl = useMemo(() => lucideIconToDataURI(HomeIcon, { color: accentColor, size: 36, strokeWidth: 1.5, fill: accentColor }), [accentColor]);
@@ -657,7 +656,7 @@ export default function BookRidePage() {
 
  useEffect(() => {
     const newMarkers: MapMarker[] = [];
-    if (pickupCoords) {
+    if (pickupCoords) { 
       newMarkers.push({ 
         position: pickupCoords, 
         title: `Pickup: ${form.getValues('pickupLocation')}`,
@@ -1382,5 +1381,7 @@ export default function BookRidePage() {
     </div>
   );
 }
+
+    
 
     
