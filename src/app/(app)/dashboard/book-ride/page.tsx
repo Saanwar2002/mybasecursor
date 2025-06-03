@@ -1038,8 +1038,8 @@ export default function BookRidePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-8">
-            <div className="w-full h-[35vh] rounded-lg overflow-hidden border shadow-md bg-muted/30">
+          <div className="flex flex-col">
+            <div className="w-full h-[35vh] rounded-lg overflow-hidden border shadow-md bg-muted/30 mb-3">
                 <GoogleMapDisplay
                     key="book-ride-map"
                     center={currentMapCenter}
@@ -1049,7 +1049,7 @@ export default function BookRidePage() {
                  />
               </div>
 
-            <div className="flex justify-center gap-4 py-4">
+            <div className="flex justify-center gap-4 mb-3">
               <Button variant="outline" onClick={handleSaveCurrentRoute} disabled={!pickupCoords || !dropoffCoords || saveRouteDialogOpen} className="w-1/2 sm:w-auto">
                 <Save className="mr-2 h-4 w-4" /> Save Route
               </Button>
