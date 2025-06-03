@@ -108,54 +108,65 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
     console.log("GoogleMapDisplay: Map Init/Update - SDK is ready AND mapDivNode IS available.");
 
-    // Initialize map if it hasn't been, or if mapIdProp has changed
-    if (!mapInstanceRef.current || mapInstanceRef.current.getMapTypeId() !== mapIdProp) {
-      console.log("GoogleMapDisplay: Initializing NEW map instance with center:", center, "zoom:", zoom, "mapId prop:", mapIdProp);
-      mapInstanceRef.current = new google.maps.Map(mapDivNode, {
-        center,
-        zoom,
-        mapId: mapIdProp, 
-        disableDefaultUI: true,
-        zoomControl: true,
-        streetViewControl: false,
-        mapTypeControl: false,
-      });
-    } else {
-      // Update existing map
-      console.log("GoogleMapDisplay: UPDATING existing map instance.");
-      const currentMapCenter = mapInstanceRef.current.getCenter();
-      if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
-        mapInstanceRef.current.setCenter(center);
-      }
-      if (mapInstanceRef.current.getZoom() !== zoom) {
-        mapInstanceRef.current.setZoom(zoom);
-      }
-    }
-    
-    // Marker logic
-    currentMarkersRef.current.forEach(marker => marker.setMap(null)); // Clear existing markers
-    currentMarkersRef.current = [];
-
-    if (markers && mapInstanceRef.current && typeof google !== 'undefined' && google.maps && google.maps.Marker) {
-      console.log("GoogleMapDisplay: Updating/adding markers:", markers.length);
-      markers.forEach(markerData => {
-        let markerOptions: google.maps.MarkerOptions = {
-          position: markerData.position,
-          map: mapInstanceRef.current,
-          title: markerData.title,
-        };
-
-        if (markerData.iconUrl && google.maps.Size) { // Check for google.maps.Size
-          markerOptions.icon = {
-            url: markerData.iconUrl,
-            scaledSize: markerData.iconScaledSize 
-              ? new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height) 
-              : undefined,
-          };
+    try {
+        // Initialize map if it hasn't been, or if mapIdProp has changed
+        if (!mapInstanceRef.current || mapInstanceRef.current.getMapTypeId() !== mapIdProp) {
+          console.log("GoogleMapDisplay: Initializing NEW map instance with center:", center, "zoom:", zoom, "mapId prop:", mapIdProp);
+          if (!google || !google.maps || !google.maps.Map) {
+            console.error("GoogleMapDisplay Error: google.maps.Map constructor is not available! SDK might not be fully loaded or window.google is not set.");
+            setMapInitError("Map library components are missing. SDK might not be fully loaded or failed initialization.");
+            return;
+          }
+          mapInstanceRef.current = new google.maps.Map(mapDivNode, {
+            center,
+            zoom,
+            mapId: mapIdProp, 
+            disableDefaultUI: true,
+            zoomControl: true,
+            streetViewControl: false,
+            mapTypeControl: false,
+          });
+          console.log("GoogleMapDisplay: NEW map instance CREATED.");
+        } else {
+          // Update existing map
+          console.log("GoogleMapDisplay: UPDATING existing map instance.");
+          const currentMapCenter = mapInstanceRef.current.getCenter();
+          if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
+            mapInstanceRef.current.setCenter(center);
+          }
+          if (mapInstanceRef.current.getZoom() !== zoom) {
+            mapInstanceRef.current.setZoom(zoom);
+          }
         }
-        const newMarker = new google.maps.Marker(markerOptions);
-        currentMarkersRef.current.push(newMarker);
-      });
+        
+        // Marker logic
+        currentMarkersRef.current.forEach(marker => marker.setMap(null)); // Clear existing markers
+        currentMarkersRef.current = [];
+
+        if (markers && mapInstanceRef.current && typeof google !== 'undefined' && google.maps && google.maps.Marker) {
+          console.log("GoogleMapDisplay: Updating/adding markers:", markers.length);
+          markers.forEach(markerData => {
+            let markerOptions: google.maps.MarkerOptions = {
+              position: markerData.position,
+              map: mapInstanceRef.current,
+              title: markerData.title,
+            };
+
+            if (markerData.iconUrl && google.maps.Size) { // Check for google.maps.Size
+              markerOptions.icon = {
+                url: markerData.iconUrl,
+                scaledSize: markerData.iconScaledSize 
+                  ? new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height) 
+                  : undefined,
+              };
+            }
+            const newMarker = new google.maps.Marker(markerOptions);
+            currentMarkersRef.current.push(newMarker);
+          });
+        }
+    } catch (e) {
+      console.error("GoogleMapDisplay: CRITICAL ERROR during map initialization or update:", e);
+      setMapInitError("An unexpected error occurred while initializing the map. Check browser console for details.");
     }
   }, [isSdkReady, mapDivNode, center, zoom, mapIdProp, markers]); // Dependencies for map updates
 
@@ -179,15 +190,11 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     );
   }
   
-  // If SDK is not ready yet, or if the div node isn't set yet, show skeleton.
-  // The dynamic import's loading prop will also show a skeleton, so this might be brief or not visible.
   if (!isSdkReady || !mapDivNode) {
      console.log("GoogleMapDisplay: Rendering Skeleton (or relying on dynamic import's loader). isSdkReady:", isSdkReady, "mapDivNode:", !!mapDivNode);
     return <Skeleton className={cn("rounded-md shadow-md", className)} style={mapStyle} aria-label="Loading map..." />;
   }
 
-  // Render the div that will hold the map
-  // The actual map is created/updated in the useEffect hook
   console.log("GoogleMapDisplay: Rendering map container div for Google Maps.");
   return <div ref={mapRefCallback} style={{ ...mapStyle, ...diagnosticStyle }} className={cn("rounded-md shadow-md bg-muted/30", className)} />;
 };
