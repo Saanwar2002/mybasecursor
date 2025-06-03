@@ -15,7 +15,7 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-[400px] rounded-xl shadow-2xl mx-auto" />,
 });
 
-const defaultMapCenter: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 }; // London
+const defaultMapCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 }; // Huddersfield HD1, UK
 
 export default function LandingPage() {
   return (
@@ -40,8 +40,8 @@ export default function LandingPage() {
           <div className="w-full max-w-[800px] h-[400px] rounded-xl shadow-2xl mx-auto overflow-hidden border border-muted">
             <GoogleMapDisplay
               center={defaultMapCenter}
-              zoom={12}
-              // markers={[{ position: defaultMapCenter, title: "Link Cabs HQ" }]} // Optional: Add a marker
+              zoom={14} // Adjusted zoom for a more local view
+              // markers={[{ position: defaultMapCenter, title: "Link Cabs Huddersfield" }]} // Optional: Add a marker
               className="w-full h-full"
             />
           </div>
