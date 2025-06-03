@@ -7,7 +7,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 // Define the expected structure of the booking data coming from the client
 interface BookingPayload {
   passengerId: string;
-  passengerName: string; // This will be the customer's name if booked by operator
+  passengerName: string; 
   pickupLocation: { address: string; latitude: number; longitude: number };
   dropoffLocation: { address: string; latitude: number; longitude: number };
   stops: Array<{ address: string; latitude: number; longitude: number }>;
@@ -20,27 +20,36 @@ interface BookingPayload {
   scheduledPickupAt?: string | null; 
   customerPhoneNumber?: string; 
   bookedByOperatorId?: string; 
-  driverNotes?: string; // New field for driver notes
+  driverNotes?: string; 
 }
 
 export async function POST(request: NextRequest) {
-  try { // Top-level try
-    const bookingData = (await request.json()) as BookingPayload;
+  let bookingData: BookingPayload;
+  try {
+    try {
+      bookingData = (await request.json()) as BookingPayload;
+    } catch (jsonError: any) {
+      console.error('Error parsing JSON body in /api/bookings/create:', jsonError);
+      return NextResponse.json({ message: 'Invalid JSON request body. Please ensure the request is a valid JSON object.', details: jsonError.message || String(jsonError) }, { status: 400 });
+    }
 
-    // Basic validation (more robust validation should be done with Zod or similar)
+    // Basic validation 
     if (!bookingData.passengerId || !bookingData.pickupLocation || !bookingData.dropoffLocation || !bookingData.passengerName) {
       return NextResponse.json({ message: 'Missing required booking fields (passengerId, passengerName, pickup, dropoff).' }, { status: 400 });
     }
     
-    // In a real app, verify the passengerId/operatorId using an ID token from Firebase Auth
-    // For now, we're trusting the client-sent IDs.
+    // Ensure db is not null before using it
+    if (!db) {
+      console.error('Firestore (db) is not initialized. This is a server configuration issue. Check Firebase initialization logs.');
+      return NextResponse.json({ message: 'Server configuration error: Firestore not initialized. Unable to process booking.' }, { status: 500 });
+    }
 
     const newBooking: any = { 
       passengerId: bookingData.passengerId,
       passengerName: bookingData.passengerName, 
       pickupLocation: bookingData.pickupLocation,
       dropoffLocation: bookingData.dropoffLocation,
-      stops: bookingData.stops,
+      stops: bookingData.stops || [], // Ensure stops is an array
       vehicleType: bookingData.vehicleType,
       passengers: bookingData.passengers,
       fareEstimate: bookingData.fareEstimate,
@@ -60,18 +69,22 @@ export async function POST(request: NextRequest) {
     if (bookingData.bookedByOperatorId) {
       newBooking.bookedByOperatorId = bookingData.bookedByOperatorId;
     }
-    if (bookingData.driverNotes && bookingData.driverNotes.trim() !== "") { // Add driverNotes if provided
+    if (bookingData.driverNotes && bookingData.driverNotes.trim() !== "") { 
       newBooking.driverNotes = bookingData.driverNotes.trim();
     }
 
-
     const docRef = await addDoc(collection(db, 'bookings'), newBooking);
     
-    return NextResponse.json({ message: 'Booking created successfully', bookingId: docRef.id, data: newBooking }, { status: 201 });
+    // For the response, we can't send serverTimestamp directly as it's a sentinel value.
+    // Firestore automatically converts it on the server. The client will see the actual timestamp on next read.
+    // We can send back the input data or a simplified version.
+    const responseData = { ...newBooking, bookingTimestamp: new Date().toISOString() }; // Use current date as placeholder
 
-  } catch (error) { // Top-level catch
-    console.error('Error creating booking (API Route):', error);
-    let errorMessage = 'Internal Server Error';
+    return NextResponse.json({ message: 'Booking created successfully', bookingId: docRef.id, data: responseData }, { status: 201 });
+
+  } catch (error) { 
+    console.error('Error in POST /api/bookings/create (General Catch):', error);
+    let errorMessage = 'Internal Server Error during booking creation.';
     let errorDetails = '';
     if (error instanceof Error) {
         errorMessage = error.message;
@@ -80,7 +93,6 @@ export async function POST(request: NextRequest) {
         errorMessage = error;
         errorDetails = error;
     }
-    // Ensure a JSON response is sent
-    return NextResponse.json({ message: 'Failed to create booking', details: errorMessage, errorRaw: errorDetails }, { status: 500 });
+    return NextResponse.json({ message: 'Failed to create booking due to an unexpected server error.', details: errorMessage, errorRaw: errorDetails }, { status: 500 });
   }
 }
