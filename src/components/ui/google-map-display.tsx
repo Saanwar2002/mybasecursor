@@ -47,21 +47,20 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       return;
     }
     if (isMounted) {
-      setMapError(null); // Clear previous errors if key becomes available
+      setMapError(null); 
     }
 
     const loader = new Loader({
       apiKey: apiKey,
       version: "weekly",
-      libraries: ["places", "marker", "maps"], // Added "maps" explicitly
+      libraries: ["places", "marker", "maps"], 
     });
 
-    loader.load().then((googleInstance) => { // googleInstance is the google global
+    loader.load().then((googleInstance) => { 
       if (isMounted) {
         if (googleInstance && googleInstance.maps && googleInstance.maps.Map) {
            setIsSdkLoaded(true);
         } else {
-           // This case handles if SDK loads but google.maps.Map is not defined (e.g. API not enabled for Maps JS)
            setMapError("Google Maps SDK loaded, but `google.maps.Map` is not available. Check API key permissions for Maps JavaScript API in Google Cloud Console.");
            setIsSdkLoaded(false);
         }
@@ -74,15 +73,14 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     });
     return () => { isMounted = false; };
-  }, []); // Runs once on mount to load SDK
+  }, []); 
 
   useEffect(() => {
     if (!isSdkLoaded || !mapRef.current) {
       return;
     }
 
-    // Initialize map if not already done
-    if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) { // Re-init if mapId changed
+    if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) { 
       mapInstanceRef.current = new google.maps.Map(mapRef.current, {
         center,
         zoom,
@@ -92,7 +90,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         streetViewControl: false,
         mapTypeControl: false,
       });
-    } else if (mapInstanceRef.current) { // Update existing map if necessary
+    } else if (mapInstanceRef.current) { 
       const currentMapCenter = mapInstanceRef.current.getCenter();
       if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
         mapInstanceRef.current.setCenter(center);
@@ -102,11 +100,9 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     }
 
-    // Clear old markers
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
-    // Add new markers
     if (markers && mapInstanceRef.current && typeof google !== 'undefined' && google.maps && google.maps.Marker && google.maps.Size) {
       markers.forEach(markerData => {
         let markerOptions: google.maps.MarkerOptions = {
@@ -115,24 +111,19 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           title: markerData.title,
         };
 
-        if (markerData.iconUrl) {
+        if (markerData.iconUrl && markerData.iconScaledSize) {
           markerOptions.icon = {
             url: markerData.iconUrl,
-            scaledSize: markerData.iconScaledSize
-              ? new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height)
-              : undefined, // Let Google Maps decide default size if not provided
+            scaledSize: new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height),
+            anchor: new google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height / 2), // Center anchor
           };
         }
         const newMarker = new google.maps.Marker(markerOptions);
         currentMarkersRef.current.push(newMarker);
       });
     }
-  // Ensure mapRef.current is stable by not including it, or use a callback ref if mapRef.current itself needs to trigger re-runs.
-  // For map initialization, mapRef.current should be available when isSdkLoaded is true.
-  // The dependencies should primarily be data that changes the map's appearance or content.
   }, [isSdkLoaded, center, zoom, markers, mapIdProp]);
 
-  // Cleanup markers on unmount
   useEffect(() => {
     return () => {
       currentMarkersRef.current.forEach(marker => marker.setMap(null));
@@ -151,7 +142,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     );
   }
 
-  if (!isSdkLoaded && !mapError) { // Only show skeleton if SDK is loading AND there's no error yet
+  if (!isSdkLoaded && !mapError) { 
     return <Skeleton className={cn("rounded-md shadow-md", className)} style={mapStyle} aria-label="Loading map..." />;
   }
   

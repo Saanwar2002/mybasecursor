@@ -219,9 +219,9 @@ export default function BookRidePage() {
   const accentColor = '#F97316'; 
   const mutedForegroundColor = '#64748B'; 
 
-  const pickupIconUrl = useMemo(() => lucideIconToDataURI(UserIcon, { color: primaryColor, size: 36, strokeWidth: 1.5, fill: primaryColor }), [primaryColor]);
-  const dropoffIconUrl = useMemo(() => lucideIconToDataURI(HomeIcon, { color: accentColor, size: 36, strokeWidth: 1.5, fill: accentColor }), [accentColor]);
-  const stopIconUrl = useMemo(() => lucideIconToDataURI(StopMarkerIcon, { color: mutedForegroundColor, size: 32, strokeWidth: 1.5, fill: mutedForegroundColor }), [mutedForegroundColor]);
+  const pickupIconUrl = useMemo(() => lucideIconToDataURI(UserIcon, { color: primaryColor, size: 36, strokeWidth: 2, fill: primaryColor }), [primaryColor]);
+  const dropoffIconUrl = useMemo(() => lucideIconToDataURI(HomeIcon, { color: accentColor, size: 36, strokeWidth: 2, fill: accentColor }), [accentColor]);
+  const stopIconUrl = useMemo(() => lucideIconToDataURI(StopMarkerIcon, { color: mutedForegroundColor, size: 32, strokeWidth: 2, fill: mutedForegroundColor }), [mutedForegroundColor]);
   
   const markerIconScaledSize = useMemo(() => ({ width: 36, height: 36 }), []);
   const stopMarkerIconScaledSize = useMemo(() => ({ width: 32, height: 32 }), []);
@@ -1381,7 +1381,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
-    
-
-    
