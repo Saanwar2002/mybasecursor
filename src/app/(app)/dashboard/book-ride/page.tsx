@@ -1035,8 +1035,22 @@ export default function BookRidePage() {
               <CardTitle className="text-3xl font-headline flex items-center gap-2"><Car className="w-8 h-8 text-primary" /> Book Your Ride</CardTitle>
               <CardDescription>Enter details, load a saved route, or use voice input (Beta). Add stops and schedule.</CardDescription>
             </div>
-            <div className="flex gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-               <Button variant="outline" onClick={handleSaveCurrentRoute} disabled={!pickupCoords || !dropoffCoords || saveRouteDialogOpen} className="w-1/2 sm:w-auto">
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-8">
+            <div className="w-full h-[35vh] rounded-lg overflow-hidden border shadow-md bg-muted/30">
+                <GoogleMapDisplay
+                    key="book-ride-map"
+                    center={currentMapCenter}
+                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 9}
+                    markers={mapMarkers}
+                    className="w-full h-full"
+                 />
+              </div>
+
+            <div className="flex justify-center gap-4 py-4">
+              <Button variant="outline" onClick={handleSaveCurrentRoute} disabled={!pickupCoords || !dropoffCoords || saveRouteDialogOpen} className="w-1/2 sm:w-auto">
                 <Save className="mr-2 h-4 w-4" /> Save Route
               </Button>
               <Popover>
@@ -1074,19 +1088,7 @@ export default function BookRidePage() {
                 </PopoverContent>
               </Popover>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-8">
-            <div className="w-full h-[35vh] rounded-lg overflow-hidden border shadow-md bg-muted/30">
-                <GoogleMapDisplay
-                    key="book-ride-map"
-                    center={currentMapCenter}
-                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 9}
-                    markers={mapMarkers}
-                    className="w-full h-full"
-                 />
-              </div>
+            
             <div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
