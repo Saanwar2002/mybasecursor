@@ -8,13 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
 import Link from 'next/link';
-// import dynamic from 'next/dynamic';
-// import { Skeleton } from '@/components/ui/skeleton';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
-//   ssr: false,
-//   loading: () => <Skeleton className="w-full h-full rounded-md" />,
-// });
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />,
+});
 
 interface RideRequest {
   id: string;
@@ -28,12 +28,12 @@ interface RideRequest {
   pickupCoords?: [number, number];
   dropoffCoords?: [number, number];
   distanceMiles?: number;
-  passengerCount: number; 
+  passengerCount: number;
   passengerPhone?: string;
   passengerRating?: number;
 }
 
-const defaultUKCenter: [number, number] = [51.5074, -0.1278];
+const defaultUKCenterGoogle: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
 
 const mockRideRequests: RideRequest[] = [
   { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St, London', dropoffLocation: 'City Mall, London', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending', pickupCoords: [51.510, -0.120], dropoffCoords: [51.505, -0.130], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
@@ -45,14 +45,17 @@ const mockRideRequests: RideRequest[] = [
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
-  const [driverLocation] = useState<[number, number]>([51.500, -0.100]); // Mock driver location
+  const [driverLocation] = useState<google.maps.LatLngLiteral>({ lat: 51.500, lng: -0.100 }); // Mock driver location for Google Maps
 
   const handleRideAction = (rideId: string, newStatus: RideRequest['status']) => {
     setRideRequests(prevRequests => {
       if (newStatus === 'active') {
         return prevRequests.map(req => {
           if (req.id === rideId) return { ...req, status: 'active' };
-          if (req.status === 'active' && req.id !== rideId) return { ...req, status: 'pending' }; 
+          // If another ride was active, set it back to pending or decline.
+          // For simplicity, we'll just ensure only one ride can be active.
+          // In a real app, you might decline other pending rides automatically.
+          if (req.status === 'active' && req.id !== rideId) return { ...req, status: 'pending' };
           return req;
         });
       }
@@ -88,7 +91,7 @@ export default function AvailableRidesPage() {
 
   const activeRide = rideRequests.find(r => r.status === 'active');
   const pendingRides = rideRequests.filter(r => r.status === 'pending');
-  
+
   const handleCallCustomer = (phoneNumber?: string) => {
     if (phoneNumber) {
       toast({ title: "Calling Customer", description: `Initiating call to ${phoneNumber}... (Demo)`});
@@ -117,6 +120,34 @@ export default function AvailableRidesPage() {
     );
   };
 
+  const getMapMarkersForActiveRide = () => {
+    if (!activeRide) return [];
+    const markers = [];
+    if (activeRide.pickupCoords) {
+      markers.push({
+        position: { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] },
+        title: `Pickup: ${activeRide.pickupLocation}`,
+        // iconUrl: '/icons/pickup-pin.png' // Example custom icon
+      });
+    }
+    if (activeRide.dropoffCoords) {
+      markers.push({
+        position: { lat: activeRide.dropoffCoords[0], lng: activeRide.dropoffCoords[1] },
+        title: `Dropoff: ${activeRide.dropoffLocation}`,
+        // iconUrl: '/icons/dropoff-pin.png' // Example custom icon
+      });
+    }
+    // Could also add driver's current location marker if available
+    // markers.push({ position: driverLocation, title: "Your Location" });
+    return markers;
+  };
+
+  const getMapCenterForActiveRide = () => {
+    if (activeRide?.pickupCoords) {
+      return { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] };
+    }
+    return driverLocation || defaultUKCenterGoogle;
+  };
 
   return (
     <div className="space-y-6">
@@ -162,8 +193,13 @@ export default function AvailableRidesPage() {
             )}
             <div className="mt-4">
               <p className="text-md font-medium mb-1">Live Ride Map:</p>
-              <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm flex items-center justify-center text-muted-foreground">
-                 Map display temporarily disabled.
+              <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm">
+                 <GoogleMapDisplay
+                    center={getMapCenterForActiveRide()}
+                    zoom={13}
+                    markers={getMapMarkersForActiveRide()}
+                    className="w-full h-full"
+                 />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
@@ -230,14 +266,14 @@ export default function AvailableRidesPage() {
                     variant="outline"
                     className="flex-1 border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                     onClick={() => handleRideAction(req.id, 'declined')}
-                    disabled={!!activeRide} 
+                    disabled={!!activeRide}
                   >
                     <X className="mr-2 h-4 w-4" /> Decline
                   </Button>
                   <Button
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white"
                     onClick={() => handleRideAction(req.id, 'active')}
-                    disabled={!!activeRide} 
+                    disabled={!!activeRide}
                   >
                     <Check className="mr-2 h-4 w-4" /> Accept
                   </Button>

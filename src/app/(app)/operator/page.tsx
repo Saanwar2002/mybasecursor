@@ -11,18 +11,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-const MapDisplay = dynamic(() => import('@/components/ui/map-display'), {
+// Use the new GoogleMapDisplay component
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const defaultUKCenter: [number, number] = [51.5074, -0.1278];
-const mockFleetMarkers = [
+const defaultUKCenterGoogle: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
+const mockFleetMarkersData = [
     { position: [51.51, -0.10] as [number, number], popupText: "Driver 1 (John D) - Active" },
     { position: [51.50, -0.13] as [number, number], popupText: "Driver 2 (Jane S) - Available" },
     { position: [51.52, -0.12] as [number, number], popupText: "Driver 3 (Mike B) - On Break" },
     { position: [51.49, -0.11] as [number, number], popupText: "Driver 4 (Sarah W) - Available" },
 ];
+
+const googleMapMarkers = mockFleetMarkersData.map(m => ({
+  position: { lat: m.position[0], lng: m.position[1] },
+  title: m.popupText
+}));
+
 
 interface Ride { id: string; status: string; }
 interface Driver { id: string; status: string; }
@@ -37,18 +44,18 @@ export default function OperatorDashboardPage() {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   // Mocked: In a real app, fetch actual issues
-  const issuesReported = 3; 
+  const issuesReported = 3;
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
       setIsLoadingStats(true);
       try {
         // Fetch active rides (e.g., 'Assigned' or 'In Progress')
-        // For simplicity, we fetch a small list and use its length. 
+        // For simplicity, we fetch a small list and use its length.
         // A real API might provide a count directly.
         const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=50`);
         const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In%20Progress&limit=50`);
-        
+
         if (!ridesResponseAssigned.ok || !ridesResponseInProgress.ok) {
             if (!ridesResponseAssigned.ok) console.error("Failed to fetch assigned rides", await ridesResponseAssigned.text());
             if (!ridesResponseInProgress.ok) console.error("Failed to fetch in-progress rides", await ridesResponseInProgress.text());
@@ -126,24 +133,20 @@ export default function OperatorDashboardPage() {
         <StatCard title="Issues Reported" value={issuesReported.toString()} icon={AlertTriangle} color="text-red-500" />
         <StatCard title="System Status" value="Operational" icon={Briefcase} color="text-green-500" />
       </div>
-      
+
       <Card>
         <CardHeader>
             <CardTitle className="text-xl font-headline flex items-center gap-2">
                 <Map className="w-6 h-6 text-primary" /> Live Fleet Overview
             </CardTitle>
         </CardHeader>
-        <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden flex items-center justify-center text-muted-foreground">
-            Map display temporarily disabled.
-             {/* 
-             <MapDisplay 
-                center={defaultUKCenter} 
-                zoom={12} 
-                markers={mockFleetMarkers} 
-                className="w-full h-full" 
-                scrollWheelZoom={true}
+        <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border">
+             <GoogleMapDisplay
+                center={defaultUKCenterGoogle}
+                zoom={12}
+                markers={googleMapMarkers}
+                className="w-full h-full"
              />
-             */}
         </CardContent>
       </Card>
 
