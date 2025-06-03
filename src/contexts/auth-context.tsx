@@ -31,11 +31,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('linkCabsUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    try {
+      const storedUser = localStorage.getItem('linkCabsUser');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error("Error processing stored user in AuthProvider:", error);
+      // Attempt to clear potentially corrupted storage item
+      localStorage.removeItem('linkCabsUser');
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = (email: string, name: string, role: UserRole, vehicleCategory?: string) => {
