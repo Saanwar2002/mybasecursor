@@ -144,12 +144,11 @@ const lucideIconToDataURI = (
   IconComponent: React.FC<LucideProps>,
   options: { size?: number; color?: string; strokeWidth?: number; fill?: string } = {}
 ) => {
-  const { size = 32, color = 'hsl(var(--foreground))', strokeWidth = 2, fill = 'none' } = options;
+  const { size = 32, color = '#000000', strokeWidth = 2, fill = 'none' } = options; // Default to black if color not resolved
   const iconElement = <IconComponent size={size} color={color} strokeWidth={strokeWidth} fill={fill} />;
   const svgString = renderToStaticMarkup(iconElement);
-  // Ensure xmlns attribute for proper rendering in some contexts, and encode properly
   const fullSvgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(fullSvgString)))}`;
+  return `data:image/svg+xml;base64,${btoa(fullSvgString)}`;
 };
 
 
@@ -216,9 +215,15 @@ export default function BookRidePage() {
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
   
-  const pickupIconUrl = useMemo(() => lucideIconToDataURI(UserIcon, { color: 'hsl(var(--primary))', size: 36, strokeWidth: 1.5, fill: 'hsl(var(--primary))' }), []);
-  const dropoffIconUrl = useMemo(() => lucideIconToDataURI(HomeIcon, { color: 'hsl(var(--accent))', size: 36, strokeWidth: 1.5, fill: 'hsl(var(--accent))' }), []);
-  const stopIconUrl = useMemo(() => lucideIconToDataURI(StopMarkerIcon, { color: 'hsl(var(--muted-foreground))', size: 32, strokeWidth: 1.5, fill: 'hsl(var(--muted-foreground))' }), []);
+  // Use direct hex colors from your theme for icons
+  const primaryColor = '#14B8A6'; // from --primary: 172 80% 40%; (Teal)
+  const accentColor = '#F97316'; // from --accent: 25 95% 53%; (Orange)
+  const mutedForegroundColor = '#64748B'; // Example: Slate 500 (Darker Medium Gray)
+
+  const pickupIconUrl = useMemo(() => lucideIconToDataURI(UserIcon, { color: primaryColor, size: 36, strokeWidth: 1.5, fill: primaryColor }), [primaryColor]);
+  const dropoffIconUrl = useMemo(() => lucideIconToDataURI(HomeIcon, { color: accentColor, size: 36, strokeWidth: 1.5, fill: accentColor }), [accentColor]);
+  const stopIconUrl = useMemo(() => lucideIconToDataURI(StopMarkerIcon, { color: mutedForegroundColor, size: 32, strokeWidth: 1.5, fill: mutedForegroundColor }), [mutedForegroundColor]);
+  
   const markerIconScaledSize = useMemo(() => ({ width: 36, height: 36 }), []);
   const stopMarkerIconScaledSize = useMemo(() => ({ width: 32, height: 32 }), []);
 
@@ -1377,6 +1382,5 @@ export default function BookRidePage() {
     </div>
   );
 }
-
 
     
