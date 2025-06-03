@@ -1407,7 +1407,7 @@ export default function BookRidePage() {
                 <GoogleMapDisplay
                     key="book-ride-map"
                     center={currentMapCenter}
-                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 10}
+                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 9}
                     markers={mapMarkers}
                     className="w-full h-full"
                  />
@@ -1450,3 +1450,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
