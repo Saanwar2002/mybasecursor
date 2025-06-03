@@ -944,8 +944,8 @@ export default function BookRidePage() {
 
       recognition.onresult = async (event: SpeechRecognitionEvent) => {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        setIsProcessingAi(true); // Moved up to show processing earlier
         toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
-        setIsProcessingAi(true);
         
         if (transcript) {
             try {
@@ -984,7 +984,7 @@ export default function BookRidePage() {
               setIsProcessingAi(false);
             }
         } else {
-          setIsProcessingAi(false);
+          setIsProcessingAi(false); // Also set to false if transcript is empty
         }
       };
 
@@ -1001,6 +1001,7 @@ export default function BookRidePage() {
 
       recognition.onend = () => {
         setIsListening(false);
+        // Note: isProcessingAi is handled in onresult's finally block or onerror.
       };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1016,12 +1017,12 @@ export default function BookRidePage() {
       return;
     }
     if (isListening) {
-      recognitionRef.current.stop();
+      recognitionRef.current.stop(); // Stop if already listening (e.g., from a previous error)
     }
 
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        await navigator.mediaDevices.getUserMedia({ audio: true }); // Request permission
         recognitionRef.current.start();
         setIsListening(true);
         toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
@@ -1538,3 +1539,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
