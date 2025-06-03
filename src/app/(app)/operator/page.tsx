@@ -17,12 +17,12 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const defaultUKCenterGoogle: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
+const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 const mockFleetMarkersData = [
-    { position: {lat: 51.51, lng: -0.10}, title: "Driver 1 (John D) - Active" , iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} },
-    { position: {lat: 51.50, lng: -0.13}, title: "Driver 2 (Jane S) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
-    { position: {lat: 51.52, lng: -0.12}, title: "Driver 3 (Mike B) - On Break", iconUrl: "/icons/busy-taxi.png", iconScaledSize: {width: 32, height: 32} },
-    { position: {lat: 51.49, lng: -0.11}, title: "Driver 4 (Sarah W) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 53.6480, lng: -1.7800}, title: "Driver 1 (John D) - Active" , iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 53.6420, lng: -1.7850}, title: "Driver 2 (Jane S) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 53.6500, lng: -1.7750}, title: "Driver 3 (Mike B) - On Break", iconUrl: "/icons/busy-taxi.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 53.6400, lng: -1.7900}, title: "Driver 4 (Sarah W) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
 ];
 
 interface Ride { id: string; status: string; }
@@ -163,8 +163,8 @@ export default function OperatorDashboardPage() {
         </CardHeader>
         <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border">
              <GoogleMapDisplay
-                center={defaultUKCenterGoogle}
-                zoom={12}
+                center={huddersfieldCenterGoogle}
+                zoom={13}
                 markers={mockFleetMarkersData} 
                 className="w-full h-full"
              />
@@ -243,3 +243,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+

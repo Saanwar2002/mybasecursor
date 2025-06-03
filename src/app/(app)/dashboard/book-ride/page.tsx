@@ -104,7 +104,7 @@ type AutocompleteData = {
   coords: google.maps.LatLngLiteral | null;
 };
 
-const defaultMapCenter: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
+const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
 const BASE_FARE = 0.00;
 const PER_MILE_RATE = 1.00;
@@ -1017,7 +1017,8 @@ export default function BookRidePage() {
         setIsListening(false);
       };
     }
-  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords, parseBookingRequest, geocodeAiAddress]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords, geocodeAiAddress]);
 
   const handleMicMouseDown = async () => {
     if (!recognitionRef.current) {
@@ -1029,28 +1030,28 @@ export default function BookRidePage() {
       return;
     }
     if (isListening) {
-      recognitionRef.current.stop(); 
+      recognitionRef.current.stop(); // Stop if already listening
     }
 
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true }); 
-        recognitionRef.current.start();
-        setIsListening(true);
-        toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
-      } else {
-        toast({ title: "Error", description: "Browser does not support microphone access.", variant: "destructive" });
-      }
+      // Attempt to get media stream to trigger permission prompt or check if already granted
+      await navigator.mediaDevices.getUserMedia({ audio: true }); 
+      // Permission granted or was already granted
+      recognitionRef.current.start();
+      setIsListening(true);
+      toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
     } catch (err) {
+      // This catch block handles errors from getUserMedia (e.g., permission denied)
       console.error("Microphone permission error or start error:", err);
       toast({ title: "Microphone Error", description: "Could not access microphone or start listening. Check permissions.", variant: "destructive" });
-      setIsListening(false);
+      setIsListening(false); // Ensure listening state is false if permission denied
     }
   };
 
   const handleMicMouseUpOrLeave = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
+      // isListening will be set to false by recognition.onend
     }
   };
 
@@ -1122,7 +1123,7 @@ export default function BookRidePage() {
     </Popover>
   );
 
-  const currentMapCenter = pickupCoords || defaultMapCenter;
+  const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   return (
     <div className="space-y-6">
@@ -1141,7 +1142,7 @@ export default function BookRidePage() {
                 <GoogleMapDisplay
                     key="book-ride-map"
                     center={currentMapCenter}
-                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 9}
+                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 13 : 12}
                     markers={mapMarkers}
                     className="w-full h-full"
                  />

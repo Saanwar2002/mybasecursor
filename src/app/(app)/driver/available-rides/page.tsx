@@ -33,28 +33,25 @@ interface RideRequest {
   passengerRating?: number;
 }
 
-const defaultUKCenterGoogle: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
+const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
 const mockRideRequests: RideRequest[] = [
-  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '123 Oak St, London', dropoffLocation: 'City Mall, London', estimatedTime: '10 min', fareEstimate: 15.50, status: 'pending', pickupCoords: [51.510, -0.120], dropoffCoords: [51.505, -0.130], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
-  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Central Station, London', dropoffLocation: 'Airport Terminal 2, London', estimatedTime: '5 min', fareEstimate: 28.00, status: 'pending', pickupCoords: [51.500, -0.125], dropoffCoords: [51.470, -0.454], distanceMiles: 15.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
-  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Green Park, London', dropoffLocation: 'Downtown Office, London', estimatedTime: '12 min', fareEstimate: 12.75, status: 'pending', pickupCoords: [51.507, -0.142], dropoffCoords: [51.515, -0.087], distanceMiles: 3.1, passengerCount: 1, passengerPhone: '555-0103', passengerRating: 3.2 },
-  { id: 'r4', passengerName: 'David Lee', passengerAvatar: 'https://placehold.co/40x40.png?text=DL', pickupLocation: 'Museum District, London', dropoffLocation: 'Theatre Royal, London', estimatedTime: '8 min', fareEstimate: 10.00, status: 'pending', pickupCoords: [51.519, -0.128], dropoffCoords: [51.510, -0.127], distanceMiles: 1.5, passengerCount: 3, passengerPhone: '555-0104', passengerRating: 5.0 },
+  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: 'Kingsgate Centre, Huddersfield', dropoffLocation: 'Huddersfield Royal Infirmary', estimatedTime: '10 min', fareEstimate: 7.50, status: 'pending', pickupCoords: [53.6458, -1.7845], dropoffCoords: [53.6530, -1.8000], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
+  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Huddersfield Station', dropoffLocation: 'University of Huddersfield, Queensgate', estimatedTime: '5 min', fareEstimate: 5.00, status: 'pending', pickupCoords: [53.6490, -1.7795], dropoffCoords: [53.6430, -1.7720], distanceMiles: 1.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
+  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Greenhead Park, Huddersfield', dropoffLocation: 'Lindley Village', estimatedTime: '12 min', fareEstimate: 6.75, status: 'pending', pickupCoords: [53.6495, -1.7950], dropoffCoords: [53.6580, -1.8200], distanceMiles: 3.1, passengerCount: 1, passengerPhone: '555-0103', passengerRating: 3.2 },
+  { id: 'r4', passengerName: 'David Lee', passengerAvatar: 'https://placehold.co/40x40.png?text=DL', pickupLocation: 'John Smiths Stadium, Huddersfield', dropoffLocation: 'Town Hall, Huddersfield', estimatedTime: '8 min', fareEstimate: 4.00, status: 'pending', pickupCoords: [53.6540, -1.7680], dropoffCoords: [53.6450, -1.7830], distanceMiles: 1.5, passengerCount: 3, passengerPhone: '555-0104', passengerRating: 5.0 },
 ];
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
-  const [driverLocation] = useState<google.maps.LatLngLiteral>({ lat: 51.500, lng: -0.100 }); // Mock driver location for Google Maps
+  const [driverLocation] = useState<google.maps.LatLngLiteral>({ lat: 53.6430, lng: -1.7800 }); // Mock driver location in Huddersfield
 
   const handleRideAction = (rideId: string, newStatus: RideRequest['status']) => {
     setRideRequests(prevRequests => {
       if (newStatus === 'active') {
         return prevRequests.map(req => {
           if (req.id === rideId) return { ...req, status: 'active' };
-          // If another ride was active, set it back to pending or decline.
-          // For simplicity, we'll just ensure only one ride can be active.
-          // In a real app, you might decline other pending rides automatically.
           if (req.status === 'active' && req.id !== rideId) return { ...req, status: 'pending' };
           return req;
         });
@@ -95,7 +92,6 @@ export default function AvailableRidesPage() {
   const handleCallCustomer = (phoneNumber?: string) => {
     if (phoneNumber) {
       toast({ title: "Calling Customer", description: `Initiating call to ${phoneNumber}... (Demo)`});
-      // In a real app: window.location.href = `tel:${phoneNumber}`;
     } else {
       toast({ title: "Call Not Available", description: "Customer phone number not provided.", variant: "default"});
     }
@@ -127,18 +123,15 @@ export default function AvailableRidesPage() {
       markers.push({
         position: { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] },
         title: `Pickup: ${activeRide.pickupLocation}`,
-        // iconUrl: '/icons/pickup-pin.png' // Example custom icon
       });
     }
     if (activeRide.dropoffCoords) {
       markers.push({
         position: { lat: activeRide.dropoffCoords[0], lng: activeRide.dropoffCoords[1] },
         title: `Dropoff: ${activeRide.dropoffLocation}`,
-        // iconUrl: '/icons/dropoff-pin.png' // Example custom icon
       });
     }
-    // Could also add driver's current location marker if available
-    // markers.push({ position: driverLocation, title: "Your Location" });
+    markers.push({ position: driverLocation, title: "Your Location", iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} });
     return markers;
   };
 
@@ -146,7 +139,7 @@ export default function AvailableRidesPage() {
     if (activeRide?.pickupCoords) {
       return { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] };
     }
-    return driverLocation || defaultUKCenterGoogle;
+    return driverLocation || huddersfieldCenterGoogle;
   };
 
   return (
@@ -196,7 +189,7 @@ export default function AvailableRidesPage() {
               <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm">
                  <GoogleMapDisplay
                     center={getMapCenterForActiveRide()}
-                    zoom={13}
+                    zoom={14}
                     markers={getMapMarkersForActiveRide()}
                     className="w-full h-full"
                  />
@@ -286,3 +279,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+

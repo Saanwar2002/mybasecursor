@@ -12,19 +12,19 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const defaultPassengerLocation: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 }; 
-const initialTaxiLocation: google.maps.LatLngLiteral = { lat: 51.515, lng: -0.10 }; 
+const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 }; 
+const initialTaxiLocationHuddersfield: google.maps.LatLngLiteral = { lat: 53.6500, lng: -1.7750 }; 
 
 export default function TrackRidePage() {
-  const [taxiLocation, setTaxiLocation] = useState<google.maps.LatLngLiteral>(initialTaxiLocation);
+  const [taxiLocation, setTaxiLocation] = useState<google.maps.LatLngLiteral>(initialTaxiLocationHuddersfield);
   const [estimatedArrival, setEstimatedArrival] = useState(5); 
 
   useEffect(() => {
     // Simulate taxi movement
     const interval = setInterval(() => {
       setTaxiLocation(prev => {
-        const newLat = prev.lat - (prev.lat - defaultPassengerLocation.lat) * 0.1;
-        const newLng = prev.lng - (prev.lng - defaultPassengerLocation.lng) * 0.1;
+        const newLat = prev.lat - (prev.lat - huddersfieldCenter.lat) * 0.1;
+        const newLng = prev.lng - (prev.lng - huddersfieldCenter.lng) * 0.1;
         return { lat: newLat, lng: newLng };
       });
       setEstimatedArrival(prev => Math.max(0, prev - 1));
@@ -42,8 +42,8 @@ export default function TrackRidePage() {
       // iconScaledSize: { width: 32, height: 32 }
     },
     { 
-      position: defaultPassengerLocation, 
-      title: "Your Location" 
+      position: huddersfieldCenter, 
+      title: "Your Location (Huddersfield)" 
     }
   ];
 
@@ -61,7 +61,7 @@ export default function TrackRidePage() {
         <CardContent className="space-y-6">
           <div className="relative w-full h-96 md:h-[500px] rounded-lg overflow-hidden shadow-md border">
             <GoogleMapDisplay 
-              center={defaultPassengerLocation} 
+              center={huddersfieldCenter} 
               zoom={14} 
               markers={mapMarkers} 
               className="h-full w-full"
@@ -76,7 +76,7 @@ export default function TrackRidePage() {
               <p className="flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> <strong>Vehicle:</strong> Toyota Camry (ABC 123)</p>
               <p className="flex items-center gap-2"><MapPin className="w-5 h-5 text-primary" /> <strong>Driver:</strong> John B.</p>
               <p className="flex items-center gap-2"><Clock className="w-5 h-5 text-primary" /> <strong>Estimated Arrival:</strong> {estimatedArrival} minutes</p>
-              <p className="flex items-center gap-2"><MapPin className="w-5 h-5 text-primary" /> <strong>Current Location:</strong> Approaching Oak Street (Mock)</p>
+              <p className="flex items-center gap-2"><MapPin className="w-5 h-5 text-primary" /> <strong>Current Location:</strong> Approaching Town Centre (Mock)</p>
             </CardContent>
           </Card>
         </CardContent>
@@ -84,3 +84,4 @@ export default function TrackRidePage() {
     </div>
   );
 }
+
