@@ -11,10 +11,10 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="w-full max-w-4xl mx-auto px-4">
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight mb-6">
-          Your Next Ride, <span className="text-primary">Simplified</span>.
+          Link Cabs: Your <span className="text-primary">Local Ride</span>, Simplified.
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-          Experience seamless taxi bookings with Link Cabs. Fast, reliable, and available 24/7. Get where you need to go, effortlessly.
+          Link Cabs: Connecting our neighborhood, one ride at a time. Fast, friendly, and always here for you. Your local journey, made easy.
         </p>
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
           <Button asChild size="lg" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-6 shadow-lg transform hover:scale-105 transition-transform">
@@ -31,7 +31,7 @@ export default function LandingPage() {
             width={800}
             height={400}
             className="rounded-xl shadow-2xl mx-auto"
-            data-ai-hint="city taxi"
+            data-ai-hint="local street"
             priority
           />
         </div>
@@ -174,3 +174,4 @@ const Smile = ({ className }: { className?: string }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
   </svg>
 );
+
