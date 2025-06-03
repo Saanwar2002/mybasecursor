@@ -165,6 +165,7 @@ export default function BookRidePage() {
   const [newRouteLabel, setNewRouteLabel] = useState("");
 
   const [isListening, setIsListening] = useState(false);
+  const [isProcessingAi, setIsProcessingAi] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
@@ -872,6 +873,57 @@ export default function BookRidePage() {
     }
   };
 
+  const geocodeAiAddress = async (
+    addressString: string,
+    setCoordsFunc: (coords: google.maps.LatLngLiteral | null) => void,
+    setInputValueFunc: (value: string) => void,
+    formField: "pickupLocation" | "dropoffLocation",
+    locationType: "pickup" | "dropoff" // For toast messages
+  ): Promise<void> => {
+    if (!autocompleteServiceRef.current || !placesServiceRef.current || !addressString) {
+      setCoordsFunc(null);
+      toast({ title: `AI Geocoding Failed for ${locationType}`, description: `Address services not ready or no address provided for ${addressString}.`, variant: "destructive" });
+      return;
+    }
+  
+    return new Promise((resolve) => {
+      autocompleteServiceRef.current!.getPlacePredictions(
+        { input: addressString, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } },
+        (predictions, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && predictions && predictions[0]) {
+            const firstPrediction = predictions[0];
+            placesServiceRef.current!.getDetails(
+              { placeId: firstPrediction.place_id!, fields: ['geometry.location', 'formatted_address'], sessionToken: autocompleteSessionTokenRef.current },
+              (place, detailStatus) => {
+                if (detailStatus === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+                  const coords = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
+                  const finalAddress = place.formatted_address || firstPrediction.description;
+                  setCoordsFunc(coords);
+                  form.setValue(formField, finalAddress);
+                  setInputValueFunc(finalAddress);
+                  toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
+                } else {
+                  setCoordsFunc(null);
+                  form.setValue(formField, addressString); // Keep AI's original string if geocoding details fail
+                  setInputValueFunc(addressString);
+                  toast({ title: `AI Geocoding Failed`, description: `Could not get details for ${locationType}: ${addressString}. Original text kept.`, variant: "default" });
+                }
+                autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+                resolve();
+              }
+            );
+          } else {
+            setCoordsFunc(null);
+            form.setValue(formField, addressString); // Keep AI's original string if no predictions
+            setInputValueFunc(addressString);
+            toast({ title: `AI Geocoding Failed`, description: `Could not find ${locationType}: ${addressString}. Original text kept.`, variant: "default" });
+            resolve();
+          }
+        }
+      );
+    });
+  };
+
   // Speech Recognition Logic
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -893,23 +945,47 @@ export default function BookRidePage() {
 
       recognition.onresult = async (event: SpeechRecognitionEvent) => {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
-        toast({ title: "Heard you!", description: `Processing: "${transcript}"`, duration: 2000 });
+        toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
+        setIsProcessingAi(true);
         
         if (transcript) {
             try {
                 const aiInput: ParseBookingRequestInput = { userRequestText: transcript };
                 const aiOutput: ParseBookingRequestOutput = await parseBookingRequest(aiInput);
                 
-                toast({
-                    title: "AI Parsed Your Request (Raw Output)",
-                    description: (<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 overflow-x-auto"><code className="text-white">{JSON.stringify(aiOutput, null, 2)}</code></pre>),
-                    duration: 15000, 
-                });
+                if (aiOutput.numberOfPassengers) {
+                  form.setValue('passengers', aiOutput.numberOfPassengers);
+                  toast({ title: "AI Applied", description: `Passengers set to: ${aiOutput.numberOfPassengers}`});
+                } else {
+                  form.setValue('passengers', 1); // Default
+                }
+                if (aiOutput.additionalNotes) {
+                  form.setValue('driverNotes', aiOutput.additionalNotes);
+                  toast({ title: "AI Applied", description: `Notes added: "${aiOutput.additionalNotes}"`});
+                } else {
+                  form.setValue('driverNotes', "");
+                }
+
+                if (aiOutput.pickupAddress) {
+                  await geocodeAiAddress(aiOutput.pickupAddress, setPickupCoords, setPickupInputValue, "pickupLocation", "pickup");
+                }
+                if (aiOutput.dropoffAddress) {
+                  await geocodeAiAddress(aiOutput.dropoffAddress, setDropoffCoords, setDropoffInputValue, "dropoffLocation", "dropoff");
+                }
+                
+                if (aiOutput.requestedTime) {
+                  toast({ title: "AI Suggested Time", description: `Time: ${aiOutput.requestedTime}. Please set date/time manually if needed.` });
+                }
+                toast({ title: "AI Processing Complete", description: "Review fields and complete your booking." });
 
             } catch (aiError) {
                 console.error("AI Parsing Error:", aiError);
                 toast({ title: "AI Error", description: "Could not understand your request via AI.", variant: "destructive"});
+            } finally {
+              setIsProcessingAi(false);
             }
+        } else {
+          setIsProcessingAi(false);
         }
       };
 
@@ -921,22 +997,25 @@ export default function BookRidePage() {
         else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied.";
         toast({ title: "Voice Error", description: errorMessage, variant: "destructive" });
         setIsListening(false);
+        setIsProcessingAi(false);
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        // setIsProcessingAi(false); // Moved to onresult.finally and onerror
       };
     }
-  }, [toast, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords]); // form reference is stable from useForm
 
   const handleMicListen = async () => {
     if (!recognitionRef.current) {
       toast({ title: "Error", description: "Speech recognition is not initialized.", variant: "destructive" });
       return;
     }
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+    if (isListening || isProcessingAi) {
+      if (isListening) recognitionRef.current.stop(); // Stop listening if already listening
+      setIsListening(false); // Already handles setIsProcessingAi in onend/onerror
     } else {
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -1105,10 +1184,11 @@ export default function BookRidePage() {
                               variant="ghost"
                               size="icon" 
                               onClick={handleMicListen}
-                              className="h-8 w-8 text-white focus-visible:ring-white focus-visible:ring-offset-green-700"
-                              aria-label={isListening ? "Stop listening" : "Start listening for voice input"}
+                              disabled={isProcessingAi}
+                              className="h-8 w-8 text-white focus-visible:ring-white focus-visible:ring-offset-green-700 disabled:opacity-75"
+                              aria-label={isListening ? "Stop listening" : isProcessingAi ? "Processing AI..." : "Start listening for voice input"}
                             >
-                              <Mic className={cn("h-5 w-5", isListening && "animate-pulse opacity-75")} />
+                              {isProcessingAi ? <Loader2 className={cn("h-5 w-5 animate-spin")} /> : <Mic className={cn("h-5 w-5", isListening && "animate-pulse opacity-75")} /> }
                             </Button>
                           </div>
                         </div>
@@ -1449,4 +1529,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
