@@ -1088,16 +1088,16 @@ export default function BookRidePage() {
                       <FormItem>
                         <div className="flex items-center justify-between">
                           <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                          <div className="p-1 bg-accent/20 rounded-md shadow-sm">
+                          <div className="bg-green-700 hover:bg-green-600 p-1 rounded-lg shadow-md transition-colors">
                             <Button 
                               type="button" 
-                              variant={isListening ? "destructive" : "ghost"} 
+                              variant="ghost"
                               size="icon" 
                               onClick={handleMicListen}
-                              className={cn("h-8 w-8", isListening ? "text-destructive-foreground" : "text-accent-foreground hover:bg-accent/30")}
+                              className="h-8 w-8 text-white focus-visible:ring-white focus-visible:ring-offset-green-700"
                               aria-label={isListening ? "Stop listening" : "Start listening for voice input"}
                             >
-                              <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />
+                              <Mic className={cn("h-5 w-5", isListening && "animate-pulse opacity-75")} />
                             </Button>
                           </div>
                         </div>
