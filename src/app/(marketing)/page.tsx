@@ -25,13 +25,13 @@ export default function LandingPage() {
           </Button>
         </div>
         <div className="mt-12">
-          <Image 
-            src="https://placehold.co/800x400.png" 
-            alt="Hero image of a modern city with taxis" 
-            width={800} 
-            height={400} 
+          <Image
+            src="https://placehold.co/800x400.png"
+            alt="Hero image of a modern city with taxis"
+            width={800}
+            height={400}
             className="rounded-xl shadow-2xl mx-auto"
-            data-ai-hint="city taxi modern"
+            data-ai-hint="city taxi"
             priority
           />
         </div>
@@ -101,7 +101,7 @@ export default function LandingPage() {
           />
         </div>
       </section>
-      
+
       {/* Call to Action Section */}
       <section className="w-full max-w-4xl mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold font-headline mb-6">
@@ -174,6 +174,3 @@ const Smile = ({ className }: { className?: string }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
   </svg>
 );
-
-
-    
