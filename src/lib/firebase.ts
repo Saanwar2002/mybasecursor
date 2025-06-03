@@ -19,8 +19,6 @@ for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`Firebase config error: Environment variable ${envVar} is missing.`);
     firebaseConfigError = true;
-  } else {
-    // console.log(`Firebase config: ${envVar} is present.`); // Optional: too verbose for production
   }
 }
 
@@ -33,20 +31,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let app: FirebaseApp | null = null; // Initialize as null
-let db: Firestore | null = null; // Initialize as null
+let app: FirebaseApp | null = null;
+let db: Firestore | null = null;
 let auth: Auth | null = null;
 
 if (firebaseConfigError) {
-  console.error("Firebase initialization will be skipped due to missing environment variables. 'db' and 'auth' will be null.");
+  console.error("Firebase initialization WILL BE SKIPPED due to missing environment variables. 'db' and 'auth' will remain null. Please check your .env file and ensure all NEXT_PUBLIC_FIREBASE_ variables are set.");
 } else {
   try {
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
-      console.log("Firebase app initialized successfully using firebaseConfig:", firebaseConfig.projectId);
+      console.log("Firebase app initialized successfully using firebaseConfig for project:", firebaseConfig.projectId);
     } else {
       app = getApp();
-      console.log("Firebase app retrieved successfully.");
+      console.log("Firebase app retrieved successfully for project:", firebaseConfig.projectId);
     }
 
     if (app) {
@@ -58,7 +56,8 @@ if (firebaseConfigError) {
           // db remains null
         }
 
-        if (firebaseConfig.apiKey) { // Auth still depends on API key specifically
+        // Check for essential auth config values before attempting to initialize Auth
+        if (firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId) {
           try {
             auth = getAuth(app);
             console.log("Firebase Auth instance initialized successfully.");
@@ -67,13 +66,14 @@ if (firebaseConfigError) {
             // auth remains null
           }
         } else {
-          console.warn(
-            "Firebase API key (NEXT_PUBLIC_FIREBASE_API_KEY) is missing. " +
-            "Firebase Authentication will not be available."
+          console.error(
+            "One or more core Firebase config values (apiKey, authDomain, projectId) are missing in firebaseConfig. " +
+            "Firebase Authentication will NOT be available. 'auth' will be null. Check NEXT_PUBLIC_FIREBASE_ environment variables."
           );
+          // auth remains null
         }
     } else {
-        console.error("Firebase app object is null, cannot proceed with db/auth initialization.");
+        console.error("Firebase app object is null after initialization/retrieval attempt, cannot proceed with db/auth initialization.");
     }
   } catch (initError) {
     console.error("Critical error during Firebase app initialization process:", initError);
