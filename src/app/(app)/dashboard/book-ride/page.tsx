@@ -1077,7 +1077,16 @@ export default function BookRidePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="flex flex-col gap-8">
+            <div className="w-full h-[35vh] rounded-lg overflow-hidden border shadow-md bg-muted/30">
+                <GoogleMapDisplay
+                    key="book-ride-map"
+                    center={currentMapCenter}
+                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 9}
+                    markers={mapMarkers}
+                    className="w-full h-full"
+                 />
+              </div>
             <div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
@@ -1400,18 +1409,6 @@ export default function BookRidePage() {
                   </p>
                 </CardContent>
               </Card>
-            </div>
-
-            <div className="flex flex-col items-center justify-center bg-muted/50 p-2 md:p-6 rounded-lg min-h-[300px] md:min-h-[400px]">
-              <div className="w-full h-64 md:h-80 mb-6">
-                <GoogleMapDisplay
-                    key="book-ride-map"
-                    center={currentMapCenter}
-                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 12 : 9}
-                    markers={mapMarkers}
-                    className="w-full h-full"
-                 />
-              </div>
             </div>
           </div>
         </CardContent>
