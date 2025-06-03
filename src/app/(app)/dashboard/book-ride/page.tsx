@@ -1111,7 +1111,7 @@ export default function BookRidePage() {
                               onFocus={handleFocusFactory('pickupLocation')}
                               onBlur={handleBlurFactory('pickupLocation')}
                               autoComplete="off"
-                              className="pr-10"
+                              className="pr-10 border-2 border-primary shadow-none"
                             />
                           </FormControl>
                           {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('pickupLocation', field.onChange), "pickup")}
@@ -1157,7 +1157,7 @@ export default function BookRidePage() {
                                   onFocus={handleFocusFactory(index)}
                                   onBlur={handleBlurFactory(index)}
                                   autoComplete="off"
-                                  className="pr-10"
+                                  className="pr-10 border-2 border-primary shadow-none"
                                 />
                               </FormControl>
                               {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange), `stop-${index}`)}
@@ -1207,7 +1207,7 @@ export default function BookRidePage() {
                                onFocus={handleFocusFactory('dropoffLocation')}
                                onBlur={handleBlurFactory('dropoffLocation')}
                               autoComplete="off"
-                              className="pr-10"
+                              className="pr-10 border-2 border-primary shadow-none"
                             />
                           </FormControl>
                            {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('dropoffLocation', field.onChange), "dropoff")}
