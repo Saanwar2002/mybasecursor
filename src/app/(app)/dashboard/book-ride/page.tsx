@@ -32,8 +32,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import { renderToStaticMarkup } from 'react-dom/server';
-import type { LucideProps } from 'lucide-react';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -64,8 +62,7 @@ interface SavedRoute {
 interface MapMarker {
   position: google.maps.LatLngLiteral;
   title?: string;
-  iconUrl?: string;
-  iconScaledSize?: { width: number; height: number };
+  label?: string | google.maps.MarkerLabel;
 }
 
 
@@ -139,19 +136,6 @@ function getDistanceInMiles(
   return d * 0.621371;
 }
 
-// Helper to convert Lucide React Icon to SVG Data URI
-const lucideIconToDataURI = (
-  IconComponent: React.FC<LucideProps>,
-  options: { size?: number; color?: string; strokeWidth?: number; fill?: string } = {}
-) => {
-  const { size = 32, color = '#000000', strokeWidth = 2, fill = 'none' } = options;
-  const iconElement = <IconComponent size={size} color={color} strokeWidth={strokeWidth} fill={fill} />;
-  const svgString = renderToStaticMarkup(iconElement);
-  const fullSvgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-  return `data:image/svg+xml,${encodeURIComponent(fullSvgString)}`;
-};
-
-
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
@@ -215,18 +199,6 @@ export default function BookRidePage() {
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
   
-  const primaryColor = '#14B8A6'; 
-  const accentColor = '#F97316'; 
-  const mutedForegroundColor = '#64748B'; 
-
-  const pickupIconUrl = useMemo(() => lucideIconToDataURI(UserIcon, { color: primaryColor, size: 36, strokeWidth: 2, fill: primaryColor }), [primaryColor]);
-  const dropoffIconUrl = useMemo(() => lucideIconToDataURI(HomeIcon, { color: accentColor, size: 36, strokeWidth: 2, fill: accentColor }), [accentColor]);
-  const stopIconUrl = useMemo(() => lucideIconToDataURI(StopMarkerIcon, { color: mutedForegroundColor, size: 32, strokeWidth: 2, fill: mutedForegroundColor }), [mutedForegroundColor]);
-  
-  const markerIconScaledSize = useMemo(() => ({ width: 36, height: 36 }), []);
-  const stopMarkerIconScaledSize = useMemo(() => ({ width: 32, height: 32 }), []);
-
-
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
@@ -660,8 +632,7 @@ export default function BookRidePage() {
       newMarkers.push({ 
         position: pickupCoords, 
         title: `Pickup: ${form.getValues('pickupLocation')}`,
-        iconUrl: pickupIconUrl,
-        iconScaledSize: markerIconScaledSize,
+        label: 'P'
       });
     }
     const currentFormStops = form.getValues('stops');
@@ -670,9 +641,8 @@ export default function BookRidePage() {
         if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
              newMarkers.push({ 
                 position: stopData.coords, 
-                title: `Stop: ${formStop.location}`,
-                iconUrl: stopIconUrl,
-                iconScaledSize: stopMarkerIconScaledSize,
+                title: `Stop ${index + 1}: ${formStop.location}`,
+                label: `S${index + 1}`
             });
         }
     });
@@ -680,12 +650,11 @@ export default function BookRidePage() {
       newMarkers.push({ 
         position: dropoffCoords, 
         title: `Dropoff: ${form.getValues('dropoffLocation')}`,
-        iconUrl: dropoffIconUrl,
-        iconScaledSize: markerIconScaledSize,
+        label: 'D'
     });
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops, pickupIconUrl, dropoffIconUrl, stopIconUrl, markerIconScaledSize, stopMarkerIconScaledSize]);
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
 
 
   async function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
@@ -805,7 +774,7 @@ export default function BookRidePage() {
       toast({ title: "Cannot Save Route", description: "Please select valid pickup and drop-off locations before saving.", variant: "destructive"});
       return;
     }
-    setNewRouteLabel(""); // Reset label
+    setNewRouteLabel(""); 
     setSaveRouteDialogOpen(true);
   };
 
@@ -866,7 +835,7 @@ export default function BookRidePage() {
     setShowDropoffSuggestions(false);
 
     const newStopsForForm = route.stops?.map(s => ({ location: s.address })) || [];
-    replace(newStopsForForm); // Replaces all current stops
+    replace(newStopsForForm); 
 
     const newStopAutocompleteData: AutocompleteData[] = route.stops?.map((s, index) => ({
       fieldId: `stop-applied-${index}-${Date.now()}`,
@@ -880,7 +849,6 @@ export default function BookRidePage() {
     setStopAutocompleteData(newStopAutocompleteData);
 
     toast({ title: "Route Applied", description: `Route "${route.label}" loaded into the form.`});
-    // Close popover, assuming it's controlled externally or by Radix UI itself.
   };
 
   const handleDeleteSavedRoute = async (routeId: string) => {

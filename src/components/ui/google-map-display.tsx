@@ -12,12 +12,13 @@ interface GoogleMapDisplayProps {
   markers?: Array<{
     position: google.maps.LatLngLiteral;
     title?: string;
+    label?: string | google.maps.MarkerLabel; // Added label support
     iconUrl?: string;
     iconScaledSize?: { width: number; height: number };
   }>;
   className?: string;
   style?: React.CSSProperties;
-  mapId?: string; // For map styling (e.g., cloud-based map styling ID)
+  mapId?: string; 
 }
 
 const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
@@ -68,7 +69,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     }).catch(e => {
       if (isMounted) {
         console.error("Failed to load Google Maps SDK:", e);
-        setMapError(`Failed to load Google Maps SDK. Check API key, network, and console. Error: ${e.message || e}`);
+        setMapError(`Failed to load Google Maps SDK. Check API key, network, and console. Error: ${e.message || String(e)}`);
         setIsSdkLoaded(false);
       }
     });
@@ -103,19 +104,20 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
-    if (markers && mapInstanceRef.current && typeof google !== 'undefined' && google.maps && google.maps.Marker && google.maps.Size) {
+    if (markers && mapInstanceRef.current && typeof google !== 'undefined' && google.maps && google.maps.Marker) {
       markers.forEach(markerData => {
         let markerOptions: google.maps.MarkerOptions = {
           position: markerData.position,
           map: mapInstanceRef.current,
           title: markerData.title,
+          label: markerData.label, // Pass label to marker options
         };
 
-        if (markerData.iconUrl && markerData.iconScaledSize) {
+        if (markerData.iconUrl && markerData.iconScaledSize && google.maps.Size && google.maps.Point) {
           markerOptions.icon = {
             url: markerData.iconUrl,
             scaledSize: new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height),
-            anchor: new google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height / 2), // Center anchor
+            anchor: new google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height), 
           };
         }
         const newMarker = new google.maps.Marker(markerOptions);
