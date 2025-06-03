@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const ParseBookingRequestInputSchema = z.object({
+const ParseBookingRequestInputSchema = z.object({
   userRequestText: z
     .string()
     .describe(
@@ -20,7 +20,7 @@ export const ParseBookingRequestInputSchema = z.object({
 });
 export type ParseBookingRequestInput = z.infer<typeof ParseBookingRequestInputSchema>;
 
-export const ParseBookingRequestOutputSchema = z.object({
+const ParseBookingRequestOutputSchema = z.object({
   pickupAddress: z
     .string()
     .optional()
@@ -101,3 +101,4 @@ const parseBookingRequestFlow = ai.defineFlow(
     return output!;
   }
 );
+
