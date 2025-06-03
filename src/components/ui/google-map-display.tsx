@@ -86,10 +86,10 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         center,
         zoom,
         mapId: mapIdProp,
-        disableDefaultUI: true,
-        zoomControl: true,
-        streetViewControl: false,
-        mapTypeControl: false,
+        disableDefaultUI: false, // Changed to false to show all default UI including zoom
+        // zoomControl: true, // zoomControl is true by default if disableDefaultUI is false
+        // streetViewControl: true, // streetViewControl is true by default if disableDefaultUI is false
+        // mapTypeControl: true, // mapTypeControl is true by default if disableDefaultUI is false
       });
     } else if (mapInstanceRef.current) { 
       const currentMapCenter = mapInstanceRef.current.getCenter();
@@ -110,7 +110,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           position: markerData.position,
           map: mapInstanceRef.current,
           title: markerData.title,
-          label: markerData.label, // Pass label to marker options
+          label: markerData.label, 
         };
 
         if (markerData.iconUrl && markerData.iconScaledSize && google.maps.Size && google.maps.Point) {
