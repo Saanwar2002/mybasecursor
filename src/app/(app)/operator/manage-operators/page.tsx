@@ -22,6 +22,8 @@ interface OperatorUser {
   status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended';
   role: 'operator';
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
+  lastLogin?: { _seconds: number; _nanoseconds: number } | null;
+  operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
 }
 
 export default function OperatorManageOperatorsPage() {
@@ -164,9 +166,10 @@ export default function OperatorManageOperatorsPage() {
             <CardTitle className="text-3xl font-headline flex items-center gap-2">
               <Briefcase className="w-8 h-8 text-primary" /> Manage Operators
             </CardTitle>
-            <CardDescription>View, approve, and manage other operator accounts on the platform.</CardDescription>
+            <CardDescription>
+              View and manage other operator accounts. Currently, any logged-in operator can manage other operator accounts listed here.
+            </CardDescription>
           </div>
-          {/* Placeholder for Add New Operator Dialog - to be linked with Authorization Code system later */}
            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0" disabled>
             <UserPlus className="mr-2 h-4 w-4" /> Add New Operator (Soon)
           </Button>
