@@ -1412,7 +1412,7 @@ export default function BookRidePage() {
                         <FormControl>
                           <Textarea
                             placeholder="e.g., Ring doorbell on arrival, specific gate number, etc."
-                            className="min-h-[80px] border-2 border-primary shadow-none"
+                            className="min-h-[80px] border-2 border-accent shadow-none"
                             {...field}
                           />
                         </FormControl>
