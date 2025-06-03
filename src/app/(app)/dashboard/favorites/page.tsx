@@ -68,7 +68,7 @@ export default function FavoriteLocationsPage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["places", "marker"], // Standardized order
+      libraries: ["places", "marker", "maps"], 
     });
 
     loader.load().then((google) => {
@@ -386,3 +386,4 @@ export default function FavoriteLocationsPage() {
     </div>
   );
 }
+
