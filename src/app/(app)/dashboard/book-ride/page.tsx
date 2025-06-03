@@ -69,14 +69,14 @@ interface MapMarker {
   label?: string | google.maps.MarkerLabel;
 }
 
-type GeolocationFetchStatus = 
-  | "idle" 
-  | "fetching" 
+type GeolocationFetchStatus =
+  | "idle"
+  | "fetching"
   | "success" // Suggestion shown, accuracy <= 20m
-  | "error_permission" 
+  | "error_permission"
   | "error_accuracy_moderate" // Geocoded, accuracy 20-500m, no alert
   | "error_accuracy_poor" // Accuracy > 500m, not geocoded for suggestion
-  | "error_unavailable" 
+  | "error_unavailable"
   | "error_geocoding"; // Failed to geocode an otherwise acceptable coordinate
 
 const bookingFormSchema = z.object({
@@ -134,7 +134,7 @@ const BASE_FARE = 0.00;
 const PER_MILE_RATE = 1.00;
 const FIRST_MILE_SURCHARGE = 1.99;
 const PER_MINUTE_RATE = 0.10;
-const AVERAGE_SPEED_MPH = 15; 
+const AVERAGE_SPEED_MPH = 15;
 const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
 const SURGE_MULTIPLIER_VALUE = 1.5;
@@ -238,7 +238,7 @@ export default function BookRidePage() {
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
-  
+
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
@@ -275,9 +275,8 @@ export default function BookRidePage() {
 
               if (accuracy > 500) {
                 setGeolocationFetchStatus('error_accuracy_poor');
-                setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); 
+                setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
                 setShowGpsSuggestionAlert(false);
-                toast({ title: "Location Very Inaccurate", description: `Accuracy ${accuracy.toFixed(0)}m. Please enter address manually.`, variant: "default", duration: 7000 });
                 return;
               }
 
@@ -290,16 +289,14 @@ export default function BookRidePage() {
                     if (accuracy <= 20) {
                       setGeolocationFetchStatus('success');
                       setShowGpsSuggestionAlert(true);
-                    } else { 
+                    } else {
                       setGeolocationFetchStatus('error_accuracy_moderate');
                       setShowGpsSuggestionAlert(false);
-                      toast({ title: "Location Found (Moderate Accuracy)", description: `Your current location accuracy is ${accuracy.toFixed(0)}m. Please type address or try again.`, variant: "default", duration: 7000 });
                     }
-                  } else { 
+                  } else {
                     setGeolocationFetchStatus('error_geocoding');
                     setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
                     setShowGpsSuggestionAlert(false);
-                    toast({ title: "Geocoding Failed", description: `Could not find address for your location. Status: ${status}`, variant: "default", duration: 7000 });
                   }
                 });
               } else {
@@ -313,7 +310,7 @@ export default function BookRidePage() {
               if (err.code === 1) { status = 'error_permission'; message = "Location permission denied. Enable in browser/system settings.";}
               else if (err.code === 2) message = "Location information is unavailable.";
               else if (err.code === 3) message = "Getting location timed out.";
-              
+
               toast({ title: "Location Error", description: message, variant: "default", duration: 7000 });
               setGeolocationFetchStatus(status);
               setShowGpsSuggestionAlert(false);
@@ -332,19 +329,19 @@ export default function BookRidePage() {
       console.error("Failed to load Google Maps API for address search", e);
       toast({ title: "Error", description: "Could not load address search. Check API key or network.", variant: "destructive" });
     });
-  }, []); 
+  }, []);
 
   const handleApplyGpsSuggestion = () => {
-    if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) { 
+    if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) {
       form.setValue('pickupLocation', suggestedGpsPickup.address);
       setPickupInputValue(suggestedGpsPickup.address);
       setPickupCoords(suggestedGpsPickup.coords);
       setShowPickupSuggestions(false);
       setShowGpsSuggestionAlert(false);
-      setGeolocationFetchStatus('success'); 
+      setGeolocationFetchStatus('success');
       toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
     } else if (suggestedGpsPickup) {
-        toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough for direct application. Please type or select.`, variant: "default"});
+        toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
     }
   };
 
@@ -428,8 +425,8 @@ export default function BookRidePage() {
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
       setEstimatedWaitTime(null);
-      setShowGpsSuggestionAlert(false); 
-      setGeolocationFetchStatus('idle'); 
+      setShowGpsSuggestionAlert(false);
+      setGeolocationFetchStatus('idle');
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -537,7 +534,7 @@ export default function BookRidePage() {
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
         setShowGpsSuggestionAlert(false);
-        setGeolocationFetchStatus('idle'); 
+        setGeolocationFetchStatus('idle');
       } else {
         setDropoffCoords(coords);
         setDropoffInputValue(addressText);
@@ -721,7 +718,7 @@ export default function BookRidePage() {
       }
       totalDistanceMiles += getDistanceInMiles(currentPoint, dropoffCoords);
       setEstimatedDistance(parseFloat(totalDistanceMiles.toFixed(2)));
-      
+
       const duration = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
       setEstimatedDurationMinutes(totalDistanceMiles > 0 ? parseFloat(duration.toFixed(0)) : null);
 
@@ -772,9 +769,9 @@ export default function BookRidePage() {
 
  useEffect(() => {
     const newMarkers: MapMarker[] = [];
-    if (pickupCoords) { 
-      newMarkers.push({ 
-        position: pickupCoords, 
+    if (pickupCoords) {
+      newMarkers.push({
+        position: pickupCoords,
         title: `Pickup: ${form.getValues('pickupLocation')}`,
         label: 'P'
       });
@@ -783,16 +780,16 @@ export default function BookRidePage() {
     currentFormStops?.forEach((formStop, index) => {
         const stopData = stopAutocompleteData[index];
         if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
-             newMarkers.push({ 
-                position: stopData.coords, 
+             newMarkers.push({
+                position: stopData.coords,
                 title: `Stop ${index + 1}: ${formStop.location}`,
                 label: `S${index + 1}`
             });
         }
     });
     if (dropoffCoords) {
-      newMarkers.push({ 
-        position: dropoffCoords, 
+      newMarkers.push({
+        position: dropoffCoords,
         title: `Dropoff: ${form.getValues('dropoffLocation')}`,
         label: 'D'
     });
@@ -858,7 +855,7 @@ export default function BookRidePage() {
       isSurgeApplied: isSurgeActive,
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
-      scheduledPickupAt, 
+      scheduledPickupAt,
       driverNotes: values.driverNotes,
       promoCode: values.promoCode,
     };
@@ -900,7 +897,7 @@ export default function BookRidePage() {
 
       toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 7000 });
 
-      form.reset(); 
+      form.reset();
       setPickupInputValue("");
       setDropoffInputValue("");
       setPickupCoords(null);
@@ -933,7 +930,7 @@ export default function BookRidePage() {
       toast({ title: "Cannot Save Route", description: "Please select valid pickup and drop-off locations before saving.", variant: "destructive"});
       return;
     }
-    setNewRouteLabel(""); 
+    setNewRouteLabel("");
     setSaveRouteDialogOpen(true);
   };
 
@@ -998,7 +995,7 @@ export default function BookRidePage() {
     setShowDropoffSuggestions(false);
 
     const newStopsForForm = route.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || "" })) || [];
-    replace(newStopsForForm); 
+    replace(newStopsForForm);
 
     const newStopAutocompleteData: AutocompleteData[] = route.stops?.map((s, index) => ({
       fieldId: `stop-applied-${index}-${Date.now()}`,
@@ -1031,19 +1028,21 @@ export default function BookRidePage() {
     }
   };
 
-  const geocodeAiAddress = async (
+  const geocodeAiAddress = useCallback(async (
     addressString: string,
     setCoordsFunc: (coords: google.maps.LatLngLiteral | null) => void,
     setInputValueFunc: (value: string) => void,
     formField: "pickupLocation" | "dropoffLocation",
-    locationType: "pickup" | "dropoff" 
+    locationType: "pickup" | "dropoff"
   ): Promise<void> => {
     if (!autocompleteServiceRef.current || !placesServiceRef.current || !addressString) {
       setCoordsFunc(null);
-      toast({ title: `AI Geocoding Failed for ${locationType}`, description: `Address services not ready or no address provided for ${addressString}.`, variant: "destructive" });
+      form.setValue(formField, addressString); // Keep original AI string if geocoding fails early
+      setInputValueFunc(addressString);
+      toast({ title: `AI Geocoding Failed for ${locationType}`, description: `Address services not ready or no address provided for "${addressString}". Original text kept.`, variant: "default" });
       return;
     }
-  
+
     return new Promise((resolve) => {
       autocompleteServiceRef.current!.getPlacePredictions(
         { input: addressString, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } },
@@ -1060,15 +1059,15 @@ export default function BookRidePage() {
                   form.setValue(formField, finalAddress);
                   setInputValueFunc(finalAddress);
                   if (formField === 'pickupLocation') {
-                    setShowGpsSuggestionAlert(false); 
+                    setShowGpsSuggestionAlert(false);
                     setGeolocationFetchStatus('idle');
                   }
                   toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
                 } else {
                   setCoordsFunc(null);
-                  form.setValue(formField, addressString); 
+                  form.setValue(formField, addressString);
                   setInputValueFunc(addressString);
-                  toast({ title: `AI Geocoding Failed`, description: `Could not get details for ${locationType}: ${addressString}. Original text kept.`, variant: "default" });
+                  toast({ title: `AI Geocoding Failed`, description: `Could not get details for ${locationType}: "${addressString}". Original text kept.`, variant: "default" });
                 }
                 autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
                 resolve();
@@ -1076,19 +1075,19 @@ export default function BookRidePage() {
             );
           } else {
             setCoordsFunc(null);
-            form.setValue(formField, addressString); 
+            form.setValue(formField, addressString);
             setInputValueFunc(addressString);
-            toast({ title: `AI Geocoding Failed`, description: `Could not find ${locationType}: ${addressString}. Original text kept.`, variant: "default" });
+            toast({ title: `AI Geocoding Failed`, description: `Could not find ${locationType}: "${addressString}". Original text kept.`, variant: "default" });
             resolve();
           }
         }
       );
     });
-  };
+  }, [form, toast]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SpeechRecognition) {
         toast({
           title: "Speech Recognition Not Supported",
@@ -1100,56 +1099,70 @@ export default function BookRidePage() {
       }
       recognitionRef.current = new SpeechRecognition();
       const recognition = recognitionRef.current;
-      recognition.continuous = false; 
+      recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = 'en-GB'; 
+      recognition.lang = 'en-GB';
 
       recognition.onresult = async (event: SpeechRecognitionEvent) => {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
-        setIsProcessingAi(true); 
+        setIsProcessingAi(true);
         toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
-        
+
         if (transcript) {
             try {
                 const aiInput: ParseBookingRequestInput = { userRequestText: transcript };
                 const aiOutput: ParseBookingRequestOutput = await parseBookingRequest(aiInput);
-                
+
+                let appliedFieldsCount = 0;
+
+                if (aiOutput.pickupAddress) {
+                  await geocodeAiAddress(aiOutput.pickupAddress, setPickupCoords, setPickupInputValue, "pickupLocation", "pickup");
+                  appliedFieldsCount++;
+                }
+                if (aiOutput.dropoffAddress) {
+                  await geocodeAiAddress(aiOutput.dropoffAddress, setDropoffCoords, setDropoffInputValue, "dropoffLocation", "dropoff");
+                  appliedFieldsCount++;
+                }
+
                 if (aiOutput.numberOfPassengers) {
                   form.setValue('passengers', aiOutput.numberOfPassengers);
-                  toast({ title: "AI Applied", description: `Passengers set to: ${aiOutput.numberOfPassengers}`});
+                   appliedFieldsCount++;
                 } else {
-                  form.setValue('passengers', 1);
+                  form.setValue('passengers', 1); // Default if AI doesn't specify
                 }
                 if (aiOutput.additionalNotes) {
                   form.setValue('driverNotes', aiOutput.additionalNotes);
-                  toast({ title: "AI Applied", description: `Notes added: "${aiOutput.additionalNotes}"`});
+                  appliedFieldsCount++;
                 } else {
                   form.setValue('driverNotes', "");
                 }
 
-                if (aiOutput.pickupAddress) {
-                  await geocodeAiAddress(aiOutput.pickupAddress, setPickupCoords, setPickupInputValue, "pickupLocation", "pickup");
-                }
-                if (aiOutput.dropoffAddress) {
-                  await geocodeAiAddress(aiOutput.dropoffAddress, setDropoffCoords, setDropoffInputValue, "dropoffLocation", "dropoff");
-                }
-                
-                if (aiOutput.requestedTime && aiOutput.requestedTime.toLowerCase() !== 'asap') {
+                if (aiOutput.requestedTime && aiOutput.requestedTime.toLowerCase() !== 'asap' && aiOutput.requestedTime.toLowerCase() !== 'now') {
                   form.setValue('bookingType', 'scheduled');
-                  toast({ title: "AI Suggested Time", description: `Time: ${aiOutput.requestedTime}. Please set date/time manually.` });
+                  toast({ title: "AI Suggested Time", description: `AI suggests: "${aiOutput.requestedTime}". Please set date/time manually if needed.`, duration: 5000});
+                  appliedFieldsCount++;
                 } else {
                     form.setValue('bookingType', 'asap');
+                    form.setValue('desiredPickupDate', undefined);
+                    form.setValue('desiredPickupTime', "");
+                    if (aiOutput.requestedTime) appliedFieldsCount++;
                 }
-                toast({ title: "AI Processing Complete", description: "Review fields and complete your booking." });
+
+                if (appliedFieldsCount > 0) {
+                    toast({ title: "AI Processing Complete", description: "Review fields and complete your booking.", duration: 5000 });
+                } else {
+                    toast({ title: "AI Could Not Extract Details", description: "Please fill the form manually.", variant: "default", duration: 5000 });
+                }
 
             } catch (aiError) {
                 console.error("AI Parsing Error:", aiError);
-                toast({ title: "AI Error", description: "Could not understand your request via AI.", variant: "destructive"});
+                toast({ title: "AI Error", description: "Could not understand your request via AI. Please try typing or rephrasing.", variant: "destructive"});
             } finally {
               setIsProcessingAi(false);
             }
         } else {
-          setIsProcessingAi(false); 
+          toast({ title: "No speech detected", description: "Please try speaking again.", variant: "default"});
+          setIsProcessingAi(false);
         }
       };
 
@@ -1158,7 +1171,7 @@ export default function BookRidePage() {
         let errorMessage = "Speech recognition failed.";
         if (event.error === 'no-speech') errorMessage = "No speech was detected. Please try again.";
         else if (event.error === 'audio-capture') errorMessage = "Microphone problem. Please check permissions.";
-        else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied.";
+        else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied. Please enable it in your browser settings.";
         toast({ title: "Voice Error", description: errorMessage, variant: "destructive" });
         setIsListening(false);
         setIsProcessingAi(false);
@@ -1168,11 +1181,11 @@ export default function BookRidePage() {
         setIsListening(false);
       };
     }
-  }, [toast, form, geocodeAiAddress]); 
+  }, [toast, form, geocodeAiAddress]);
 
  const handleMicMouseDown = async () => {
     if (!recognitionRef.current) {
-      toast({ title: "Error", description: "Speech recognition is not initialized.", variant: "destructive" });
+      toast({ title: "Error", description: "Speech recognition is not initialized. Please refresh the page.", variant: "destructive" });
       return;
     }
     if (isProcessingAi) {
@@ -1180,17 +1193,30 @@ export default function BookRidePage() {
       return;
     }
     if (isListening) {
-      recognitionRef.current.stop(); 
+      recognitionRef.current.stop();
+      setIsListening(false); // Ensure listening state is reset if it was somehow stuck
     }
 
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true }); 
+      // Attempt to get media to ensure permissions are active or prompt if needed.
+      // This might not be strictly necessary if permissions were granted before, but good for robustness.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // We don't need to use the stream directly here, just confirm access.
+      // Stop any tracks from this temporary stream immediately to free up the mic if it's not managed by SpeechRecognition API itself.
+      stream.getTracks().forEach(track => track.stop());
+
       recognitionRef.current.start();
       setIsListening(true);
       toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
     } catch (err) {
       console.error("Microphone permission error or start error:", err);
-      toast({ title: "Microphone Error", description: "Could not access microphone or start listening. Check permissions.", variant: "destructive" });
+      let message = "Could not start listening.";
+      if (err instanceof Error && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
+        message = "Microphone permission denied. Please enable it in your browser settings for this site.";
+      } else if (err instanceof Error && err.name === 'NotFoundError') {
+        message = "No microphone found. Please connect a microphone.";
+      }
+      toast({ title: "Microphone Error", description: message, variant: "destructive" });
       setIsListening(false);
     }
   };
@@ -1198,6 +1224,7 @@ export default function BookRidePage() {
   const handleMicMouseUpOrLeave = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
+      // onend will set isListening to false
     }
   };
 
@@ -1272,13 +1299,13 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    if (showGpsSuggestionAlert) return null; 
+    if (showGpsSuggestionAlert) return null;
 
     switch (geolocationFetchStatus) {
         case 'fetching':
             return <p className="text-xs text-muted-foreground mt-1 flex items-center"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Fetching your current location...</p>;
         case 'error_permission':
-            return <p className="text-xs text-red-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location permission denied. Check browser settings.</p>;
+            return <p className="text-xs text-red-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location permission denied. Please enable in your browser settings.</p>;
         case 'error_unavailable':
             return <p className="text-xs text-red-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Geolocation is unavailable on this device.</p>;
         case 'error_accuracy_poor':
@@ -1362,7 +1389,7 @@ export default function BookRidePage() {
                 </PopoverContent>
               </Popover>
             </div>
-            
+
             <div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
@@ -1382,11 +1409,11 @@ export default function BookRidePage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                        <div className="bg-green-700 hover:bg-green-600 p-1 rounded-lg shadow-md transition-colors">
-                        <Button 
-                            type="button" 
+                        <div className={cn("p-1 rounded-lg shadow-md transition-colors", isListening ? "bg-red-600" : "bg-green-700 hover:bg-green-600")}>
+                        <Button
+                            type="button"
                             variant="ghost"
-                            size="icon" 
+                            size="icon"
                             onMouseDown={handleMicMouseDown}
                             onMouseUp={handleMicMouseUpOrLeave}
                             onMouseLeave={handleMicMouseUpOrLeave}
@@ -1562,7 +1589,7 @@ export default function BookRidePage() {
                         )}
                     />
                   </div>
-                  
+
                   <FormField
                     control={form.control}
                     name="driverNotes"
@@ -1841,4 +1868,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
