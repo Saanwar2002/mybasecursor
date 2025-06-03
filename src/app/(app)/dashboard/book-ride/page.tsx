@@ -72,12 +72,12 @@ interface MapMarker {
 type GeolocationFetchStatus =
   | "idle"
   | "fetching"
-  | "success" // Suggestion shown, accuracy <= 20m
+  | "success" 
   | "error_permission"
-  | "error_accuracy_moderate" // Geocoded, accuracy 20-500m, no alert
-  | "error_accuracy_poor" // Accuracy > 500m, not geocoded for suggestion
+  | "error_accuracy_moderate" 
+  | "error_accuracy_poor" 
   | "error_unavailable"
-  | "error_geocoding"; // Failed to geocode an otherwise acceptable coordinate
+  | "error_geocoding"; 
 
 const bookingFormSchema = z.object({
   pickupDoorOrFlat: z.string().max(50, {message: "Door/Flat info too long."}).optional(),
@@ -193,6 +193,8 @@ export default function BookRidePage() {
   const [isListening, setIsListening] = useState(false);
   const [isProcessingAi, setIsProcessingAi] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
 
   const [suggestedGpsPickup, setSuggestedGpsPickup] = useState<{ address: string, coords: google.maps.LatLngLiteral, accuracy: number } | null>(null);
   const [geolocationFetchStatus, setGeolocationFetchStatus] = useState<GeolocationFetchStatus>("idle");
@@ -276,7 +278,7 @@ export default function BookRidePage() {
               if (accuracy > 500) {
                 setGeolocationFetchStatus('error_accuracy_poor');
                 setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
-                setShowGpsSuggestionAlert(false);
+                setShowGpsSuggestionAlert(false); // Don't show alert for poor accuracy
                 return;
               }
 
@@ -288,19 +290,19 @@ export default function BookRidePage() {
 
                     if (accuracy <= 20) {
                       setGeolocationFetchStatus('success');
-                      setShowGpsSuggestionAlert(true);
-                    } else {
+                      setShowGpsSuggestionAlert(true); // Show alert for high accuracy
+                    } else { // Accuracy is > 20m and <= 500m
                       setGeolocationFetchStatus('error_accuracy_moderate');
-                      setShowGpsSuggestionAlert(false);
+                      setShowGpsSuggestionAlert(false); // Don't show alert for moderate accuracy
                     }
                   } else {
                     setGeolocationFetchStatus('error_geocoding');
-                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
+                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); // Store coords even if geocoding fails
                     setShowGpsSuggestionAlert(false);
                   }
                 });
               } else {
-                  setGeolocationFetchStatus('error_unavailable');
+                  setGeolocationFetchStatus('error_unavailable'); // Should ideally not happen if SDK loaded
                   toast({ title: "Service Error", description: "Geocoder service not available.", variant: "destructive" });
               }
             },
@@ -341,6 +343,7 @@ export default function BookRidePage() {
       setGeolocationFetchStatus('success');
       toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
     } else if (suggestedGpsPickup) {
+        // This case should ideally not be triggerable if button only shown for accuracy <=20m
         toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
     }
   };
@@ -425,8 +428,8 @@ export default function BookRidePage() {
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
       setEstimatedWaitTime(null);
-      setShowGpsSuggestionAlert(false);
-      setGeolocationFetchStatus('idle');
+      setShowGpsSuggestionAlert(false); // Hide GPS alert when user starts typing
+      setGeolocationFetchStatus('idle'); // Reset GPS status
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -533,8 +536,8 @@ export default function BookRidePage() {
         setPickupCoords(coords);
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
-        setShowGpsSuggestionAlert(false);
-        setGeolocationFetchStatus('idle');
+        setShowGpsSuggestionAlert(false); 
+        setGeolocationFetchStatus('idle'); 
       } else {
         setDropoffCoords(coords);
         setDropoffInputValue(addressText);
@@ -633,7 +636,7 @@ export default function BookRidePage() {
     formOnChange(fav.address);
     const newCoords = { lat: fav.latitude, lng: fav.longitude };
     if (doorOrFlatFormFieldName) {
-        form.setValue(doorOrFlatFormFieldName, "");
+        form.setValue(doorOrFlatFormFieldName, ""); // Clear door/flat for favorite, as it's not part of fav schema
     }
 
 
@@ -648,8 +651,8 @@ export default function BookRidePage() {
       setPickupInputValue(fav.address);
       setPickupCoords(newCoords);
       setShowPickupSuggestions(false);
-      setShowGpsSuggestionAlert(false);
-      setGeolocationFetchStatus('idle');
+      setShowGpsSuggestionAlert(false); 
+      setGeolocationFetchStatus('idle'); 
     } else {
       setDropoffInputValue(fav.address);
       setDropoffCoords(newCoords);
@@ -748,7 +751,7 @@ export default function BookRidePage() {
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
 
@@ -985,8 +988,8 @@ export default function BookRidePage() {
     setPickupInputValue(route.pickupLocation.address);
     setPickupCoords({ lat: route.pickupLocation.latitude, lng: route.pickupLocation.longitude });
     setShowPickupSuggestions(false);
-    setShowGpsSuggestionAlert(false);
-    setGeolocationFetchStatus('idle');
+    setShowGpsSuggestionAlert(false); 
+    setGeolocationFetchStatus('idle'); 
 
     form.setValue('dropoffDoorOrFlat', route.dropoffLocation.doorOrFlat || "");
     form.setValue('dropoffLocation', route.dropoffLocation.address);
@@ -1037,7 +1040,7 @@ export default function BookRidePage() {
   ): Promise<void> => {
     if (!autocompleteServiceRef.current || !placesServiceRef.current || !addressString) {
       setCoordsFunc(null);
-      form.setValue(formField, addressString); // Keep original AI string if geocoding fails early
+      form.setValue(formField, addressString); 
       setInputValueFunc(addressString);
       toast({ title: `AI Geocoding Failed for ${locationType}`, description: `Address services not ready or no address provided for "${addressString}". Original text kept.`, variant: "default" });
       return;
@@ -1058,8 +1061,8 @@ export default function BookRidePage() {
                   setCoordsFunc(coords);
                   form.setValue(formField, finalAddress);
                   setInputValueFunc(finalAddress);
-                  if (formField === 'pickupLocation') {
-                    setShowGpsSuggestionAlert(false);
+                  if (formField === 'pickupLocation') { 
+                    setShowGpsSuggestionAlert(false); 
                     setGeolocationFetchStatus('idle');
                   }
                   toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
@@ -1085,103 +1088,162 @@ export default function BookRidePage() {
     });
   }, [form, toast]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        toast({
-          title: "Speech Recognition Not Supported",
-          description: "Your browser does not support speech-to-text. Please type your request.",
-          variant: "default",
-          duration: 7000,
-        });
+  const playSound = useCallback(async (type: 'start' | 'stop') => {
+    if (!audioCtxRef.current) {
+      if (typeof window !== 'undefined') {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (!audioCtxRef.current) return;
+    }
+    const audioContext = audioCtxRef.current;
+    if (audioContext.state === 'suspended') {
+      try {
+        await audioContext.resume();
+      } catch (e) {
+        console.error("Error resuming AudioContext:", e);
+        toast({ title: "Audio Error", description: "Could not play sound cues.", variant: "default" });
         return;
       }
-      recognitionRef.current = new SpeechRecognition();
-      const recognition = recognitionRef.current;
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = 'en-GB';
-
-      recognition.onresult = async (event: SpeechRecognitionEvent) => {
-        const transcript = event.results[event.results.length - 1][0].transcript.trim();
-        setIsProcessingAi(true);
-        toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
-
-        if (transcript) {
-            try {
-                const aiInput: ParseBookingRequestInput = { userRequestText: transcript };
-                const aiOutput: ParseBookingRequestOutput = await parseBookingRequest(aiInput);
-
-                let appliedFieldsCount = 0;
-
-                if (aiOutput.pickupAddress) {
-                  await geocodeAiAddress(aiOutput.pickupAddress, setPickupCoords, setPickupInputValue, "pickupLocation", "pickup");
-                  appliedFieldsCount++;
-                }
-                if (aiOutput.dropoffAddress) {
-                  await geocodeAiAddress(aiOutput.dropoffAddress, setDropoffCoords, setDropoffInputValue, "dropoffLocation", "dropoff");
-                  appliedFieldsCount++;
-                }
-
-                if (aiOutput.numberOfPassengers) {
-                  form.setValue('passengers', aiOutput.numberOfPassengers);
-                   appliedFieldsCount++;
-                } else {
-                  form.setValue('passengers', 1); // Default if AI doesn't specify
-                }
-                if (aiOutput.additionalNotes) {
-                  form.setValue('driverNotes', aiOutput.additionalNotes);
-                  appliedFieldsCount++;
-                } else {
-                  form.setValue('driverNotes', "");
-                }
-
-                if (aiOutput.requestedTime && aiOutput.requestedTime.toLowerCase() !== 'asap' && aiOutput.requestedTime.toLowerCase() !== 'now') {
-                  form.setValue('bookingType', 'scheduled');
-                  toast({ title: "AI Suggested Time", description: `AI suggests: "${aiOutput.requestedTime}". Please set date/time manually if needed.`, duration: 5000});
-                  appliedFieldsCount++;
-                } else {
-                    form.setValue('bookingType', 'asap');
-                    form.setValue('desiredPickupDate', undefined);
-                    form.setValue('desiredPickupTime', "");
-                    if (aiOutput.requestedTime) appliedFieldsCount++;
-                }
-
-                if (appliedFieldsCount > 0) {
-                    toast({ title: "AI Processing Complete", description: "Review fields and complete your booking.", duration: 5000 });
-                } else {
-                    toast({ title: "AI Could Not Extract Details", description: "Please fill the form manually.", variant: "default", duration: 5000 });
-                }
-
-            } catch (aiError) {
-                console.error("AI Parsing Error:", aiError);
-                toast({ title: "AI Error", description: "Could not understand your request via AI. Please try typing or rephrasing.", variant: "destructive"});
-            } finally {
-              setIsProcessingAi(false);
-            }
-        } else {
-          toast({ title: "No speech detected", description: "Please try speaking again.", variant: "default"});
-          setIsProcessingAi(false);
-        }
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error("Speech recognition error", event.error);
-        let errorMessage = "Speech recognition failed.";
-        if (event.error === 'no-speech') errorMessage = "No speech was detected. Please try again.";
-        else if (event.error === 'audio-capture') errorMessage = "Microphone problem. Please check permissions.";
-        else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied. Please enable it in your browser settings.";
-        toast({ title: "Voice Error", description: errorMessage, variant: "destructive" });
-        setIsListening(false);
-        setIsProcessingAi(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
     }
-  }, [toast, form, geocodeAiAddress]);
+  
+    const playSingleBeep = (frequency: number, durationMs: number, volume = 0.2) => {
+      return new Promise<void>(resolve => {
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + durationMs / 1000);
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.onended = () => resolve();
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + durationMs / 1000);
+        } catch (e) {
+          console.error("Error playing beep:", e);
+          resolve(); 
+        }
+      });
+    };
+  
+    if (type === 'start') {
+      await playSingleBeep(880, 300); 
+    } else if (type === 'stop') {
+      await playSingleBeep(1046, 100); 
+      await new Promise(resolve => setTimeout(resolve, 50)); 
+      await playSingleBeep(1046, 100); 
+    }
+  }, [toast]);
+
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({
+        title: "Speech Recognition Not Supported",
+        description: "Your browser does not support speech-to-text. Please type your request.",
+        variant: "default",
+        duration: 7000,
+      });
+      return;
+    }
+    recognitionRef.current = new SpeechRecognition();
+    const recognition = recognitionRef.current;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-GB';
+
+    recognition.onstart = () => {
+        setIsListening(true);
+        playSound('start');
+        toast({ title: "Listening...", description: "Speak your booking request.", duration: 3000 });
+    };
+
+    recognition.onresult = async (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[event.results.length - 1][0].transcript.trim();
+      setIsProcessingAi(true); 
+      toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
+
+      if (transcript) {
+          try {
+              const aiInput: ParseBookingRequestInput = { userRequestText: transcript };
+              const aiOutput: ParseBookingRequestOutput = await parseBookingRequest(aiInput);
+
+              let appliedFieldsCount = 0;
+
+              if (aiOutput.pickupAddress) {
+                await geocodeAiAddress(aiOutput.pickupAddress, setPickupCoords, setPickupInputValue, "pickupLocation", "pickup");
+                appliedFieldsCount++;
+              }
+              if (aiOutput.dropoffAddress) {
+                await geocodeAiAddress(aiOutput.dropoffAddress, setDropoffCoords, setDropoffInputValue, "dropoffLocation", "dropoff");
+                appliedFieldsCount++;
+              }
+
+              if (aiOutput.numberOfPassengers) {
+                form.setValue('passengers', aiOutput.numberOfPassengers);
+                 appliedFieldsCount++;
+              } else {
+                form.setValue('passengers', 1); 
+              }
+              if (aiOutput.additionalNotes) {
+                form.setValue('driverNotes', aiOutput.additionalNotes);
+                appliedFieldsCount++;
+              } else {
+                form.setValue('driverNotes', "");
+              }
+
+              if (aiOutput.requestedTime && aiOutput.requestedTime.toLowerCase() !== 'asap' && aiOutput.requestedTime.toLowerCase() !== 'now') {
+                form.setValue('bookingType', 'scheduled');
+                toast({ title: "AI Suggested Time", description: `AI suggests: "${aiOutput.requestedTime}". Please set date/time manually if needed.`, duration: 5000});
+                appliedFieldsCount++;
+              } else {
+                  form.setValue('bookingType', 'asap');
+                  form.setValue('desiredPickupDate', undefined);
+                  form.setValue('desiredPickupTime', "");
+                  if (aiOutput.requestedTime) appliedFieldsCount++;
+              }
+
+              if (appliedFieldsCount > 0) {
+                  toast({ title: "AI Processing Complete", description: "Review fields and complete your booking.", duration: 5000 });
+              } else {
+                  toast({ title: "AI Could Not Extract Details", description: "Please fill the form manually.", variant: "default", duration: 5000 });
+              }
+
+          } catch (aiError) {
+              console.error("AI Parsing Error:", aiError);
+              toast({ title: "AI Error", description: "Could not understand your request via AI. Please try typing or rephrasing.", variant: "destructive"});
+          } finally {
+            setIsProcessingAi(false);
+          }
+      } else {
+        toast({ title: "No speech detected", description: "Please try speaking again.", variant: "default"});
+        setIsProcessingAi(false);
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error("Speech recognition error", event.error);
+      let errorMessage = "Speech recognition failed.";
+      if (event.error === 'no-speech') errorMessage = "No speech was detected. Please try again.";
+      else if (event.error === 'audio-capture') errorMessage = "Microphone problem. Please check permissions.";
+      else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied. Please enable it in your browser settings.";
+      toast({ title: "Voice Error", description: errorMessage, variant: "destructive" });
+      setIsListening(false); 
+      setIsProcessingAi(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      playSound('stop');
+      // isProcessingAi is set in onresult or onerror's finally block.
+    };
+  }, [toast, form, geocodeAiAddress, playSound]);
 
  const handleMicMouseDown = async () => {
     if (!recognitionRef.current) {
@@ -1193,21 +1255,18 @@ export default function BookRidePage() {
       return;
     }
     if (isListening) {
+      // This case should ideally not happen if onend resets isListening properly.
+      // But as a safeguard:
       recognitionRef.current.stop();
-      setIsListening(false); // Ensure listening state is reset if it was somehow stuck
+      setIsListening(false); 
     }
 
     try {
-      // Attempt to get media to ensure permissions are active or prompt if needed.
-      // This might not be strictly necessary if permissions were granted before, but good for robustness.
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // We don't need to use the stream directly here, just confirm access.
-      // Stop any tracks from this temporary stream immediately to free up the mic if it's not managed by SpeechRecognition API itself.
       stream.getTracks().forEach(track => track.stop());
 
       recognitionRef.current.start();
-      setIsListening(true);
-      toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
+      // onstart will set isListening to true, play beep, and show toast.
     } catch (err) {
       console.error("Microphone permission error or start error:", err);
       let message = "Could not start listening.";
@@ -1217,14 +1276,14 @@ export default function BookRidePage() {
         message = "No microphone found. Please connect a microphone.";
       }
       toast({ title: "Microphone Error", description: message, variant: "destructive" });
-      setIsListening(false);
+      setIsListening(false); 
     }
   };
 
   const handleMicMouseUpOrLeave = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
-      // onend will set isListening to false
+      // onend will set isListening to false and play stop beep
     }
   };
 
@@ -1299,7 +1358,7 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    if (showGpsSuggestionAlert) return null;
+    if (showGpsSuggestionAlert) return null; // Don't show if the main suggestion alert is visible
 
     switch (geolocationFetchStatus) {
         case 'fetching':
@@ -1310,14 +1369,14 @@ export default function BookRidePage() {
             return <p className="text-xs text-red-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Geolocation is unavailable on this device.</p>;
         case 'error_accuracy_poor':
             const accPoor = suggestedGpsPickup?.accuracy?.toFixed(0) || 'N/A';
-            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Your location accuracy ({accPoor}m) is too low. Please enter your pickup address manually.</p>;
+            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Your location accuracy ({accPoor}m) is too low. <strong>Please enter your pickup address manually.</strong></p>;
         case 'error_accuracy_moderate':
             const accMod = suggestedGpsPickup?.accuracy?.toFixed(0) || 'N/A';
-            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. Please enter your pickup address manually.</p>;
+            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. <strong>Please enter your pickup address manually.</strong></p>;
         case 'error_geocoding':
-            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. Please enter your pickup address manually.</p>;
-        case 'success':
-             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) { // This message only shows if alert was dismissed *after* applying
+            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. <strong>Please enter your pickup address manually.</strong></p>;
+        case 'success': // If alert was dismissed or user typed over it
+             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) {
                 return <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" />GPS location was used for pickup.</p>;
              }
             return null;
@@ -1417,7 +1476,7 @@ export default function BookRidePage() {
                             onMouseDown={handleMicMouseDown}
                             onMouseUp={handleMicMouseUpOrLeave}
                             onMouseLeave={handleMicMouseUpOrLeave}
-                            disabled={isProcessingAi}
+                            disabled={isProcessingAi || !recognitionRef.current}
                             className="h-8 w-8 text-white focus-visible:ring-white focus-visible:ring-offset-green-700 disabled:opacity-75"
                             aria-label={isProcessingAi ? "Processing AI..." : isListening ? "Listening... Release to process" : "Hold to speak for voice input"}
                         >
