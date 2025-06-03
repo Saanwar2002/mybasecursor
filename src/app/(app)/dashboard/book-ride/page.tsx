@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,6 +80,7 @@ const bookingFormSchema = z.object({
   desiredPickupDate: z.date().optional(),
   desiredPickupTime: z.string().optional(),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
+  promoCode: z.string().optional(),
 }).refine(data => {
   if (data.desiredPickupDate && !data.desiredPickupTime) {
     return false;
@@ -109,7 +110,7 @@ const BASE_FARE = 0.00;
 const PER_MILE_RATE = 1.00;
 const FIRST_MILE_SURCHARGE = 1.99;
 const PER_MINUTE_RATE = 0.10;
-const AVERAGE_SPEED_MPH = 15;
+const AVERAGE_SPEED_MPH = 15; 
 const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
 const SURGE_MULTIPLIER_VALUE = 1.5;
@@ -140,6 +141,7 @@ function getDistanceInMiles(
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
+  const [estimatedDurationMinutes, setEstimatedDurationMinutes] = useState<number | null>(null);
   const [estimatedWaitTime, setEstimatedWaitTime] = useState<number | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -179,6 +181,7 @@ export default function BookRidePage() {
       desiredPickupDate: undefined,
       desiredPickupTime: "",
       driverNotes: "",
+      promoCode: "",
     },
   });
 
@@ -305,6 +308,7 @@ export default function BookRidePage() {
     formOnChange(inputValue);
     setFareEstimate(null);
     setEstimatedDistance(null);
+    setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
       setEstimatedWaitTime(null);
     }
@@ -587,6 +591,10 @@ export default function BookRidePage() {
       }
       totalDistanceMiles += getDistanceInMiles(currentPoint, dropoffCoords);
       setEstimatedDistance(parseFloat(totalDistanceMiles.toFixed(2)));
+      
+      const duration = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
+      setEstimatedDurationMinutes(totalDistanceMiles > 0 ? parseFloat(duration.toFixed(0)) : null);
+
 
       const isCurrentlySurge = Math.random() < 0.3;
       setIsSurgeActive(isCurrentlySurge);
@@ -598,8 +606,8 @@ export default function BookRidePage() {
       if (totalDistanceMiles <= 0) {
         calculatedFareBeforeMultipliers = 0;
       } else {
-        const estimatedTripDurationMinutes = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
-        const timeFare = estimatedTripDurationMinutes * PER_MINUTE_RATE;
+        const estimatedTripDurationMinutesFareCalc = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
+        const timeFare = estimatedTripDurationMinutesFareCalc * PER_MINUTE_RATE;
         const distanceBasedFare = (totalDistanceMiles * PER_MILE_RATE) + (totalDistanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
         const subTotal = BASE_FARE + timeFare + distanceBasedFare;
         calculatedFareBeforeMultipliers = subTotal + BOOKING_FEE;
@@ -626,6 +634,7 @@ export default function BookRidePage() {
     } else {
       setFareEstimate(null);
       setEstimatedDistance(null);
+      setEstimatedDurationMinutes(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
@@ -719,6 +728,7 @@ export default function BookRidePage() {
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
       driverNotes: values.driverNotes,
+      promoCode: values.promoCode,
     };
 
     try {
@@ -743,6 +753,9 @@ export default function BookRidePage() {
       if (scheduledPickupAt) {
         rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
       }
+      if (values.promoCode && values.promoCode.trim() !== "") {
+        rideDescription += ` Promo: ${values.promoCode}.`;
+      }
       if (values.driverNotes && values.driverNotes.trim() !== "") {
         rideDescription += ` Notes: "${values.driverNotes}".`;
       }
@@ -759,6 +772,7 @@ export default function BookRidePage() {
       setStopAutocompleteData([]);
       setFareEstimate(null);
       setEstimatedDistance(null);
+      setEstimatedDurationMinutes(null);
       setEstimatedWaitTime(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
@@ -944,7 +958,7 @@ export default function BookRidePage() {
 
       recognition.onresult = async (event: SpeechRecognitionEvent) => {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
-        setIsProcessingAi(true); // Moved up to show processing earlier
+        setIsProcessingAi(true); 
         toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
         
         if (transcript) {
@@ -984,7 +998,7 @@ export default function BookRidePage() {
               setIsProcessingAi(false);
             }
         } else {
-          setIsProcessingAi(false); // Also set to false if transcript is empty
+          setIsProcessingAi(false); 
         }
       };
 
@@ -1001,11 +1015,9 @@ export default function BookRidePage() {
 
       recognition.onend = () => {
         setIsListening(false);
-        // Note: isProcessingAi is handled in onresult's finally block or onerror.
       };
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords]);
+  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords, parseBookingRequest, geocodeAiAddress]);
 
   const handleMicMouseDown = async () => {
     if (!recognitionRef.current) {
@@ -1017,12 +1029,12 @@ export default function BookRidePage() {
       return;
     }
     if (isListening) {
-      recognitionRef.current.stop(); // Stop if already listening (e.g., from a previous error)
+      recognitionRef.current.stop(); 
     }
 
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true }); // Request permission
+        await navigator.mediaDevices.getUserMedia({ audio: true }); 
         recognitionRef.current.start();
         setIsListening(true);
         toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
@@ -1039,7 +1051,6 @@ export default function BookRidePage() {
   const handleMicMouseUpOrLeave = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
-      // setIsListening(false) is handled by recognition.onend
     }
   };
 
@@ -1432,6 +1443,19 @@ export default function BookRidePage() {
                   />
                   <FormField
                     control={form.control}
+                    name="promoCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1"><Ticket className="w-4 h-4 text-muted-foreground" /> Promo Code (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter promo code" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="driverNotes"
                     render={({ field }) => (
                       <FormItem>
@@ -1457,7 +1481,7 @@ export default function BookRidePage() {
               <Card className="w-full text-center shadow-md mt-6">
                 <CardHeader>
                   <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                    <DollarSign className="w-7 h-7 text-accent" /> Fare & Wait Estimate
+                    <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1496,8 +1520,19 @@ export default function BookRidePage() {
                     </p>
                   )}
 
+                  {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
+                    <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                      <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
+                    </p>
+                  )}
+                   {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
+                     <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                       <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
+                    </p>
+                  )}
+
                   <p className="text-sm text-muted-foreground mt-3">
-                    {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your fare & wait estimate here."}
+                    {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
                   </p>
                 </CardContent>
               </Card>

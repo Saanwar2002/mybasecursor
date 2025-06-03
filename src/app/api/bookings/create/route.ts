@@ -21,6 +21,7 @@ interface BookingPayload {
   customerPhoneNumber?: string; 
   bookedByOperatorId?: string; 
   driverNotes?: string; 
+  promoCode?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -72,6 +73,10 @@ export async function POST(request: NextRequest) {
     if (bookingData.driverNotes && bookingData.driverNotes.trim() !== "") { 
       newBooking.driverNotes = bookingData.driverNotes.trim();
     }
+    if (bookingData.promoCode && bookingData.promoCode.trim() !== "") {
+        newBooking.promoCode = bookingData.promoCode.trim();
+    }
+
 
     const docRef = await addDoc(collection(db, 'bookings'), newBooking);
     
