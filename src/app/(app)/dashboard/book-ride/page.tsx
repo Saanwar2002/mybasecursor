@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -19,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -68,6 +68,7 @@ interface MapMarker {
   label?: string | google.maps.MarkerLabel;
 }
 
+type GeolocationFetchStatus = "idle" | "fetching" | "success" | "error_permission" | "error_accuracy" | "error_unavailable" | "error_geocoding";
 
 const bookingFormSchema = z.object({
   pickupDoorOrFlat: z.string().max(50, {message: "Door/Flat info too long."}).optional(),
@@ -184,6 +185,11 @@ export default function BookRidePage() {
   const [isProcessingAi, setIsProcessingAi] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
+  const [suggestedGpsPickup, setSuggestedGpsPickup] = useState<{ address: string, coords: google.maps.LatLngLiteral, accuracy: number } | null>(null);
+  const [geolocationFetchStatus, setGeolocationFetchStatus] = useState<GeolocationFetchStatus>("idle");
+  const [showGpsSuggestionAlert, setShowGpsSuggestionAlert] = useState(false);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -238,15 +244,82 @@ export default function BookRidePage() {
     });
 
     loader.load().then((google) => {
-      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      const mapDiv = document.createElement('div');
-      placesServiceRef.current = new google.maps.places.PlacesService(mapDiv);
-      autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+      if (google && google.maps && google.maps.Geocoder && google.maps.places && google.maps.places.AutocompleteService && google.maps.places.PlacesService) {
+        autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+        const mapDiv = document.createElement('div');
+        placesServiceRef.current = new google.maps.places.PlacesService(mapDiv);
+        autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+        geocoderRef.current = new google.maps.Geocoder();
+
+        // GPS Location Suggestion Logic
+        if (navigator.geolocation) {
+          setGeolocationFetchStatus('fetching');
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const currentCoords = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              };
+              const accuracy = position.coords.accuracy;
+
+              if (accuracy <= 500) { // Using 500m as a more reasonable initial accuracy check
+                if (geocoderRef.current) {
+                  geocoderRef.current.geocode({ location: currentCoords }, (results, status) => {
+                    if (status === "OK" && results && results[0]) {
+                      setSuggestedGpsPickup({ address: results[0].formatted_address, coords: currentCoords, accuracy });
+                      setGeolocationFetchStatus('success');
+                      setShowGpsSuggestionAlert(true);
+                    } else {
+                      toast({ title: "Geocoding Failed", description: `Could not find address for your location. Status: ${status}`, variant: "default" });
+                      setGeolocationFetchStatus('error_geocoding');
+                    }
+                  });
+                }
+              } else {
+                toast({ title: "Location Inaccurate", description: `Your location accuracy (${accuracy.toFixed(0)}m) is too low for a reliable suggestion.`, variant: "default" });
+                setGeolocationFetchStatus('error_accuracy');
+              }
+            },
+            (err) => {
+              let status: GeolocationFetchStatus = 'error_unavailable';
+              let message = "Could not get your location.";
+              if (err.code === 1) { // PERMISSION_DENIED
+                message = "Location permission denied. Enable in browser/system settings for pickup suggestions.";
+                status = 'error_permission';
+              } else if (err.code === 2) { // POSITION_UNAVAILABLE
+                message = "Location information is unavailable.";
+              } else if (err.code === 3) { // TIMEOUT
+                message = "Getting location timed out.";
+              }
+              toast({ title: "Location Error", description: message, variant: "default", duration: 7000 });
+              setGeolocationFetchStatus(status);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 } // Allow cached position for 1 min
+          );
+        } else {
+          setGeolocationFetchStatus('error_unavailable');
+        }
+      } else {
+        console.error("Google Maps API components (Geocoder, Autocomplete, Places) not available after SDK load.");
+        toast({ title: "Error", description: "Could not initialize map services. Some features might be unavailable.", variant: "destructive" });
+      }
     }).catch(e => {
       console.error("Failed to load Google Maps API for address search", e);
       toast({ title: "Error", description: "Could not load address search. Please check API key or network.", variant: "destructive" });
     });
-  }, [toast]);
+  }, []); // Empty dependency array to run once on mount
+
+  const handleApplyGpsSuggestion = () => {
+    if (suggestedGpsPickup) {
+      form.setValue('pickupLocation', suggestedGpsPickup.address);
+      setPickupInputValue(suggestedGpsPickup.address);
+      setPickupCoords(suggestedGpsPickup.coords);
+      setShowPickupSuggestions(false);
+      setShowGpsSuggestionAlert(false);
+      setSuggestedGpsPickup(null);
+      toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
+    }
+  };
 
   const fetchUserFavoriteLocations = useCallback(async () => {
     if (!user) return;
@@ -328,6 +401,7 @@ export default function BookRidePage() {
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
       setEstimatedWaitTime(null);
+      setShowGpsSuggestionAlert(false); // Hide GPS suggestion when user starts typing
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -433,6 +507,7 @@ export default function BookRidePage() {
         setPickupCoords(coords);
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
+        setShowGpsSuggestionAlert(false);
       } else {
         setDropoffCoords(coords);
         setDropoffInputValue(addressText);
@@ -546,6 +621,7 @@ export default function BookRidePage() {
       setPickupInputValue(fav.address);
       setPickupCoords(newCoords);
       setShowPickupSuggestions(false);
+      setShowGpsSuggestionAlert(false);
     } else {
       setDropoffInputValue(fav.address);
       setDropoffCoords(newCoords);
@@ -808,6 +884,10 @@ export default function BookRidePage() {
       setMapMarkers([]);
       setPickupSuggestions([]);
       setDropoffSuggestions([]);
+      setGeolocationFetchStatus('idle');
+      setShowGpsSuggestionAlert(false);
+      setSuggestedGpsPickup(null);
+
 
     } catch (error) {
         console.error("Booking error:", error);
@@ -877,6 +957,7 @@ export default function BookRidePage() {
     setPickupInputValue(route.pickupLocation.address);
     setPickupCoords({ lat: route.pickupLocation.latitude, lng: route.pickupLocation.longitude });
     setShowPickupSuggestions(false);
+    setShowGpsSuggestionAlert(false);
 
     form.setValue('dropoffDoorOrFlat', route.dropoffLocation.doorOrFlat || "");
     form.setValue('dropoffLocation', route.dropoffLocation.address);
@@ -946,6 +1027,7 @@ export default function BookRidePage() {
                   setCoordsFunc(coords);
                   form.setValue(formField, finalAddress);
                   setInputValueFunc(finalAddress);
+                  if (formField === 'pickupLocation') setShowGpsSuggestionAlert(false);
                   toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
                 } else {
                   setCoordsFunc(null);
@@ -1154,6 +1236,25 @@ export default function BookRidePage() {
 
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
+  const GeolocationFeedback = () => {
+    if (geolocationFetchStatus === 'fetching') {
+      return <p className="text-xs text-muted-foreground mt-1 flex items-center"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Fetching your current location...</p>;
+    }
+    if (geolocationFetchStatus === 'error_permission') {
+      return <p className="text-xs text-red-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location permission denied. Check browser settings.</p>;
+    }
+    if (geolocationFetchStatus === 'error_unavailable') {
+      return <p className="text-xs text-red-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Geolocation is unavailable on this device.</p>;
+    }
+     if (geolocationFetchStatus === 'error_accuracy' && !suggestedGpsPickup) {
+      return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not get an accurate location. Try again or enter manually.</p>;
+    }
+    if (geolocationFetchStatus === 'error_geocoding' && !suggestedGpsPickup) {
+      return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find address for your location. Enter manually.</p>;
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -1220,6 +1321,19 @@ export default function BookRidePage() {
             <div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
+                {showGpsSuggestionAlert && suggestedGpsPickup && (
+                  <Alert variant="default" className="bg-green-50 border-green-300">
+                    <LocateFixed className="h-5 w-5 text-green-600" />
+                    <AlertTitle className="text-green-700">Use Current Location for Pickup?</AlertTitle>
+                    <AlertDescription className="text-green-600">
+                      {suggestedGpsPickup.address} (Accuracy: {suggestedGpsPickup.accuracy.toFixed(0)}m)
+                      <div className="mt-2 space-x-2">
+                        <Button type="button" size="sm" onClick={handleApplyGpsSuggestion} className="bg-green-600 hover:bg-green-700 text-white">Use this</Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => {setShowGpsSuggestionAlert(false); setSuggestedGpsPickup(null); setGeolocationFetchStatus('idle');}}>Dismiss</Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
@@ -1280,6 +1394,7 @@ export default function BookRidePage() {
                             )}
                             </div>
                             <FormMessage />
+                            {!showGpsSuggestionAlert && <GeolocationFeedback />}
                         </FormItem>
                         )}
                     />
@@ -1681,4 +1796,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
