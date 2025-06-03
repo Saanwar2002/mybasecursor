@@ -22,13 +22,14 @@ interface Driver {
   phone?: string;
   vehicleModel?: string;
   licensePlate?: string;
-  status: 'Active' | 'Inactive' | 'Pending Approval';
+  status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended'; // Added Suspended
   rating?: number;
   totalRides?: number;
   role: 'driver';
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
   lastLogin?: { _seconds: number; _nanoseconds: number } | null;
   operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
+  statusReason?: string; // Added for suspension reason
 }
 
 
@@ -39,7 +40,7 @@ interface GetContext {
 }
 
 export async function GET(request: NextRequest, context: GetContext) {
-  // TODO: Implement authentication/authorization for operator role. Ensure only authorized operators can access this.
+  // TODO: Implement authentication/authorization for operator role.
 
   const { driverId } = context.params;
 
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest, context: GetContext) {
       createdAt: serializeTimestamp(driverData.createdAt as Timestamp | undefined),
       lastLogin: serializeTimestamp(driverData.lastLogin as Timestamp | undefined),
       operatorUpdatedAt: serializeTimestamp(driverData.operatorUpdatedAt as Timestamp | undefined),
+      statusReason: driverData.statusReason,
     };
     
     return NextResponse.json(serializedDriver, { status: 200 });
@@ -89,10 +91,11 @@ export async function GET(request: NextRequest, context: GetContext) {
 const driverUpdateSchema = z.object({
   name: z.string().min(2, {message: "Name must be at least 2 characters."}).optional(),
   email: z.string().email({message: "Invalid email format."}).optional(),
-  phone: z.string().optional(), // Consider adding more specific phone validation (e.g., regex) if needed
+  phone: z.string().optional(), 
   vehicleModel: z.string().optional(),
   licensePlate: z.string().optional(),
-  status: z.enum(['Active', 'Inactive', 'Pending Approval']).optional(),
+  status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended']).optional(),
+  statusReason: z.string().optional(), // For suspension reason
 }).min(1, { message: "At least one field must be provided for update." });
 
 export type DriverUpdatePayload = z.infer<typeof driverUpdateSchema>;
@@ -128,10 +131,19 @@ export async function POST(request: NextRequest, context: GetContext) {
       return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be updated via this endpoint.` }, { status: 403 });
     }
 
-    const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp }> = {
+    const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp, statusUpdatedAt: Timestamp }> = {
       ...updateDataFromPayload,
       operatorUpdatedAt: Timestamp.now(),
+      statusUpdatedAt: Timestamp.now(), // Also update when status itself changes
     };
+
+    // Clear statusReason if status is not 'Suspended'
+    if (updateDataFromPayload.status && updateDataFromPayload.status !== 'Suspended') {
+      updatePayload.statusReason = undefined; // Or use deleteField() if you prefer to remove it
+    } else if (updateDataFromPayload.status === 'Suspended' && !updateDataFromPayload.statusReason) {
+      // If suspending and no reason is provided, we might want to set a default or leave it null/undefined.
+      // Current Zod schema makes statusReason optional, so it can be undefined.
+    }
     
     await updateDoc(driverRef, updatePayload as any);
 
@@ -152,6 +164,7 @@ export async function POST(request: NextRequest, context: GetContext) {
         createdAt: serializeTimestamp(updatedDriverData.createdAt as Timestamp | undefined),
         lastLogin: serializeTimestamp(updatedDriverData.lastLogin as Timestamp | undefined),
         operatorUpdatedAt: serializeTimestamp(updatedDriverData.operatorUpdatedAt as Timestamp | undefined),
+        statusReason: updatedDriverData.statusReason,
     };
 
     return NextResponse.json({ message: 'Driver details updated successfully', driver: serializedUpdatedDriver }, { status: 200 });
@@ -159,7 +172,7 @@ export async function POST(request: NextRequest, context: GetContext) {
   } catch (error) {
     console.error(`Error updating driver ${driverId}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (error instanceof z.ZodError) { // Check if it's a Zod validation error
+    if (error instanceof z.ZodError) { 
         return NextResponse.json({ message: 'Invalid update payload.', errors: error.format() }, { status: 400 });
     }
     return NextResponse.json({ message: `Failed to update driver ${driverId}`, details: errorMessage }, { status: 500 });
