@@ -18,7 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -75,24 +76,33 @@ const bookingFormSchema = z.object({
       location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
     })
   ).optional(),
-  vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
-  passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
+  bookingType: z.enum(["asap", "scheduled"], { required_error: "Please select a booking type."}),
   desiredPickupDate: z.date().optional(),
   desiredPickupTime: z.string().optional(),
+  vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
+  passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
   promoCode: z.string().optional(),
-}).refine(data => {
-  if (data.desiredPickupDate && !data.desiredPickupTime) {
-    return false;
+}).superRefine((data, ctx) => {
+  if (data.bookingType === "scheduled") {
+    if (!data.desiredPickupDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pickup date is required for scheduled bookings.",
+        path: ["desiredPickupDate"],
+      });
+    }
+    if (!data.desiredPickupTime || data.desiredPickupTime.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pickup time is required for scheduled bookings.",
+        path: ["desiredPickupTime"],
+      });
+    }
   }
-  if (!data.desiredPickupDate && data.desiredPickupTime) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Both date and time must be provided for a scheduled pickup, or neither can be set.",
-  path: ["desiredPickupTime"],
 });
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
 type AutocompleteData = {
   fieldId: string;
@@ -170,16 +180,17 @@ export default function BookRidePage() {
   const [isProcessingAi, setIsProcessingAi] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const form = useForm<z.infer<typeof bookingFormSchema>>({
+  const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       pickupLocation: "",
       dropoffLocation: "",
       stops: [],
-      vehicleType: "car",
-      passengers: 1,
+      bookingType: "asap",
       desiredPickupDate: undefined,
       desiredPickupTime: "",
+      vehicleType: "car",
+      passengers: 1,
       driverNotes: "",
       promoCode: "",
     },
@@ -535,7 +546,8 @@ export default function BookRidePage() {
   const watchedVehicleType = form.watch("vehicleType");
   const watchedPassengers = form.watch("passengers");
   const watchedStops = form.watch("stops");
-  const watchedDesiredDate = form.watch("desiredPickupDate");
+  const watchedBookingType = form.watch("bookingType");
+
 
   const handleAddStop = () => {
     append({ location: "" });
@@ -671,7 +683,7 @@ export default function BookRidePage() {
   }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
 
 
-  async function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
+  async function handleBookRide(values: BookingFormValues) {
     if (!user) {
         toast({ title: "Authentication Error", description: "You must be logged in to book a ride.", variant: "destructive" });
         return;
@@ -704,7 +716,7 @@ export default function BookRidePage() {
     }
 
     let scheduledPickupAt: string | undefined = undefined;
-    if (values.desiredPickupDate && values.desiredPickupTime) {
+    if (values.bookingType === 'scheduled' && values.desiredPickupDate && values.desiredPickupTime) {
       const [hours, minutes] = values.desiredPickupTime.split(':').map(Number);
       const combinedDateTime = new Date(values.desiredPickupDate);
       combinedDateTime.setHours(hours, minutes, 0, 0);
@@ -726,7 +738,7 @@ export default function BookRidePage() {
       isSurgeApplied: isSurgeActive,
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
-      scheduledPickupAt,
+      scheduledPickupAt, // Will be undefined if bookingType is 'asap'
       driverNotes: values.driverNotes,
       promoCode: values.promoCode,
     };
@@ -750,7 +762,7 @@ export default function BookRidePage() {
           rideDescription += ` via ${validStopsData.map(s => s.address).join(' via ')}`;
       }
       rideDescription += ` to ${values.dropoffLocation} is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
-      if (scheduledPickupAt) {
+      if (values.bookingType === 'scheduled' && scheduledPickupAt) {
         rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
       }
       if (values.promoCode && values.promoCode.trim() !== "") {
@@ -764,7 +776,7 @@ export default function BookRidePage() {
 
       toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 7000 });
 
-      form.reset();
+      form.reset(); // This will reset bookingType to 'asap'
       setPickupInputValue("");
       setDropoffInputValue("");
       setPickupCoords(null);
@@ -892,7 +904,7 @@ export default function BookRidePage() {
     setCoordsFunc: (coords: google.maps.LatLngLiteral | null) => void,
     setInputValueFunc: (value: string) => void,
     formField: "pickupLocation" | "dropoffLocation",
-    locationType: "pickup" | "dropoff" // For toast messages
+    locationType: "pickup" | "dropoff" 
   ): Promise<void> => {
     if (!autocompleteServiceRef.current || !placesServiceRef.current || !addressString) {
       setCoordsFunc(null);
@@ -986,8 +998,12 @@ export default function BookRidePage() {
                   await geocodeAiAddress(aiOutput.dropoffAddress, setDropoffCoords, setDropoffInputValue, "dropoffLocation", "dropoff");
                 }
                 
-                if (aiOutput.requestedTime) {
-                  toast({ title: "AI Suggested Time", description: `Time: ${aiOutput.requestedTime}. Please set date/time manually if needed.` });
+                if (aiOutput.requestedTime && aiOutput.requestedTime.toLowerCase() !== 'asap') {
+                  form.setValue('bookingType', 'scheduled');
+                  // Attempt to parse AI time for manual setting by user - simple toast for now
+                  toast({ title: "AI Suggested Time", description: `Time: ${aiOutput.requestedTime}. Please set date/time manually.` });
+                } else {
+                    form.setValue('bookingType', 'asap');
                 }
                 toast({ title: "AI Processing Complete", description: "Review fields and complete your booking." });
 
@@ -1020,7 +1036,7 @@ export default function BookRidePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords, geocodeAiAddress]);
 
-  const handleMicMouseDown = async () => {
+ const handleMicMouseDown = async () => {
     if (!recognitionRef.current) {
       toast({ title: "Error", description: "Speech recognition is not initialized.", variant: "destructive" });
       return;
@@ -1034,24 +1050,20 @@ export default function BookRidePage() {
     }
 
     try {
-      // Attempt to get media stream to trigger permission prompt or check if already granted
       await navigator.mediaDevices.getUserMedia({ audio: true }); 
-      // Permission granted or was already granted
       recognitionRef.current.start();
       setIsListening(true);
       toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
     } catch (err) {
-      // This catch block handles errors from getUserMedia (e.g., permission denied)
       console.error("Microphone permission error or start error:", err);
       toast({ title: "Microphone Error", description: "Could not access microphone or start listening. Check permissions.", variant: "destructive" });
-      setIsListening(false); // Ensure listening state is false if permission denied
+      setIsListening(false);
     }
   };
 
   const handleMicMouseUpOrLeave = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
-      // isListening will be set to false by recognition.onend
     }
   };
 
@@ -1343,67 +1355,110 @@ export default function BookRidePage() {
 
                   <FormField
                     control={form.control}
-                    name="desiredPickupDate"
+                    name="bookingType"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel className="flex items-center gap-1"><CalendarIcon className="w-4 h-4 text-muted-foreground" /> Desired Pickup Date (Optional)</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={(date) => {
-                                field.onChange(date);
-                                if (!date) {
-                                  form.setValue("desiredPickupTime", "");
-                                }
-                              }}
-                              disabled={(date) =>
-                                date < new Date(new Date().setHours(0,0,0,0))
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="desiredPickupTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1"><Clock className="w-4 h-4 text-muted-foreground" /> Desired Pickup Time (Optional)</FormLabel>
+                      <FormItem className="space-y-3">
+                        <FormLabel className="text-base">Booking Time</FormLabel>
                         <FormControl>
-                          <Input
-                            type="time"
-                            {...field}
-                            disabled={!watchedDesiredDate}
-                          />
+                          <RadioGroup
+                            onValueChange={(value: "asap" | "scheduled") => {
+                              field.onChange(value);
+                              if (value === "asap") {
+                                form.setValue("desiredPickupDate", undefined);
+                                form.setValue("desiredPickupTime", "");
+                                form.clearErrors(["desiredPickupDate", "desiredPickupTime"]);
+                              }
+                            }}
+                            defaultValue={field.value}
+                            className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4"
+                          >
+                            <FormItem className="flex items-center space-x-2">
+                              <FormControl>
+                                <RadioGroupItem value="asap" id="asap" />
+                              </FormControl>
+                              <FormLabel htmlFor="asap" className="font-normal flex items-center gap-1">
+                                <Zap className="w-4 h-4 text-orange-500" /> ASAP
+                              </FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2">
+                              <FormControl>
+                                <RadioGroupItem value="scheduled" id="scheduled" />
+                              </FormControl>
+                              <FormLabel htmlFor="scheduled" className="font-normal flex items-center gap-1">
+                                <CalendarClock className="w-4 h-4 text-blue-500" /> Schedule for Later
+                              </FormLabel>
+                            </FormItem>
+                          </RadioGroup>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {watchedBookingType === 'scheduled' && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="desiredPickupDate"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel className="flex items-center gap-1"><CalendarIcon className="w-4 h-4 text-muted-foreground" /> Desired Pickup Date</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                      "w-full pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "PPP")
+                                    ) : (
+                                      <span>Pick a date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={(date) => {
+                                    field.onChange(date);
+                                  }}
+                                  disabled={(date) =>
+                                    date < new Date(new Date().setHours(0,0,0,0))
+                                  }
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="desiredPickupTime"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1"><Clock className="w-4 h-4 text-muted-foreground" /> Desired Pickup Time</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="time"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
+
 
                   <FormField
                     control={form.control}
