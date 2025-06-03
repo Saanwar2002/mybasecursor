@@ -904,7 +904,7 @@ export default function BookRidePage() {
                   toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
                 } else {
                   setCoordsFunc(null);
-                  form.setValue(formField, addressString); // Keep AI's original string if geocoding details fail
+                  form.setValue(formField, addressString); 
                   setInputValueFunc(addressString);
                   toast({ title: `AI Geocoding Failed`, description: `Could not get details for ${locationType}: ${addressString}. Original text kept.`, variant: "default" });
                 }
@@ -914,7 +914,7 @@ export default function BookRidePage() {
             );
           } else {
             setCoordsFunc(null);
-            form.setValue(formField, addressString); // Keep AI's original string if no predictions
+            form.setValue(formField, addressString); 
             setInputValueFunc(addressString);
             toast({ title: `AI Geocoding Failed`, description: `Could not find ${locationType}: ${addressString}. Original text kept.`, variant: "default" });
             resolve();
@@ -924,7 +924,6 @@ export default function BookRidePage() {
     });
   };
 
-  // Speech Recognition Logic
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -957,7 +956,7 @@ export default function BookRidePage() {
                   form.setValue('passengers', aiOutput.numberOfPassengers);
                   toast({ title: "AI Applied", description: `Passengers set to: ${aiOutput.numberOfPassengers}`});
                 } else {
-                  form.setValue('passengers', 1); // Default
+                  form.setValue('passengers', 1);
                 }
                 if (aiOutput.additionalNotes) {
                   form.setValue('driverNotes', aiOutput.additionalNotes);
@@ -1002,38 +1001,46 @@ export default function BookRidePage() {
 
       recognition.onend = () => {
         setIsListening(false);
-        // setIsProcessingAi(false); // Moved to onresult.finally and onerror
       };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords]); // form reference is stable from useForm
+  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords]);
 
-  const handleMicListen = async () => {
+  const handleMicMouseDown = async () => {
     if (!recognitionRef.current) {
       toast({ title: "Error", description: "Speech recognition is not initialized.", variant: "destructive" });
       return;
     }
-    if (isListening || isProcessingAi) {
-      if (isListening) recognitionRef.current.stop(); // Stop listening if already listening
-      setIsListening(false); // Already handles setIsProcessingAi in onend/onerror
-    } else {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            await navigator.mediaDevices.getUserMedia({ audio: true }); 
-            recognitionRef.current.start();
-            setIsListening(true);
-            toast({ title: "Listening...", description: "Speak your taxi request clearly.", duration: 3000 });
-        } else {
-            toast({ title: "Error", description: "Browser does not support microphone access.", variant: "destructive" });
-        }
-      } catch (err) {
-        console.error("Microphone permission error:", err);
-        toast({ title: "Microphone Error", description: "Could not access microphone. Please check browser permissions.", variant: "destructive" });
-        setIsListening(false);
+    if (isProcessingAi) {
+      toast({ title: "AI Busy", description: "Please wait for the current request to complete.", variant: "default" });
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+    }
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        recognitionRef.current.start();
+        setIsListening(true);
+        toast({ title: "Listening...", description: "Hold to speak, release to process.", duration: 3000 });
+      } else {
+        toast({ title: "Error", description: "Browser does not support microphone access.", variant: "destructive" });
       }
+    } catch (err) {
+      console.error("Microphone permission error or start error:", err);
+      toast({ title: "Microphone Error", description: "Could not access microphone or start listening. Check permissions.", variant: "destructive" });
+      setIsListening(false);
     }
   };
 
+  const handleMicMouseUpOrLeave = () => {
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      // setIsListening(false) is handled by recognition.onend
+    }
+  };
 
   const renderSuggestions = (
     suggestions: google.maps.places.AutocompletePrediction[],
@@ -1183,10 +1190,12 @@ export default function BookRidePage() {
                               type="button" 
                               variant="ghost"
                               size="icon" 
-                              onClick={handleMicListen}
+                              onMouseDown={handleMicMouseDown}
+                              onMouseUp={handleMicMouseUpOrLeave}
+                              onMouseLeave={handleMicMouseUpOrLeave}
                               disabled={isProcessingAi}
                               className="h-8 w-8 text-white focus-visible:ring-white focus-visible:ring-offset-green-700 disabled:opacity-75"
-                              aria-label={isListening ? "Stop listening" : isProcessingAi ? "Processing AI..." : "Start listening for voice input"}
+                              aria-label={isProcessingAi ? "Processing AI..." : isListening ? "Listening... Release to process" : "Hold to speak for voice input"}
                             >
                               {isProcessingAi ? <Loader2 className={cn("h-5 w-5 animate-spin")} /> : <Mic className={cn("h-5 w-5", isListening && "animate-pulse opacity-75")} /> }
                             </Button>
