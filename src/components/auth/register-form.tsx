@@ -22,7 +22,8 @@ import Link from "next/link";
 import { Car, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../../lib/firebase"; // Updated path
+import { auth, db } from "../../../lib/firebase"; // Updated path
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -41,7 +42,7 @@ const formSchema = z.object({
 });
 
 export function RegisterForm() {
-  const { login: contextLogin } = useAuth(); // Renamed to avoid conflict
+  const { login: contextLogin } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,12 +60,13 @@ export function RegisterForm() {
   const watchedRole = form.watch("role");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!auth) {
+    if (!auth || !db) {
       toast({
         title: "Registration Error",
-        description: "Firebase Authentication is not initialized. Please check the console.",
+        description: "Firebase services are not fully initialized. Please check the console.",
         variant: "destructive",
       });
+      setIsSubmitting(false);
       return;
     }
     setIsSubmitting(true);
@@ -73,23 +75,36 @@ export function RegisterForm() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const firebaseUser = userCredential.user;
 
-      // For now, we'll continue to use the existing AuthContext.login.
-      // In a future step, we'll integrate this with Firestore profile creation
-      // and use firebaseUser.uid as the primary ID.
+      // Step 2: Store additional profile information in Firestore
+      const userProfile = {
+        name: values.name,
+        email: values.email,
+        role: values.role as UserRole,
+        createdAt: serverTimestamp(),
+        // For passengers, vehicleCategory is not relevant.
+        ...(values.role === 'driver' && values.vehicleCategory && { vehicleCategory: values.vehicleCategory }),
+      };
+
+      // Use Firebase UID as the document ID in the 'users' collection
+      await setDoc(doc(db, "users", firebaseUser.uid), userProfile);
+
+      // Step 3: Update AuthContext and redirect
+      // For now, contextLogin will use the email and name from the form.
+      // This will be refined later to fetch profile from Firestore.
       contextLogin(firebaseUser.email || values.email, values.name, values.role as UserRole, values.role === 'driver' ? values.vehicleCategory : undefined);
 
       toast({
         title: "Registration Successful!",
-        description: `Welcome, ${values.name}! Your account has been created.`,
+        description: `Welcome, ${values.name}! Your account and profile have been created.`,
       });
       // The contextLogin will handle redirection.
 
     } catch (error: any) {
       let errorMessage = "An unknown error occurred during registration.";
-      if (error.code) {
+      if (error.code) { // Firebase Auth errors
         switch (error.code) {
           case 'auth/email-already-in-use':
-            errorMessage = 'This email address is already in use.';
+            errorMessage = 'This email address is already in use by an existing account.';
             break;
           case 'auth/invalid-email':
             errorMessage = 'The email address is not valid.';
@@ -98,11 +113,13 @@ export function RegisterForm() {
             errorMessage = 'Email/password accounts are not enabled.';
             break;
           case 'auth/weak-password':
-            errorMessage = 'The password is too weak.';
+            errorMessage = 'The password is too weak. Please use a stronger password.';
             break;
           default:
-            errorMessage = error.message;
+            errorMessage = `Auth error: ${error.message} (Code: ${error.code})`;
         }
+      } else if (error.message?.includes('firestore')) { // Attempt to catch Firestore specific errors
+         errorMessage = `Profile creation error: ${error.message}`;
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -249,3 +266,5 @@ export function RegisterForm() {
     </Form>
   );
 }
+
+    
