@@ -530,9 +530,6 @@ export default function BookRidePage() {
   ) => (fav: FavoriteLocation) => {
     formOnChange(fav.address);
     const newCoords = { lat: fav.latitude, lng: fav.longitude };
-    // Note: Favorites currently don't store door/flat info. If they did, we'd set it here.
-    // For now, door/flat fields associated with this favorite selection will remain as they are or be empty.
-    // If doorOrFlatFormFieldName is provided, clear it.
     if (doorOrFlatFormFieldName) {
         form.setValue(doorOrFlatFormFieldName, "");
     }
@@ -1405,6 +1402,24 @@ export default function BookRidePage() {
                         )}
                     />
                   </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="driverNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1"><StickyNote className="w-4 h-4 text-muted-foreground" /> Notes for Driver (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="e.g., Ring doorbell on arrival, specific gate number, etc."
+                            className="min-h-[80px] border-2 border-primary shadow-none"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
@@ -1558,23 +1573,6 @@ export default function BookRidePage() {
                         <FormLabel className="flex items-center gap-1"><Ticket className="w-4 h-4 text-muted-foreground" /> Promo Code (Optional)</FormLabel>
                         <FormControl>
                           <Input placeholder="Enter promo code" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="driverNotes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1"><StickyNote className="w-4 h-4 text-muted-foreground" /> Notes for Driver (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="e.g., Ring doorbell on arrival, specific gate number, etc."
-                            className="min-h-[80px]"
-                            {...field}
-                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
