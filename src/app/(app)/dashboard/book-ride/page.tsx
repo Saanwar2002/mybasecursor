@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Microphone } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -162,6 +163,9 @@ export default function BookRidePage() {
   const [isDeletingRouteId, setIsDeletingRouteId] = useState<string | null>(null);
   const [saveRouteDialogOpen, setSaveRouteDialogOpen] = useState(false);
   const [newRouteLabel, setNewRouteLabel] = useState("");
+
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const form = useForm<z.infer<typeof bookingFormSchema>>({
     resolver: zodResolver(bookingFormSchema),
@@ -868,6 +872,98 @@ export default function BookRidePage() {
     }
   };
 
+  // Speech Recognition Logic
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast({
+          title: "Speech Recognition Not Supported",
+          description: "Your browser does not support speech-to-text. Please type your request.",
+          variant: "default",
+          duration: 7000,
+        });
+        return;
+      }
+      recognitionRef.current = new SpeechRecognition();
+      const recognition = recognitionRef.current;
+      recognition.continuous = false; // Stop after first utterance
+      recognition.interimResults = false;
+      recognition.lang = 'en-GB'; // Or 'en-US'
+
+      recognition.onresult = async (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        toast({ title: "Heard you!", description: `Processing: "${transcript}"`, duration: 2000 });
+        
+        if (transcript) {
+            try {
+                const aiInput: ParseBookingRequestInput = { userRequestText: transcript };
+                const aiOutput: ParseBookingRequestOutput = await parseBookingRequest(aiInput);
+                
+                toast({
+                    title: "AI Parsed Your Request (Raw Output)",
+                    description: (<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 overflow-x-auto"><code className="text-white">{JSON.stringify(aiOutput, null, 2)}</code></pre>),
+                    duration: 15000, // Keep toast longer for viewing
+                });
+
+                // TODO: Populate form fields based on aiOutput. This is complex and will be a next step.
+                // For now, we've displayed the AI's understanding.
+                // Example of populating (will need refinement, esp. for addresses):
+                // if (aiOutput.pickupAddress) { form.setValue('pickupLocation', aiOutput.pickupAddress); setPickupInputValue(aiOutput.pickupAddress); }
+                // if (aiOutput.dropoffAddress) { form.setValue('dropoffLocation', aiOutput.dropoffAddress); setDropoffInputValue(aiOutput.dropoffAddress); }
+                // if (aiOutput.numberOfPassengers) { form.setValue('passengers', aiOutput.numberOfPassengers); }
+                // if (aiOutput.additionalNotes) { form.setValue('driverNotes', aiOutput.additionalNotes); }
+                // Handling aiOutput.requestedTime would require parsing logic or a dedicated time input.
+            } catch (aiError) {
+                console.error("AI Parsing Error:", aiError);
+                toast({ title: "AI Error", description: "Could not understand your request via AI.", variant: "destructive"});
+            }
+        }
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech recognition error", event.error);
+        let errorMessage = "Speech recognition failed.";
+        if (event.error === 'no-speech') errorMessage = "No speech was detected. Please try again.";
+        else if (event.error === 'audio-capture') errorMessage = "Microphone problem. Please check permissions.";
+        else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied.";
+        toast({ title: "Voice Error", description: errorMessage, variant: "destructive" });
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, [toast, form]);
+
+  const handleMicListen = async () => {
+    if (!recognitionRef.current) {
+      toast({ title: "Error", description: "Speech recognition is not initialized.", variant: "destructive" });
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        // Check for microphone permission
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            await navigator.mediaDevices.getUserMedia({ audio: true }); // Request permission
+            recognitionRef.current.start();
+            setIsListening(true);
+            toast({ title: "Listening...", description: "Speak your taxi request clearly.", duration: 3000 });
+        } else {
+            toast({ title: "Error", description: "Browser does not support microphone access.", variant: "destructive" });
+        }
+      } catch (err) {
+        console.error("Microphone permission error:", err);
+        toast({ title: "Microphone Error", description: "Could not access microphone. Please check browser permissions.", variant: "destructive" });
+        setIsListening(false);
+      }
+    }
+  };
+
 
   const renderSuggestions = (
     suggestions: google.maps.places.AutocompletePrediction[],
@@ -946,7 +1042,7 @@ export default function BookRidePage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div>
               <CardTitle className="text-3xl font-headline flex items-center gap-2"><Car className="w-8 h-8 text-primary" /> Book Your Ride</CardTitle>
-              <CardDescription>Enter details, or load a saved route. Add stops and schedule for later.</CardDescription>
+              <CardDescription>Enter details, load a saved route, or use voice input (Beta). Add stops and schedule.</CardDescription>
             </div>
             <div className="flex gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
                <Button variant="outline" onClick={handleSaveCurrentRoute} disabled={!pickupCoords || !dropoffCoords || saveRouteDialogOpen} className="w-1/2 sm:w-auto">
@@ -999,11 +1095,23 @@ export default function BookRidePage() {
                     name="pickupLocation"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
+                          <Button 
+                            type="button" 
+                            variant={isListening ? "destructive" : "outline"} 
+                            size="icon" 
+                            onClick={handleMicListen}
+                            className="h-8 w-8"
+                            aria-label={isListening ? "Stop listening" : "Start listening for voice input"}
+                          >
+                            <Microphone className={cn("h-4 w-4", isListening && "animate-pulse text-destructive-foreground")} />
+                          </Button>
+                        </div>
                         <div className="relative flex items-center">
                           <FormControl>
                             <Input
-                              placeholder="Type pickup address"
+                              placeholder="Type or speak pickup address"
                               {...field}
                               value={pickupInputValue}
                               onChange={(e) => handleAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)}
@@ -1024,7 +1132,7 @@ export default function BookRidePage() {
                           )}
                         </div>
                         <FormDescription>
-                          If autocomplete doesn't provide a door number, please add it manually for accuracy.
+                          If autocomplete doesn't provide a door number, please add it manually for accuracy. For voice, speak clearly.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
