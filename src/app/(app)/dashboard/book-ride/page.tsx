@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,6 +52,7 @@ interface SavedRouteLocationPoint {
   address: string;
   latitude: number;
   longitude: number;
+  doorOrFlat?: string;
 }
 interface SavedRoute {
   id: string;
@@ -69,10 +70,13 @@ interface MapMarker {
 
 
 const bookingFormSchema = z.object({
+  pickupDoorOrFlat: z.string().max(50, {message: "Door/Flat info too long."}).optional(),
   pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
+  dropoffDoorOrFlat: z.string().max(50, {message: "Door/Flat info too long."}).optional(),
   dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
   stops: z.array(
     z.object({
+      doorOrFlat: z.string().max(50, {message: "Door/Flat info too long."}).optional(),
       location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
     })
   ).optional(),
@@ -183,7 +187,9 @@ export default function BookRidePage() {
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
+      pickupDoorOrFlat: "",
       pickupLocation: "",
+      dropoffDoorOrFlat: "",
       dropoffLocation: "",
       stops: [],
       bookingType: "asap",
@@ -519,10 +525,18 @@ export default function BookRidePage() {
 
   const handleFavoriteSelectFactory = (
     formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number,
-    formOnChange: (value: string) => void
+    formOnChange: (value: string) => void,
+    doorOrFlatFormFieldName?: `pickupDoorOrFlat` | `dropoffDoorOrFlat` | `stops.${number}.doorOrFlat`
   ) => (fav: FavoriteLocation) => {
     formOnChange(fav.address);
     const newCoords = { lat: fav.latitude, lng: fav.longitude };
+    // Note: Favorites currently don't store door/flat info. If they did, we'd set it here.
+    // For now, door/flat fields associated with this favorite selection will remain as they are or be empty.
+    // If doorOrFlatFormFieldName is provided, clear it.
+    if (doorOrFlatFormFieldName) {
+        form.setValue(doorOrFlatFormFieldName, "");
+    }
+
 
     if (typeof formFieldNameOrStopIndex === 'number') {
       const stopIndex = formFieldNameOrStopIndex;
@@ -550,7 +564,7 @@ export default function BookRidePage() {
 
 
   const handleAddStop = () => {
-    append({ location: "" });
+    append({ location: "", doorOrFlat: "" });
     setStopAutocompleteData(prev => [
       ...prev,
       {
@@ -696,6 +710,7 @@ export default function BookRidePage() {
     const validStopsData = [];
     for (let i = 0; i < (values.stops?.length || 0); i++) {
         const stopLocationInput = values.stops?.[i]?.location;
+        const stopDoorOrFlatInput = values.stops?.[i]?.doorOrFlat;
         const stopData = stopAutocompleteData[i];
         if (stopLocationInput && stopLocationInput.trim() !== "" && !stopData?.coords) {
             toast({ title: `Missing Stop ${i + 1} Details`, description: `Select a valid location for stop ${i+1} or remove it.`, variant: "destructive" });
@@ -706,6 +721,7 @@ export default function BookRidePage() {
                 address: stopLocationInput,
                 latitude: stopData.coords.lat,
                 longitude: stopData.coords.lng,
+                doorOrFlat: stopDoorOrFlatInput
             });
         }
     }
@@ -729,8 +745,8 @@ export default function BookRidePage() {
     const bookingPayload = {
       passengerId: user.id,
       passengerName: user.name,
-      pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng },
-      dropoffLocation: { address: values.dropoffLocation, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng },
+      pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
+      dropoffLocation: { address: values.dropoffLocation, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat },
       stops: validStopsData,
       vehicleType: values.vehicleType,
       passengers: values.passengers,
@@ -738,7 +754,7 @@ export default function BookRidePage() {
       isSurgeApplied: isSurgeActive,
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
-      scheduledPickupAt, // Will be undefined if bookingType is 'asap'
+      scheduledPickupAt, 
       driverNotes: values.driverNotes,
       promoCode: values.promoCode,
     };
@@ -758,10 +774,14 @@ export default function BookRidePage() {
       const result = await response.json();
 
       let rideDescription = `Your ride from ${values.pickupLocation}`;
+      if (values.pickupDoorOrFlat) rideDescription += ` (${values.pickupDoorOrFlat})`;
       if (validStopsData.length > 0) {
-          rideDescription += ` via ${validStopsData.map(s => s.address).join(' via ')}`;
+          rideDescription += ` via ${validStopsData.map(s => `${s.address}${s.doorOrFlat ? ` (${s.doorOrFlat})` : ''}`).join(' via ')}`;
       }
-      rideDescription += ` to ${values.dropoffLocation} is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
+      rideDescription += ` to ${values.dropoffLocation}`;
+      if (values.dropoffDoorOrFlat) rideDescription += ` (${values.dropoffDoorOrFlat})`;
+
+      rideDescription += ` is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
       if (values.bookingType === 'scheduled' && scheduledPickupAt) {
         rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
       }
@@ -776,7 +796,7 @@ export default function BookRidePage() {
 
       toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 7000 });
 
-      form.reset(); // This will reset bookingType to 'asap'
+      form.reset(); 
       setPickupInputValue("");
       setDropoffInputValue("");
       setPickupCoords(null);
@@ -822,7 +842,7 @@ export default function BookRidePage() {
       .map((stop, index) => {
         const stopData = currentStopData[index];
         if (stop.location && stopData && stopData.coords) {
-          return { address: stop.location, latitude: stopData.coords.lat, longitude: stopData.coords.lng };
+          return { address: stop.location, latitude: stopData.coords.lat, longitude: stopData.coords.lng, doorOrFlat: stop.doorOrFlat };
         }
         return null;
       })
@@ -831,8 +851,8 @@ export default function BookRidePage() {
     const payload = {
       userId: user.id,
       label: newRouteLabel,
-      pickupLocation: { address: form.getValues('pickupLocation'), latitude: pickupCoords.lat, longitude: pickupCoords.lng },
-      dropoffLocation: { address: form.getValues('dropoffLocation'), latitude: dropoffCoords.lat, longitude: dropoffCoords.lng },
+      pickupLocation: { address: form.getValues('pickupLocation'), latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: form.getValues('pickupDoorOrFlat') },
+      dropoffLocation: { address: form.getValues('dropoffLocation'), latitude: dropoffCoords.lat, longitude: dropoffCoords.lng, doorOrFlat: form.getValues('dropoffDoorOrFlat') },
       stops: routeStops,
     };
 
@@ -855,17 +875,19 @@ export default function BookRidePage() {
   };
 
   const handleApplySavedRoute = (route: SavedRoute) => {
+    form.setValue('pickupDoorOrFlat', route.pickupLocation.doorOrFlat || "");
     form.setValue('pickupLocation', route.pickupLocation.address);
     setPickupInputValue(route.pickupLocation.address);
     setPickupCoords({ lat: route.pickupLocation.latitude, lng: route.pickupLocation.longitude });
     setShowPickupSuggestions(false);
 
+    form.setValue('dropoffDoorOrFlat', route.dropoffLocation.doorOrFlat || "");
     form.setValue('dropoffLocation', route.dropoffLocation.address);
     setDropoffInputValue(route.dropoffLocation.address);
     setDropoffCoords({ lat: route.dropoffLocation.latitude, lng: route.dropoffLocation.longitude });
     setShowDropoffSuggestions(false);
 
-    const newStopsForForm = route.stops?.map(s => ({ location: s.address })) || [];
+    const newStopsForForm = route.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || "" })) || [];
     replace(newStopsForForm); 
 
     const newStopAutocompleteData: AutocompleteData[] = route.stops?.map((s, index) => ({
@@ -1000,7 +1022,6 @@ export default function BookRidePage() {
                 
                 if (aiOutput.requestedTime && aiOutput.requestedTime.toLowerCase() !== 'asap') {
                   form.setValue('bookingType', 'scheduled');
-                  // Attempt to parse AI time for manual setting by user - simple toast for now
                   toast({ title: "AI Suggested Time", description: `Time: ${aiOutput.requestedTime}. Please set date/time manually.` });
                 } else {
                     form.setValue('bookingType', 'asap');
@@ -1033,8 +1054,7 @@ export default function BookRidePage() {
         setIsListening(false);
       };
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, form.setValue, setPickupInputValue, setDropoffInputValue, setPickupCoords, setDropoffCoords, geocodeAiAddress]);
+  }, [toast, form, geocodeAiAddress]); 
 
  const handleMicMouseDown = async () => {
     if (!recognitionRef.current) {
@@ -1046,7 +1066,7 @@ export default function BookRidePage() {
       return;
     }
     if (isListening) {
-      recognitionRef.current.stop(); // Stop if already listening
+      recognitionRef.current.stop(); 
     }
 
     try {
@@ -1203,105 +1223,127 @@ export default function BookRidePage() {
             <div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="pickupLocation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                          <div className="bg-green-700 hover:bg-green-600 p-1 rounded-lg shadow-md transition-colors">
-                            <Button 
-                              type="button" 
-                              variant="ghost"
-                              size="icon" 
-                              onMouseDown={handleMicMouseDown}
-                              onMouseUp={handleMicMouseUpOrLeave}
-                              onMouseLeave={handleMicMouseUpOrLeave}
-                              disabled={isProcessingAi}
-                              className="h-8 w-8 text-white focus-visible:ring-white focus-visible:ring-offset-green-700 disabled:opacity-75"
-                              aria-label={isProcessingAi ? "Processing AI..." : isListening ? "Listening... Release to process" : "Hold to speak for voice input"}
-                            >
-                              {isProcessingAi ? <Loader2 className={cn("h-5 w-5 animate-spin")} /> : <Mic className={cn("h-5 w-5", isListening && "animate-pulse opacity-75")} /> }
-                            </Button>
-                          </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
+                        <div className="bg-green-700 hover:bg-green-600 p-1 rounded-lg shadow-md transition-colors">
+                        <Button 
+                            type="button" 
+                            variant="ghost"
+                            size="icon" 
+                            onMouseDown={handleMicMouseDown}
+                            onMouseUp={handleMicMouseUpOrLeave}
+                            onMouseLeave={handleMicMouseUpOrLeave}
+                            disabled={isProcessingAi}
+                            className="h-8 w-8 text-white focus-visible:ring-white focus-visible:ring-offset-green-700 disabled:opacity-75"
+                            aria-label={isProcessingAi ? "Processing AI..." : isListening ? "Listening... Release to process" : "Hold to speak for voice input"}
+                        >
+                            {isProcessingAi ? <Loader2 className={cn("h-5 w-5 animate-spin")} /> : <Mic className={cn("h-5 w-5", isListening && "animate-pulse opacity-75")} /> }
+                        </Button>
                         </div>
-                        <div className="relative flex items-center">
-                          <FormControl>
-                            <Input
-                              placeholder="Type or speak pickup address"
-                              {...field}
-                              value={pickupInputValue}
-                              onChange={(e) => handleAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)}
-                              onFocus={handleFocusFactory('pickupLocation')}
-                              onBlur={handleBlurFactory('pickupLocation')}
-                              autoComplete="off"
-                              className="pr-10 border-2 border-primary shadow-none"
-                            />
-                          </FormControl>
-                          {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('pickupLocation', field.onChange), "pickup")}
-                          {showPickupSuggestions && renderSuggestions(
-                            pickupSuggestions,
-                            isFetchingPickupSuggestions,
-                            isFetchingPickupDetails,
-                            pickupInputValue,
-                            (sugg) => handleSuggestionClickFactory('pickupLocation')(sugg, field.onChange),
-                            "pickup"
-                          )}
-                        </div>
-                        <FormDescription>
-                          If autocomplete doesn't provide a door number, please add it manually for accuracy. For voice, speak clearly.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    </div>
+                    <FormField
+                        control={form.control}
+                        name="pickupDoorOrFlat"
+                        render={({ field }) => (
+                        <FormItem className="mb-1">
+                            <FormControl>
+                            <Input placeholder="Door/Flat/Unit (Optional)" {...field} className="h-9 text-sm" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="pickupLocation"
+                        render={({ field }) => (
+                        <FormItem>
+                            <div className="relative flex items-center">
+                            <FormControl>
+                                <Input
+                                placeholder="Type or speak pickup address"
+                                {...field}
+                                value={pickupInputValue}
+                                onChange={(e) => handleAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)}
+                                onFocus={handleFocusFactory('pickupLocation')}
+                                onBlur={handleBlurFactory('pickupLocation')}
+                                autoComplete="off"
+                                className="pr-10 border-2 border-primary shadow-none"
+                                />
+                            </FormControl>
+                            {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('pickupLocation', field.onChange, 'pickupDoorOrFlat'), "pickup")}
+                            {showPickupSuggestions && renderSuggestions(
+                                pickupSuggestions,
+                                isFetchingPickupSuggestions,
+                                isFetchingPickupDetails,
+                                pickupInputValue,
+                                (sugg) => handleSuggestionClickFactory('pickupLocation')(sugg, field.onChange),
+                                "pickup"
+                            )}
+                            </div>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                  </div>
+
 
                   {fields.map((stopField, index) => {
                     const currentStopData = stopAutocompleteData[index] || { inputValue: '', suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null, fieldId: stopField.id };
                     return (
-                      <FormField
-                        key={stopField.id}
-                        control={form.control}
-                        name={`stops.${index}.location`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center justify-between">
-                              <span className="flex items-center gap-1"><StopMarkerIcon className="w-4 h-4 text-muted-foreground" /> Stop {index + 1}</span>
-                              <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveStop(index)} className="text-destructive hover:text-destructive-foreground px-1 py-0 h-auto">
-                                <XCircle className="mr-1 h-4 w-4" /> Remove Stop
-                              </Button>
-                            </FormLabel>
-                            <div className="relative flex items-center">
-                              <FormControl>
-                                <Input
-                                  placeholder={`Type stop ${index + 1} address`}
-                                  {...field}
-                                  value={currentStopData.inputValue}
-                                  onChange={(e) => handleAddressInputChangeFactory(index)(e.target.value, field.onChange)}
-                                  onFocus={handleFocusFactory(index)}
-                                  onBlur={handleBlurFactory(index)}
-                                  autoComplete="off"
-                                  className="pr-10 border-2 border-primary shadow-none"
-                                />
-                              </FormControl>
-                              {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange), `stop-${index}`)}
-                              {currentStopData.showSuggestions && renderSuggestions(
-                                currentStopData.suggestions,
-                                currentStopData.isFetchingSuggestions,
-                                currentStopData.isFetchingDetails,
-                                currentStopData.inputValue,
-                                (sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange),
-                                `stop-${index}`
-                              )}
-                            </div>
-                            <FormDescription>
-                              If autocomplete doesn't provide a door number, please add it manually for accuracy.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div key={stopField.id} className="space-y-2">
+                        <FormLabel className="flex items-center justify-between">
+                            <span className="flex items-center gap-1"><StopMarkerIcon className="w-4 h-4 text-muted-foreground" /> Stop {index + 1}</span>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveStop(index)} className="text-destructive hover:text-destructive-foreground px-1 py-0 h-auto">
+                            <XCircle className="mr-1 h-4 w-4" /> Remove Stop
+                            </Button>
+                        </FormLabel>
+                        <FormField
+                            control={form.control}
+                            name={`stops.${index}.doorOrFlat`}
+                            render={({ field }) => (
+                            <FormItem className="mb-1">
+                                <FormControl>
+                                <Input placeholder="Door/Flat/Unit (Optional)" {...field} className="h-9 text-sm"/>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name={`stops.${index}.location`}
+                            render={({ field }) => (
+                            <FormItem>
+                                <div className="relative flex items-center">
+                                <FormControl>
+                                    <Input
+                                    placeholder={`Type stop ${index + 1} address`}
+                                    {...field}
+                                    value={currentStopData.inputValue}
+                                    onChange={(e) => handleAddressInputChangeFactory(index)(e.target.value, field.onChange)}
+                                    onFocus={handleFocusFactory(index)}
+                                    onBlur={handleBlurFactory(index)}
+                                    autoComplete="off"
+                                    className="pr-10 border-2 border-primary shadow-none"
+                                    />
+                                </FormControl>
+                                {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange, `stops.${index}.doorOrFlat`), `stop-${index}`)}
+                                {currentStopData.showSuggestions && renderSuggestions(
+                                    currentStopData.suggestions,
+                                    currentStopData.isFetchingSuggestions,
+                                    currentStopData.isFetchingDetails,
+                                    currentStopData.inputValue,
+                                    (sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange),
+                                    `stop-${index}`
+                                )}
+                                </div>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                      </div>
                     );
                   })}
 
@@ -1316,42 +1358,53 @@ export default function BookRidePage() {
                       </Button>
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="dropoffLocation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-1"><HomeIcon className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
-                        <div className="relative flex items-center">
-                          <FormControl>
-                            <Input
-                              placeholder="Type drop-off address"
-                              {...field}
-                              value={dropoffInputValue}
-                               onChange={(e) => handleAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)}
-                               onFocus={handleFocusFactory('dropoffLocation')}
-                               onBlur={handleBlurFactory('dropoffLocation')}
-                              autoComplete="off"
-                              className="pr-10 border-2 border-primary shadow-none"
-                            />
-                          </FormControl>
-                           {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('dropoffLocation', field.onChange), "dropoff")}
-                          {showDropoffSuggestions && renderSuggestions(
-                            dropoffSuggestions,
-                            isFetchingDropoffSuggestions,
-                            isFetchingDropoffDetails,
-                            dropoffInputValue,
-                            (sugg) => handleSuggestionClickFactory('dropoffLocation')(sugg, field.onChange),
-                            "dropoff"
-                          )}
-                        </div>
-                        <FormDescription>
-                          If autocomplete doesn't provide a door number, please add it manually for accuracy.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-2">
+                    <FormLabel className="flex items-center gap-1"><HomeIcon className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
+                    <FormField
+                        control={form.control}
+                        name="dropoffDoorOrFlat"
+                        render={({ field }) => (
+                        <FormItem className="mb-1">
+                            <FormControl>
+                            <Input placeholder="Door/Flat/Unit (Optional)" {...field} className="h-9 text-sm" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="dropoffLocation"
+                        render={({ field }) => (
+                        <FormItem>
+                            <div className="relative flex items-center">
+                            <FormControl>
+                                <Input
+                                placeholder="Type drop-off address"
+                                {...field}
+                                value={dropoffInputValue}
+                                onChange={(e) => handleAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)}
+                                onFocus={handleFocusFactory('dropoffLocation')}
+                                onBlur={handleBlurFactory('dropoffLocation')}
+                                autoComplete="off"
+                                className="pr-10 border-2 border-primary shadow-none"
+                                />
+                            </FormControl>
+                            {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('dropoffLocation', field.onChange, 'dropoffDoorOrFlat'), "dropoff")}
+                            {showDropoffSuggestions && renderSuggestions(
+                                dropoffSuggestions,
+                                isFetchingDropoffSuggestions,
+                                isFetchingDropoffDetails,
+                                dropoffInputValue,
+                                (sugg) => handleSuggestionClickFactory('dropoffLocation')(sugg, field.onChange),
+                                "dropoff"
+                            )}
+                            </div>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                  </div>
 
                   <FormField
                     control={form.control}

@@ -4,13 +4,20 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase'; 
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
+interface LocationPoint {
+  address: string;
+  latitude: number;
+  longitude: number;
+  doorOrFlat?: string; 
+}
+
 // Define the expected structure of the booking data coming from the client
 interface BookingPayload {
   passengerId: string;
   passengerName: string; 
-  pickupLocation: { address: string; latitude: number; longitude: number };
-  dropoffLocation: { address: string; latitude: number; longitude: number };
-  stops: Array<{ address: string; latitude: number; longitude: number }>;
+  pickupLocation: LocationPoint;
+  dropoffLocation: LocationPoint;
+  stops: LocationPoint[];
   vehicleType: string;
   passengers: number;
   fareEstimate: number;
@@ -48,9 +55,24 @@ export async function POST(request: NextRequest) {
     const newBooking: any = { 
       passengerId: bookingData.passengerId,
       passengerName: bookingData.passengerName, 
-      pickupLocation: bookingData.pickupLocation,
-      dropoffLocation: bookingData.dropoffLocation,
-      stops: bookingData.stops || [], // Ensure stops is an array
+      pickupLocation: {
+        address: bookingData.pickupLocation.address,
+        latitude: bookingData.pickupLocation.latitude,
+        longitude: bookingData.pickupLocation.longitude,
+        ...(bookingData.pickupLocation.doorOrFlat && { doorOrFlat: bookingData.pickupLocation.doorOrFlat }),
+      },
+      dropoffLocation: {
+        address: bookingData.dropoffLocation.address,
+        latitude: bookingData.dropoffLocation.latitude,
+        longitude: bookingData.dropoffLocation.longitude,
+        ...(bookingData.dropoffLocation.doorOrFlat && { doorOrFlat: bookingData.dropoffLocation.doorOrFlat }),
+      },
+      stops: (bookingData.stops || []).map(stop => ({
+        address: stop.address,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        ...(stop.doorOrFlat && { doorOrFlat: stop.doorOrFlat }),
+      })),
       vehicleType: bookingData.vehicleType,
       passengers: bookingData.passengers,
       fareEstimate: bookingData.fareEstimate,
@@ -80,10 +102,7 @@ export async function POST(request: NextRequest) {
 
     const docRef = await addDoc(collection(db, 'bookings'), newBooking);
     
-    // For the response, we can't send serverTimestamp directly as it's a sentinel value.
-    // Firestore automatically converts it on the server. The client will see the actual timestamp on next read.
-    // We can send back the input data or a simplified version.
-    const responseData = { ...newBooking, bookingTimestamp: new Date().toISOString() }; // Use current date as placeholder
+    const responseData = { ...newBooking, bookingTimestamp: new Date().toISOString() }; 
 
     return NextResponse.json({ message: 'Booking created successfully', bookingId: docRef.id, data: responseData }, { status: 201 });
 

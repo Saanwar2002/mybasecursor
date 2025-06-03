@@ -8,6 +8,7 @@ interface LocationPoint {
   address: string;
   latitude: number;
   longitude: number;
+  doorOrFlat?: string;
 }
 
 interface AddSavedRoutePayload {
@@ -51,22 +52,33 @@ export async function POST(request: NextRequest) {
     const newSavedRoute = {
       userId,
       label,
-      pickupLocation,
-      dropoffLocation,
-      stops: stops || [], // Ensure stops is an array
+      pickupLocation: {
+        address: pickupLocation.address,
+        latitude: pickupLocation.latitude,
+        longitude: pickupLocation.longitude,
+        ...(pickupLocation.doorOrFlat && { doorOrFlat: pickupLocation.doorOrFlat }),
+      },
+      dropoffLocation: {
+        address: dropoffLocation.address,
+        latitude: dropoffLocation.latitude,
+        longitude: dropoffLocation.longitude,
+        ...(dropoffLocation.doorOrFlat && { doorOrFlat: dropoffLocation.doorOrFlat }),
+      },
+      stops: (stops || []).map(stop => ({
+        address: stop.address,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        ...(stop.doorOrFlat && { doorOrFlat: stop.doorOrFlat }),
+      })),
       createdAt: serverTimestamp(),
     };
 
     const docRef = await addDoc(collection(db, 'savedRoutes'), newSavedRoute);
 
-    // Return the saved route data along with the new ID
-    // serverTimestamp() will be resolved by Firestore, so we send back what was saved.
-    // For createdAt, client will see a pending state or re-fetch.
-    // Or, we can send a client-approximated timestamp.
     const savedDataForResponse = {
         ...newSavedRoute,
         id: docRef.id,
-        createdAt: new Date().toISOString() // Provide an ISO string for immediate use on client
+        createdAt: new Date().toISOString() 
     };
 
 
