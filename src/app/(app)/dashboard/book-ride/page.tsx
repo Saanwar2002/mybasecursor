@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2 } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,6 +32,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { LucideProps } from 'lucide-react';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -137,6 +139,19 @@ function getDistanceInMiles(
   return d * 0.621371;
 }
 
+// Helper to convert Lucide React Icon to SVG Data URI
+const lucideIconToDataURI = (
+  IconComponent: React.FC<LucideProps>,
+  options: { size?: number; color?: string; strokeWidth?: number; fill?: string } = {}
+) => {
+  const { size = 32, color = 'hsl(var(--foreground))', strokeWidth = 2, fill = 'none' } = options;
+  const iconElement = <IconComponent size={size} color={color} strokeWidth={strokeWidth} fill={fill} />;
+  const svgString = renderToStaticMarkup(iconElement);
+  // Ensure xmlns attribute for proper rendering in some contexts, and encode properly
+  const fullSvgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(fullSvgString)))}`;
+};
+
 
 export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
@@ -200,6 +215,13 @@ export default function BookRidePage() {
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+  
+  const pickupIconUrl = useMemo(() => lucideIconToDataURI(UserIcon, { color: 'hsl(var(--primary))', size: 36, strokeWidth: 1.5, fill: 'hsl(var(--primary))' }), []);
+  const dropoffIconUrl = useMemo(() => lucideIconToDataURI(HomeIcon, { color: 'hsl(var(--accent))', size: 36, strokeWidth: 1.5, fill: 'hsl(var(--accent))' }), []);
+  const stopIconUrl = useMemo(() => lucideIconToDataURI(StopMarkerIcon, { color: 'hsl(var(--muted-foreground))', size: 32, strokeWidth: 1.5, fill: 'hsl(var(--muted-foreground))' }), []);
+  const markerIconScaledSize = useMemo(() => ({ width: 36, height: 36 }), []);
+  const stopMarkerIconScaledSize = useMemo(() => ({ width: 32, height: 32 }), []);
+
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -631,20 +653,35 @@ export default function BookRidePage() {
  useEffect(() => {
     const newMarkers: MapMarker[] = [];
     if (pickupCoords) {
-      newMarkers.push({ position: pickupCoords, title: `Pickup: ${form.getValues('pickupLocation')}` });
+      newMarkers.push({ 
+        position: pickupCoords, 
+        title: `Pickup: ${form.getValues('pickupLocation')}`,
+        iconUrl: pickupIconUrl,
+        iconScaledSize: markerIconScaledSize,
+      });
     }
     const currentFormStops = form.getValues('stops');
     currentFormStops?.forEach((formStop, index) => {
         const stopData = stopAutocompleteData[index];
         if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
-             newMarkers.push({ position: stopData.coords, title: `Stop: ${formStop.location}` });
+             newMarkers.push({ 
+                position: stopData.coords, 
+                title: `Stop: ${formStop.location}`,
+                iconUrl: stopIconUrl,
+                iconScaledSize: stopMarkerIconScaledSize,
+            });
         }
     });
     if (dropoffCoords) {
-      newMarkers.push({ position: dropoffCoords, title: `Dropoff: ${form.getValues('dropoffLocation')}` });
+      newMarkers.push({ 
+        position: dropoffCoords, 
+        title: `Dropoff: ${form.getValues('dropoffLocation')}`,
+        iconUrl: dropoffIconUrl,
+        iconScaledSize: markerIconScaledSize,
+    });
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops, pickupIconUrl, dropoffIconUrl, stopIconUrl, markerIconScaledSize, stopMarkerIconScaledSize]);
 
 
   async function handleBookRide(values: z.infer<typeof bookingFormSchema>) {
@@ -990,7 +1027,7 @@ export default function BookRidePage() {
                     name="pickupLocation"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
+                        <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
                         <div className="relative flex items-center">
                           <FormControl>
                             <Input
@@ -1032,7 +1069,7 @@ export default function BookRidePage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="flex items-center justify-between">
-                              <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Stop {index + 1}</span>
+                              <span className="flex items-center gap-1"><StopMarkerIcon className="w-4 h-4 text-muted-foreground" /> Stop {index + 1}</span>
                               <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveStop(index)} className="text-destructive hover:text-destructive-foreground px-1 py-0 h-auto">
                                 <XCircle className="mr-1 h-4 w-4" /> Remove Stop
                               </Button>
@@ -1086,7 +1123,7 @@ export default function BookRidePage() {
                     name="dropoffLocation"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
+                        <FormLabel className="flex items-center gap-1"><HomeIcon className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
                         <div className="relative flex items-center">
                           <FormControl>
                             <Input
@@ -1341,3 +1378,5 @@ export default function BookRidePage() {
   );
 }
 
+
+    
