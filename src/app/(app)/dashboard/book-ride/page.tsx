@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Microphone } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -887,9 +887,9 @@ export default function BookRidePage() {
       }
       recognitionRef.current = new SpeechRecognition();
       const recognition = recognitionRef.current;
-      recognition.continuous = false; // Stop after first utterance
+      recognition.continuous = false; 
       recognition.interimResults = false;
-      recognition.lang = 'en-GB'; // Or 'en-US'
+      recognition.lang = 'en-GB'; 
 
       recognition.onresult = async (event: SpeechRecognitionEvent) => {
         const transcript = event.results[event.results.length - 1][0].transcript.trim();
@@ -903,17 +903,9 @@ export default function BookRidePage() {
                 toast({
                     title: "AI Parsed Your Request (Raw Output)",
                     description: (<pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 overflow-x-auto"><code className="text-white">{JSON.stringify(aiOutput, null, 2)}</code></pre>),
-                    duration: 15000, // Keep toast longer for viewing
+                    duration: 15000, 
                 });
 
-                // TODO: Populate form fields based on aiOutput. This is complex and will be a next step.
-                // For now, we've displayed the AI's understanding.
-                // Example of populating (will need refinement, esp. for addresses):
-                // if (aiOutput.pickupAddress) { form.setValue('pickupLocation', aiOutput.pickupAddress); setPickupInputValue(aiOutput.pickupAddress); }
-                // if (aiOutput.dropoffAddress) { form.setValue('dropoffLocation', aiOutput.dropoffAddress); setDropoffInputValue(aiOutput.dropoffAddress); }
-                // if (aiOutput.numberOfPassengers) { form.setValue('passengers', aiOutput.numberOfPassengers); }
-                // if (aiOutput.additionalNotes) { form.setValue('driverNotes', aiOutput.additionalNotes); }
-                // Handling aiOutput.requestedTime would require parsing logic or a dedicated time input.
             } catch (aiError) {
                 console.error("AI Parsing Error:", aiError);
                 toast({ title: "AI Error", description: "Could not understand your request via AI.", variant: "destructive"});
@@ -947,9 +939,8 @@ export default function BookRidePage() {
       setIsListening(false);
     } else {
       try {
-        // Check for microphone permission
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            await navigator.mediaDevices.getUserMedia({ audio: true }); // Request permission
+            await navigator.mediaDevices.getUserMedia({ audio: true }); 
             recognitionRef.current.start();
             setIsListening(true);
             toast({ title: "Listening...", description: "Speak your taxi request clearly.", duration: 3000 });
@@ -1105,7 +1096,7 @@ export default function BookRidePage() {
                             className="h-8 w-8"
                             aria-label={isListening ? "Stop listening" : "Start listening for voice input"}
                           >
-                            <Microphone className={cn("h-4 w-4", isListening && "animate-pulse text-destructive-foreground")} />
+                            <Mic className={cn("h-4 w-4", isListening && "animate-pulse text-destructive-foreground")} />
                           </Button>
                         </div>
                         <div className="relative flex items-center">
@@ -1457,3 +1448,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
