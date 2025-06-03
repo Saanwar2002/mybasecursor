@@ -29,9 +29,10 @@ import {
   ConfirmationResult,
   User as FirebaseUser,
   updateProfile as updateFirebaseUserProfile,
+  linkWithCredential, // Added this import
 } from "firebase/auth";
-import { auth, db } from "../../../lib/firebase";
-import { doc, setDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase"; // Corrected import path
+import { doc, setDoc, serverTimestamp, updateDoc, Timestamp, getDoc } from "firebase/firestore"; // Added getDoc
 
 const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
@@ -43,9 +44,7 @@ const formSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(["passenger", "driver", "operator"], { required_error: "You must select a role." }),
   vehicleCategory: z.string().optional(),
-  phoneNumber: z.string().optional().refine(value => !value || phoneRegex.test(value), {
-    message: "Invalid phone number format (e.g., +14155552671)."
-  }),
+  phoneNumber: z.string().optional(),
   verificationCode: z.string().optional().refine(value => !value || /^\d{6}$/.test(value), {
     message: "Verification code must be 6 digits."
   }),
@@ -57,9 +56,30 @@ const formSchema = z.object({
 }, {
   message: "Vehicle category is required for drivers.",
   path: ["vehicleCategory"],
+}).refine(data => {
+  if (data.role === 'passenger') {
+    return !!data.phoneNumber && data.phoneNumber.trim() !== "" && phoneRegex.test(data.phoneNumber);
+  }
+  return !data.phoneNumber || data.phoneNumber.trim() === "" || phoneRegex.test(data.phoneNumber);
+}, {
+  message: "Valid phone number is required for passengers (e.g., +14155552671). Optional for others.",
+  path: ["phoneNumber"],
 });
 
 type RegistrationStep = 'initial' | 'verifyingPhone';
+
+interface User { // Copied from AuthContext for local use if needed, or ensure it's imported/shared
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  vehicleCategory?: string;
+  phoneNumber?: string | null;
+  phoneVerified?: boolean;
+  phoneVerificationDeadline?: Timestamp | string | null; // Added for context update
+  status?: 'Active' | 'Pending Approval' | 'Suspended'; // Added for context update
+}
+
 
 export function RegisterForm() {
   const { login: contextLogin, updateUserProfileInContext } = useAuth();
@@ -86,46 +106,39 @@ export function RegisterForm() {
   });
 
   const watchedRole = form.watch("role");
-  const watchedPhoneNumber = form.watch("phoneNumber");
 
   useEffect(() => {
-    if (auth && recaptchaContainerRef.current && !recaptchaVerifierRef.current && registrationStep === 'initial' && watchedPhoneNumber && watchedPhoneNumber.trim() !== "") {
-      // Initialize reCAPTCHA for phone verification step if phone number is present
-      // This might need to be re-initialized or triggered differently if a separate "Send Code" button is used.
-      // For now, it's set up to be available if we proceed to phone verification.
+    if (auth && recaptchaContainerRef.current && !recaptchaVerifierRef.current && registrationStep === 'initial') {
       try {
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
           'size': 'invisible',
           'callback': (response: any) => {
             // reCAPTCHA solved, allow signInWithPhoneNumber.
-            // console.log("reCAPTCHA solved:", response);
           },
           'expired-callback': () => {
-            // Response expired. Ask user to solve reCAPTCHA again.
             toast({ title: "reCAPTCHA Expired", description: "Please try sending the code again.", variant: "default"});
-            // Potentially reset reCAPTCHA here if needed
-            if (recaptchaVerifierRef.current) {
+             if (recaptchaVerifierRef.current) {
                 recaptchaVerifierRef.current.render().then((widgetId) => {
-                    (window as any).grecaptcha.reset(widgetId);
-                });
+                    if (typeof window !== 'undefined' && (window as any).grecaptcha) {
+                        (window as any).grecaptcha.reset(widgetId);
+                    }
+                }).catch(e => console.error("Error resetting reCAPTCHA widget:", e));
             }
           }
         });
-        recaptchaVerifierRef.current.render(); // Render it invisibly
+        recaptchaVerifierRef.current.render().catch(err => console.error("Error rendering reCAPTCHA:", err));
       } catch (e: any) {
-        console.error("Error initializing RecaptchaVerifier:", e);
+        console.error("Error initializing RecaptchaVerifier for registration:", e);
         toast({title: "reCAPTCHA Error", description: `Could not initialize reCAPTCHA: ${e.message}`, variant: "destructive"});
       }
     }
-    // Cleanup reCAPTCHA on unmount
     return () => {
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = null;
       }
     };
-  // Watch registrationStep and watchedPhoneNumber to re-init if needed, though typically init once.
-  }, [auth, registrationStep, watchedPhoneNumber, toast]); 
+  }, [auth, registrationStep, toast]); 
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -137,45 +150,58 @@ export function RegisterForm() {
 
     if (registrationStep === 'initial') {
       try {
-        // Step 1: Create user in Firebase Authentication
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const firebaseUser = userCredential.user;
-
-        // Update Firebase Auth profile with name (optional but good practice)
         await updateFirebaseUserProfile(firebaseUser, { displayName: values.name });
         setFirebaseUserForLinking(firebaseUser); // Store for potential phone linking
 
-        // Step 2: Store additional profile information in Firestore
         const userProfile: any = {
-          uid: firebaseUser.uid, // Store UID
+          uid: firebaseUser.uid,
           name: values.name,
           email: values.email,
           role: values.role as UserRole,
           createdAt: serverTimestamp(),
           status: (values.role === 'driver' || values.role === 'operator') ? 'Pending Approval' : 'Active',
           ...(values.role === 'driver' && values.vehicleCategory && { vehicleCategory: values.vehicleCategory }),
+          ...(values.phoneNumber && values.phoneNumber.trim() !== "" && { phoneNumberInput: values.phoneNumber.trim() }),
         };
+        
+        if (values.role === 'passenger') {
+            userProfile.phoneVerified = false;
+            const deadline = new Date();
+            deadline.setDate(deadline.getDate() + 7);
+            userProfile.phoneVerificationDeadline = Timestamp.fromDate(deadline);
+        }
+
         await setDoc(doc(db, "users", firebaseUser.uid), userProfile);
 
-        if (values.phoneNumber && values.phoneNumber.trim() !== "" && recaptchaVerifierRef.current) {
+        if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "" && recaptchaVerifierRef.current) {
           toast({ title: "Account Created!", description: "Next, verify your phone number."});
           const appVerifier = recaptchaVerifierRef.current;
           const result = await linkWithPhoneNumber(firebaseUser, values.phoneNumber, appVerifier);
           setConfirmationResult(result);
           setRegistrationStep('verifyingPhone');
-          setIsSubmitting(false); // Allow user to enter code
+          setIsSubmitting(false); 
           form.setFocus("verificationCode");
         } else {
-          // No phone number or reCAPTCHA not ready, complete registration
-          contextLogin(firebaseUser.email || values.email, values.name, values.role as UserRole, values.role === 'driver' ? values.vehicleCategory : undefined);
+          // For non-passengers or passengers not providing phone, login directly
+          contextLogin(
+            firebaseUser.email || values.email, 
+            values.name, 
+            values.role as UserRole, 
+            values.role === 'driver' ? values.vehicleCategory : undefined,
+            undefined, 
+            false, 
+            userProfile.status,
+            values.role === 'passenger' ? userProfile.phoneVerificationDeadline : null
+          );
           toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your account created.` });
           setIsSubmitting(false);
         }
       } catch (error: any) {
-        // Handle Firebase Auth and Firestore errors
         handleRegistrationError(error);
         setIsSubmitting(false);
-        setFirebaseUserForLinking(null);
+        setFirebaseUserForLinking(null); // Clear if initial step failed
       }
     } else if (registrationStep === 'verifyingPhone' && firebaseUserForLinking) {
       if (!values.verificationCode || !confirmationResult) {
@@ -184,39 +210,38 @@ export function RegisterForm() {
         return;
       }
       try {
-        await confirmationResult.confirm(values.verificationCode);
+        const phoneCredential = PhoneAuthProvider.credential(confirmationResult.verificationId, values.verificationCode);
+        await linkWithCredential(firebaseUserForLinking, phoneCredential);
         
-        // Phone linked successfully, update Firestore profile
         const userDocRef = doc(db, "users", firebaseUserForLinking.uid);
         await updateDoc(userDocRef, {
-          phoneNumber: firebaseUserForLinking.phoneNumber, // Get from firebaseUser after linking
+          phoneNumber: firebaseUserForLinking.phoneNumber, 
           phoneVerified: true,
+          phoneVerificationDeadline: null, 
         });
 
-        // Update auth context with potentially new info
         updateUserProfileInContext({ 
             phoneNumber: firebaseUserForLinking.phoneNumber, 
-            phoneVerified: true 
+            phoneVerified: true,
+            phoneVerificationDeadline: null,
         });
 
         toast({ title: "Phone Verified!", description: "Your phone number has been successfully linked." });
-        // contextLogin was already called if registration part succeeded, now just ensure UI consistency if needed
-        // Usually, contextLogin handles redirect, so if user is already "logged in" in context, redirect happens.
-        // If not, need to call contextLogin again with full info
-        if (!contextLogin) console.error("Auth context login function is not available after phone verification");
         
-        const finalRole = form.getValues("role") as UserRole;
-        const finalVehicleCategory = form.getValues("vehicleCategory");
+        // Get the latest profile data to correctly login to context
+        const userProfileSnapshot = await getDoc(userDocRef);
+        const userProfileData = userProfileSnapshot.data();
+
         contextLogin(
             firebaseUserForLinking.email || form.getValues("email"), 
             firebaseUserForLinking.displayName || form.getValues("name"), 
-            finalRole, 
-            finalRole === 'driver' ? finalVehicleCategory : undefined,
+            form.getValues("role") as UserRole, // Role from form, as it was set during initial step
+            form.getValues("role") === 'driver' ? form.getValues("vehicleCategory") : undefined,
             firebaseUserForLinking.phoneNumber,
-            true
+            true, 
+            userProfileData?.status as User['status'] || 'Active',
+            null
         );
-        // Redirect is handled by contextLogin
-
         setIsSubmitting(false);
       } catch (error: any) {
         console.error("Phone verification error:", error);
@@ -234,6 +259,11 @@ export function RegisterForm() {
         case 'auth/invalid-email': errorMessage = 'The email address is not valid.'; break;
         case 'auth/operation-not-allowed': errorMessage = 'Email/password accounts are not enabled.'; break;
         case 'auth/weak-password': errorMessage = 'Password is too weak.'; break;
+        case 'auth/missing-phone-number': errorMessage = 'Phone number is missing for verification.'; break;
+        case 'auth/invalid-phone-number': errorMessage = 'The phone number is invalid.'; break;
+        case 'auth/quota-exceeded': errorMessage = 'SMS quota exceeded. Try again later.'; break;
+        case 'auth/user-disabled': errorMessage = 'This user account has been disabled.'; break;
+        case 'auth/captcha-check-failed': errorMessage = 'reCAPTCHA verification failed. Please try again.'; break;
         default: errorMessage = `Auth error: ${error.message} (Code: ${error.code})`;
       }
     } else if (error.message?.includes('firestore')) {
@@ -275,7 +305,13 @@ export function RegisterForm() {
             )} />
             )}
             <FormField control={form.control} name="phoneNumber" render={({ field }) => (
-                <FormItem><FormLabel>Phone Number (Optional, e.g., +16505551234)</FormLabel><FormControl><Input type="tel" placeholder="Enter your phone number" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>
+                    Phone Number {watchedRole === 'passenger' && <span className="text-destructive font-bold">*</span>} (e.g., +16505551234)
+                  </FormLabel>
+                  <FormControl><Input type="tel" placeholder="Enter your phone number" {...field} disabled={isSubmitting} /></FormControl>
+                  <FormMessage />
+                </FormItem>
             )} />
           </>
         )}
@@ -291,7 +327,6 @@ export function RegisterForm() {
           </>
         )}
         
-        {/* This div is used by RecaptchaVerifier. It can be hidden if using invisible reCAPTCHA. */}
         <div ref={recaptchaContainerRef} id="recaptcha-container-register"></div>
 
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
@@ -308,3 +343,5 @@ export function RegisterForm() {
     </Form>
   );
 }
+
+    
