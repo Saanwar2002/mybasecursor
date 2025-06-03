@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -290,12 +290,12 @@ export default function BookRidePage() {
                     if (accuracy <= 20) {
                       setGeolocationFetchStatus('success');
                       setShowGpsSuggestionAlert(true);
-                    } else { // Moderate accuracy (20 < accuracy <= 500)
+                    } else { 
                       setGeolocationFetchStatus('error_accuracy_moderate');
                       setShowGpsSuggestionAlert(false);
                       toast({ title: "Location Found (Moderate Accuracy)", description: `Your current location accuracy is ${accuracy.toFixed(0)}m. Please type address or try again.`, variant: "default", duration: 7000 });
                     }
-                  } else { // Geocoding failed
+                  } else { 
                     setGeolocationFetchStatus('error_geocoding');
                     setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
                     setShowGpsSuggestionAlert(false);
@@ -335,17 +335,15 @@ export default function BookRidePage() {
   }, []); 
 
   const handleApplyGpsSuggestion = () => {
-    if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) { // Only apply if accurate enough for the alert
+    if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) { 
       form.setValue('pickupLocation', suggestedGpsPickup.address);
       setPickupInputValue(suggestedGpsPickup.address);
       setPickupCoords(suggestedGpsPickup.coords);
       setShowPickupSuggestions(false);
       setShowGpsSuggestionAlert(false);
-      // Keep suggestedGpsPickup to allow GeolocationFeedback to show success state
-      setGeolocationFetchStatus('idle'); // Or a specific 'applied' state if needed for GeolocationFeedback
+      setGeolocationFetchStatus('success'); 
       toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
     } else if (suggestedGpsPickup) {
-        // This case should ideally not happen if alert is only shown for accuracy <= 20m
         toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough for direct application. Please type or select.`, variant: "default"});
     }
   };
@@ -431,7 +429,7 @@ export default function BookRidePage() {
     if (formFieldNameOrStopIndex === 'pickupLocation') {
       setEstimatedWaitTime(null);
       setShowGpsSuggestionAlert(false); 
-      setGeolocationFetchStatus('idle'); // User interaction overrides GPS flow
+      setGeolocationFetchStatus('idle'); 
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -1274,7 +1272,7 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    if (showGpsSuggestionAlert) return null; // Don't show this if the main green alert is visible
+    if (showGpsSuggestionAlert) return null; 
 
     switch (geolocationFetchStatus) {
         case 'fetching':
@@ -1285,14 +1283,14 @@ export default function BookRidePage() {
             return <p className="text-xs text-red-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Geolocation is unavailable on this device.</p>;
         case 'error_accuracy_poor':
             const accPoor = suggestedGpsPickup?.accuracy?.toFixed(0) || 'N/A';
-            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Your location accuracy ({accPoor}m) is too low for a suggestion.</p>;
+            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Your location accuracy ({accPoor}m) is too low. Please enter your pickup address manually.</p>;
         case 'error_accuracy_moderate':
             const accMod = suggestedGpsPickup?.accuracy?.toFixed(0) || 'N/A';
-            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough for a quick suggestion. Please type address or try again.</p>;
+            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. Please enter your pickup address manually.</p>;
         case 'error_geocoding':
-            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find address for your current location. Please enter manually.</p>;
-        case 'success': // If alert was dismissed, this feedback might show. Or if GPS used successfully, then user types.
-             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) {
+            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. Please enter your pickup address manually.</p>;
+        case 'success':
+             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) { // This message only shows if alert was dismissed *after* applying
                 return <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" />GPS location was used for pickup.</p>;
              }
             return null;
@@ -1843,3 +1841,4 @@ export default function BookRidePage() {
     </div>
   );
 }
+
