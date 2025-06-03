@@ -19,16 +19,17 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 
 const defaultUKCenterGoogle: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
 const mockFleetMarkersData = [
-    { position: [51.51, -0.10] as [number, number], popupText: "Driver 1 (John D) - Active" },
-    { position: [51.50, -0.13] as [number, number], popupText: "Driver 2 (Jane S) - Available" },
-    { position: [51.52, -0.12] as [number, number], popupText: "Driver 3 (Mike B) - On Break" },
-    { position: [51.49, -0.11] as [number, number], popupText: "Driver 4 (Sarah W) - Available" },
+    { position: {lat: 51.51, lng: -0.10}, title: "Driver 1 (John D) - Active" },
+    { position: {lat: 51.50, lng: -0.13}, title: "Driver 2 (Jane S) - Available" },
+    { position: {lat: 51.52, lng: -0.12}, title: "Driver 3 (Mike B) - On Break" },
+    { position: {lat: 51.49, lng: -0.11}, title: "Driver 4 (Sarah W) - Available" },
 ];
 
-const googleMapMarkers = mockFleetMarkersData.map(m => ({
-  position: { lat: m.position[0], lng: m.position[1] },
-  title: m.popupText
-}));
+// No longer using Leaflet markers, this is adapted for GoogleMapDisplay
+// const googleMapMarkers = mockFleetMarkersData.map(m => ({
+//   position: { lat: m.position[0], lng: m.position[1] },
+//   title: m.popupText
+// }));
 
 
 interface Ride { id: string; status: string; }
@@ -50,48 +51,62 @@ export default function OperatorDashboardPage() {
     const fetchDashboardStats = async () => {
       setIsLoadingStats(true);
       try {
-        // Fetch active rides (e.g., 'Assigned' or 'In Progress')
-        // For simplicity, we fetch a small list and use its length.
-        // A real API might provide a count directly.
         const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=50`);
         const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In%20Progress&limit=50`);
 
         if (!ridesResponseAssigned.ok || !ridesResponseInProgress.ok) {
-            if (!ridesResponseAssigned.ok) console.error("Failed to fetch assigned rides", await ridesResponseAssigned.text());
-            if (!ridesResponseInProgress.ok) console.error("Failed to fetch in-progress rides", await ridesResponseInProgress.text());
-            throw new Error('Failed to fetch ride data for dashboard');
+          let errorDetails = 'Failed to fetch ride data for dashboard.';
+          if (!ridesResponseAssigned.ok) {
+            const assignedErrorText = await ridesResponseAssigned.text();
+            console.error("Failed to fetch assigned rides", assignedErrorText);
+            try {
+              const parsedError = JSON.parse(assignedErrorText);
+              if (parsedError.message && parsedError.message.includes("Query requires a Firestore index")) {
+                errorDetails = `A Firestore index is required. Please check the browser console for a link to create it. Details: ${parsedError.details || parsedError.message}`;
+              } else {
+                errorDetails = parsedError.message || assignedErrorText;
+              }
+            } catch (e) { errorDetails = assignedErrorText; }
+          }
+          if (!ridesResponseInProgress.ok) {
+            const progressErrorText = await ridesResponseInProgress.text();
+            console.error("Failed to fetch in-progress rides", progressErrorText);
+            // Could add similar parsing for in-progress error if needed
+          }
+          throw new Error(errorDetails);
         }
         const assignedData = await ridesResponseAssigned.json();
         const inProgressData = await ridesResponseInProgress.json();
         const activeRides = (assignedData.bookings?.length || 0) + (inProgressData.bookings?.length || 0);
         setActiveRidesCount(activeRides);
 
-        // Fetch available (active) drivers
-        const availableDriversResponse = await fetch(`/api/operator/drivers?status=Active&limit=100`); // Fetch more for a better count idea
+        const availableDriversResponse = await fetch(`/api/operator/drivers?status=Active&limit=100`);
         if (!availableDriversResponse.ok) {
-            console.error("Failed to fetch available drivers", await availableDriversResponse.text());
+            const errorText = await availableDriversResponse.text();
+            console.error("Failed to fetch available drivers", errorText);
             throw new Error('Failed to fetch available drivers');
         }
         const availableDriversData = await availableDriversResponse.json();
         setAvailableDriversCount(availableDriversData.drivers?.length || 0);
 
-        // Fetch total drivers (all statuses)
-        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=100`); // Fetch more for a better count idea
+        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=100`);
         if (!totalDriversResponse.ok) {
-            console.error("Failed to fetch total drivers", await totalDriversResponse.text());
-            throw new Error(`Failed to fetch total drivers "${await totalDriversResponse.text()}"`);
+            const errorText = await totalDriversResponse.text();
+            console.error("Failed to fetch total drivers", errorText);
+            throw new Error(`Failed to fetch total drivers`);
         }
         const totalDriversData = await totalDriversResponse.json();
         setTotalDriversCount(totalDriversData.drivers?.length || 0);
 
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
+        const description = error instanceof Error ? error.message : "Could not load some dashboard statistics.";
         toast({
           title: "Error Loading Stats",
-          description: "Could not load some dashboard statistics.",
+          description: description,
           variant: "destructive",
+          duration: 10000, // Longer duration for important errors
         });
-        // Set counts to N/A on error to indicate data couldn't be fetched
         setActiveRidesCount("N/A");
         setAvailableDriversCount("N/A");
         setTotalDriversCount("N/A");
@@ -144,7 +159,7 @@ export default function OperatorDashboardPage() {
              <GoogleMapDisplay
                 center={defaultUKCenterGoogle}
                 zoom={12}
-                markers={googleMapMarkers}
+                markers={mockFleetMarkersData} // Using existing mockFleetMarkersData with adapted structure
                 className="w-full h-full"
              />
         </CardContent>
@@ -222,3 +237,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+
