@@ -1,9 +1,21 @@
 
+"use client"; // Required for using client components like GoogleMapDisplay
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, MapPin, ShieldCheck, MessagesSquare, Sparkles, Award, Users, Smartphone } from 'lucide-react';
-import Image from 'next/image';
+import { Car, MapPin, ShieldCheck, MessagesSquare, Sparkles, Award, Users, Smartphone, CheckCircle2, Smile, DollarSign as DollarSignIcon } from 'lucide-react'; // Renamed DollarSign to avoid conflict
+import Image from 'next/image'; // Keep Image for other images on page if any
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Use the new GoogleMapDisplay component
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-[400px] rounded-xl shadow-2xl mx-auto" />,
+});
+
+const defaultMapCenter: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 }; // London
 
 export default function LandingPage() {
   return (
@@ -25,15 +37,14 @@ export default function LandingPage() {
           </Button>
         </div>
         <div className="mt-12">
-          <Image
-            src="https://placehold.co/800x400.png"
-            alt="Hero image of a modern city with taxis"
-            width={800}
-            height={400}
-            className="rounded-xl shadow-2xl mx-auto"
-            data-ai-hint="local street"
-            priority
-          />
+          <div className="w-full max-w-[800px] h-[400px] rounded-xl shadow-2xl mx-auto overflow-hidden border border-muted">
+            <GoogleMapDisplay
+              center={defaultMapCenter}
+              zoom={12}
+              // markers={[{ position: defaultMapCenter, title: "Link Cabs HQ" }]} // Optional: Add a marker
+              className="w-full h-full"
+            />
+          </div>
         </div>
       </section>
 
@@ -70,7 +81,7 @@ export default function LandingPage() {
             description="Easily communicate with your driver for smooth pickups and coordination."
           />
           <FeatureCard
-            icon={DollarSign}
+            icon={DollarSignIcon} // Using the renamed import
             title="Transparent Pricing"
             description="Know your fare estimate upfront. No hidden charges, just fair pricing."
           />
@@ -156,22 +167,3 @@ function StepCard({ step, title, description, icon: Icon }: StepCardProps) {
     </div>
   );
 }
-
-// Dummy icons if not available in lucide-react, replace with actual or SVGs
-const DollarSign = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-  </svg>
-);
-const CheckCircle2 = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-  </svg>
-);
-
-const Smile = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-  </svg>
-);
-
