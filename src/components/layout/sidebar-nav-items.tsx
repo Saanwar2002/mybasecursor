@@ -20,7 +20,6 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/track-ride', label: 'Track Ride', icon: MapPin, roles: ['passenger'] },
   { href: '/dashboard/favorites', label: 'Favorites', icon: Star, roles: ['passenger'] },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle, roles: ['passenger'] },
-  { href: '/dashboard/test-booking-parser', label: 'Test AI Parser', icon: Bot, roles: ['passenger'] }, // New Test Page
   
   // Driver
   { href: '/driver', label: 'Driver Dashboard', icon: LayoutDashboard, roles: ['driver'] },
