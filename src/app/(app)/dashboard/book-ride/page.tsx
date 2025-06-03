@@ -211,7 +211,7 @@ export default function BookRidePage() {
     const loader = new Loader({
       apiKey: apiKey,
       version: "weekly",
-      libraries: ["places", "marker"],
+      libraries: ["places", "marker", "maps"],
     });
 
     loader.load().then((google) => {
