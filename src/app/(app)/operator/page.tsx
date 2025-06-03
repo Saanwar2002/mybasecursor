@@ -19,10 +19,10 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 
 const defaultUKCenterGoogle: google.maps.LatLngLiteral = { lat: 51.5074, lng: -0.1278 };
 const mockFleetMarkersData = [
-    { position: {lat: 51.51, lng: -0.10}, title: "Driver 1 (John D) - Active" },
-    { position: {lat: 51.50, lng: -0.13}, title: "Driver 2 (Jane S) - Available" },
-    { position: {lat: 51.52, lng: -0.12}, title: "Driver 3 (Mike B) - On Break" },
-    { position: {lat: 51.49, lng: -0.11}, title: "Driver 4 (Sarah W) - Available" },
+    { position: {lat: 51.51, lng: -0.10}, title: "Driver 1 (John D) - Active" , iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 51.50, lng: -0.13}, title: "Driver 2 (Jane S) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 51.52, lng: -0.12}, title: "Driver 3 (Mike B) - On Break", iconUrl: "/icons/busy-taxi.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 51.49, lng: -0.11}, title: "Driver 4 (Sarah W) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
 ];
 
 interface Ride { id: string; status: string; }
@@ -45,9 +45,9 @@ export default function OperatorDashboardPage() {
       setIsLoadingStats(true);
       try {
         // Fetch assigned rides
-        const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=500`); // Fetch more to count
+        const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=100`); 
         // Fetch in-progress rides
-        const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In%20Progress&limit=500`); // Fetch more to count
+        const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In%20Progress&limit=100`);
 
         let assignedErrorText = "";
         let inProgressErrorText = "";
@@ -63,10 +63,10 @@ export default function OperatorDashboardPage() {
 
         if (!ridesResponseAssigned.ok || !ridesResponseInProgress.ok) {
             let errorDetails = 'Failed to fetch ride data for dashboard.';
-            if (assignedErrorText.includes("Query requires a Firestore index")) {
-                 errorDetails = `A Firestore index is required for bookings (status, bookingTimestamp). Please check the browser console for a link to create it. Error: ${assignedErrorText}`;
-            } else if (inProgressErrorText.includes("Query requires a Firestore index")) {
-                 errorDetails = `A Firestore index is required for bookings (status, bookingTimestamp). Please check the browser console for a link to create it. Error: ${inProgressErrorText}`;
+            if (assignedErrorText.includes("Query requires a Firestore index") || assignedErrorText.includes("Invalid query parameters")) {
+                 errorDetails = `Error fetching assigned rides: ${assignedErrorText}`;
+            } else if (inProgressErrorText.includes("Query requires a Firestore index") || inProgressErrorText.includes("Invalid query parameters")) {
+                 errorDetails = `Error fetching in-progress rides: ${inProgressErrorText}`;
             }
             throw new Error(errorDetails);
         }
@@ -77,13 +77,13 @@ export default function OperatorDashboardPage() {
         setActiveRidesCount(activeRides);
 
         // Fetch available drivers
-        const availableDriversResponse = await fetch(`/api/operator/drivers?status=Active&limit=500`); // Fetch more to count
+        const availableDriversResponse = await fetch(`/api/operator/drivers?status=Active&limit=100`); 
         if (!availableDriversResponse.ok) {
             const errorText = await availableDriversResponse.text();
             console.error("Failed to fetch available drivers", errorText);
             let errorDetails = 'Failed to fetch available drivers.';
-            if (errorText.includes("Query requires a Firestore index")) {
-                errorDetails = `A Firestore index is required for users (role, status, name). Please check the browser console for a link to create it. Error: ${errorText}`;
+            if (errorText.includes("Query requires a Firestore index") || errorText.includes("Invalid query parameters")) {
+                errorDetails = `Error fetching available drivers: ${errorText}`;
             }
             throw new Error(errorDetails);
         }
@@ -91,13 +91,13 @@ export default function OperatorDashboardPage() {
         setAvailableDriversCount(availableDriversData.drivers?.length || 0);
 
         // Fetch total drivers
-        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=500`); // Fetch more to count
+        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=100`); 
         if (!totalDriversResponse.ok) {
             const errorText = await totalDriversResponse.text();
             console.error("Failed to fetch total drivers", errorText);
             let errorDetails = 'Failed to fetch total drivers.';
-             if (errorText.includes("Query requires a Firestore index")) { // Less likely for a simple limit query but good practice
-                errorDetails = `A Firestore index might be required for fetching total drivers. Please check the browser console for details. Error: ${errorText}`;
+             if (errorText.includes("Query requires a Firestore index") || errorText.includes("Invalid query parameters")) { 
+                errorDetails = `Error fetching total drivers: ${errorText}`;
             }
             throw new Error(errorDetails);
         }
