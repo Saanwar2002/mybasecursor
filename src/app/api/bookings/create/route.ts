@@ -24,7 +24,7 @@ interface BookingPayload {
 }
 
 export async function POST(request: NextRequest) {
-  try {
+  try { // Top-level try
     const bookingData = (await request.json()) as BookingPayload;
 
     // Basic validation (more robust validation should be done with Zod or similar)
@@ -69,12 +69,18 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ message: 'Booking created successfully', bookingId: docRef.id, data: newBooking }, { status: 201 });
 
-  } catch (error) {
-    console.error('Error creating booking:', error);
+  } catch (error) { // Top-level catch
+    console.error('Error creating booking (API Route):', error);
     let errorMessage = 'Internal Server Error';
+    let errorDetails = '';
     if (error instanceof Error) {
         errorMessage = error.message;
+        errorDetails = error.toString();
+    } else if (typeof error === 'string') {
+        errorMessage = error;
+        errorDetails = error;
     }
-    return NextResponse.json({ message: 'Failed to create booking', details: errorMessage }, { status: 500 });
+    // Ensure a JSON response is sent
+    return NextResponse.json({ message: 'Failed to create booking', details: errorMessage, errorRaw: errorDetails }, { status: 500 });
   }
 }
