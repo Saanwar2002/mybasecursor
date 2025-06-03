@@ -1088,16 +1088,18 @@ export default function BookRidePage() {
                       <FormItem>
                         <div className="flex items-center justify-between">
                           <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                          <Button 
-                            type="button" 
-                            variant={isListening ? "destructive" : "outline"} 
-                            size="icon" 
-                            onClick={handleMicListen}
-                            className="h-8 w-8"
-                            aria-label={isListening ? "Stop listening" : "Start listening for voice input"}
-                          >
-                            <Mic className={cn("h-4 w-4", isListening && "animate-pulse text-destructive-foreground")} />
-                          </Button>
+                          <div className="p-1 bg-accent/20 rounded-md shadow-sm">
+                            <Button 
+                              type="button" 
+                              variant={isListening ? "destructive" : "ghost"} 
+                              size="icon" 
+                              onClick={handleMicListen}
+                              className={cn("h-8 w-8", isListening ? "text-destructive-foreground" : "text-accent-foreground hover:bg-accent/30")}
+                              aria-label={isListening ? "Stop listening" : "Start listening for voice input"}
+                            >
+                              <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />
+                            </Button>
+                          </div>
                         </div>
                         <div className="relative flex items-center">
                           <FormControl>
@@ -1448,4 +1450,3 @@ export default function BookRidePage() {
     </div>
   );
 }
-
