@@ -1097,7 +1097,7 @@ export default function BookRidePage() {
                                onFocus={handleFocusFactory('dropoffLocation')}
                                onBlur={handleBlurFactory('dropoffLocation')}
                               autoComplete="off"
-                              className="pr-10 border-destructive"
+                              className="pr-10"
                             />
                           </FormControl>
                            {renderFavoriteLocationsPopover(handleFavoriteSelectFactory('dropoffLocation', field.onChange), "dropoff")}
