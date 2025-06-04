@@ -548,14 +548,24 @@ export default function AvailableRidesPage() {
 
   // This is the "no active ride" / "awaiting offers" view
   return (
-    <div className="flex flex-col h-full">
-      <Card className="rounded-xl shadow-lg bg-card p-3 mb-2 shrink-0">
+    <div className="relative h-full">
+      <div className="absolute inset-0 z-0 rounded-xl overflow-hidden">
+        <GoogleMapDisplay
+            center={driverLocation}
+            zoom={15}
+            markers={mapMarkers}
+            className="w-full h-full"
+            disableDefaultUI={true}
+            fitBoundsToMarkers={false} 
+        />
+      </div>
+      <Card className="absolute bottom-4 left-4 right-4 z-10 rounded-xl shadow-2xl bg-card flex flex-col p-3">
         <CardHeader className="p-0 text-center border-b pb-2 mb-2">
           <CardTitle className="text-lg font-semibold">
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 flex flex-col items-center justify-center gap-2">
+        <CardContent className="p-0 flex flex-col items-center justify-center gap-2 flex-grow">
           {isDriverOnline ? (
             <>
               {geolocationError ? (
@@ -574,7 +584,7 @@ export default function AvailableRidesPage() {
           ) : (
             <Power className="h-10 w-10 text-muted-foreground" />
           )}
-           <div className="flex items-center space-x-2">
+           <div className="flex items-center space-x-2 pt-1">
             <Switch
               id="online-status-toggle"
               checked={isDriverOnline}
@@ -585,22 +595,11 @@ export default function AvailableRidesPage() {
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button variant="outline" onClick={handleSimulateOffer} className="text-sm h-8 px-3 py-1">
+          <Button variant="outline" onClick={handleSimulateOffer} className="text-sm h-8 px-3 py-1 mt-1">
             Simulate Incoming Offer
           </Button>
         </CardContent>
       </Card>
-      
-      <div className="flex-1 w-full relative rounded-xl overflow-hidden">
-        <GoogleMapDisplay
-            center={driverLocation}
-            zoom={15}
-            markers={mapMarkers}
-            className="w-full h-full"
-            disableDefaultUI={true}
-            fitBoundsToMarkers={false} 
-        />
-      </div>
       <RideOfferModal
         isOpen={isOfferModalOpen}
         onClose={() => setIsOfferModalOpen(false)}
