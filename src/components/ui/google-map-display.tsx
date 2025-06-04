@@ -19,8 +19,8 @@ interface GoogleMapDisplayProps {
   className?: string;
   style?: React.CSSProperties;
   mapId?: string;
-  disableDefaultUI?: boolean; // Added this prop
-  fitBoundsToMarkers?: boolean; // Added this prop
+  disableDefaultUI?: boolean;
+  fitBoundsToMarkers?: boolean;
 }
 
 const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
@@ -30,8 +30,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   className,
   style: propStyle,
   mapId: mapIdProp,
-  disableDefaultUI = false, // Default to false if not provided
-  fitBoundsToMarkers = false, // Default to false
+  disableDefaultUI = false,
+  fitBoundsToMarkers = false,
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -39,7 +39,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   const [isSdkLoaded, setIsSdkLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  const defaultStyle = useMemo(() => ({ height: '100%', width: '100%', minHeight: '200px' }), []); // Reduced minHeight for modal
+  const defaultStyle = useMemo(() => ({ height: '100%', width: '100%', minHeight: '200px' }), []);
   const mapStyle = propStyle ? { ...defaultStyle, ...propStyle } : defaultStyle;
 
   useEffect(() => {
@@ -81,23 +81,34 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isSdkLoaded || !mapRef.current || !google.maps) { // Added google.maps check
+    if (!isSdkLoaded || !mapRef.current || !google.maps) { 
       return;
     }
 
-    if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
-      mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+    const mapOptions: google.maps.MapOptions = {
         center,
         zoom,
         mapId: mapIdProp,
         disableDefaultUI: disableDefaultUI,
-        mapTypeControl: !disableDefaultUI, // Explicitly show/hide if default UI is not disabled
+        mapTypeControl: !disableDefaultUI,
         zoomControl: !disableDefaultUI,
         streetViewControl: !disableDefaultUI,
         fullscreenControl: !disableDefaultUI,
-      });
+      };
+
+    if (disableDefaultUI) {
+        mapOptions.mapTypeControl = false;
+        mapOptions.zoomControl = false;
+        mapOptions.streetViewControl = false;
+        mapOptions.fullscreenControl = false;
+    }
+
+
+    if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
+      mapInstanceRef.current = new google.maps.Map(mapRef.current, mapOptions);
     } else if (mapInstanceRef.current) {
-      // Update center and zoom only if not fitting bounds or if they explicitly change
+      mapInstanceRef.current.setOptions(mapOptions); // Apply new options including disableDefaultUI
+
       if (!fitBoundsToMarkers || !markers || markers.length < 1) {
         const currentMapCenter = mapInstanceRef.current.getCenter();
         if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
@@ -109,11 +120,9 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     }
 
-    // Clear existing markers
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
-    // Add new markers
     if (markers && markers.length > 0 && mapInstanceRef.current && google.maps && google.maps.Marker && google.maps.LatLngBounds) {
       const bounds = new google.maps.LatLngBounds();
       markers.forEach(markerData => {
@@ -138,17 +147,15 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         }
       });
 
-      // Fit bounds if requested and markers exist
       if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
         if (markers.length === 1) {
             mapInstanceRef.current.setCenter(bounds.getCenter());
-            mapInstanceRef.current.setZoom(zoom); // Use default zoom for single marker
+            mapInstanceRef.current.setZoom(zoom); 
         } else {
-            mapInstanceRef.current.fitBounds(bounds, 60); // 60px padding
+            mapInstanceRef.current.fitBounds(bounds, 60);
         }
       }
     } else if (mapInstanceRef.current && (!markers || markers.length === 0)) {
-      // No markers, just use center and zoom if not fitting bounds
        const currentMapCenter = mapInstanceRef.current.getCenter();
         if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
           mapInstanceRef.current.setCenter(center);
@@ -158,14 +165,12 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         }
     }
 
-
   }, [isSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers]);
 
   useEffect(() => {
     return () => {
       currentMarkersRef.current.forEach(marker => marker.setMap(null));
       currentMarkersRef.current = [];
-      // mapInstanceRef.current = null; // Avoid destroying map instance on every re-render unless necessary
     };
   }, []);
 

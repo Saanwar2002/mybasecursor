@@ -1,6 +1,6 @@
 
 "use client";
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle } from "lucide-react";
@@ -30,8 +30,8 @@ interface RideRequest {
   estimatedTime: string; 
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'completed' | 'cancelled_by_driver';
-  pickupCoords?: { lat: number; lng: number }; // Changed from [number, number]
-  dropoffCoords?: { lat: number; lng: number }; // Changed from [number, number]
+  pickupCoords?: { lat: number; lng: number };
+  dropoffCoords?: { lat: number; lng: number };
   distanceMiles?: number; 
   passengerCount: number;
   passengerPhone?: string;
@@ -194,8 +194,6 @@ export default function AvailableRidesPage() {
             toastMessage = `Ride request from ${rideDisplayName} accepted.`;
             setRideRequests(prev => prev.map(r => {
                 if (r.id === rideId) return { ...r, status: newStatus! };
-                // If this ride was a pending one, others should probably be removed or their status updated
-                // For now, just update the accepted one
                 return r;
             }));
             break;
@@ -207,7 +205,6 @@ export default function AvailableRidesPage() {
                     setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
                 }
             } else {
-                // This case might not be reachable if "decline" only applies to pending offers
                 newStatus = 'declined'; 
                 apiAction = undefined;
                 toastTitle = "Ride Declined";
@@ -238,7 +235,7 @@ export default function AvailableRidesPage() {
             apiAction = undefined; 
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
-            setRideRequests(prev => prev.filter(r => r.id !== rideId)); // Remove from local state
+            setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
             break;
     }
     
@@ -252,10 +249,8 @@ export default function AvailableRidesPage() {
                 if (actionType === 'accept' && driverUser) {
                     payload.driverId = driverUser.id;
                     payload.driverName = driverUser.name;
-                    // payload.driverAvatar = driverUser.avatarUrl; // If avatar is stored in user context
                 }
             } else {
-                // No actual update to send to backend, likely a local-only change (e.g. mock decline)
                 setActionLoading(prev => ({ ...prev, [rideId]: false }));
                 return;
             }
@@ -268,9 +263,9 @@ export default function AvailableRidesPage() {
 
              if (!response.ok) {
                 let apiErrorMessage = `Failed to update ride status (Status: ${response.status}).`;
-                const responseText = await response.text(); // Read text first
+                const responseText = await response.text();
                 try {
-                    const errorData = JSON.parse(responseText); // Then try to parse
+                    const errorData = JSON.parse(responseText);
                     console.error(`API Error for ride ${rideId}, action ${actionType}:`, errorData);
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
@@ -308,15 +303,12 @@ export default function AvailableRidesPage() {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     } else if (rideId === 'mock-offer-123' && (actionType === 'accept' || actionType === 'decline')) {
-        // Handle mock offer specific toasts/logic if different from backend interaction
         toast({ title: toastTitle, description: toastMessage });
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
     } else {
-        // If no newStatus or apiAction AND it's not a mock offer (e.g. decline of non-pending, cancel_active where local state is already updated)
-        if (actionType !== 'decline' && actionType !== 'cancel_active') { // Or specific conditions where no backend call is expected after local update
+        if (actionType !== 'decline' && actionType !== 'cancel_active') { 
              setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
-        // If it's a decline of a non-pending mock offer or a cancel_active, actionLoading should be set to false earlier or handled by the final catch-all
     }
   };
 
@@ -325,7 +317,6 @@ export default function AvailableRidesPage() {
   const handleCallCustomer = (phoneNumber?: string) => {
     if (phoneNumber) {
       toast({ title: "Calling Customer", description: `Initiating call to ${phoneNumber}... (Demo)`});
-      // window.location.href = `tel:${phoneNumber}`;
     } else {
       toast({ title: "Call Not Available", description: "Customer phone number not provided.", variant: "default"});
     }
@@ -352,7 +343,7 @@ export default function AvailableRidesPage() {
 
   const getMapMarkersForActiveRide = () => {
     const markers = [];
-     if (isDriverOnline && driverLocation) {
+     if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
         markers.push({ 
             position: driverLocation, 
             title: "Your Current Location",
@@ -394,7 +385,6 @@ export default function AvailableRidesPage() {
   const handleNavigate = (locationName: string, coords?: {lat: number, lng: number}) => {
       if(coords) {
         toast({title: "Navigation Started (Demo)", description: `Navigating to ${locationName} at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`});
-        // In a real app: window.open(`https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`);
       } else {
         toast({title: "Navigation Error", description: `Coordinates for ${locationName} not available.` , variant: "destructive"});
       }
@@ -455,6 +445,8 @@ export default function AvailableRidesPage() {
                     zoom={15}
                     markers={getMapMarkersForActiveRide()}
                     className="w-full h-full"
+                    disableDefaultUI={true} 
+                    fitBoundsToMarkers={true}
                  />
               </div>
             </div>
@@ -525,6 +517,7 @@ export default function AvailableRidesPage() {
             zoom={15}
             markers={mapMarkers}
             className="w-full h-full"
+            disableDefaultUI={true}
         />
       </div>
       <Card className="h-[25vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
@@ -565,7 +558,7 @@ export default function AvailableRidesPage() {
             </Label>
           </div>
           <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-1 text-xs">
-            Simulate Incoming Offer (Test)
+            Simulate Incoming Ride Offer (Test)
           </Button>
         </CardContent>
       </Card>
@@ -580,3 +573,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
