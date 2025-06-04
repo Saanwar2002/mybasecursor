@@ -206,6 +206,7 @@ export default function BookRidePage() {
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -1788,7 +1789,7 @@ const handleProceedToConfirmation = async () => {
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
                             <FormLabel className="flex items-center gap-1"><CalendarIcon className="w-4 h-4 text-muted-foreground" /> Desired Pickup Date</FormLabel>
-                            <Popover>
+                             <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                               <PopoverTrigger asChild>
                                 <FormControl>
                                   <Button
@@ -1813,6 +1814,7 @@ const handleProceedToConfirmation = async () => {
                                   selected={field.value}
                                   onSelect={(date) => {
                                     field.onChange(date);
+                                    setIsDatePickerOpen(false);
                                   }}
                                   disabled={(date) =>
                                     date < new Date(new Date().setHours(0,0,0,0))
@@ -2085,3 +2087,4 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
+
