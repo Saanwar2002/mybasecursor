@@ -199,6 +199,7 @@ export default function BookRidePage() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
+  const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ pickupLocation: string } | null>(null);
 
   const [suggestedGpsPickup, setSuggestedGpsPickup] = useState<{ address: string, coords: google.maps.LatLngLiteral, accuracy: number } | null>(null);
   const [geolocationFetchStatus, setGeolocationFetchStatus] = useState<GeolocationFetchStatus>("idle");
@@ -875,7 +876,7 @@ export default function BookRidePage() {
       fareEstimate: fareEstimate,
       isSurgeApplied: isSurgeActive, 
       surgeMultiplier: currentSurgeMultiplier, 
-      stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
+      stopSurchargeTotal: validStopsForFare.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
       driverNotes: values.driverNotes,
       promoCode: values.promoCode,
@@ -1892,7 +1893,7 @@ const handleProceedToConfirmation = async () => {
                           Please review your ride details and confirm payment.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-4 py-4"> {/* Removed px-1 and ScrollArea */}
+                      <div className="space-y-4 py-4 overflow-y-auto">
                         <Card className="w-full text-center shadow-md">
                           <CardHeader>
                             <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
@@ -1918,7 +1919,7 @@ const handleProceedToConfirmation = async () => {
                             ) : (
                               <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                             )}
-                            <p className="text-sm text-muted-foreground mt-3">
+                            <p className="text-sm text-muted-foreground mt-1">
                               Estimates may vary based on real-time conditions.
                             </p>
                           </CardContent>
