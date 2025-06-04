@@ -399,15 +399,24 @@ export default function BookRidePage() {
     setIsLoadingSavedRoutes(true);
     try {
       const response = await fetch(`/api/users/saved-routes/list?userId=${user.id}`);
-      if (!response.ok) throw new Error("Failed to fetch saved routes");
+      if (!response.ok) {
+        let errorMsg = "Failed to fetch saved routes.";
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.details || errorData.message || errorMsg;
+        } catch (e) { /* Ignore if response body is not JSON */ }
+        throw new Error(errorMsg);
+      }
       const data: SavedRoute[] = await response.json();
       setSavedRoutes(data);
     } catch (err) {
-      toast({ title: "Error", description: "Could not load saved routes.", variant: "destructive" });
+      const description = err instanceof Error ? err.message : "Could not load saved routes.";
+      toast({ title: "Error", description, variant: "destructive", duration: 7000 });
     } finally {
       setIsLoadingSavedRoutes(false);
     }
   }, [user, toast]);
+
 
   useEffect(() => {
     fetchUserFavoriteLocations();
@@ -1893,8 +1902,8 @@ const handleProceedToConfirmation = async () => {
                           Please review your ride details and confirm payment.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-4 py-4 overflow-y-auto">
-                        <Card className="w-full text-center shadow-md">
+                      <div className="py-4 overflow-y-auto"> {/* Removed ScrollArea from here */}
+                        <Card className="w-full text-center shadow-md mb-4"> {/* Added mb-4 */}
                           <CardHeader className="p-3">
                             <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
                               <DollarSign className="w-5 h-5 text-accent" /> Fare Estimate

@@ -76,7 +76,12 @@ export async function GET(request: NextRequest) {
         errorMessage = error.message;
         const firebaseError = error as any; 
         if (firebaseError.code === 'failed-precondition' && firebaseError.message.toLowerCase().includes('index')) {
-             errorDetails = `The query requires an index. Firestore query failed. This often indicates a missing composite index. Firestore error code: ${firebaseError.code || 'N/A'}. Details: ${firebaseError.message}`;
+             // More specific message if it's a known index issue
+             errorDetails = `Firestore query failed. This often indicates a missing composite index for the 'savedRoutes' collection on 'userId' and 'createdAt'. Please check the server-side logs for a Firestore error message, which may include a URL to create the required index. Firestore error code: ${firebaseError.code || 'N/A'}. Details: ${firebaseError.message}`;
+             return NextResponse.json({
+                message: 'Failed to retrieve saved routes due to a database configuration issue.',
+                details: errorDetails
+             }, { status: 500 });
         } else {
             errorDetails = error.toString();
         }
@@ -88,3 +93,4 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
