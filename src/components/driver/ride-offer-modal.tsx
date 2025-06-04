@@ -203,15 +203,15 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </ScrollArea>
 
-        <div className="px-4 py-1 space-y-1 border-t border-border shrink-0">
+        <div className="px-4 py-0.5 border-t border-border shrink-0">
             <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} className="h-2" />
         </div>
 
         <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0">
-          <Button variant="destructive" onClick={handleDecline} size="sm" className="py-1 h-8"> {/* Adjusted size and padding */}
+          <Button variant="destructive" onClick={handleDecline} size="sm" className="py-1 h-8">
             Decline
           </Button>
-          <Button variant="default" onClick={handleAccept} size="sm" className="bg-green-600 hover:bg-green-700 text-white py-1 h-8"> {/* Adjusted size and padding */}
+          <Button variant="default" onClick={handleAccept} size="sm" className="bg-green-600 hover:bg-green-700 text-white py-1 h-8">
             Accept Ride
           </Button>
         </DialogFooter>
@@ -219,3 +219,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
