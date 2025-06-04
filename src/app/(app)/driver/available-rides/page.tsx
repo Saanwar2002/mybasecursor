@@ -139,31 +139,32 @@ export default function AvailableRidesPage() {
             });
 
             if (!response.ok) {
-                let apiErrorMessage = `Server responded with status ${response.status} (${response.statusText}).`;
-                let responseBodyText = "";
+                let apiErrorMessage = `Failed to update ride status on server (Status: ${response.status}).`;
                 try {
-                    responseBodyText = await response.text(); // Try to get raw text first
-                    console.log(`Raw error response body for ride ${rideId}, action ${actionType}:`, responseBodyText);
-                    const errorData = JSON.parse(responseBodyText); // Then attempt to parse as JSON
+                    const errorData = await response.json();
+                    console.error(`API Error for ride ${rideId}, action ${actionType}:`, errorData);
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
-                    // If JSON.parse fails, use the raw text if available, or a fallback
-                    apiErrorMessage = `Status: ${response.status}. Body: ${responseBodyText.substring(0, 200) || "Response body not readable or not JSON."}`;
+                    const responseText = await response.text();
                     console.warn(`API response for ride ${rideId} (status ${response.status}) not valid JSON or error parsing it:`, parseError);
+                    console.log("Raw error response body:", responseText);
+                    apiErrorMessage = `Status: ${response.status}. Body: ${responseText.substring(0,200)}`;
                 }
                 throw new Error(apiErrorMessage);
             }
 
-             const updatedBooking = await response.json();
+             const updatedBookingData = await response.json();
+             const updatedBooking = updatedBookingData.booking; // API returns { message, booking }
             
             setRideRequests(prevRequests =>
                 prevRequests.map(req => {
                     if (req.id === rideId) {
-                        const updatedReq: RideRequest = { ...req, status: updatedBooking.booking.status };
-                        if (actionType === 'notify_arrival') {
-                            updatedReq.notifiedPassengerArrivalTimestamp = updatedBooking.booking.notifiedPassengerArrivalTimestamp?._seconds 
-                                ? new Date(updatedBooking.booking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString() 
-                                : new Date().toISOString();
+                        const updatedReq: RideRequest = { ...req, status: updatedBooking.status };
+                        if (updatedBooking.notifiedPassengerArrivalTimestamp) {
+                            updatedReq.notifiedPassengerArrivalTimestamp = new Date(updatedBooking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString();
+                        }
+                        if (updatedBooking.passengerAcknowledgedArrivalTimestamp) {
+                           updatedReq.passengerAcknowledgedArrivalTimestamp = new Date(updatedBooking.passengerAcknowledgedArrivalTimestamp._seconds * 1000).toISOString();
                         }
                         return updatedReq;
                     }
@@ -230,7 +231,8 @@ export default function AvailableRidesPage() {
         title: `Dropoff: ${activeRide.dropoffLocation}`, label: 'D'
       });
     }
-    markers.push({ position: driverLocation, title: "Your Location", iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} });
+    // Remove custom icon to avoid 404 if image not in public/icons
+    markers.push({ position: driverLocation, title: "Your Location" /* iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} */ });
     return markers;
   };
 
@@ -432,4 +434,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-

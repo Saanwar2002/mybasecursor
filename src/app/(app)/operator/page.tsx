@@ -19,10 +19,10 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 const mockFleetMarkersData = [
-    { position: {lat: 53.6480, lng: -1.7800}, title: "Driver 1 (John D) - Active" , iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} },
-    { position: {lat: 53.6420, lng: -1.7850}, title: "Driver 2 (Jane S) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
-    { position: {lat: 53.6500, lng: -1.7750}, title: "Driver 3 (Mike B) - On Break", iconUrl: "/icons/busy-taxi.png", iconScaledSize: {width: 32, height: 32} },
-    { position: {lat: 53.6400, lng: -1.7900}, title: "Driver 4 (Sarah W) - Available", iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} },
+    { position: {lat: 53.6480, lng: -1.7800}, title: "Driver 1 (John D) - Active" /* iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} */ },
+    { position: {lat: 53.6420, lng: -1.7850}, title: "Driver 2 (Jane S) - Available" /* iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} */ },
+    { position: {lat: 53.6500, lng: -1.7750}, title: "Driver 3 (Mike B) - On Break" /* iconUrl: "/icons/busy-taxi.png", iconScaledSize: {width: 32, height: 32} */ },
+    { position: {lat: 53.6400, lng: -1.7900}, title: "Driver 4 (Sarah W) - Available" /* iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} */ },
 ];
 
 interface Ride { id: string; status: string; }
@@ -243,4 +243,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
-
