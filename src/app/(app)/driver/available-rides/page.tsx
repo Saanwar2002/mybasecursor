@@ -281,13 +281,14 @@ export default function AvailableRidesPage() {
                 let descriptiveError = `Failed to update ride (Status: ${response.status}).`;
                 try {
                     const responseBodyText = await response.text();
+                    console.log("handleRideAction API error raw response text:", responseBodyText);
                     if (responseBodyText.trim() !== "") {
                         try {
                             const errorData = JSON.parse(responseBodyText);
                             if(errorData.message) descriptiveError = `Server: ${errorData.message}`;
                             if(errorData.details) descriptiveError += ` Details: ${errorData.details}.`;
                         } catch (jsonParseError) { 
-                            descriptiveError += ` Raw response: ${responseBodyText.substring(0,100)}${responseBodyText.length > 100 ? '...' : ''}`;
+                            descriptiveError += ` Raw response snippet: ${responseBodyText.substring(0,150)}${responseBodyText.length > 150 ? '...' : ''}`;
                         }
                     } else {
                        descriptiveError += " Server returned an empty error response.";
@@ -295,7 +296,7 @@ export default function AvailableRidesPage() {
                 } catch (readError) {
                      descriptiveError += " Could not read server response body.";
                 }
-                console.error("handleRideAction API error response:", {status: response.status, statusText: response.statusText, headers: Object.fromEntries(response.headers.entries())}, "Constructed error:", descriptiveError);
+                console.error("handleRideAction API error response details:", {status: response.status, statusText: response.statusText, headers: Object.fromEntries(response.headers.entries())}, "Constructed error:", descriptiveError);
                 throw new Error(descriptiveError);
             }
             const updatedBookingData = await response.json();
@@ -489,16 +490,27 @@ export default function AvailableRidesPage() {
                   )}>
                   <MapPin className={cn(
                       "w-4 h-4 mt-0.5 shrink-0", 
-                      showInProgressStatus ? "text-muted-foreground opacity-60" : "text-green-500"
+                      showInProgressStatus ? "text-muted-foreground" : "text-green-500"
                     )} /> 
-                  <strong>Pickup:</strong> {activeRide.pickupLocation}
+                  <span><strong>Pickup:</strong> {activeRide.pickupLocation}</span>
                 </p>
-              <p className="flex items-start gap-1.5">
-                <MapPin className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" /> 
-                <strong>Dropoff:</strong> {activeRide.dropoffLocation}
+              <p className={cn(
+                  "flex items-start gap-1.5",
+                  showDriverAssignedStatus && "opacity-60" 
+                )}>
+                <MapPin className={cn(
+                    "w-4 h-4 mt-0.5 shrink-0", 
+                    showDriverAssignedStatus ? "text-muted-foreground" : "text-orange-500"
+                  )} /> 
+                <span className={cn(showDriverAssignedStatus && "text-muted-foreground")}>
+                  <strong>Dropoff:</strong> {activeRide.dropoffLocation}
+                </span>
               </p>
               {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => (
-                <p key={index} className="flex items-start gap-1.5 pl-5"><Route className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p>
+                <p key={index} className={cn("flex items-start gap-1.5 pl-5", showDriverAssignedStatus && "text-muted-foreground opacity-60")}>
+                  <Route className={cn("w-4 h-4 mt-0.5 shrink-0", showDriverAssignedStatus ? "text-muted-foreground" : "text-muted-foreground")} /> 
+                  <strong>Stop {index + 1}:</strong> {stop.address}
+                </p>
               ))}
               <div className="grid grid-cols-2 gap-1 pt-1">
                   <p className="flex items-center gap-1"><DollarSignIcon className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{activeRide.fareEstimate.toFixed(2)}</p>
