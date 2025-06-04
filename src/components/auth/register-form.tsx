@@ -29,10 +29,10 @@ import {
   ConfirmationResult,
   User as FirebaseUser,
   updateProfile as updateFirebaseUserProfile,
-  linkWithCredential, // Added this import
+  linkWithCredential,
 } from "firebase/auth";
-import { auth, db } from "@/lib/firebase"; // Corrected import path
-import { doc, setDoc, serverTimestamp, updateDoc, Timestamp, getDoc } from "firebase/firestore"; // Added getDoc
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc, serverTimestamp, updateDoc, Timestamp, getDoc } from "firebase/firestore";
 
 const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
@@ -68,7 +68,7 @@ const formSchema = z.object({
 
 type RegistrationStep = 'initial' | 'verifyingPhone';
 
-interface User { // Copied from AuthContext for local use if needed, or ensure it's imported/shared
+interface User {
   id: string;
   email: string;
   name: string;
@@ -76,8 +76,8 @@ interface User { // Copied from AuthContext for local use if needed, or ensure i
   vehicleCategory?: string;
   phoneNumber?: string | null;
   phoneVerified?: boolean;
-  phoneVerificationDeadline?: Timestamp | string | null; // Added for context update
-  status?: 'Active' | 'Pending Approval' | 'Suspended'; // Added for context update
+  phoneVerificationDeadline?: Timestamp | string | null;
+  status?: 'Active' | 'Pending Approval' | 'Suspended';
 }
 
 
@@ -108,15 +108,11 @@ export function RegisterForm() {
   const watchedRole = form.watch("role");
 
   useEffect(() => {
-    console.log("RegisterForm mounted. Firebase auth:", auth);
-    console.log("RegisterForm mounted. Firebase db:", db);
     if (auth && recaptchaContainerRef.current && !recaptchaVerifierRef.current && registrationStep === 'initial') {
       try {
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
           'size': 'invisible',
-          'callback': (response: any) => {
-            // reCAPTCHA solved, allow signInWithPhoneNumber.
-          },
+          'callback': (response: any) => {},
           'expired-callback': () => {
             toast({ title: "reCAPTCHA Expired", description: "Please try sending the code again.", variant: "default"});
              if (recaptchaVerifierRef.current) {
@@ -144,10 +140,9 @@ export function RegisterForm() {
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("RegisterForm onSubmit: Firebase auth:", auth);
-    console.log("RegisterForm onSubmit: Firebase db:", db);
     if (!auth || !db) {
-      toast({ title: "Registration Error", description: "Firebase services not initialized. Please check server logs (terminal) and environment variable configuration in your project.", variant: "destructive", duration: 7000 });
+      toast({ title: "Registration Error", description: "Firebase services not initialized. Please check server logs (terminal) and browser console for Firebase initialization details, and ensure your environment variables are correctly set.", variant: "destructive", duration: 10000 });
+      setIsSubmitting(false);
       return;
     }
     setIsSubmitting(true);
@@ -157,7 +152,7 @@ export function RegisterForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const firebaseUser = userCredential.user;
         await updateFirebaseUserProfile(firebaseUser, { displayName: values.name });
-        setFirebaseUserForLinking(firebaseUser); // Store for potential phone linking
+        setFirebaseUserForLinking(firebaseUser);
 
         const userProfile: any = {
           uid: firebaseUser.uid,
@@ -179,6 +174,23 @@ export function RegisterForm() {
 
         await setDoc(doc(db, "users", firebaseUser.uid), userProfile);
 
+        // TEMPORARY: Bypass phone verification for testing createUserWithEmailAndPassword
+        console.log("Registration: User created, profile set. Bypassing phone verification for test.");
+        contextLogin(
+          firebaseUser.email || values.email, 
+          values.name, 
+          values.role as UserRole, 
+          values.role === 'driver' ? values.vehicleCategory : undefined,
+          values.phoneNumber, // Pass phone number if provided
+          false, // Phone not verified yet
+          userProfile.status,
+          values.role === 'passenger' ? userProfile.phoneVerificationDeadline : null
+        );
+        toast({ title: "Account Created (Phone Verification Skipped for Test)", description: `Welcome, ${values.name}! Your account created.` });
+        setIsSubmitting(false);
+        // End of temporary bypass
+
+        /* // Original phone verification logic:
         if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "" && recaptchaVerifierRef.current) {
           toast({ title: "Account Created!", description: "Next, verify your phone number."});
           const appVerifier = recaptchaVerifierRef.current;
@@ -188,7 +200,6 @@ export function RegisterForm() {
           setIsSubmitting(false); 
           form.setFocus("verificationCode");
         } else {
-          // For non-passengers or passengers not providing phone, login directly
           contextLogin(
             firebaseUser.email || values.email, 
             values.name, 
@@ -202,12 +213,16 @@ export function RegisterForm() {
           toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your account created.` });
           setIsSubmitting(false);
         }
+        */
+
       } catch (error: any) {
         handleRegistrationError(error);
         setIsSubmitting(false);
-        setFirebaseUserForLinking(null); // Clear if initial step failed
+        setFirebaseUserForLinking(null);
       }
     } else if (registrationStep === 'verifyingPhone' && firebaseUserForLinking) {
+      // This block is now effectively bypassed by the temporary change above
+      // but kept for when we re-enable phone verification
       if (!values.verificationCode || !confirmationResult) {
         toast({ title: "Missing Info", description: "Please enter the verification code.", variant: "default" });
         setIsSubmitting(false);
@@ -232,14 +247,13 @@ export function RegisterForm() {
 
         toast({ title: "Phone Verified!", description: "Your phone number has been successfully linked." });
         
-        // Get the latest profile data to correctly login to context
         const userProfileSnapshot = await getDoc(userDocRef);
         const userProfileData = userProfileSnapshot.data();
 
         contextLogin(
             firebaseUserForLinking.email || form.getValues("email"), 
             firebaseUserForLinking.displayName || form.getValues("name"), 
-            form.getValues("role") as UserRole, // Role from form, as it was set during initial step
+            form.getValues("role") as UserRole,
             form.getValues("role") === 'driver' ? form.getValues("vehicleCategory") : undefined,
             firebaseUserForLinking.phoneNumber,
             true, 
@@ -261,7 +275,7 @@ export function RegisterForm() {
       switch (error.code) {
         case 'auth/email-already-in-use': errorMessage = 'This email is already in use.'; break;
         case 'auth/invalid-email': errorMessage = 'The email address is not valid.'; break;
-        case 'auth/operation-not-allowed': errorMessage = 'Email/password accounts are not enabled.'; break;
+        case 'auth/operation-not-allowed': errorMessage = 'Email/password accounts are not enabled. Please check Firebase console settings.'; break;
         case 'auth/weak-password': errorMessage = 'Password is too weak.'; break;
         case 'auth/missing-phone-number': errorMessage = 'Phone number is missing for verification.'; break;
         case 'auth/invalid-phone-number': errorMessage = 'The phone number is invalid.'; break;
@@ -347,5 +361,3 @@ export function RegisterForm() {
     </Form>
   );
 }
-
-    
