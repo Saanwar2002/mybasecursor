@@ -27,12 +27,12 @@ interface RideRequest {
   passengerAvatar: string;
   pickupLocation: string;
   dropoffLocation: string;
-  estimatedTime: string; // To pickup
+  estimatedTime: string; 
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'completed' | 'cancelled_by_driver';
-  pickupCoords?: [number, number];
-  dropoffCoords?: [number, number];
-  distanceMiles?: number; // Total ride distance
+  pickupCoords?: { lat: number; lng: number }; // Changed from [number, number]
+  dropoffCoords?: { lat: number; lng: number }; // Changed from [number, number]
+  distanceMiles?: number; 
   passengerCount: number;
   passengerPhone?: string;
   passengerRating?: number;
@@ -42,10 +42,9 @@ interface RideRequest {
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
-// Mock ride requests - will be replaced by API data or offers
 const mockRideRequests: RideRequest[] = [
-  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: 'Kingsgate Centre, Huddersfield', dropoffLocation: 'Huddersfield Royal Infirmary', estimatedTime: '10 min', fareEstimate: 7.50, status: 'pending', pickupCoords: [53.6458, -1.7845], dropoffCoords: [53.6530, -1.8000], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
-  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Huddersfield Station', dropoffLocation: 'University of Huddersfield, Queensgate', estimatedTime: '5 min', fareEstimate: 5.00, status: 'pending', pickupCoords: [53.6490, -1.7795], dropoffCoords: [53.6430, -1.7720], distanceMiles: 1.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
+  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: 'Kingsgate Centre, Huddersfield', dropoffLocation: 'Huddersfield Royal Infirmary', estimatedTime: '10 min', fareEstimate: 7.50, status: 'pending', pickupCoords: { lat: 53.6458, lng: -1.7845 }, dropoffCoords: { lat: 53.6530, lng: -1.8000 }, distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
+  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Huddersfield Station', dropoffLocation: 'University of Huddersfield, Queensgate', estimatedTime: '5 min', fareEstimate: 5.00, status: 'pending', pickupCoords: { lat: 53.6490, lng: -1.7795 }, dropoffCoords: { lat: 53.6430, lng: -1.7720 }, distanceMiles: 1.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
 ];
 
 const blueDotSvg = `
@@ -54,7 +53,7 @@ const blueDotSvg = `
     <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
   </svg>
 `;
-const blueDotSvgDataUrl = `data:image/svg+xml;base64,${typeof window !== 'undefined' ? window.btoa(blueDotSvg) : ''}`;
+const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
 
 
 export default function AvailableRidesPage() {
@@ -91,15 +90,16 @@ export default function AvailableRidesPage() {
           setGeolocationError(message);
           toast({ title: "Location Error", description: message, variant: "destructive" });
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // Request high accuracy, fresh data
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
-      if (!navigator.geolocation) {
+      if (!navigator.geolocation && isDriverOnline) {
         setGeolocationError("Geolocation is not supported by this browser.");
+        toast({ title: "Location Error", description: "Geolocation is not supported or enabled in your browser.", variant: "destructive" });
       }
     }
 
@@ -115,7 +115,9 @@ export default function AvailableRidesPage() {
     const mockOffer: RideOffer = {
       id: 'mock-offer-123',
       pickupLocation: "123 Main St, Huddersfield",
+      pickupCoords: { lat: 53.6480, lng: -1.7800 },
       dropoffLocation: "456 Oak Ave, Huddersfield",
+      dropoffCoords: { lat: 53.6420, lng: -1.7850 },
       fareEstimate: 15.75,
       passengerCount: 2,
       passengerName: "John Doe",
@@ -192,6 +194,8 @@ export default function AvailableRidesPage() {
             toastMessage = `Ride request from ${rideDisplayName} accepted.`;
             setRideRequests(prev => prev.map(r => {
                 if (r.id === rideId) return { ...r, status: newStatus! };
+                // If this ride was a pending one, others should probably be removed or their status updated
+                // For now, just update the accepted one
                 return r;
             }));
             break;
@@ -203,6 +207,7 @@ export default function AvailableRidesPage() {
                     setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
                 }
             } else {
+                // This case might not be reachable if "decline" only applies to pending offers
                 newStatus = 'declined'; 
                 apiAction = undefined;
                 toastTitle = "Ride Declined";
@@ -233,7 +238,7 @@ export default function AvailableRidesPage() {
             apiAction = undefined; 
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
-            setRideRequests(prev => prev.filter(r => r.id !== rideId));
+            setRideRequests(prev => prev.filter(r => r.id !== rideId)); // Remove from local state
             break;
     }
     
@@ -247,8 +252,10 @@ export default function AvailableRidesPage() {
                 if (actionType === 'accept' && driverUser) {
                     payload.driverId = driverUser.id;
                     payload.driverName = driverUser.name;
+                    // payload.driverAvatar = driverUser.avatarUrl; // If avatar is stored in user context
                 }
             } else {
+                // No actual update to send to backend, likely a local-only change (e.g. mock decline)
                 setActionLoading(prev => ({ ...prev, [rideId]: false }));
                 return;
             }
@@ -261,9 +268,9 @@ export default function AvailableRidesPage() {
 
              if (!response.ok) {
                 let apiErrorMessage = `Failed to update ride status (Status: ${response.status}).`;
-                const responseText = await response.text();
+                const responseText = await response.text(); // Read text first
                 try {
-                    const errorData = JSON.parse(responseText); 
+                    const errorData = JSON.parse(responseText); // Then try to parse
                     console.error(`API Error for ride ${rideId}, action ${actionType}:`, errorData);
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
@@ -301,12 +308,15 @@ export default function AvailableRidesPage() {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     } else if (rideId === 'mock-offer-123' && (actionType === 'accept' || actionType === 'decline')) {
+        // Handle mock offer specific toasts/logic if different from backend interaction
         toast({ title: toastTitle, description: toastMessage });
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
     } else {
-        if (actionType !== 'decline' && actionType !== 'cancel_active') { 
+        // If no newStatus or apiAction AND it's not a mock offer (e.g. decline of non-pending, cancel_active where local state is already updated)
+        if (actionType !== 'decline' && actionType !== 'cancel_active') { // Or specific conditions where no backend call is expected after local update
              setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
+        // If it's a decline of a non-pending mock offer or a cancel_active, actionLoading should be set to false earlier or handled by the final catch-all
     }
   };
 
@@ -315,6 +325,7 @@ export default function AvailableRidesPage() {
   const handleCallCustomer = (phoneNumber?: string) => {
     if (phoneNumber) {
       toast({ title: "Calling Customer", description: `Initiating call to ${phoneNumber}... (Demo)`});
+      // window.location.href = `tel:${phoneNumber}`;
     } else {
       toast({ title: "Call Not Available", description: "Customer phone number not provided.", variant: "default"});
     }
@@ -349,17 +360,17 @@ export default function AvailableRidesPage() {
             iconScaledSize: { width: 24, height: 24 }
         });
     }
-    if (!activeRide) return markers; // Only driver location if no active ride
+    if (!activeRide) return markers;
     
     if (activeRide.pickupCoords) {
       markers.push({
-        position: { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] },
+        position: activeRide.pickupCoords,
         title: `Pickup: ${activeRide.pickupLocation}`, label: 'P'
       });
     }
     if (activeRide.dropoffCoords) {
       markers.push({
-        position: { lat: activeRide.dropoffCoords[0], lng: activeRide.dropoffCoords[1] },
+        position: activeRide.dropoffCoords,
         title: `Dropoff: ${activeRide.dropoffLocation}`, label: 'D'
       });
     }
@@ -367,22 +378,23 @@ export default function AvailableRidesPage() {
   };
 
   const getMapCenterForActiveRide = () => {
-    if (isDriverOnline && driverLocation) return driverLocation; // Prioritize live driver location for center
+    if (isDriverOnline && driverLocation) return driverLocation;
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) {
-      return { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] };
+      return activeRide.pickupCoords;
     }
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupCoords) {
-      return { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] };
+      return activeRide.pickupCoords;
     }
     if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) {
-      return { lat: activeRide.dropoffCoords[0], lng: activeRide.dropoffCoords[1] };
+      return activeRide.dropoffCoords;
     }
-    return huddersfieldCenterGoogle; // Fallback
+    return huddersfieldCenterGoogle;
   };
 
-  const handleNavigate = (locationName: string, coords?: [number,number]) => {
+  const handleNavigate = (locationName: string, coords?: {lat: number, lng: number}) => {
       if(coords) {
-        toast({title: "Navigation Started (Demo)", description: `Navigating to ${locationName} at ${coords[0]}, ${coords[1]}`});
+        toast({title: "Navigation Started (Demo)", description: `Navigating to ${locationName} at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`});
+        // In a real app: window.open(`https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`);
       } else {
         toast({title: "Navigation Error", description: `Coordinates for ${locationName} not available.` , variant: "destructive"});
       }
@@ -495,12 +507,12 @@ export default function AvailableRidesPage() {
   }
 
   const mapMarkers = [];
-  if (isDriverOnline && driverLocation) {
+  if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
     mapMarkers.push({ 
         position: driverLocation, 
         title: "Your Current Location",
-        iconUrl: blueDotSvgDataUrl, // Custom blue dot
-        iconScaledSize: { width: 24, height: 24 } // Adjust size as needed
+        iconUrl: blueDotSvgDataUrl,
+        iconScaledSize: { width: 24, height: 24 }
     });
   }
 
@@ -509,8 +521,8 @@ export default function AvailableRidesPage() {
     <div className="flex flex-col h-screen">
       <div className="h-[75vh] w-full relative">
         <GoogleMapDisplay
-            center={driverLocation} // Map always centers on driver's live location
-            zoom={15} // Zoom in a bit more for live tracking
+            center={driverLocation}
+            zoom={15}
             markers={mapMarkers}
             className="w-full h-full"
         />
@@ -568,6 +580,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
-
-    

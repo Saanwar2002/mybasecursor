@@ -4,17 +4,27 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Car, Users, DollarSign, MapPin, Info, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
-// Define and export the RideOffer type
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />,
+});
+
 export interface RideOffer {
   id: string;
   pickupLocation: string;
+  pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
+  dropoffCoords: { lat: number; lng: number };
   fareEstimate: number;
   passengerCount: number;
-  passengerName?: string; // Optional
-  notes?: string; // Optional
+  passengerName?: string;
+  notes?: string;
 }
 
 interface RideOfferModalProps {
@@ -22,7 +32,7 @@ interface RideOfferModalProps {
   onClose: () => void;
   onAccept: (rideId: string) => void;
   onDecline: (rideId: string) => void;
-  rideDetails: RideOffer | null; // Use the defined type
+  rideDetails: RideOffer | null;
 }
 
 const COUNTDOWN_SECONDS = 20;
@@ -32,13 +42,13 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   useEffect(() => {
     if (!isOpen) {
-      setCountdown(COUNTDOWN_SECONDS); // Reset countdown when modal closes
+      setCountdown(COUNTDOWN_SECONDS);
       return;
     }
 
     if (countdown === 0) {
       if (rideDetails) {
-        onDecline(rideDetails.id); // Auto-decline if timer runs out
+        onDecline(rideDetails.id);
       }
       onClose();
       return;
@@ -51,8 +61,37 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     return () => clearTimeout(timerId);
   }, [isOpen, countdown, onClose, rideDetails, onDecline]);
 
+  const mapMarkers = useMemo(() => {
+    if (!rideDetails) return [];
+    const markers = [];
+    if (rideDetails.pickupCoords) {
+      markers.push({
+        position: rideDetails.pickupCoords,
+        title: `Pickup: ${rideDetails.pickupLocation}`,
+        label: { text: "P", color: "white", fontWeight: "bold", fontSize: "14px" }, // White bold text for label
+        // Custom icon for green marker (example, replace with actual image or more complex logic)
+        // iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' 
+      });
+    }
+    if (rideDetails.dropoffCoords) {
+      markers.push({
+        position: rideDetails.dropoffCoords,
+        title: `Dropoff: ${rideDetails.dropoffLocation}`,
+        label: { text: "D", color: "white", fontWeight: "bold", fontSize: "14px" }, // White bold text for label
+        // Custom icon for red marker (example)
+        // iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+      });
+    }
+    return markers;
+  }, [rideDetails]);
+
+  const mapCenter = useMemo(() => {
+    if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
+    return { lat: 53.6450, lng: -1.7830 }; // Default center
+  }, [rideDetails]);
+
   if (!rideDetails) {
-    return null; // Or some loading/error state if isOpen is true but no details
+    return null;
   }
 
   const handleAccept = () => {
@@ -65,6 +104,18 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onClose();
   };
 
+  const getTimerColor = () => {
+    if (countdown <= 5) return "text-red-500";
+    if (countdown <= 10) return "text-orange-500";
+    return "text-green-600";
+  };
+
+  const getProgressColorClass = () => {
+    if (countdown <= 5) return "bg-red-500";
+    if (countdown <= 10) return "bg-orange-500";
+    return "bg-green-600";
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50">
@@ -73,15 +124,30 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             <Car className="w-7 h-7" /> New Ride Offer!
           </DialogTitle>
           <DialogDescription className="text-base">
-            You have a new ride offer. Please review the details and respond within the time limit.
+            Review details and respond within the time limit.
           </DialogDescription>
         </DialogHeader>
         
         <div className="py-4 space-y-3">
           <div className="flex items-center justify-center my-2">
-            <div className="text-4xl font-bold text-accent animate-pulse">
+            <div className={`text-4xl font-bold animate-pulse ${getTimerColor()}`}>
                 <Clock className="inline-block w-8 h-8 mr-2 align-middle" />{countdown}s
             </div>
+          </div>
+          <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} className="h-2 [&>div]:transition-all [&>div]:duration-1000" indicatorClassName={getProgressColorClass()} />
+
+
+          <div className="h-48 w-full rounded-md overflow-hidden border my-3">
+            {rideDetails.pickupCoords && rideDetails.dropoffCoords ? (
+              <GoogleMapDisplay
+                center={rideDetails.pickupCoords} // Center on pickup initially
+                zoom={12} // Adjust zoom as needed
+                markers={mapMarkers}
+                className="w-full h-full"
+              />
+            ) : (
+              <Skeleton className="w-full h-full" />
+            )}
           </div>
 
           <div className="p-3 bg-muted/50 rounded-lg border border-muted">
@@ -123,3 +189,52 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
+// Custom Progress component to allow dynamic indicator color
+interface CustomProgressProps extends React.ComponentPropsWithoutRef<typeof Progress> {
+  indicatorClassName?: string;
+}
+
+const ProgressIndicator = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { value: number | null; className?: string }
+>(({ value, className, ...props }, ref) => (
+  <div
+    ref={ref}
+    style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+    className={cn("h-full w-full flex-1 bg-primary transition-all", className)}
+    {...props}
+  />
+));
+ProgressIndicator.displayName = "ProgressIndicator";
+
+const Progress = React.forwardRef<
+  React.ElementRef<typeof ProgressPrimitive.Root>,
+  CustomProgressProps
+>(({ className, value, indicatorClassName, ...props }, ref) => (
+  <ProgressPrimitive.Root
+    ref={ref}
+    className={cn(
+      "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
+      className
+    )}
+    {...props}
+  >
+    <ProgressIndicator value={value ?? 0} className={indicatorClassName} />
+  </ProgressPrimitive.Root>
+));
+Progress.displayName = ProgressPrimitive.Root.displayName;
+
+
+// Temporary workaround for Progress component from shadcn as it cannot take dynamic colors for indicator
+// If you have a more complex Progress component or need more advanced features,
+// consider creating a custom one or using a library that supports dynamic indicator styling.
+// For this example, we pass indicatorClassName to style the ProgressIndicator div directly.
+// NOTE: This workaround assumes ProgressPrimitive.Indicator is the direct child that gets styled.
+// This is a simplified version. For a robust solution, you might need to fork the Progress component.
+// The standard shadcn Progress component's indicator color is tied to --primary.
+// This version directly applies a class to the indicator for more control.
+
+import * as ProgressPrimitive from "@radix-ui/react-progress"
+
+
