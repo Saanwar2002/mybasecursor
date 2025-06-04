@@ -119,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Only redirect if currently on a public page after successful login
     if (pathname.includes('/login') || pathname.includes('/register') || pathname === '/') {
         if (role === 'passenger') router.push('/dashboard');
-        else if (role === 'driver') router.push('/driver');
+        else if (role === 'driver') router.push('/driver/available-rides'); // Changed this line
         else if (role === 'operator') router.push('/operator');
         else router.push('/'); // Fallback to a sensible default if role is unexpected
     }
