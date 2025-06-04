@@ -152,20 +152,20 @@ export default function AvailableRidesPage() {
     if (rideId === 'mock-offer-123' && offerToAccept) {
       const mockActiveRideData: RideRequest = {
         id: `active-mock-${Date.now()}`,
-        passengerName: "Sarah Connor", // From your image
+        passengerName: "Sarah Connor", 
         passengerAvatar: 'https://placehold.co/48x48.png?text=SC',
-        pickupLocation: "Sarah's Home, 24 Oak Lane, Lindley, Huddersfield HD3 3WZ", // From your image
-        dropoffLocation: "Town Centre Cinema, King Street, Huddersfield HD1 2QR", // From your image
+        pickupLocation: "Sarah's Home, 24 Oak Lane, Lindley, Huddersfield HD3 3WZ", 
+        dropoffLocation: "Town Centre Cinema, King Street, Huddersfield HD1 2QR", 
         estimatedTime: "12 mins", 
-        fareEstimate: 7.50, // From your image
+        fareEstimate: 7.50, 
         status: 'driver_assigned', 
         pickupCoords: { lat: 53.6570, lng: -1.8195 },
         dropoffCoords: { lat: 53.6465, lng: -1.7830 },
         distanceMiles: 3.5,
-        passengerCount: 1, // From your image
-        notes: "Main door, by the blue plant pot. Has a small suitcase.", // From your image
+        passengerCount: 1, 
+        notes: "Main door, by the blue plant pot. Has a small suitcase.", 
         passengerPhone: "07123456001",
-        passengerRating: 4.7, // From your image
+        passengerRating: 4.7, 
       };
       setRideRequests([mockActiveRideData]);
       toast({title: "Mock Ride Accepted!", description: `En Route to Pickup for ${mockActiveRideData.passengerName}.`});
@@ -239,7 +239,7 @@ export default function AvailableRidesPage() {
             toastMessage = `Passenger ${rideDisplayName} has been notified of your arrival.`;
             break;
         case 'start_ride':
-            newStatus = 'In Progress'; // Changed from 'in_progress' to 'In Progress' to match image badge
+            newStatus = 'In Progress'; 
             apiAction = 'start_ride';
             toastTitle = "Ride Started";
             toastMessage = `Ride with ${rideDisplayName} is now in progress.`;
@@ -483,10 +483,16 @@ export default function AvailableRidesPage() {
             </div>
 
             <div className="space-y-1 text-sm py-1">
-              <p className={cn("flex items-start gap-1.5", showInProgressStatus && "text-muted-foreground")}>
-                  <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", showInProgressStatus ? "text-muted-foreground" : "text-green-500")} /> 
+               <p className={cn(
+                    "flex items-start gap-1.5", 
+                    showInProgressStatus && "text-muted-foreground opacity-60"
+                  )}>
+                  <MapPin className={cn(
+                      "w-4 h-4 mt-0.5 shrink-0", 
+                      showInProgressStatus ? "text-muted-foreground opacity-60" : "text-green-500"
+                    )} /> 
                   <strong>Pickup:</strong> {activeRide.pickupLocation}
-              </p>
+                </p>
               <p className="flex items-start gap-1.5">
                 <MapPin className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" /> 
                 <strong>Dropoff:</strong> {activeRide.dropoffLocation}
@@ -506,7 +512,7 @@ export default function AvailableRidesPage() {
               </div>
             )}
 
-             {activeRide.status === 'arrived_at_pickup' && activeRide.notifiedPassengerArrivalTimestamp && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+             {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
                 <Alert variant="default" className="bg-blue-100 dark:bg-blue-700/30 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-100 my-1">
                     <BellRing className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Waiting for Passenger</ShadAlertTitle>
@@ -528,7 +534,7 @@ export default function AvailableRidesPage() {
              {showDriverAssignedStatus && (
                 <>
                   <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" className="w-full text-base py-2.5 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to pickup: ${activeRide.pickupLocation}`})}>
+                       <Button variant="outline" className="w-full text-base py-2.5 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to pickup: ${activeRide.pickupLocation}`})}>
                           <Navigation className="mr-2"/> Navigate
                       </Button>
                       <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
@@ -554,7 +560,7 @@ export default function AvailableRidesPage() {
             {showInProgressStatus && (
                  <div className="grid grid-cols-1 gap-2">
                     <div className="grid grid-cols-2 gap-2">
-                        <Button variant="outline" className="w-full text-base py-2.5 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to dropoff for ${activeRide.passengerName}...`})}>
+                        <Button variant="outline" className="w-full text-base py-2.5 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to dropoff for ${activeRide.passengerName} at ${activeRide.dropoffLocation}`})}>
                             <Navigation className="mr-2"/> Navigate
                         </Button>
                         <Button className="w-full bg-primary hover:bg-primary/80 text-base text-primary-foreground py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
