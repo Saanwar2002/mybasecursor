@@ -145,7 +145,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col max-h-[calc(100vh-4rem)] md:max-h-[90vh]">
+      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col h-[90vh] md:h-[85vh]">
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
           <DialogTitle className="text-xl md:text-2xl font-headline text-primary flex items-center gap-2">
             <Car className="w-6 md:w-7 h-6 md:h-7" /> New Ride Offer!
@@ -157,13 +157,13 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         
         <ScrollArea className="flex-1"> 
           <div className="p-4"> 
-            <div className="h-48 sm:h-60 w-full mb-4"> 
+            <div className="h-48 sm:h-60 w-full mb-4 rounded-md overflow-hidden border"> 
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
                     center={mapCenter}
                     zoom={10} 
                     markers={mapMarkers}
-                    className="w-full h-full rounded-md"
+                    className="w-full h-full"
                     disableDefaultUI={true}
                     fitBoundsToMarkers={true}
                   />
@@ -173,23 +173,23 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             </div>
             <div className="space-y-3"> 
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
-                <p className="flex items-center gap-2 mb-1 text-sm md:text-base">
-                  <MapPin className="w-5 h-5 text-primary" /> 
+                <p className="flex items-center gap-2 mb-1 text-xs md:text-sm">
+                  <MapPin className="w-4 h-4 text-primary" /> 
                   <strong>Pickup:</strong> {rideDetails.pickupLocation}
                 </p>
-                <p className="flex items-center gap-2 text-sm md:text-base">
-                  <MapPin className="w-5 h-5 text-accent" /> 
+                <p className="flex items-center gap-2 text-xs md:text-sm">
+                  <MapPin className="w-4 h-4 text-accent" /> 
                   <strong>Dropoff:</strong> {rideDetails.dropoffLocation}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs md:text-sm">
-                <p className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
-                <p className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
+                <p className="flex items-center gap-1"><DollarSign className="w-3 h-3 text-muted-foreground" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
+                <p className="flex items-center gap-1"><Users className="w-3 h-3 text-muted-foreground" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
               </div>
 
               {rideDetails.passengerName && (
-                <p className="text-xs md:text-sm"><Info className="inline w-4 h-4 mr-1 text-muted-foreground" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
+                <p className="text-xs md:text-sm"><Info className="inline w-3 h-3 mr-1 text-muted-foreground" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
               )}
               {rideDetails.notes && (
                  <div className="border-l-4 border-accent pl-3 py-1 bg-accent/10">
@@ -217,4 +217,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
