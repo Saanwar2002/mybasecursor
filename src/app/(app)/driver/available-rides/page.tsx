@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
+// import { Progress } from "@/components/ui/progress"; // Progress bar no longer used in this simplified view
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -63,6 +64,7 @@ export default function AvailableRidesPage() {
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  // const [progressValue, setProgressValue] = useState(0); // Progress bar no longer used in this simplified view
 
 
 // Geolocation useEffect remains commented out to prevent blank screen issues for now
@@ -397,30 +399,30 @@ export default function AvailableRidesPage() {
     });
   }
 
-  // The `if (activeRide)` block remains commented out for now.
-  /*
+
+  // The `if (activeRide)` block remains for handling active ride UI,
+  // but the main "no active ride" state is simplified per the screenshot.
   if (activeRide) {
     // This is where the UI for an active ride would go.
     // For now, we're focused on the "no active ride" screen.
     return (
-       <p>Active Ride Test</p> // Simplified placeholder
+      <div className="p-4">
+       <p>Active Ride: {activeRide.passengerName} - {activeRide.status}</p>
+       {/* Placeholder for active ride UI */}
+      </div>
     );
   }
-  */
 
-  // This is the "no active ride" / "awaiting offers" state.
-  // The image shows only a map and then empty space below it.
+  // This is the "no active ride" / "awaiting offers" state based on the last screenshot.
   return (
-    <div className="w-full h-[380px] rounded-xl overflow-hidden shadow-lg border">
+    <div className="w-full h-[400px] rounded-xl overflow-hidden shadow-lg border">
       <GoogleMapDisplay
           center={driverLocation} 
           zoom={14}
           markers={mapMarkers}
           className="w-full h-full"
-          disableDefaultUI={false} // Set to false to show Google Maps UI elements
+          disableDefaultUI={true} 
       />
-      {/* No status banner or card as per the image for this specific state */}
-
       {/* RideOfferModal is kept for future use if offers are presented */}
       <RideOfferModal
         isOpen={isOfferModalOpen}
@@ -432,3 +434,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
