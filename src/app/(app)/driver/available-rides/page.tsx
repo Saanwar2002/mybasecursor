@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase } from "lucide-react"; // Added Briefcase
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -55,7 +55,7 @@ interface RideRequest {
   passengerAcknowledgedArrivalTimestamp?: string | null;
   rideStartedAt?: string | null;
   completedAt?: string | null;
-  requiredOperatorId?: string; // Added for operator-specific rides
+  requiredOperatorId?: string;
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -92,27 +92,32 @@ export default function AvailableRidesPage() {
   const activeRide = useMemo(() => rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress', 'completed', 'cancelled_by_driver'].includes(r.status)), [rideRequests]);
 
   useEffect(() => {
-    if (driverUser?.id) {
+    // Use driverUser.operatorCode if available, otherwise parse from ID as fallback
+    if (driverUser?.operatorCode) {
+      setCurrentDriverOperatorPrefix(driverUser.operatorCode);
+    } else if (driverUser?.id && driverUser.id.includes('/')) {
       const parts = driverUser.id.split('/');
       if (parts.length > 0) {
         setCurrentDriverOperatorPrefix(parts[0]);
-      } else {
-        // Handle cases where ID might not have a prefix (e.g., guest drivers not following the pattern)
-        // For simulation, we can assign a default or leave it null.
-        // If it's null, all operator-specific offers will be "mismatched" unless the offer has no requiredOperatorId.
-        setCurrentDriverOperatorPrefix('OP_DefaultGuest'); // Or null if preferred
-        console.warn("Driver ID does not have an operator prefix:", driverUser.id);
       }
+    } else if (driverUser?.id) {
+      // If no '/' and no operatorCode, it might be a guest or differently structured ID
+      // For simulation, we might assign a default or indicate it's a general driver.
+      // For now, let's assume if no prefix, they might be a general platform driver.
+      // You might want a specific "platform" operator code like "PLATFORM_OP"
+      setCurrentDriverOperatorPrefix('OP_DefaultGuest'); // Or null or a specific platform operator ID
+      console.warn("Driver ID does not have a standard operator prefix or operatorCode field:", driverUser.id);
     }
   }, [driverUser]);
+
 
   const handleSimulateOffer = () => {
     const randomScenario = Math.random();
     let mockOffer: RideOffer;
     let offerTypeDescription = "";
 
-    if (randomScenario < 0.33 && currentDriverOperatorPrefix) { // Mismatched Operator Offer
-      const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001"; // Simple toggle for demo
+    if (randomScenario < 0.33 && currentDriverOperatorPrefix) { 
+      const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001"; 
       mockOffer = {
         id: `mock-offer-mismatch-${Date.now()}`,
         pickupLocation: "Tech Park Canteen, Leeds LS1 1AA",
@@ -126,7 +131,7 @@ export default function AvailableRidesPage() {
         requiredOperatorId: mismatchedOperatorId,
       };
       offerTypeDescription = `restricted to ${mismatchedOperatorId}`;
-    } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) { // Matching Operator Offer
+    } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) { 
       mockOffer = {
         id: `mock-offer-match-${Date.now()}`,
         pickupLocation: "Huddersfield Station, HD1 1JB",
@@ -140,7 +145,7 @@ export default function AvailableRidesPage() {
         requiredOperatorId: currentDriverOperatorPrefix,
       };
       offerTypeDescription = `restricted to your operator (${currentDriverOperatorPrefix})`;
-    } else { // General Platform Offer
+    } else { 
       mockOffer = {
         id: `mock-offer-general-${Date.now()}`,
         pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB",
@@ -151,7 +156,6 @@ export default function AvailableRidesPage() {
         passengerCount: 1,
         passengerName: "Gary General",
         notes: "Please call on arrival.",
-        // No requiredOperatorId for general offers
       };
       offerTypeDescription = "a general platform offer";
     }
@@ -165,8 +169,19 @@ export default function AvailableRidesPage() {
         variant: "default",
         duration: 7000,
       });
-      return; // Don't show the modal
+      return; 
     }
+    
+    if (mockOffer.requiredOperatorId && !currentDriverOperatorPrefix) {
+        toast({
+            title: "Offer Skipped",
+            description: `An offer restricted to ${mockOffer.requiredOperatorId} was received, but your operator details are not clear.`,
+            variant: "default",
+            duration: 7000,
+        });
+        return;
+    }
+
 
     setCurrentOfferDetails(mockOffer);
     setIsOfferModalOpen(true);
@@ -177,36 +192,35 @@ export default function AvailableRidesPage() {
     const offerToAccept = currentOfferDetails;
     setCurrentOfferDetails(null);
 
-    if (offerToAccept) { // Check if offerToAccept is not null
+    if (offerToAccept) { 
       const newActiveRideData: RideRequest = {
-        id: `active-${offerToAccept.id}-${Date.now()}`, // Ensure unique ID for active ride
+        id: `active-${offerToAccept.id}-${Date.now()}`, 
         passengerName: offerToAccept.passengerName || "Passenger",
         passengerAvatar: `https://placehold.co/48x48.png?text=${offerToAccept.passengerName ? offerToAccept.passengerName.charAt(0) : 'P'}`,
         pickupLocation: offerToAccept.pickupLocation,
         dropoffLocation: offerToAccept.dropoffLocation,
-        estimatedTime: "10-15 mins", // Placeholder
+        estimatedTime: "10-15 mins", 
         fareEstimate: offerToAccept.fareEstimate,
         status: 'driver_assigned', 
         pickupCoords: offerToAccept.pickupCoords, 
         dropoffCoords: offerToAccept.dropoffCoords,
-        distanceMiles: Math.random() * 5 + 1, // Placeholder distance
+        distanceMiles: Math.random() * 5 + 1, 
         passengerCount: offerToAccept.passengerCount, 
         notes: offerToAccept.notes, 
-        passengerPhone: "07123456789", // Placeholder
-        passengerRating: Math.random() * 2 + 3, // Placeholder rating 3-5
+        passengerPhone: "07123456789", 
+        passengerRating: Math.random() * 2 + 3, 
         requiredOperatorId: offerToAccept.requiredOperatorId,
       };
-      setRideRequests([newActiveRideData]); // Replace any existing ride with the new one for demo
-      toast({title: "Ride Accepted!", description: `En Route to Pickup for ${newActiveRideData.passengerName}. ${newActiveRideData.requiredOperatorId ? '(Operator Restricted: ' + newActiveRideData.requiredOperatorId + ')' : '(General Ride)'}`});
+      setRideRequests([newActiveRideData]); 
+      toast({title: "Ride Accepted!", description: `En Route to Pickup for ${newActiveRideData.passengerName}. ${newActiveRideData.requiredOperatorId ? '(Operator: ' + newActiveRideData.requiredOperatorId + ')' : '(General Ride)'}`});
     } else {
-        // This case should ideally not be reached if modal was opened with details
         toast({title: "Error Accepting Ride", description: "No ride details found to accept.", variant: "destructive"});
     }
   };
 
 
   const handleDeclineOffer = (rideId: string) => {
-    const declinedOffer = currentOfferDetails; // Use the offer that was in the modal
+    const declinedOffer = currentOfferDetails; 
     setIsOfferModalOpen(false);
     setCurrentOfferDetails(null);
     
@@ -215,8 +229,6 @@ export default function AvailableRidesPage() {
     } else {
       toast({title: "Offer Declined", description: `Offer with ID ${rideId} declined (details not found).`});
     }
-    // In a real app, you might send a decline status to the backend
-    // For the prototype, we just close the modal and show a toast.
   };
 
 
@@ -228,7 +240,6 @@ export default function AvailableRidesPage() {
     setActionLoading(prev => ({ ...prev, [rideId]: true }));
 
     let newStatus: RideRequest['status'] | undefined = undefined;
-    let apiAction: string | undefined = undefined;
     let toastMessage = "";
     let toastTitle = "";
 
@@ -241,17 +252,8 @@ export default function AvailableRidesPage() {
     const rideDisplayName = currentRide.passengerName || "the passenger";
 
     switch(actionType) {
-        case 'accept': // This case might be redundant if accept is handled by handleAcceptOffer
-            if (!driverUser) { /* ... */ return; }
-            newStatus = 'driver_assigned'; toastTitle = "Ride Accepted"; toastMessage = `Ride request from ${rideDisplayName} accepted.`;
-            setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, passengerAvatar: r.passengerAvatar || 'https://placehold.co/40x40.png?text=P' } : r));
-            break;
-        case 'decline': // This case might be redundant if decline is handled by handleDeclineOffer
-            newStatus = 'declined'; toastTitle = "Ride Declined"; toastMessage = `Ride request for ${rideDisplayName} declined.`;
-            setRideRequests(prev => prev.filter(r => r.id !== rideId));
-            break;
         case 'notify_arrival':
-            newStatus = 'arrived_at_pickup'; apiAction = 'notify_arrival'; toastTitle = "Passenger Notified"; toastMessage = `Passenger ${rideDisplayName} has been notified of your arrival.`;
+            newStatus = 'arrived_at_pickup'; toastTitle = "Passenger Notified"; toastMessage = `Passenger ${rideDisplayName} has been notified of your arrival.`;
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, notifiedPassengerArrivalTimestamp: new Date().toISOString() } : r));
             // Simulate passenger acknowledgment after 3 seconds for demo
             setTimeout(() => {
@@ -264,27 +266,21 @@ export default function AvailableRidesPage() {
             }, 3000);
             break;
         case 'start_ride':
-            newStatus = 'In Progress'; apiAction = 'start_ride'; toastTitle = "Ride Started"; toastMessage = `Ride with ${rideDisplayName} is now in progress.`;
+            newStatus = 'In Progress'; toastTitle = "Ride Started"; toastMessage = `Ride with ${rideDisplayName} is now in progress.`;
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, rideStartedAt: new Date().toISOString() } : r));
             break;
         case 'complete_ride':
-            newStatus = 'completed'; apiAction = 'complete_ride'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed.`;
+            newStatus = 'completed'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed.`;
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString() } : r));
             break;
         case 'cancel_active':
-            newStatus = 'cancelled_by_driver'; apiAction = 'cancel_ride'; toastTitle = "Ride Cancelled"; toastMessage = `Active ride with ${rideDisplayName} cancelled by you.`;
+            newStatus = 'cancelled_by_driver'; toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus! } : r));
             break;
     }
     
-    // For all actions except actual backend-dependent ones (like accept/decline which are now separate)
-    // we'll just update UI and show toast for the prototype.
-    if (newStatus && !['accept', 'decline'].includes(actionType)) {
-        if(actionType !== 'cancel_active'){
-             toast({ title: toastTitle, description: toastMessage });
-        } else {
-             toast({ title: "Ride Cancelled", description: "The ride has been marked as cancelled by you." });
-        }
+    if (newStatus) {
+        toast({ title: toastTitle, description: toastMessage });
     }
     setActionLoading(prev => ({ ...prev, [rideId]: false }));
   };
@@ -443,6 +439,14 @@ export default function AvailableRidesPage() {
                 </>
               )}
             </div>
+             {activeRide.requiredOperatorId && (
+              <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center mt-1">
+                <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1">
+                  <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId}
+                </p>
+              </div>
+            )}
+
 
             <div className="space-y-1 text-sm py-1">
                  <p className={cn(
@@ -608,7 +612,7 @@ export default function AvailableRidesPage() {
                 <Button
                     className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto"
                     onClick={() => {
-                        setRideRequests([]); // This clears the activeRide
+                        setRideRequests([]); 
                         setPassengerRatingByDriver(0);
                         setIsPassengerRatingSubmitted(false);
                         setIsCancelSwitchOn(false); 

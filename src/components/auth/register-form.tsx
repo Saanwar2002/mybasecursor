@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Car, Loader2, PhoneOutcome } from "lucide-react";
+import { Car, Loader2, PhoneOutcome, Briefcase, ShieldCheck } from "lucide-react"; // Added Briefcase, ShieldCheck
 import React, { useState, useEffect, useRef } from "react";
 import { 
   createUserWithEmailAndPassword, 
@@ -38,12 +38,17 @@ const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
 );
 
+const operatorCodeRegex = /^OP\d{3,}$/; // e.g., OP001, OP123
+const driverIdentifierRegex = /^[a-zA-Z0-9]{3,10}$/; // Alphanumeric, 3-10 chars
+
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(["passenger", "driver", "operator"], { required_error: "You must select a role." }),
   vehicleCategory: z.string().optional(),
+  operatorCode: z.string().optional(), // For drivers: e.g., OP001
+  driverIdentifier: z.string().optional(), // For drivers: e.g., DR123 or JohnD01
   phoneNumber: z.string().optional(),
   verificationCode: z.string().optional().refine(value => !value || /^\d{6}$/.test(value), {
     message: "Verification code must be 6 digits."
@@ -57,27 +62,49 @@ const formSchema = z.object({
   message: "Vehicle category is required for drivers.",
   path: ["vehicleCategory"],
 }).refine(data => {
+  if (data.role === 'driver') {
+    return !!data.operatorCode && operatorCodeRegex.test(data.operatorCode);
+  }
+  return true;
+}, {
+  message: "Valid Operator Code (e.g., OP001) is required for drivers.",
+  path: ["operatorCode"],
+}).refine(data => {
+  if (data.role === 'driver') {
+    return !!data.driverIdentifier && driverIdentifierRegex.test(data.driverIdentifier);
+  }
+  return true;
+}, {
+  message: "Driver ID (3-10 alphanumeric chars) is required for drivers.",
+  path: ["driverIdentifier"],
+}).refine(data => {
   if (data.role === 'passenger') {
     return !!data.phoneNumber && data.phoneNumber.trim() !== "" && phoneRegex.test(data.phoneNumber);
   }
+  // Phone number is optional for drivers and operators during self-registration
   return !data.phoneNumber || data.phoneNumber.trim() === "" || phoneRegex.test(data.phoneNumber);
 }, {
-  message: "Valid phone number is required for passengers (e.g., +14155552671). Optional for others.",
+  message: "Valid phone number (e.g., +14155552671) is required for passengers.",
   path: ["phoneNumber"],
 });
 
 type RegistrationStep = 'initial' | 'verifyingPhone';
 
-interface User {
-  id: string;
-  email: string;
+interface UserProfile { // More specific type for Firestore document
+  uid: string;
   name: string;
+  email: string;
   role: UserRole;
-  vehicleCategory?: string;
-  phoneNumber?: string | null;
+  createdAt: any; // serverTimestamp placeholder
+  status: 'Active' | 'Pending Approval' | 'Suspended';
+  customId?: string; // For CUxxx or OPxxx
+  operatorCode?: string; // For drivers
+  driverIdentifier?: string; // For drivers
+  vehicleCategory?: string; // For drivers
+  phoneNumberInput?: string; // Raw phone input
+  phoneNumber?: string | null; // E.164 format from Firebase Auth
   phoneVerified?: boolean;
-  phoneVerificationDeadline?: Timestamp | string | null;
-  status?: 'Active' | 'Pending Approval' | 'Suspended';
+  phoneVerificationDeadline?: Timestamp | null;
 }
 
 
@@ -100,6 +127,8 @@ export function RegisterForm() {
       password: "",
       role: "passenger",
       vehicleCategory: undefined,
+      operatorCode: "",
+      driverIdentifier: "",
       phoneNumber: "",
       verificationCode: "",
     },
@@ -113,7 +142,6 @@ export function RegisterForm() {
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
           'size': 'invisible',
           'callback': (response: any) => {
-            // reCAPTCHA solved, allow phone number submission
             console.log("reCAPTCHA solved:", response);
           },
           'expired-callback': () => {
@@ -136,18 +164,13 @@ export function RegisterForm() {
         toast({title: "reCAPTCHA Init Error", description: `Could not initialize reCAPTCHA: ${e.message}`, variant: "destructive"});
       }
     }
-    // No cleanup function for recaptchaVerifierRef.current.clear() here,
-    // as it might interfere with ongoing operations if component re-renders.
-    // It's cleared if registration completes or on unmount if needed.
   }, [auth, registrationStep, toast]); 
 
   useEffect(() => {
-    // Cleanup reCAPTCHA on component unmount if it was initialized
     return () => {
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = null;
-        console.log("RecaptchaVerifier cleared on component unmount");
       }
     };
   }, []);
@@ -155,7 +178,7 @@ export function RegisterForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!auth || !db) {
-      toast({ title: "Registration Error", description: "Firebase services not initialized. Please check server logs (terminal) and browser console for Firebase initialization details, and ensure your environment variables are correctly set.", variant: "destructive", duration: 10000 });
+      toast({ title: "Registration Error", description: "Firebase services not initialized.", variant: "destructive", duration: 7000 });
       setIsSubmitting(false);
       return;
     }
@@ -166,63 +189,80 @@ export function RegisterForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const firebaseUser = userCredential.user;
         await updateFirebaseUserProfile(firebaseUser, { displayName: values.name });
-        setFirebaseUserForLinking(firebaseUser); // Store the user for phone linking
+        setFirebaseUserForLinking(firebaseUser);
 
-        const userProfile: any = {
+        const userProfile: UserProfile = {
           uid: firebaseUser.uid,
           name: values.name,
           email: values.email,
           role: values.role as UserRole,
           createdAt: serverTimestamp(),
           status: (values.role === 'driver' || values.role === 'operator') ? 'Pending Approval' : 'Active',
-          ...(values.role === 'driver' && values.vehicleCategory && { vehicleCategory: values.vehicleCategory }),
-          ...(values.phoneNumber && values.phoneNumber.trim() !== "" && { phoneNumberInput: values.phoneNumber.trim() }), // Store intended phone
         };
         
+        // Assign custom IDs conceptually (actual generation is backend)
+        if (values.role === 'passenger') userProfile.customId = `CU-mock-${firebaseUser.uid.slice(0,4)}`;
+        if (values.role === 'operator') userProfile.customId = `OP-mock-${firebaseUser.uid.slice(0,4)}`;
+        
+        if (values.role === 'driver') {
+          if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
+          if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
+          if (values.driverIdentifier) userProfile.driverIdentifier = values.driverIdentifier;
+        }
+        
+        if (values.phoneNumber && values.phoneNumber.trim() !== "") {
+            userProfile.phoneNumberInput = values.phoneNumber.trim(); // Store raw input temporarily
+        }
+
         if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") {
             userProfile.phoneVerified = false;
             const deadline = new Date();
-            deadline.setDate(deadline.getDate() + 7); // Example: 7-day deadline
+            deadline.setDate(deadline.getDate() + 7);
             userProfile.phoneVerificationDeadline = Timestamp.fromDate(deadline);
         }
 
         await setDoc(doc(db, "users", firebaseUser.uid), userProfile);
 
-        if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "" && recaptchaVerifierRef.current) {
+        // Phone verification step for passengers, or if driver/operator provided phone
+        const shouldVerifyPhone = (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") ||
+                                  ((values.role === 'driver' || values.role === 'operator') && values.phoneNumber && values.phoneNumber.trim() !== "");
+
+        if (shouldVerifyPhone && recaptchaVerifierRef.current) {
           toast({ title: "Account Created!", description: "Next, verify your phone number."});
           const appVerifier = recaptchaVerifierRef.current;
           
           try {
-            const result = await linkWithPhoneNumber(firebaseUser, values.phoneNumber, appVerifier);
+            const result = await linkWithPhoneNumber(firebaseUser, values.phoneNumber!, appVerifier);
             setConfirmationResult(result);
             setRegistrationStep('verifyingPhone');
             setIsSubmitting(false); 
             form.setFocus("verificationCode");
           } catch (phoneLinkError: any) {
-            console.error("Error during linkWithPhoneNumber:", phoneLinkError);
-            // Attempt to clear reCAPTCHA if it failed, so user can try again
             if (recaptchaVerifierRef.current) {
-              recaptchaVerifierRef.current.render().then((widgetId) => { // Re-render can sometimes reset
+              recaptchaVerifierRef.current.render().then((widgetId) => {
                 if (typeof window !== 'undefined' && (window as any).grecaptcha) {
                   (window as any).grecaptcha.reset(widgetId);
                 }
               }).catch(e => console.error("Error resetting reCAPTCHA widget after phone link error:", e));
             }
-            handleRegistrationError(phoneLinkError); // Use the generalized error handler
+            handleRegistrationError(phoneLinkError);
             setIsSubmitting(false);
-            setFirebaseUserForLinking(null); // Clear stored user if phone linking setup failed
+            setFirebaseUserForLinking(null);
           }
         } else {
-          // Not a passenger or no phone number provided, or reCAPTCHA not ready
           contextLogin(
+            firebaseUser.uid,
             firebaseUser.email || values.email, 
             values.name, 
             values.role as UserRole, 
-            values.role === 'driver' ? values.vehicleCategory : undefined,
-            values.phoneNumber, 
-            false, // Phone not verified
+            userProfile.vehicleCategory,
+            userProfile.phoneNumberInput, 
+            false, // Phone not verified if this path is taken
             userProfile.status,
-            (values.role === 'passenger' && userProfile.phoneVerificationDeadline) ? userProfile.phoneVerificationDeadline : null
+            userProfile.phoneVerificationDeadline,
+            userProfile.customId,
+            userProfile.operatorCode,
+            userProfile.driverIdentifier
           );
           toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your account has been created.` });
           setIsSubmitting(false);
@@ -245,38 +285,39 @@ export function RegisterForm() {
         
         const userDocRef = doc(db, "users", firebaseUserForLinking.uid);
         await updateDoc(userDocRef, {
-          phoneNumber: firebaseUserForLinking.phoneNumber, // This is the E.164 formatted number from Firebase
+          phoneNumber: firebaseUserForLinking.phoneNumber,
           phoneVerified: true,
-          phoneVerificationDeadline: deleteField(), // Remove deadline once verified
+          phoneVerificationDeadline: deleteField(),
         });
 
-        // Update context immediately
         updateUserProfileInContext({ 
             phoneNumber: firebaseUserForLinking.phoneNumber, 
             phoneVerified: true,
-            phoneVerificationDeadline: null, // Reflect in context
+            phoneVerificationDeadline: null,
         });
 
         toast({ title: "Phone Verified!", description: "Your phone number has been successfully linked." });
         
-        // Final login to context with all details
         const userProfileSnapshot = await getDoc(userDocRef);
-        const userProfileData = userProfileSnapshot.data();
+        const finalProfile = userProfileSnapshot.data() as UserProfile | undefined;
 
         contextLogin(
+            firebaseUserForLinking.uid,
             firebaseUserForLinking.email || form.getValues("email"), 
             firebaseUserForLinking.displayName || form.getValues("name"), 
             form.getValues("role") as UserRole,
-            form.getValues("role") === 'driver' ? form.getValues("vehicleCategory") : undefined,
+            finalProfile?.vehicleCategory,
             firebaseUserForLinking.phoneNumber,
-            true, // Phone is now verified
-            userProfileData?.status as User['status'] || 'Active',
-            null // No deadline
+            true, 
+            finalProfile?.status,
+            null, // No deadline
+            finalProfile?.customId,
+            finalProfile?.operatorCode,
+            finalProfile?.driverIdentifier
         );
         setIsSubmitting(false);
       } catch (error: any) {
-        console.error("Phone verification error:", error);
-        toast({ title: "Phone Verification Failed", description: error.message || "Invalid code or error linking.", variant: "destructive" });
+        handleRegistrationError(error);
         setIsSubmitting(false);
       }
     }
@@ -288,10 +329,10 @@ export function RegisterForm() {
       switch (error.code) {
         case 'auth/email-already-in-use': errorMessage = 'This email is already in use.'; break;
         case 'auth/invalid-email': errorMessage = 'The email address is not valid.'; break;
-        case 'auth/operation-not-allowed': errorMessage = 'Email/password accounts are not enabled. Please check Firebase console settings.'; break;
+        case 'auth/operation-not-allowed': errorMessage = 'Email/password accounts are not enabled.'; break;
         case 'auth/weak-password': errorMessage = 'Password is too weak.'; break;
         case 'auth/missing-phone-number': errorMessage = 'Phone number is missing for verification.'; break;
-        case 'auth/invalid-phone-number': errorMessage = 'The phone number is invalid. Ensure it is in E.164 format (e.g., +14155552671).'; break;
+        case 'auth/invalid-phone-number': errorMessage = 'The phone number is invalid (e.g., +14155552671).'; break;
         case 'auth/quota-exceeded': errorMessage = 'SMS quota exceeded. Try again later.'; break;
         case 'auth/user-disabled': errorMessage = 'This user account has been disabled.'; break;
         case 'auth/captcha-check-failed': errorMessage = 'reCAPTCHA verification failed. Please try again.'; break;
@@ -325,25 +366,49 @@ export function RegisterForm() {
                 <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="role" render={({ field }) => (
-                <FormItem className="space-y-3"><FormLabel>Register as:</FormLabel><FormControl><RadioGroup onValueChange={(value) => { field.onChange(value); if (value !== 'driver') { form.setValue('vehicleCategory', undefined); form.clearErrors('vehicleCategory'); } else { form.setValue('vehicleCategory', 'car');}}} defaultValue={field.value} className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4" disabled={isSubmitting}>
+                <FormItem className="space-y-3"><FormLabel>Register as:</FormLabel><FormControl><RadioGroup onValueChange={(value) => { 
+                    field.onChange(value); 
+                    if (value !== 'driver') { 
+                        form.setValue('vehicleCategory', undefined); 
+                        form.clearErrors('vehicleCategory');
+                        form.setValue('operatorCode', undefined);
+                        form.clearErrors('operatorCode');
+                        form.setValue('driverIdentifier', undefined);
+                        form.clearErrors('driverIdentifier');
+                    } else { 
+                        form.setValue('vehicleCategory', 'car');
+                    }
+                    if (value !== 'passenger') {
+                        form.setValue('phoneNumber', ""); // Clear phone for non-passengers if previously set
+                        form.clearErrors('phoneNumber'); // Clear phone errors
+                    }
+                 }} defaultValue={field.value} className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4" disabled={isSubmitting}>
                     <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="passenger" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Passenger</FormLabel></FormItem>
                     <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="driver" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Driver</FormLabel></FormItem>
                     <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="operator" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Taxi Base Operator</FormLabel></FormItem>
                 </RadioGroup></FormControl><FormMessage /></FormItem>
             )} />
             {watchedRole === "driver" && (
-            <FormField control={form.control} name="vehicleCategory" render={({ field }) => (
-                <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4 text-muted-foreground" /> Vehicle Category</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value || "car"} disabled={isSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle category" /></SelectTrigger></FormControl><SelectContent>
-                    <SelectItem value="car">Car (Standard)</SelectItem><SelectItem value="estate">Estate Car</SelectItem><SelectItem value="minibus_6">Minibus (6 people)</SelectItem><SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
-                </SelectContent></Select><FormMessage /></FormItem>
-            )} />
+              <>
+                <FormField control={form.control} name="operatorCode" render={({ field }) => (
+                    <FormItem><FormLabel className="flex items-center gap-1"><Briefcase className="w-4 h-4 text-muted-foreground" /> Operator Code <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., OP001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="driverIdentifier" render={({ field }) => (
+                    <FormItem><FormLabel className="flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-muted-foreground" /> Your Driver ID Suffix <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., DR123 or JD001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="vehicleCategory" render={({ field }) => (
+                    <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4 text-muted-foreground" /> Vehicle Category <span className="text-destructive font-bold">*</span></FormLabel><Select onValueChange={field.onChange} defaultValue={field.value || "car"} disabled={isSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle category" /></SelectTrigger></FormControl><SelectContent>
+                        <SelectItem value="car">Car (Standard)</SelectItem><SelectItem value="estate">Estate Car</SelectItem><SelectItem value="minibus_6">Minibus (6 people)</SelectItem><SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
+                    </SelectContent></Select><FormMessage /></FormItem>
+                )} />
+              </>
             )}
             <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Phone Number {watchedRole === 'passenger' && <span className="text-destructive font-bold">*</span>} (e.g., +16505551234)
+                    Phone Number {watchedRole === 'passenger' && <span className="text-destructive font-bold">*</span>} { (watchedRole === 'driver' || watchedRole === 'operator') && '(Optional)' }
                   </FormLabel>
-                  <FormControl><Input type="tel" placeholder="Enter your phone number" {...field} disabled={isSubmitting} /></FormControl>
+                  <FormControl><Input type="tel" placeholder="+16505551234" {...field} disabled={isSubmitting || (watchedRole !== 'passenger' && !field.value && !form.formState.dirtyFields.phoneNumber) } /></FormControl>
                   <FormMessage />
                 </FormItem>
             )} />
@@ -363,7 +428,6 @@ export function RegisterForm() {
         
         {registrationStep === 'initial' && <div ref={recaptchaContainerRef} id="recaptcha-container-register"></div>}
 
-
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isSubmitting ? (registrationStep === 'initial' ? 'Creating Account...' : 'Verifying...') : (registrationStep === 'initial' ? 'Create Account' : 'Verify & Complete Registration')}
@@ -378,6 +442,3 @@ export function RegisterForm() {
     </Form>
   );
 }
-
-
-    

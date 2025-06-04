@@ -9,10 +9,13 @@ import type { Timestamp } from 'firebase/firestore'; // Import Timestamp for typ
 export type UserRole = 'passenger' | 'driver' | 'operator';
 
 interface User {
-  id: string; // Firebase UID for registered users, or a temp ID for guests
+  id: string; // Firebase UID
   email: string;
   name: string;
   role: UserRole;
+  customId?: string; // For CUxxx (passenger) or OPxxx (operator)
+  operatorCode?: string; // For drivers, e.g., "OP001"
+  driverIdentifier?: string; // For drivers, e.g., "DR123"
   vehicleCategory?: string;
   phoneNumber?: string | null;
   phoneVerified?: boolean;
@@ -23,7 +26,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (
-    id: string, // Now a mandatory parameter, should be Firebase UID for real users
+    id: string, // Firebase UID
     email: string,
     name: string,
     role: UserRole,
@@ -31,7 +34,10 @@ interface AuthContextType {
     phoneNumber?: string | null,
     phoneVerified?: boolean,
     status?: 'Active' | 'Pending Approval' | 'Suspended',
-    phoneVerificationDeadlineInput?: Date | string | null | { seconds: number, nanoseconds: number } | Timestamp
+    phoneVerificationDeadlineInput?: Date | string | null | { seconds: number, nanoseconds: number } | Timestamp,
+    customId?: string, // For CUxxx or OPxxx
+    operatorCode?: string, // For drivers
+    driverIdentifier?: string // For drivers
   ) => void;
   logout: () => void;
   loading: boolean;
@@ -53,7 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (storedUserJson) {
         const storedUserObject = JSON.parse(storedUserJson) as User;
         if (isMounted) {
-          // Basic validation for critical fields from localStorage
           if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
             setUser(storedUserObject);
           } else {
@@ -82,7 +87,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     phoneNumber?: string | null,
     phoneVerified?: boolean,
     status?: 'Active' | 'Pending Approval' | 'Suspended',
-    phoneVerificationDeadlineInput?: Date | string | null | { seconds: number, nanoseconds: number } | Timestamp
+    phoneVerificationDeadlineInput?: Date | string | null | { seconds: number, nanoseconds: number } | Timestamp,
+    customId?: string,
+    operatorCode?: string,
+    driverIdentifier?: string
   ) => {
     let deadlineISO: string | null = null;
     if (phoneVerificationDeadlineInput) {
@@ -103,10 +111,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const newUser: User = {
-      id, // Use the provided ID (Firebase UID for real users)
+      id,
       email,
       name,
       role,
+      ...(customId && { customId }),
+      ...(operatorCode && { operatorCode }),
+      ...(driverIdentifier && { driverIdentifier }),
       ...(role === 'driver' && vehicleCategory && { vehicleCategory }),
       ...(phoneNumber && { phoneNumber }),
       ...(phoneVerified !== undefined && { phoneVerified }),
@@ -116,19 +127,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(newUser);
     localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
 
-    // Only redirect if currently on a public page after successful login
     if (pathname.includes('/login') || pathname.includes('/register') || pathname === '/') {
         if (role === 'passenger') router.push('/dashboard');
-        else if (role === 'driver') router.push('/driver/available-rides'); // Changed this line
+        else if (role === 'driver') router.push('/driver/available-rides');
         else if (role === 'operator') router.push('/operator');
-        else router.push('/'); // Fallback to a sensible default if role is unexpected
+        else router.push('/');
     }
   };
 
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        // Ensure the ID is not accidentally changed by the partial update
         const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id };
         localStorage.setItem('linkCabsUser', JSON.stringify(updatedUser));
         return updatedUser;
@@ -140,8 +149,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('linkCabsUser');
-    // Optional: Firebase sign out if you integrate Firebase Auth more directly for session state
-    // if (auth) auth.signOut();
     router.push('/login');
   };
 
@@ -149,26 +156,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (loading) {
       return;
     }
-
-    const publicPaths = ['/login', '/register', '/forgot-password', '/']; // Added forgot-password
-    // More robust check for public paths, allowing for sub-paths like /_next/*
+    const publicPaths = ['/login', '/register', '/forgot-password', '/'];
     const isPublicPath = publicPaths.some(p => pathname === p) || pathname.startsWith('/_next/');
-
 
     if (!user && !isPublicPath) {
       router.push('/login');
     }
-    // Commenting out the redirect from login/register if user exists,
-    // as the login function itself handles redirection upon successful login.
-    // This prevents potential redirect loops if user lands on /login but localStorage still has data.
-    /*
-    else if (user && (pathname === '/login' || pathname === '/register')) {
-      if (user.role === 'passenger') router.push('/dashboard');
-      else if (user.role === 'driver') router.push('/driver');
-      else if (user.role === 'operator') router.push('/operator');
-      else router.push('/'); 
-    }
-    */
   }, [user, loading, router, pathname]);
 
   return (
@@ -185,4 +178,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
