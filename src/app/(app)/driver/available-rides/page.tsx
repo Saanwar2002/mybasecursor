@@ -3,15 +3,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
-import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal'; // Adjusted import
+import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -33,8 +35,8 @@ interface RideRequest {
   passengerCount: number;
   passengerPhone?: string;
   passengerRating?: number;
-  notifiedPassengerArrivalTimestamp?: string | null; // ISO string from API
-  passengerAcknowledgedArrivalTimestamp?: string | null; // ISO string from API
+  notifiedPassengerArrivalTimestamp?: string | null; 
+  passengerAcknowledgedArrivalTimestamp?: string | null; 
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -49,11 +51,12 @@ export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
   const { user: driverUser } = useAuth();
-  const [driverLocation] = useState<google.maps.LatLngLiteral>({ lat: 53.6430, lng: -1.7800 });
+  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>({ lat: 53.6430, lng: -1.7800 }); // Mock driver location
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [currentOfferDetails, setCurrentOfferDetails] = useState<RideOffer | null>(null);
+  const [isDriverOnline, setIsDriverOnline] = useState(true);
 
 
   const handleSimulateOffer = () => {
@@ -72,8 +75,6 @@ export default function AvailableRidesPage() {
 
   const handleAcceptOffer = (rideId: string) => {
     console.log("Offer accepted:", rideId);
-    // Here you would typically call handleRideAction(rideId, 'accept') or similar
-    // For now, just update the mock data if the accepted ID matches a mock request
     const acceptedRequest = rideRequests.find(r => r.id === rideId || rideId === 'mock-offer-123');
     if (acceptedRequest) {
         handleRideAction(acceptedRequest.id, 'accept');
@@ -86,10 +87,9 @@ export default function AvailableRidesPage() {
 
   const handleDeclineOffer = (rideId: string) => {
     console.log("Offer declined:", rideId);
-    // Handle decline logic, potentially update ride status to 'declined_by_driver'
      const declinedRequest = rideRequests.find(r => r.id === rideId || rideId === 'mock-offer-123');
-    if (declinedRequest && declinedRequest.status !== 'pending') { // Only decline if it's a mock offer that isn't already pending
-        handleRideAction(declinedRequest.id, 'decline'); // Or a specific decline action if you add one
+    if (declinedRequest && declinedRequest.status !== 'pending') { 
+        handleRideAction(declinedRequest.id, 'decline'); 
     } else {
          toast({title: "Mock Ride Declined", description: `Declined offer for ride ID ${rideId}.`});
     }
@@ -111,19 +111,18 @@ export default function AvailableRidesPage() {
     let toastTitle = "";
 
     const currentRide = rideRequests.find(r => r.id === rideId);
-    if (!currentRide && rideId !== 'mock-offer-123') { // Allow mock offer to proceed for demo
+    if (!currentRide && rideId !== 'mock-offer-123') { 
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
         toast({ title: "Error", description: `Ride with ID ${rideId} not found locally.`, variant: "destructive" });
         return;
     }
     
-    // If it's a mock offer ID, try to find a corresponding pending ride to "accept"
     let actualRideToUpdate = currentRide;
     if (rideId === 'mock-offer-123' && actionType === 'accept') {
         const firstPending = rideRequests.find(r => r.status === 'pending');
         if (firstPending) {
             actualRideToUpdate = firstPending;
-            rideId = firstPending.id; // Use the actual ID for API call
+            rideId = firstPending.id; 
         } else {
             toast({ title: "No Pending Rides", description: "No pending rides available to accept for this mock offer.", variant: "default"});
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
@@ -141,26 +140,18 @@ export default function AvailableRidesPage() {
             toastMessage = `Ride request from ${rideDisplayName} accepted.`;
             setRideRequests(prev => prev.map(r => {
                 if (r.id === rideId) return { ...r, status: newStatus! };
-                // This logic might need rethinking: if a driver accepts one, should others become 'pending' again?
-                // For now, let's assume only one ride can be active. Others remain as they are unless they were 'pending'.
-                // if (r.status === 'driver_assigned' || r.status === 'active' || r.status === 'arrived_at_pickup' || r.status === 'in_progress') return { ...r, status: 'pending' }; 
                 return r;
             }));
             break;
         case 'decline':
-            // If declining a mock offer, we don't change actual ride statuses unless it's already an active ride
             if (rideId === 'mock-offer-123' || currentRide?.status === 'pending') {
                 toastTitle = "Offer Declined";
                 toastMessage = `Ride offer for ${rideDisplayName} declined.`;
-                 // In a real scenario, you might remove it from offers or mark as declined for this driver.
-                 // For now, if it's a mock-offer, we don't alter the main rideRequests list for 'decline'.
-                 // If it's a real pending ride being declined through a direct action (not modal), filter it.
                 if (rideId !== 'mock-offer-123' && currentRide?.status === 'pending') {
                     setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
                 }
             } else {
-                // This case might not be reached if decline is only from modal for *new* offers
-                newStatus = 'declined'; // Or some other status
+                newStatus = 'declined'; 
                 apiAction = undefined;
                 toastTitle = "Ride Declined";
                 toastMessage = `Ride request for ${rideDisplayName} declined.`;
@@ -194,12 +185,12 @@ export default function AvailableRidesPage() {
             break;
     }
     
-    if ((newStatus || apiAction) && rideId !== 'mock-offer-123') { // Only send API for actual ride IDs
+    if ((newStatus || apiAction) && rideId !== 'mock-offer-123') { 
         try {
             const payload: any = {};
             if (apiAction) {
                  payload.action = apiAction;
-            } else if (newStatus) { // If it's a direct status change without specific API action
+            } else if (newStatus) { 
                 payload.status = newStatus;
                 if (actionType === 'accept' && driverUser) {
                     payload.driverId = driverUser.id;
@@ -216,15 +207,16 @@ export default function AvailableRidesPage() {
                body: JSON.stringify(payload),
             });
 
-            if (!response.ok) {
+             if (!response.ok) {
                 let apiErrorMessage = `Failed to update ride status (Status: ${response.status}).`;
-                const responseText = await response.text(); // Read body once as text
+                const responseText = await response.text();
                 try {
-                    const errorData = JSON.parse(responseText); // Try to parse the text
+                    const errorData = JSON.parse(responseText);
                     console.error(`API Error for ride ${rideId}, action ${actionType}:`, errorData);
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
-                    console.warn(`API response for ride ${rideId} (status ${response.status}) not valid JSON. Raw body:`, responseText);
+                    console.warn(`API response for ride ${rideId} (status ${response.status}) not valid JSON or error parsing it:`, parseError);
+                    console.log("Raw error response body:", responseText); // Log the raw text
                     apiErrorMessage = `Status: ${response.status}. Body: ${responseText.substring(0,200)}`;
                 }
                 throw new Error(apiErrorMessage);
@@ -245,9 +237,6 @@ export default function AvailableRidesPage() {
                         }
                         return updatedReq;
                     }
-                    // If accepting this ride, and other rides were 'driver_assigned' to this driver, they should revert.
-                    // This complex logic might be better handled server-side or by simplifying the local state update.
-                    // For now, only the target ride is updated directly based on API response.
                     return req;
                 })
             );
@@ -260,21 +249,16 @@ export default function AvailableRidesPage() {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     } else if (rideId === 'mock-offer-123' && (actionType === 'accept' || actionType === 'decline')) {
-        // For mock offers, we just show a toast and don't hit the API
         toast({ title: toastTitle, description: toastMessage });
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
     } else {
-        // If no API call was made (e.g. declining a mock offer that wasn't a real ride)
-        if (actionType !== 'decline' && actionType !== 'cancel_active') { // These already handle local state or are non-API
+        if (actionType !== 'decline' && actionType !== 'cancel_active') { 
              setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     }
   };
 
-
   const activeRide = rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress'].includes(r.status));
-  // Pending rides are now managed by the operator, not shown directly to driver unless offered.
-  // const pendingRides = rideRequests.filter(r => r.status === 'pending');
 
   const handleCallCustomer = (phoneNumber?: string) => {
     if (phoneNumber) {
@@ -304,7 +288,7 @@ export default function AvailableRidesPage() {
   };
 
   const getMapMarkersForActiveRide = () => {
-    if (!activeRide) return [];
+    if (!activeRide) return [{ position: driverLocation, title: "Your Location" }];
     const markers = [];
     if (activeRide.pickupCoords) {
       markers.push({
@@ -343,20 +327,10 @@ export default function AvailableRidesPage() {
       }
   };
 
-  return (
-    <div className="space-y-6">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-3xl font-headline">Driver Area</CardTitle>
-          <CardDescription>
-            {activeRide
-              ? "Manage your current active ride."
-              : "You are online and awaiting ride offers."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-
-      {activeRide ? (
+  // If active ride, show active ride UI (Simplified for now, can be expanded)
+  if (activeRide) {
+    return (
+      <div className="p-4 space-y-4">
         <Card className="bg-primary/10 border-primary/30 shadow-xl">
           <CardHeader>
             <CardTitle className="text-2xl font-headline flex items-center gap-2">
@@ -364,9 +338,9 @@ export default function AvailableRidesPage() {
             </CardTitle>
             <CardDescription>Passenger: {activeRide.passengerName}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+           <CardContent className="space-y-3">
             <div className="flex items-center gap-3 mb-3">
-                <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger"/>
+                <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger" />
                 <div>
                   <div className="flex items-center">
                     <p className="text-lg font-semibold">{activeRide.passengerName}</p>
@@ -378,7 +352,6 @@ export default function AvailableRidesPage() {
                   </Badge>
                 </div>
             </div>
-            <p className="flex items-center gap-1.5 text-md"><Info className="w-5 h-5 text-muted-foreground" /> <strong>Ride ID:</strong> {activeRide.id}</p>
             <p className="flex items-center gap-1.5 text-md"><MapPin className="w-5 h-5 text-muted-foreground" /> <strong>From:</strong> {activeRide.pickupLocation}</p>
             <p className="flex items-center gap-1.5 text-md"><Building className="w-5 h-5 text-muted-foreground" /> <strong>To:</strong> {activeRide.dropoffLocation}</p>
             
@@ -402,9 +375,9 @@ export default function AvailableRidesPage() {
                  </div>
             )}
 
-            <div className="mt-4">
+            <div className="mt-2">
               <p className="text-md font-medium mb-1">Live Ride Map:</p>
-              <div className="h-72 bg-muted rounded-lg overflow-hidden border shadow-sm">
+              <div className="h-60 bg-muted rounded-lg overflow-hidden border shadow-sm">
                  <GoogleMapDisplay
                     center={getMapCenterForActiveRide()}
                     zoom={15}
@@ -413,7 +386,7 @@ export default function AvailableRidesPage() {
                  />
               </div>
             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
               {activeRide.status === 'driver_assigned' && (
                 <>
                   <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-3" onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)} disabled={actionLoading[activeRide.id]}>
@@ -457,18 +430,52 @@ export default function AvailableRidesPage() {
             </div>
           </CardContent>
         </Card>
-      ) : (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground space-y-4">
-            <BellRing className="w-12 h-12 mx-auto text-primary" />
-            <p className="text-lg font-semibold">You are online and awaiting ride offers.</p>
-            <p>New ride offers will appear here.</p>
-            <Button onClick={handleSimulateOffer} variant="outline">
-              Simulate Incoming Ride Offer (Test)
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-screen">
+      <div className="h-[70vh] w-full relative">
+        <GoogleMapDisplay
+            center={driverLocation}
+            zoom={15}
+            markers={[{ position: driverLocation, title: "Your Location" }]}
+            className="w-full h-full"
+        />
+        {/* We can add an overlay for the Online/Offline toggle on the map later if needed */}
+      </div>
+      <Card className="h-[30vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
+        <CardHeader className="p-2 text-center">
+          <CardTitle className="text-2xl font-headline">
+            {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center space-y-3 w-full">
+          {isDriverOnline ? (
+            <>
+              <Loader2 className="h-10 w-10 text-primary animate-spin" />
+              <p className="text-muted-foreground">Actively searching for ride offers for you...</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">You are currently offline. Toggle on to receive ride offers.</p>
+          )}
+           <div className="flex items-center space-x-2 pt-3">
+            <Switch 
+              id="online-status-toggle" 
+              checked={isDriverOnline} 
+              onCheckedChange={setIsDriverOnline} 
+              aria-label="Driver online status"
+            />
+            <Label htmlFor="online-status-toggle" className="text-lg">
+              {isDriverOnline ? "Online" : "Offline"}
+            </Label>
+          </div>
+          <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-2">
+            Simulate Incoming Offer (Test)
+          </Button>
+        </CardContent>
+      </Card>
 
       <RideOfferModal
         isOpen={isOfferModalOpen}
@@ -480,3 +487,5 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
+    
