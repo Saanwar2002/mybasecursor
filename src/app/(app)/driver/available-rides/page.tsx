@@ -1,9 +1,9 @@
 
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
@@ -76,10 +76,8 @@ export default function AvailableRidesPage() {
             apiAction = undefined; 
             toastTitle = "Ride Accepted";
             toastMessage = `Ride request from ${currentRide.passengerName} accepted.`;
-            // Optimistically update other rides if this one is accepted
             setRideRequests(prev => prev.map(r => {
                 if (r.id === rideId) return { ...r, status: newStatus! };
-                // If another ride was active, set it back to pending (or handle as per business logic)
                 if (r.status === 'driver_assigned' || r.status === 'active' || r.status === 'arrived_at_pickup' || r.status === 'in_progress') return { ...r, status: 'pending' }; 
                 return r;
             }));
@@ -114,7 +112,7 @@ export default function AvailableRidesPage() {
             apiAction = undefined; 
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${currentRide.passengerName} cancelled.`;
-            setRideRequests(prev => prev.filter(r => r.id !== rideId)); // Remove cancelled ride from active view
+            setRideRequests(prev => prev.filter(r => r.id !== rideId));
             break;
     }
     
@@ -134,30 +132,27 @@ export default function AvailableRidesPage() {
                 return;
             }
 
-             const response = await fetch(`/api/operator/bookings/${rideId}`, {
+            const response = await fetch(`/api/operator/bookings/${rideId}`, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify(payload),
-             });
+            });
 
-             if (!response.ok) {
-                let apiErrorMessage = `Server responded with status ${response.status}`;
+            if (!response.ok) {
+                let apiErrorMessage = `Server responded with status ${response.status} (${response.statusText}).`;
+                let responseBodyText = "";
                 try {
-                    const errorData = await response.json();
-                    apiErrorMessage = errorData.message || errorData.details || apiErrorMessage;
-                } catch (jsonError) {
-                    console.warn(`API response for ${response.url} (status ${response.status}) was not valid JSON. Attempting to read as text.`);
-                    try {
-                        const textError = await response.text();
-                        console.error("Non-JSON API error response text:", textError);
-                        apiErrorMessage = `Server error (status ${response.status}), non-JSON response. Details: ${textError.substring(0, 200)}${textError.length > 200 ? '...' : ''}`;
-                    } catch (textParseError) {
-                        console.error("Failed to parse API error response as text:", textParseError);
-                        apiErrorMessage = `Server error (status ${response.status}), and response body could not be parsed.`;
-                    }
+                    responseBodyText = await response.text(); // Try to get raw text first
+                    console.log(`Raw error response body for ride ${rideId}, action ${actionType}:`, responseBodyText);
+                    const errorData = JSON.parse(responseBodyText); // Then attempt to parse as JSON
+                    apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
+                } catch (parseError) {
+                    // If JSON.parse fails, use the raw text if available, or a fallback
+                    apiErrorMessage = `Status: ${response.status}. Body: ${responseBodyText.substring(0, 200) || "Response body not readable or not JSON."}`;
+                    console.warn(`API response for ride ${rideId} (status ${response.status}) not valid JSON or error parsing it:`, parseError);
                 }
                 throw new Error(apiErrorMessage);
-             }
+            }
 
              const updatedBooking = await response.json();
             
@@ -170,11 +165,6 @@ export default function AvailableRidesPage() {
                                 ? new Date(updatedBooking.booking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString() 
                                 : new Date().toISOString();
                         }
-                        if (actionType === 'accept') {
-                            // Assuming driverId and driverName are set by the backend upon acceptance
-                            // updatedReq.driverId = updatedBooking.booking.driverId; 
-                            // updatedReq.driverName = updatedBooking.booking.driverName;
-                        }
                         return updatedReq;
                     }
                     return req;
@@ -183,13 +173,13 @@ export default function AvailableRidesPage() {
             toast({ title: toastTitle, description: toastMessage });
 
         } catch (error) {
+             console.error(`Error in handleRideAction for ride ${rideId}, action ${actionType}:`, error);
              toast({ title: "Action Failed", description: `Could not update ride: ${error instanceof Error ? error.message : "Unknown error"}`, variant: "destructive"});
         } finally {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     } else {
-        // This case implies no action was determined, or it's a decline that filters locally
-        if (actionType !== 'decline' && actionType !== 'cancel_active') { // Decline is handled by filtering
+        if (actionType !== 'decline' && actionType !== 'cancel_active') {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     }
@@ -337,25 +327,25 @@ export default function AvailableRidesPage() {
                  />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
-               {activeRide.status === 'driver_assigned' && (
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
+              {activeRide.status === 'driver_assigned' && (
                 <>
-                  <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white text-base py-3" onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)} disabled={actionLoading[activeRide.id]}>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-3" onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)} disabled={actionLoading[activeRide.id]}>
                     <Navigation className="mr-2 h-5 w-5" /> Navigate to Pickup
                   </Button>
-                  <Button className="w-full bg-green-500 hover:bg-green-600 text-white text-base py-3" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <BellRing className="mr-2 h-5 w-5" />} I'm at Pickup
+                   <Button className="w-full bg-green-500 hover:bg-green-600 text-white text-base py-3" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
+                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <BellRing className="mr-2 h-5 w-5" />} I'm at Pickup Location
                   </Button>
                 </>
               )}
               {activeRide.status === 'arrived_at_pickup' && (
                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3 sm:col-span-2" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
-                   {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Car className="mr-2 h-5 w-5" />} Start Ride
+                   {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <CarIcon className="mr-2 h-5 w-5" />} Start Ride
                 </Button>
               )}
               {activeRide.status === 'in_progress' && (
                 <>
-                  <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white text-base py-3" onClick={() => handleNavigate("Dropoff", activeRide.dropoffCoords)} disabled={actionLoading[activeRide.id]}>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-3" onClick={() => handleNavigate("Dropoff", activeRide.dropoffCoords)} disabled={actionLoading[activeRide.id]}>
                      <Navigation className="mr-2 h-5 w-5" /> Navigate to Dropoff
                   </Button>
                   <Button variant="outline" className="w-full text-base py-3 border-green-500 text-green-600 hover:bg-green-500 hover:text-white" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
@@ -424,14 +414,14 @@ export default function AvailableRidesPage() {
                     onClick={() => handleRideAction(req.id, 'decline')}
                     disabled={!!activeRide || actionLoading[req.id]}
                   >
-                    {actionLoading[req.id] && currentRide?.id === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />} Decline
+                    {actionLoading[req.id] && rideRequests.find(r=>r.id === req.id)?.status === 'pending' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />} Decline
                   </Button>
                   <Button
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white"
                     onClick={() => handleRideAction(req.id, 'accept')}
                     disabled={!!activeRide || actionLoading[req.id]}
                   >
-                    {actionLoading[req.id] && currentRide?.id === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />} Accept
+                    {actionLoading[req.id] && rideRequests.find(r=>r.id === req.id)?.status === 'pending' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />} Accept
                   </Button>
                 </CardFooter>
               </Card>
