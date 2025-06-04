@@ -114,14 +114,14 @@ export default function AvailableRidesPage() {
   const handleSimulateOffer = () => {
     const mockOffer: RideOffer = {
       id: 'mock-offer-123',
-      pickupLocation: "123 Main St, Huddersfield",
-      pickupCoords: { lat: 53.6480, lng: -1.7800 },
-      dropoffLocation: "456 Oak Ave, Huddersfield",
-      dropoffCoords: { lat: 53.6420, lng: -1.7850 },
-      fareEstimate: 15.75,
-      passengerCount: 2,
-      passengerName: "John Doe",
-      notes: "Has a small dog."
+      pickupLocation: "6 Colne Street Paddock Huddersfield HD1 4RX",
+      pickupCoords: { lat: 53.6410, lng: -1.7950 }, // Example coords for Paddock area
+      dropoffLocation: "12 Lindley Moor Road Lindley Huddersfield HD3 3RT",
+      dropoffCoords: { lat: 53.6600, lng: -1.8200 }, // Example coords for Lindley Moor area
+      fareEstimate: 12.50,
+      passengerCount: 1,
+      passengerName: "Sarah Connor",
+      notes: "Going to the hospital. Please be quick."
     };
     setCurrentOfferDetails(mockOffer);
     setIsOfferModalOpen(true);
