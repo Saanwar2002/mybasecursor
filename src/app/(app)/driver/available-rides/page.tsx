@@ -152,18 +152,18 @@ export default function AvailableRidesPage() {
     if (rideId === 'mock-offer-123' && offerToAccept) {
       const mockActiveRideData: RideRequest = {
         id: `active-mock-${Date.now()}`,
-        passengerName: offerToAccept.passengerName || "Sarah Connor",
+        passengerName: "Sarah Connor",
         passengerAvatar: 'https://placehold.co/48x48.png?text=SC',
-        pickupLocation: offerToAccept.pickupLocation,
-        dropoffLocation: offerToAccept.dropoffLocation,
+        pickupLocation: "Sarah's Home, 24 Oak Lane, Lindley, Huddersfield HD3 3WZ",
+        dropoffLocation: "Town Centre Cinema, King Street, Huddersfield HD1 2QR",
         estimatedTime: "12 mins", 
-        fareEstimate: offerToAccept.fareEstimate,
+        fareEstimate: 7.50,
         status: 'driver_assigned', 
-        pickupCoords: offerToAccept.pickupCoords,
-        dropoffCoords: offerToAccept.dropoffCoords,
+        pickupCoords: { lat: 53.6570, lng: -1.8195 },
+        dropoffCoords: { lat: 53.6465, lng: -1.7830 },
         distanceMiles: 3.5,
-        passengerCount: offerToAccept.passengerCount,
-        notes: offerToAccept.notes,
+        passengerCount: 1,
+        notes: "Main door, by the blue plant pot. Has a small suitcase.",
         passengerPhone: "07123456001",
         passengerRating: 4.7,
       };
@@ -252,7 +252,7 @@ export default function AvailableRidesPage() {
             break;
         case 'cancel_active':
             newStatus = 'cancelled_by_driver';
-            apiAction = 'cancel_ride'; // Assuming your API handles this
+            apiAction = 'cancel_ride'; 
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
             break;
@@ -264,8 +264,6 @@ export default function AvailableRidesPage() {
             if (apiAction) {
                  payload.action = apiAction;
             } else {
-                 // For accept/decline, status is set directly for now
-                 // This part might need refinement if API handles accept/decline as actions too
                  payload.status = newStatus;
             }
             if ((actionType === 'accept' || actionType === 'decline') && driverUser) { 
@@ -282,8 +280,8 @@ export default function AvailableRidesPage() {
             if (!response.ok) {
                 let descriptiveError = `Failed to update ride (Status: ${response.status}).`;
                 try {
-                    const responseBodyText = await response.text(); // Try to get raw text first
-                    descriptiveError += ` Response: ${responseBodyText.substring(0, 200)}${responseBodyText.length > 200 ? '...' : ''}`;
+                    const responseBodyText = await response.text();
+                    descriptiveError += ` Response Preview: ${responseBodyText.substring(0, 200)}${responseBodyText.length > 200 ? '...' : ''}`;
                     if (responseBodyText.trim() !== "") {
                         try {
                             const errorData = JSON.parse(responseBodyText);
@@ -334,7 +332,6 @@ export default function AvailableRidesPage() {
                 updatedMockRide.notifiedPassengerArrivalTimestamp = new Date().toISOString();
             }
             if (newStatus === 'In Progress' && actionType === 'start_ride' && r.status === 'arrived_at_pickup'){
-                // Simulate passenger acknowledgment if they were notified. This is a mock simplification.
                 if (r.notifiedPassengerArrivalTimestamp) {
                     updatedMockRide.passengerAcknowledgedArrivalTimestamp = new Date().toISOString();
                 }
@@ -370,8 +367,7 @@ export default function AvailableRidesPage() {
         label: { text: "P", color: "white", fontWeight: "bold"}
       });
     }
-    // Only show dropoff if in progress or beyond
-    if ((activeRide.status.toLowerCase() === 'in progress' || activeRide.status === 'completed') && activeRide.dropoffCoords) {
+    if ((activeRide.status.toLowerCase().includes('in progress') || activeRide.status === 'completed') && activeRide.dropoffCoords) {
       markers.push({
         position: activeRide.dropoffCoords,
         title: `Dropoff: ${activeRide.dropoffLocation}`,
@@ -393,7 +389,7 @@ export default function AvailableRidesPage() {
   const getMapCenterForActiveRide = (): google.maps.LatLngLiteral => {
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) return activeRide.pickupCoords;
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupCoords) return activeRide.pickupCoords;
-    if ((activeRide?.status.toLowerCase() === 'in progress') && activeRide.dropoffCoords) return activeRide.dropoffCoords;
+    if (activeRide?.status.toLowerCase().includes('in progress') && activeRide.dropoffCoords) return activeRide.dropoffCoords;
     return driverLocation;
   };
   
@@ -402,7 +398,6 @@ export default function AvailableRidesPage() {
     if (checked) {
       setShowCancelConfirmationDialog(true);
     }
-    // No 'else' needed here as dialog's onOpenChange will reset the switch if it's closed without confirmation
   };
 
   const CancelRideInteraction = ({ ride, isLoading }: { ride: RideRequest, isLoading: boolean }) => (
@@ -424,7 +419,7 @@ export default function AvailableRidesPage() {
   if (activeRide) {
     const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
     const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
-    const showInProgressStatus = activeRide.status.toLowerCase() === 'in progress';
+    const showInProgressStatus = activeRide.status.toLowerCase().includes('in progress');
 
     return (
       <div className="flex flex-col h-full">
@@ -523,36 +518,41 @@ export default function AvailableRidesPage() {
           <CardFooter className="p-3 border-t grid gap-2">
              {showDriverAssignedStatus && (
                 <>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-3 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Passenger of Arrival
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" className="w-full text-lg py-3 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to pickup: ${activeRide.pickupLocation}`})}>
+                          <Navigation className="mr-2"/> Navigate
+                      </Button>
+                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-3 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
+                          {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival
+                      </Button>
+                  </div>
                   <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
                 </>
             )}
              {showArrivedAtPickupStatus && (
-                <div className="grid grid-cols-2 gap-2">
-                    <Button className="w-full bg-green-600 hover:bg-green-700 text-lg py-3 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
-                        {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride
-                    </Button>
-                     <Button variant="outline" className="w-full text-lg py-3 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to pickup location for ${activeRide.passengerName}...`})}>
-                        <Navigation className="mr-2"/> Navigate
-                    </Button>
-                    <div className="col-span-2">
-                      <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
+                <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" className="w-full text-lg py-3 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to pickup location for ${activeRide.passengerName}...`})}>
+                            <Navigation className="mr-2"/> Navigate
+                        </Button>
+                        <Button className="w-full bg-green-600 hover:bg-green-700 text-lg py-3 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
+                            {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride
+                        </Button>
                     </div>
+                    <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
                 </div>
             )}
             {showInProgressStatus && (
-                 <div className="grid grid-cols-2 gap-2">
-                    <Button className="w-full bg-primary hover:bg-primary/80 text-lg py-3 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
-                        {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride
-                    </Button>
-                    <Button variant="outline" className="w-full text-lg py-3 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to dropoff for ${activeRide.passengerName}...`})}>
-                        <Navigation className="mr-2"/> Navigate
-                    </Button>
-                    <div className="col-span-2">
-                      <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
+                 <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" className="w-full text-lg py-3 h-auto" onClick={() => toast({title: "Navigate", description: `Mock navigating to dropoff for ${activeRide.passengerName}...`})}>
+                            <Navigation className="mr-2"/> Navigate
+                        </Button>
+                        <Button className="w-full bg-primary hover:bg-primary/80 text-lg py-3 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
+                            {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride
+                        </Button>
                     </div>
+                    <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
                 </div>
             )}
           </CardFooter>
@@ -560,8 +560,8 @@ export default function AvailableRidesPage() {
 
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => {
             setShowCancelConfirmationDialog(isOpen);
-            if (!isOpen) {
-                setIsCancelSwitchOn(false); // Reset switch if dialog is closed
+            if (!isOpen && isCancelSwitchOn) { // If dialog closed without action AND switch was on
+                setIsCancelSwitchOn(false); 
             }
         }}>
             <AlertDialogContent>
@@ -572,18 +572,19 @@ export default function AvailableRidesPage() {
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setIsCancelSwitchOn(false)} disabled={actionLoading[activeRide.id]}>Keep Ride</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => {setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel>
                 <AlertDialogAction
                     onClick={() => {
                     if (activeRide) {
                         handleRideAction(activeRide.id, 'cancel_active');
                     }
-                    // No need to setIsCancelSwitchOn(false) here as onOpenChange will handle it
+                    setIsCancelSwitchOn(false); 
+                    setShowCancelConfirmationDialog(false);
                     }}
-                    disabled={actionLoading[activeRide.id]}
+                    disabled={activeRide ? actionLoading[activeRide.id] : false}
                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Confirm Cancel
                 </AlertDialogAction>
                 </AlertDialogFooter>
@@ -672,7 +673,7 @@ export default function AvailableRidesPage() {
       />
        <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => {
           setShowCancelConfirmationDialog(isOpen);
-          if (!isOpen && activeRide) { // Only reset switch if dialog closes without action
+          if (!isOpen && activeRide && isCancelSwitchOn) { // Only reset switch if dialog closes without action AND switch was on
             setIsCancelSwitchOn(false);
           }
         }}>
@@ -685,18 +686,16 @@ export default function AvailableRidesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
-              // No need to set setShowCancelConfirmationDialog(false) here, onOpenChange handles it.
-              // Explicitly set switch off.
-              setIsCancelSwitchOn(false);
+              setIsCancelSwitchOn(false); 
+              setShowCancelConfirmationDialog(false);
             }} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (activeRide) {
                   handleRideAction(activeRide.id, 'cancel_active');
                 }
-                // No need to set setShowCancelConfirmationDialog(false) here.
-                // Explicitly set switch off.
                 setIsCancelSwitchOn(false); 
+                setShowCancelConfirmationDialog(false);
               }}
               disabled={activeRide ? actionLoading[activeRide.id] : false}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
