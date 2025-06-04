@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
-import { Progress } from "@/components/ui/progress";
+// import { Progress } from "@/components/ui/progress"; // Progress component no longer needed
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -69,7 +69,7 @@ export default function AvailableRidesPage() {
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  const [progressValue, setProgressValue] = useState(0);
+  // const [progressValue, setProgressValue] = useState(0); // Progress bar state removed
 
 
 //   useEffect(() => {
@@ -112,23 +112,7 @@ export default function AvailableRidesPage() {
 //     };
 //   }, [isDriverOnline, toast]);
 
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | undefined;
-    if (isDriverOnline && !geolocationError) {
-      setProgressValue(0); 
-      intervalId = setInterval(() => {
-        setProgressValue((prev) => (prev >= 100 ? 0 : prev + 10)); 
-      }, 300); 
-    } else {
-      setProgressValue(0); 
-    }
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [isDriverOnline, geolocationError]);
-
+  // useEffect for progress bar removed
 
   const handleSimulateOffer = () => {
     const mockOffer: RideOffer = {
@@ -434,7 +418,7 @@ export default function AvailableRidesPage() {
     });
   }
 
-/*
+/* // Keep this block commented out as per user interaction flow
   if (activeRide) {
     return (
       <div className="flex flex-col h-full bg-background">
@@ -553,11 +537,9 @@ export default function AvailableRidesPage() {
   }
 */
 
-  // Fallback / No Active Ride View
   return (
-    <div className="flex flex-col h-full">
-      {/* Map takes roughly 70% of height */}
-      <div className="flex-shrink-0 w-full relative h-[calc(100%-12rem)] md:h-[calc(100%-10rem)] rounded-t-xl md:rounded-xl overflow-hidden shadow-lg">
+    <div className="flex flex-col h-full bg-background">
+      <div className="flex-1 w-full relative"> {/* Map container */}
         <GoogleMapDisplay
           center={driverLocation}
           zoom={15}
@@ -575,41 +557,41 @@ export default function AvailableRidesPage() {
       </div>
 
       {/* Status and controls card */}
-      <Card className="flex-shrink-0 h-48 md:h-40 rounded-t-2xl -mt-4 shadow-2xl bg-card flex flex-col p-3">
-        <CardHeader className="p-1 text-center border-b pb-2">
-          <CardTitle className="text-xl font-headline">
+      <Card className="flex-shrink-0 bg-card p-4 shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] rounded-t-2xl -mt-5 z-10 border-t-4 border-green-500">
+        <CardHeader className="p-0 text-center pb-3">
+          <CardTitle className="text-2xl font-bold text-green-600">
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col items-center justify-center p-2 space-y-2">
+        <CardContent className="flex flex-col items-center space-y-4 pt-0">
           {isDriverOnline && !geolocationError && (
             <>
-              <Progress value={progressValue} className="w-3/4 h-2.5 my-1" indicatorClassName={cn(progressValue < 30 ? 'bg-red-500' : progressValue < 70 ? 'bg-yellow-500' : 'bg-green-500')} />
-              <p className="text-xs text-muted-foreground">System Active - Searching for Offers...</p>
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground text-center">Actively searching for ride offers for you...</p>
             </>
           )}
           {isDriverOnline && geolocationError && (
-            <div className="text-destructive text-xs text-center font-medium p-1 rounded-md bg-destructive/10 w-full">
-              <AlertTriangle className="inline h-3 w-3 mr-1"/> Cannot update live location. Toggle off/on or check permissions.
+            <div className="text-destructive text-xs text-center font-medium p-2 rounded-md bg-destructive/10 w-full">
+              <AlertTriangle className="inline h-4 w-4 mr-1"/> Cannot update live location. Toggle off/on or check permissions.
             </div>
           )}
           {!isDriverOnline && (
-            <p className="text-base text-muted-foreground">You are currently offline.</p>
+            <p className="text-lg text-muted-foreground">You are currently offline.</p>
           )}
           
-          <div className="flex items-center space-x-2 pt-1">
+          <div className="flex items-center space-x-2 pt-2">
             <Switch
               id="online-status-toggle"
               checked={isDriverOnline}
               onCheckedChange={setIsDriverOnline}
               aria-label={isDriverOnline ? "Switch to Offline" : "Switch to Online"}
             />
-            <Label htmlFor="online-status-toggle" className="text-base font-medium">
+            <Label htmlFor="online-status-toggle" className={`text-lg font-medium ${isDriverOnline ? 'text-green-600' : 'text-slate-600'}`}>
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button variant="outline" onClick={handleSimulateOffer} className="mt-2 text-xs h-7 px-3 py-1">
-            Simulate Incoming Offer
+          <Button variant="outline" onClick={handleSimulateOffer} className="w-full mt-2 text-sm">
+            Simulate Incoming Ride Offer (Test)
           </Button>
         </CardContent>
       </Card>
@@ -626,6 +608,7 @@ export default function AvailableRidesPage() {
     
 
     
+
 
 
 
