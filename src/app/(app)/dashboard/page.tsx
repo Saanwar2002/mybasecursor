@@ -39,6 +39,7 @@ export default function PassengerDashboardPage() {
               center={huddersfieldCenter}
               zoom={13}
               className="w-full h-full"
+              disableDefaultUI={true}
             />
           </div>
         </CardContent>

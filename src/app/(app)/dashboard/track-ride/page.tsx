@@ -65,6 +65,7 @@ export default function TrackRidePage() {
               zoom={14} 
               markers={mapMarkers} 
               className="h-full w-full"
+              disableDefaultUI={true}
             />
           </div>
 

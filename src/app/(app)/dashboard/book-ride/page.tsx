@@ -1464,6 +1464,7 @@ const handleProceedToConfirmation = async () => {
                     zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 13 : 12}
                     markers={mapMarkers}
                     className="w-full h-full"
+                    disableDefaultUI={true}
                  />
               </div>
 

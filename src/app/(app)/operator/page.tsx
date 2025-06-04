@@ -167,6 +167,7 @@ export default function OperatorDashboardPage() {
                 zoom={13}
                 markers={mockFleetMarkersData} 
                 className="w-full h-full"
+                disableDefaultUI={true}
              />
         </CardContent>
       </Card>

@@ -43,6 +43,7 @@ export default function LandingPage() {
               zoom={14} // Adjusted zoom for a more local view
               // markers={[{ position: defaultMapCenter, title: "Link Cabs Huddersfield" }]} // Optional: Add a marker
               className="w-full h-full"
+              disableDefaultUI={true}
             />
           </div>
         </div>
