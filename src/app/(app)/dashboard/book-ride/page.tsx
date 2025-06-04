@@ -167,7 +167,7 @@ export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const [estimatedDurationMinutes, setEstimatedDurationMinutes] = useState<number | null>(null);
-  const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ pickupLocation: string; waitTimeMinutes: number } | null>(null);
+  
   const { toast } = useToast();
   const { user } = useAuth();
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
@@ -457,7 +457,6 @@ export default function BookRidePage() {
     setEstimatedDistance(null);
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
-      setDriverArrivalInfo(null); 
       setShowGpsSuggestionAlert(false); 
       setGeolocationFetchStatus('idle'); 
     }
@@ -530,7 +529,7 @@ export default function BookRidePage() {
       if (typeof formFieldNameOrStopIndex === 'string') {
         if (formFieldNameOrStopIndex === 'pickupLocation') {
           setPickupInputValue(prev => form.getValues('pickupLocation') || prev);
-          setPickupCoords(null); setShowPickupSuggestions(false); setDriverArrivalInfo(null);
+          setPickupCoords(null); setShowPickupSuggestions(false); 
           setShowGpsSuggestionAlert(false); setGeolocationFetchStatus('idle');
         } else {
           setDropoffInputValue(prev => form.getValues('dropoffLocation') || prev);
@@ -594,7 +593,7 @@ export default function BookRidePage() {
           } else {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsFunc(null);
-            if (formFieldNameOrStopIndex === 'pickupLocation') setDriverArrivalInfo(null);
+            if (formFieldNameOrStopIndex === 'pickupLocation') {}
           }
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
@@ -602,7 +601,7 @@ export default function BookRidePage() {
     } else {
       setIsFetchingDetailsFunc(false);
       setCoordsFunc(null);
-      if (formFieldNameOrStopIndex === 'pickupLocation') setDriverArrivalInfo(null);
+      if (formFieldNameOrStopIndex === 'pickupLocation') {}
       toast({ title: "Warning", description: "Could not fetch location details (missing place ID or service).", variant: "default" });
     }
   }, [toast, placesServiceRef, autocompleteSessionTokenRef, form]);
@@ -719,22 +718,6 @@ export default function BookRidePage() {
   };
 
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
-
-  useEffect(() => {
-    if (driverArrivalInfo && driverArrivalInfo.waitTimeMinutes > 0) {
-      const timeoutId = setTimeout(() => {
-        toast({
-          title: "Driver Arriving Soon!",
-          description: `Your driver should be arriving at ${driverArrivalInfo.pickupLocation} now! Please be ready.`,
-          variant: "default",
-          duration: 10000,
-        });
-        setDriverArrivalInfo(null); // Clear after notification
-      }, driverArrivalInfo.waitTimeMinutes * 60 * 1000); // Convert minutes to milliseconds
-
-      return () => clearTimeout(timeoutId); // Cleanup on unmount or if info changes
-    }
-  }, [driverArrivalInfo, toast]);
 
 
   useEffect(() => {
@@ -913,19 +896,18 @@ export default function BookRidePage() {
 
       const result = await response.json();
       
-      const randomWaitTime = Math.floor(Math.random() * (10 - 3 + 1)) + 3; // Simulating 3-10 min wait
+      
       if (values.bookingType === 'asap' && !scheduledPickupAt) {
-         setDriverArrivalInfo({ pickupLocation: values.pickupLocation, waitTimeMinutes: randomWaitTime });
           toast({ 
             title: "Booking Confirmed!", 
-            description: `Ride ID: ${result.bookingId}. Driver dispatched! Est. arrival in ~${randomWaitTime} min.`, 
+            description: `Ride ID: ${result.bookingId}. We'll notify you when your driver is on the way.`, 
             variant: "default", 
             duration: 7000 
           });
       } else {
           toast({ 
             title: "Booking Confirmed!", 
-            description: `Ride ID: ${result.bookingId}. Your driver will be assigned shortly.`, 
+            description: `Ride ID: ${result.bookingId}. Your driver will be assigned shortly for the scheduled time.`, 
             variant: "default", 
             duration: 7000 
           });
@@ -1910,92 +1892,90 @@ const handleProceedToConfirmation = async () => {
                           Please review your ride details and confirm payment.
                         </DialogDescription>
                       </DialogHeader>
-                      <ScrollArea className="h-full">
-                        <div className="space-y-4 py-4 px-1">
-                          <Card className="w-full text-center shadow-md">
-                            <CardHeader>
-                              <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                                <DollarSign className="w-7 h-7 text-accent" /> Fare Estimate
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              {anyFetchingDetails && pickupCoords ? (
-                                <div className="flex flex-col items-center justify-center space-y-2">
-                                    <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                                    <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
-                                </div>
-                              ) : fareEstimate !== null ? (
-                                <>
-                                  <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
-                                  {isSurgeActive && (
-                                    <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
-                                      <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
-                                    </p>
-                                  )}
-                                  {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
-                                </>
-                              ) : (
-                                <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
-                              )}
-                              <p className="text-sm text-muted-foreground mt-3">
-                                {(anyFetchingDetails || fareEstimate !== null) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
-                              </p>
-                            </CardContent>
-                          </Card>
-
-                          <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
-                            <CardHeader>
-                              <CardTitle className="text-xl font-headline flex items-center gap-2">
-                                <CreditCard className="w-6 h-6 text-primary" /> Payment Method
-                              </CardTitle>
-                              <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <FormField
-                                control={form.control}
-                                name="paymentMethod"
-                                render={({ field }) => (
-                                  <FormItem className="space-y-3">
-                                    <FormControl>
-                                      <RadioGroup
-                                        onValueChange={field.onChange}
-                                        defaultValue={field.value}
-                                        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                                      >
-                                        <FormItem className="flex-1">
-                                          <FormControl>
-                                            <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
-                                          </FormControl>
-                                          <Label
-                                            htmlFor="dialog-card"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                          >
-                                            <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
-                                            Pay by Card
-                                          </Label>
-                                        </FormItem>
-                                        <FormItem className="flex-1">
-                                          <FormControl>
-                                            <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
-                                          </FormControl>
-                                          <Label
-                                            htmlFor="dialog-cash"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                          >
-                                            <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
-                                            Pay with Cash
-                                          </Label>
-                                        </FormItem>
-                                      </RadioGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
+                      <div className="space-y-4 py-4"> {/* Removed px-1 and ScrollArea */}
+                        <Card className="w-full text-center shadow-md">
+                          <CardHeader>
+                            <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
+                              <DollarSign className="w-7 h-7 text-accent" /> Fare Estimate
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {anyFetchingDetails && pickupCoords ? (
+                              <div className="flex flex-col items-center justify-center space-y-2">
+                                  <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+                                  <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
+                              </div>
+                            ) : fareEstimate !== null ? (
+                              <>
+                                <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                                {isSurgeActive && (
+                                  <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
+                                    <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                                  </p>
                                 )}
-                              />
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </ScrollArea>
+                                {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                              </>
+                            ) : (
+                              <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
+                            )}
+                            <p className="text-sm text-muted-foreground mt-3">
+                              Estimates may vary based on real-time conditions.
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                          <CardHeader>
+                            <CardTitle className="text-xl font-headline flex items-center gap-2">
+                              <CreditCard className="w-6 h-6 text-primary" /> Payment Method
+                            </CardTitle>
+                            <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <FormField
+                              control={form.control}
+                              name="paymentMethod"
+                              render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                  <FormControl>
+                                    <RadioGroup
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                      className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                                    >
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
+                                        </FormControl>
+                                        <Label
+                                          htmlFor="dialog-card"
+                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                        >
+                                          <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
+                                          Pay by Card
+                                        </Label>
+                                      </FormItem>
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
+                                        </FormControl>
+                                        <Label
+                                          htmlFor="dialog-cash"
+                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                        >
+                                          <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
+                                          Pay with Cash
+                                        </Label>
+                                      </FormItem>
+                                    </RadioGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </CardContent>
+                        </Card>
+                      </div>
                       <DialogFooter>
                         <DialogClose asChild>
                           <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
