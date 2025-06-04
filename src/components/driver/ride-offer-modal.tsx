@@ -1,14 +1,17 @@
 
 "use client";
 
+import * as React from "react"; // Added this line
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Car, Users, DollarSign, MapPin, Info, Clock } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from "@/components/ui/progress";
+import { Progress as ShadCNProgress } from "@/components/ui/progress"; // Renamed to avoid conflict
 import { cn } from "@/lib/utils";
+import * as ProgressPrimitive from "@radix-ui/react-progress";
+
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -37,18 +40,54 @@ interface RideOfferModalProps {
 
 const COUNTDOWN_SECONDS = 20;
 
+// Custom Progress component to allow dynamic indicator color
+interface CustomProgressProps extends React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> {
+  indicatorClassName?: string;
+}
+
+const ProgressIndicator = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { value: number | null; className?: string }
+>(({ value, className, ...props }, ref) => (
+  <div
+    ref={ref}
+    style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+    className={cn("h-full w-full flex-1 bg-primary transition-all", className)} // Default to bg-primary
+    {...props}
+  />
+));
+ProgressIndicator.displayName = "ProgressIndicator";
+
+const Progress = React.forwardRef<
+  React.ElementRef<typeof ProgressPrimitive.Root>,
+  CustomProgressProps
+>(({ className, value, indicatorClassName, ...props }, ref) => (
+  <ProgressPrimitive.Root
+    ref={ref}
+    className={cn(
+      "relative h-2.5 w-full overflow-hidden rounded-full bg-secondary", // Adjusted height to h-2.5 for a bit more visibility
+      className
+    )}
+    {...props}
+  >
+    <ProgressIndicator value={value ?? 0} className={indicatorClassName} />
+  </ProgressPrimitive.Root>
+));
+Progress.displayName = ProgressPrimitive.Root.displayName;
+
+
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
 
   useEffect(() => {
     if (!isOpen) {
-      setCountdown(COUNTDOWN_SECONDS);
+      setCountdown(COUNTDOWN_SECONDS); // Reset countdown when modal is closed or re-opened
       return;
     }
 
     if (countdown === 0) {
       if (rideDetails) {
-        onDecline(rideDetails.id);
+        onDecline(rideDetails.id); // Automatically decline if timer runs out
       }
       onClose();
       return;
@@ -58,7 +97,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       setCountdown(prev => prev - 1);
     }, 1000);
 
-    return () => clearTimeout(timerId);
+    return () => clearTimeout(timerId); // Cleanup timer on unmount or before next effect run
   }, [isOpen, countdown, onClose, rideDetails, onDecline]);
 
   const mapMarkers = useMemo(() => {
@@ -68,18 +107,16 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       markers.push({
         position: rideDetails.pickupCoords,
         title: `Pickup: ${rideDetails.pickupLocation}`,
-        label: { text: "P", color: "white", fontWeight: "bold", fontSize: "14px" }, // White bold text for label
-        // Custom icon for green marker (example, replace with actual image or more complex logic)
-        // iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' 
+        label: { text: "P", color: "white", fontWeight: "bold", fontSize: "14px" },
+        // iconUrl: 'YOUR_GREEN_MARKER_ICON_URL' // Optional: for custom green marker
       });
     }
     if (rideDetails.dropoffCoords) {
       markers.push({
         position: rideDetails.dropoffCoords,
         title: `Dropoff: ${rideDetails.dropoffLocation}`,
-        label: { text: "D", color: "white", fontWeight: "bold", fontSize: "14px" }, // White bold text for label
-        // Custom icon for red marker (example)
-        // iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        label: { text: "D", color: "white", fontWeight: "bold", fontSize: "14px" },
+        // iconUrl: 'YOUR_RED_MARKER_ICON_URL' // Optional: for custom red marker
       });
     }
     return markers;
@@ -87,7 +124,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const mapCenter = useMemo(() => {
     if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
-    return { lat: 53.6450, lng: -1.7830 }; // Default center
+    return { lat: 53.6450, lng: -1.7830 }; // Default center (Huddersfield)
   }, [rideDetails]);
 
   if (!rideDetails) {
@@ -96,12 +133,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const handleAccept = () => {
     onAccept(rideDetails.id);
-    onClose();
+    onClose(); // Close modal after action
   };
 
   const handleDecline = () => {
     onDecline(rideDetails.id);
-    onClose();
+    onClose(); // Close modal after action
   };
 
   const getTimerColor = () => {
@@ -111,7 +148,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   };
 
   const getProgressColorClass = () => {
-    if (countdown <= 5) return "bg-red-500";
+    if (countdown <= 5) return "bg-red-500"; // For custom progress indicator
     if (countdown <= 10) return "bg-orange-500";
     return "bg-green-600";
   };
@@ -130,18 +167,18 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         
         <div className="py-4 space-y-3">
           <div className="flex items-center justify-center my-2">
-            <div className={`text-4xl font-bold animate-pulse ${getTimerColor()}`}>
+            <div className={`text-4xl font-bold ${getTimerColor()}`}>
                 <Clock className="inline-block w-8 h-8 mr-2 align-middle" />{countdown}s
             </div>
           </div>
-          <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} className="h-2 [&>div]:transition-all [&>div]:duration-1000" indicatorClassName={getProgressColorClass()} />
+          <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} />
 
 
           <div className="h-48 w-full rounded-md overflow-hidden border my-3">
             {rideDetails.pickupCoords && rideDetails.dropoffCoords ? (
               <GoogleMapDisplay
-                center={rideDetails.pickupCoords} // Center on pickup initially
-                zoom={12} // Adjust zoom as needed
+                center={mapCenter}
+                zoom={12}
                 markers={mapMarkers}
                 className="w-full h-full"
               />
@@ -189,52 +226,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
-// Custom Progress component to allow dynamic indicator color
-interface CustomProgressProps extends React.ComponentPropsWithoutRef<typeof Progress> {
-  indicatorClassName?: string;
-}
-
-const ProgressIndicator = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { value: number | null; className?: string }
->(({ value, className, ...props }, ref) => (
-  <div
-    ref={ref}
-    style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
-    className={cn("h-full w-full flex-1 bg-primary transition-all", className)}
-    {...props}
-  />
-));
-ProgressIndicator.displayName = "ProgressIndicator";
-
-const Progress = React.forwardRef<
-  React.ElementRef<typeof ProgressPrimitive.Root>,
-  CustomProgressProps
->(({ className, value, indicatorClassName, ...props }, ref) => (
-  <ProgressPrimitive.Root
-    ref={ref}
-    className={cn(
-      "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
-      className
-    )}
-    {...props}
-  >
-    <ProgressIndicator value={value ?? 0} className={indicatorClassName} />
-  </ProgressPrimitive.Root>
-));
-Progress.displayName = ProgressPrimitive.Root.displayName;
-
-
-// Temporary workaround for Progress component from shadcn as it cannot take dynamic colors for indicator
-// If you have a more complex Progress component or need more advanced features,
-// consider creating a custom one or using a library that supports dynamic indicator styling.
-// For this example, we pass indicatorClassName to style the ProgressIndicator div directly.
-// NOTE: This workaround assumes ProgressPrimitive.Indicator is the direct child that gets styled.
-// This is a simplified version. For a robust solution, you might need to fork the Progress component.
-// The standard shadcn Progress component's indicator color is tied to --primary.
-// This version directly applies a class to the indicator for more control.
-
-import * as ProgressPrimitive from "@radix-ui/react-progress"
-
-
