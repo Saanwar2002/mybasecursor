@@ -511,7 +511,7 @@ export default function AvailableRidesPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="h-[75vh] w-full relative">
+      <div className="h-[65vh] w-full relative">
         <GoogleMapDisplay
             center={driverLocation}
             zoom={15}
@@ -520,7 +520,7 @@ export default function AvailableRidesPage() {
             disableDefaultUI={true}
         />
       </div>
-      <Card className="h-[25vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
+      <Card className="h-[35vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
         <CardHeader className="p-2 text-center">
           <CardTitle className={cn("text-2xl font-headline", isDriverOnline ? "text-green-600" : "text-red-600")}>
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
@@ -535,10 +535,10 @@ export default function AvailableRidesPage() {
           {isDriverOnline ? (
             <>
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
-              <p className="text-muted-foreground text-sm">Actively searching for ride offers for you...</p>
+              <p className="text-muted-foreground text-sm text-center">Actively searching for ride offers for you...</p>
             </>
           ) : (
-            <p className="text-muted-foreground text-sm">You are currently offline. Toggle on to receive ride offers.</p>
+            <p className="text-muted-foreground text-sm text-center">You are currently offline. Toggle on to receive ride offers.</p>
           )}
            <div className="flex items-center space-x-2 pt-1">
             <Switch 
