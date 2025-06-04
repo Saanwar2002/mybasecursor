@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
+import { Progress } from "@/components/ui/progress"; // Import Progress component
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -68,6 +69,7 @@ export default function AvailableRidesPage() {
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const [progressValue, setProgressValue] = useState(0);
 
 
   useEffect(() => {
@@ -109,6 +111,23 @@ export default function AvailableRidesPage() {
       }
     };
   }, [isDriverOnline, toast]);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | undefined;
+    if (isDriverOnline && !geolocationError) {
+      setProgressValue(0); // Reset progress when becoming active
+      intervalId = setInterval(() => {
+        setProgressValue((prev) => (prev >= 100 ? 0 : prev + 10)); // Cycle progress
+      }, 300); // Adjust speed of "movement"
+    } else {
+      setProgressValue(0); // Reset if not online or error
+    }
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isDriverOnline, geolocationError]);
 
 
   const handleSimulateOffer = () => {
@@ -390,117 +409,6 @@ export default function AvailableRidesPage() {
       }
   };
 
-  /*
-  // This block is commented out to test the parsing error location
-  if (activeRide) {
-    return (
-      <div className="p-4 space-y-4">
-        <Card className="bg-primary/10 border-primary/30 shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-2xl font-headline flex items-center gap-2">
-              <Navigation className="w-7 h-7 text-primary" /> Current Ride: {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </CardTitle>
-            <CardDescription>Passenger: {activeRide.passengerName}</CardDescription>
-          </CardHeader>
-           <CardContent className="space-y-3">
-            <div className="flex items-center gap-3 mb-3">
-                <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger"/>
-                <div>
-                  <div className="flex items-center">
-                    <p className="text-lg font-semibold">{activeRide.passengerName}</p>
-                    {renderPassengerRating(activeRide.passengerRating)}
-                  </div>
-                  <Badge variant="outline" className="border-primary text-primary mr-2">Fare: £{activeRide.fareEstimate.toFixed(2)}</Badge>
-                  <Badge variant="secondary" className="mt-1">
-                    <UsersIcon className="w-3 h-3 mr-1" /> {activeRide.passengerCount} Passenger{activeRide.passengerCount > 1 ? 's' : ''}
-                  </Badge>
-                </div>
-            </div>
-            <p className="flex items-center gap-1.5 text-md"><MapPin className="w-5 h-5 text-muted-foreground" /> <strong>From:</strong> {activeRide.pickupLocation}</p>
-            <p className="flex items-center gap-1.5 text-md"><Building className="w-5 h-5 text-muted-foreground" /> <strong>To:</strong> {activeRide.dropoffLocation}</p>
-
-            {activeRide.status === 'driver_assigned' &&
-                <p className="flex items-center gap-1.5 text-md"><Clock className="w-5 h-5 text-muted-foreground" /> <strong>Est. Time to Pickup:</strong> {activeRide.estimatedTime}</p>
-            }
-            {activeRide.distanceMiles && (
-                <p className="flex items-center gap-1.5 text-md"><Route className="w-5 h-5 text-muted-foreground" /> <strong>Ride Distance:</strong> {activeRide.distanceMiles.toFixed(1)} miles</p>
-            )}
-
-            {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
-                 <div className="p-3 my-2 bg-blue-100 border border-blue-300 rounded-md text-blue-700 flex items-center gap-2">
-                    <BellRing className="w-5 h-5 animate-pulse" />
-                    <span>Passenger notified. Waiting for acknowledgment...</span>
-                 </div>
-            )}
-            {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
-                 <div className="p-3 my-2 bg-green-100 border border-green-300 rounded-md text-green-700 flex items-center gap-2">
-                    <CheckCheck className="w-5 h-5" />
-                    <span>Passenger acknowledged arrival! Ready to start.</span>
-                 </div>
-            )}
-
-            <div className="mt-2">
-              <p className="text-md font-medium mb-1">Live Ride Map:</p>
-              <div className="h-60 bg-muted rounded-lg overflow-hidden border shadow-sm">
-                 <GoogleMapDisplay
-                    center={getMapCenterForActiveRide()}
-                    zoom={15}
-                    markers={getMapMarkersForActiveRide()}
-                    className="w-full h-full"
-                    disableDefaultUI={true}
-                    fitBoundsToMarkers={true}
-                 />
-              </div>
-            </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
-              {activeRide.status === 'driver_assigned' && (
-                <>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-3" onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)} disabled={actionLoading[activeRide.id]}>
-                    <Navigation className="mr-2 h-5 w-5" /> Navigate to Pickup
-                  </Button>
-                   <Button className="w-full bg-green-500 hover:bg-green-600 text-white text-base py-3" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <BellRing className="mr-2 h-5 w-5" />} I'm at Pickup Location
-                  </Button>
-                </>
-              )}
-              {activeRide.status === 'arrived_at_pickup' && (
-                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3 sm:col-span-2" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
-                   {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <CarIcon className="mr-2 h-5 w-5" />} Start Ride
-                </Button>
-              )}
-              {activeRide.status === 'in_progress' && (
-                <>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-base py-3" onClick={() => handleNavigate("Dropoff", activeRide.dropoffCoords)} disabled={actionLoading[activeRide.id]}>
-                     <Navigation className="mr-2 h-5 w-5" /> Navigate to Dropoff
-                  </Button>
-                  <Button variant="outline" className="w-full text-base py-3 border-green-500 text-green-600 hover:bg-green-500 hover:text-white" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <CheckCircle className="mr-2 h-5 w-5" />} Complete Ride
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-             <Button asChild variant="outline" className="w-full text-base py-3">
-                <Link href="/driver/chat">
-                  <MessageSquare className="mr-2 h-5 w-5" /> Chat
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full text-base py-3" onClick={() => handleCallCustomer(activeRide.passengerPhone)}>
-                  <Phone className="mr-2 h-5 w-5" /> Call
-              </Button>
-              {['driver_assigned', 'arrived_at_pickup'].includes(activeRide.status) && (
-                <Button variant="destructive" className="w-full text-base py-3" onClick={() => handleRideAction(activeRide.id, 'cancel_active')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <XCircle className="mr-2 h-5 w-5" />} Cancel Ride
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  */
-
   const mapMarkers = [];
   if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
     mapMarkers.push({
@@ -524,13 +432,13 @@ export default function AvailableRidesPage() {
             fitBoundsToMarkers={false} // Keep centered on driver unless markers are far
         />
       </div>
-      <Card className="flex-grow h-[40vh] rounded-t-2xl -mt-4 shadow-2xl bg-card flex flex-col">
-        <CardHeader className="p-3 text-center border-b">
-          <CardTitle className="text-2xl font-headline">
+      <Card className="flex-grow h-[40vh] rounded-t-2xl -mt-4 shadow-2xl bg-card flex flex-col p-2">
+        <CardHeader className="p-1 text-center border-b">
+          <CardTitle className="text-lg font-semibold">
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-3">
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-2 gap-1.5 flex-grow">
           {isDriverOnline ? (
             <>
               {geolocationError ? (
@@ -541,26 +449,26 @@ export default function AvailableRidesPage() {
                 </div>
               ) : (
                  <>
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <p className="text-base text-muted-foreground">Actively searching for ride offers near you...</p>
+                    <Progress value={progressValue} className="w-3/4 h-2.5" />
+                    <p className="text-xs text-muted-foreground mt-1.5">System Active - Searching for Offers...</p>
                  </>
               )}
             </>
           ) : (
             <Power className="h-10 w-10 text-muted-foreground" />
           )}
-           <div className="flex items-center space-x-2 pt-1">
+           <div className="flex items-center space-x-2">
             <Switch
               id="online-status-toggle"
               checked={isDriverOnline}
               onCheckedChange={setIsDriverOnline}
               aria-label={isDriverOnline ? "Go Offline" : "Go Online"}
             />
-            <Label htmlFor="online-status-toggle" className="text-xl font-medium">
+            <Label htmlFor="online-status-toggle" className="text-sm font-medium">
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="text-xs mt-4 h-7 px-3 py-1">
+          <Button variant="outline" onClick={handleSimulateOffer} className="h-7 px-3 py-1 text-xs">
             Simulate Incoming Offer
           </Button>
         </CardContent>
