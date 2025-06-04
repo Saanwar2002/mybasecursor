@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2 } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
@@ -72,23 +72,22 @@ export default function AvailableRidesPage() {
 
     switch(actionType) {
         case 'accept':
-            newStatus = 'driver_assigned'; // Or 'active' if that's the immediate next state
-            apiAction = undefined; // General update
+            newStatus = 'driver_assigned'; 
+            apiAction = undefined; 
             toastTitle = "Ride Accepted";
             toastMessage = `Ride request from ${currentRide.passengerName} accepted.`;
-            // Ensure only one ride is active
             setRideRequests(prev => prev.map(r => {
-                if (r.id === rideId) return { ...r, status: newStatus!, driverId: driverUser.id, driverName: driverUser.name }; // Add driver info
-                if (r.status === 'driver_assigned' || r.status === 'active' || r.status === 'arrived_at_pickup' || r.status === 'in_progress') return { ...r, status: 'pending' }; // Revert other active rides
+                if (r.id === rideId) return { ...r, status: newStatus! };
+                if (r.status === 'driver_assigned' || r.status === 'active' || r.status === 'arrived_at_pickup' || r.status === 'in_progress') return { ...r, status: 'pending' }; 
                 return r;
             }));
             break;
         case 'decline':
-            newStatus = 'declined'; // Local state, won't persist for mock
+            newStatus = 'declined'; 
             apiAction = undefined; 
             toastTitle = "Ride Declined";
             toastMessage = `Ride request from ${currentRide.passengerName} declined.`;
-            setRideRequests(prev => prev.filter(r => r.id !== rideId)); // Remove from list
+            setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
             break;
         case 'notify_arrival':
             newStatus = 'arrived_at_pickup';
@@ -110,38 +109,42 @@ export default function AvailableRidesPage() {
             break;
         case 'cancel_active':
             newStatus = 'cancelled_by_driver';
-            apiAction = undefined; // General update with status
+            apiAction = undefined; 
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${currentRide.passengerName} cancelled.`;
+            setRideRequests(prev => prev.filter(r => r.id !== rideId)); // Remove cancelled ride from active view
             break;
     }
     
-    // Simulate API call for mock data or implement real API call
-    // For now, just updating local state for mock data
     if (newStatus) {
         try {
-            // In a real app, you'd make an API call here
-            // For example:
-            // const response = await fetch(`/api/operator/bookings/${rideId}`, {
-            //   method: 'POST',
-            //   headers: { 'Content-Type': 'application/json' },
-            //   body: JSON.stringify({ status: newStatus, action: apiAction, driverId: driverUser.id, driverName: driverUser.name }),
-            // });
-            // if (!response.ok) throw new Error(await response.text());
-            // const updatedBooking = await response.json();
-            //
-            // Update local state based on API response
-            // For mock:
-             await new Promise(resolve => setTimeout(resolve, 700)); // Simulate delay
+            const payload: any = { status: newStatus };
+            if (actionType === 'accept' && driverUser) {
+                payload.driverId = driverUser.id;
+                payload.driverName = driverUser.name;
+            }
+            if (apiAction) {
+                 payload.action = apiAction;
+            }
+             const response = await fetch(`/api/operator/bookings/${rideId}`, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(payload),
+             });
+             if (!response.ok) {
+                const errorData = await response.json().catch(()=> ({message: "Failed to update ride status on server."}));
+                throw new Error(errorData.message);
+             }
+             const updatedBooking = await response.json();
             
             setRideRequests(prevRequests =>
                 prevRequests.map(req => {
                     if (req.id === rideId) {
-                        const updatedReq = { ...req, status: newStatus! };
-                        if (actionType === 'notify_arrival') updatedReq.notifiedPassengerArrivalTimestamp = new Date().toISOString();
+                        const updatedReq = { ...req, status: updatedBooking.booking.status };
+                        if (actionType === 'notify_arrival') updatedReq.notifiedPassengerArrivalTimestamp = updatedBooking.booking.notifiedPassengerArrivalTimestamp?._seconds ? new Date(updatedBooking.booking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString() : new Date().toISOString();
                         if (actionType === 'accept') {
-                            // updatedReq.driverId = driverUser.id; // Example if you store driverId
-                            // updatedReq.driverName = driverUser.name;
+                            // updatedReq.driverId = updatedBooking.booking.driverId; 
+                            // updatedReq.driverName = updatedBooking.booking.driverName;
                         }
                         return updatedReq;
                     }
@@ -213,10 +216,23 @@ export default function AvailableRidesPage() {
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) {
       return { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] };
     }
+    if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupCoords) {
+      return { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] };
+    }
     if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) {
       return { lat: activeRide.dropoffCoords[0], lng: activeRide.dropoffCoords[1] };
     }
     return driverLocation || huddersfieldCenterGoogle;
+  };
+
+  const handleNavigate = (locationName: string, coords?: [number,number]) => {
+      if(coords) {
+        toast({title: "Navigation Started (Demo)", description: `Navigating to ${locationName} at ${coords[0]}, ${coords[1]}`});
+        // In a real app, you would open a map application:
+        // window.open(`https://www.google.com/maps/dir/?api=1&destination=${coords[0]},${coords[1]}&travelmode=driving`, '_blank');
+      } else {
+        toast({title: "Navigation Error", description: `Coordinates for ${locationName} not available.` , variant: "destructive"});
+      }
   };
 
   return (
@@ -242,7 +258,7 @@ export default function AvailableRidesPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3 mb-3">
-                <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger" />
+                <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger"/>
                 <div>
                   <div className="flex items-center">
                     <p className="text-lg font-semibold">{activeRide.passengerName}</p>
@@ -256,8 +272,11 @@ export default function AvailableRidesPage() {
             </div>
             <p className="flex items-center gap-1.5 text-md"><Info className="w-5 h-5 text-muted-foreground" /> <strong>Ride ID:</strong> {activeRide.id}</p>
             <p className="flex items-center gap-1.5 text-md"><MapPin className="w-5 h-5 text-muted-foreground" /> <strong>From:</strong> {activeRide.pickupLocation}</p>
-            <p className="flex items-center gap-1.5 text-md"><MapPin className="w-5 h-5 text-muted-foreground" /> <strong>To:</strong> {activeRide.dropoffLocation}</p>
-            <p className="flex items-center gap-1.5 text-md"><Clock className="w-5 h-5 text-muted-foreground" /> <strong>Est. Time to Pickup:</strong> {activeRide.estimatedTime}</p>
+            <p className="flex items-center gap-1.5 text-md"><Building className="w-5 h-5 text-muted-foreground" /> <strong>To:</strong> {activeRide.dropoffLocation}</p>
+            
+            {activeRide.status === 'driver_assigned' && 
+                <p className="flex items-center gap-1.5 text-md"><Clock className="w-5 h-5 text-muted-foreground" /> <strong>Est. Time to Pickup:</strong> {activeRide.estimatedTime}</p>
+            }
             {activeRide.distanceMiles && (
                 <p className="flex items-center gap-1.5 text-md"><Route className="w-5 h-5 text-muted-foreground" /> <strong>Ride Distance:</strong> {activeRide.distanceMiles.toFixed(1)} miles</p>
             )}
@@ -272,10 +291,9 @@ export default function AvailableRidesPage() {
             {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
                  <div className="p-3 my-2 bg-green-100 border border-green-300 rounded-md text-green-700 flex items-center gap-2">
                     <CheckCheck className="w-5 h-5" />
-                    <span>Passenger acknowledged arrival!</span>
+                    <span>Passenger acknowledged arrival! Ready to start.</span>
                  </div>
             )}
-
 
             <div className="mt-4">
               <p className="text-md font-medium mb-1">Live Ride Map:</p>
@@ -290,19 +308,29 @@ export default function AvailableRidesPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
               {activeRide.status === 'driver_assigned' && (
-                <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white text-base py-3" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
-                  {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <BellRing className="mr-2 h-5 w-5" />} Notify Arrival
-                </Button>
+                <>
+                  <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white text-base py-3" onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)} disabled={actionLoading[activeRide.id]}>
+                    <Navigation className="mr-2 h-5 w-5" /> Navigate to Pickup
+                  </Button>
+                  <Button className="w-full bg-green-500 hover:bg-green-600 text-white text-base py-3" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
+                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <BellRing className="mr-2 h-5 w-5" />} I'm at Pickup
+                  </Button>
+                </>
               )}
-              {(activeRide.status === 'arrived_at_pickup' || activeRide.status === 'driver_assigned') && (
+              {activeRide.status === 'arrived_at_pickup' && (
                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
-                   {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Navigation className="mr-2 h-5 w-5" />} Start Ride
+                   {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Car className="mr-2 h-5 w-5" />} Start Ride
                 </Button>
               )}
               {activeRide.status === 'in_progress' && (
-                <Button variant="outline" className="w-full text-base py-3 border-green-500 text-green-600 hover:bg-green-500 hover:text-white" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
-                  {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <CheckCircle className="mr-2 h-5 w-5" />} Complete Ride
-                </Button>
+                <>
+                  <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white text-base py-3" onClick={() => handleNavigate("Dropoff", activeRide.dropoffCoords)} disabled={actionLoading[activeRide.id]}>
+                     <Navigation className="mr-2 h-5 w-5" /> Navigate to Dropoff
+                  </Button>
+                  <Button variant="outline" className="w-full text-base py-3 border-green-500 text-green-600 hover:bg-green-500 hover:text-white" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
+                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <CheckCircle className="mr-2 h-5 w-5" />} Complete Ride
+                  </Button>
+                </>
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
@@ -312,11 +340,11 @@ export default function AvailableRidesPage() {
                 </Link>
               </Button>
               <Button variant="outline" className="w-full text-base py-3" onClick={() => handleCallCustomer(activeRide.passengerPhone)}>
-                  <Phone className="mr-2 h-5 w-5" /> Call Customer
+                  <Phone className="mr-2 h-5 w-5" /> Call
               </Button>
-              {['driver_assigned', 'arrived_at_pickup', 'in_progress'].includes(activeRide.status) && (
+              {['driver_assigned', 'arrived_at_pickup'].includes(activeRide.status) && (
                 <Button variant="destructive" className="w-full text-base py-3" onClick={() => handleRideAction(activeRide.id, 'cancel_active')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <XCircle className="mr-2 h-5 w-5" />} Cancel Ride
+                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <XCircle className="mr-2 h-5 w-5" />} Cancel
                 </Button>
               )}
             </div>
@@ -337,7 +365,7 @@ export default function AvailableRidesPage() {
               <Card key={req.id} className="shadow-md hover:shadow-lg transition-shadow flex flex-col">
                 <CardHeader>
                   <div className="flex items-center gap-3 mb-2">
-                    <Image src={req.passengerAvatar} alt={req.passengerName} width={40} height={40} className="rounded-full" data-ai-hint="avatar passenger" />
+                    <Image src={req.passengerAvatar} alt={req.passengerName} width={40} height={40} className="rounded-full" data-ai-hint="avatar passenger"/>
                     <div>
                       <div className="flex items-center">
                          <CardTitle className="text-lg">{req.passengerName}</CardTitle>
@@ -352,7 +380,7 @@ export default function AvailableRidesPage() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm flex-grow">
                   <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>From:</strong> {req.pickupLocation}</p>
-                  <p className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>To:</strong> {req.dropoffLocation}</p>
+                  <p className="flex items-center gap-1"><Building className="w-4 h-4 text-muted-foreground" /> <strong>To:</strong> {req.dropoffLocation}</p>
                   <p className="flex items-center gap-1"><Clock className="w-4 h-4 text-muted-foreground" /> <strong>Pickup ETA:</strong> {req.estimatedTime}</p>
                   {req.distanceMiles && (
                     <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> {req.distanceMiles.toFixed(1)} miles</p>
@@ -365,14 +393,14 @@ export default function AvailableRidesPage() {
                     onClick={() => handleRideAction(req.id, 'decline')}
                     disabled={!!activeRide || actionLoading[req.id]}
                   >
-                    {actionLoading[req.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />} Decline
+                    {actionLoading[req.id] && currentRide?.id === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />} Decline
                   </Button>
                   <Button
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white"
                     onClick={() => handleRideAction(req.id, 'accept')}
                     disabled={!!activeRide || actionLoading[req.id]}
                   >
-                    {actionLoading[req.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />} Accept
+                    {actionLoading[req.id] && currentRide?.id === req.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />} Accept
                   </Button>
                 </CardFooter>
               </Card>
@@ -383,6 +411,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
-
-    
