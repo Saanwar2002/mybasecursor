@@ -20,19 +20,26 @@ interface GetContext {
   };
 }
 
+const jsonHeaders = { 'Content-Type': 'application/json' };
+
 export async function GET(request: NextRequest, context: GetContext) {
-  const { bookingId } = context.params;
-
-  if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
-    return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
-  }
-
   try {
+    const { bookingId } = context.params;
+
+    if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
+      return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400, headers: jsonHeaders });
+    }
+
+    if (!db) {
+      console.error("API Error in /api/operator/bookings/[bookingId] GET: Firestore (db) is not initialized.");
+      return NextResponse.json({ message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500, headers: jsonHeaders });
+    }
+
     const bookingRef = doc(db, 'bookings', bookingId);
     const bookingSnap = await getDoc(bookingRef);
 
     if (!bookingSnap.exists()) {
-      return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
+      return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404, headers: jsonHeaders });
     }
 
     const bookingData = bookingSnap.data();
@@ -50,12 +57,11 @@ export async function GET(request: NextRequest, context: GetContext) {
       completedAt: serializeTimestamp(bookingData.completedAt as Timestamp | undefined),
     };
     
-    return NextResponse.json(serializedBooking, { status: 200 });
+    return NextResponse.json(serializedBooking, { status: 200, headers: jsonHeaders });
 
-  } catch (error) {
-    console.error(`Error fetching booking ${bookingId}:`, error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: `Failed to fetch booking ${bookingId}`, details: errorMessage }, { status: 500 });
+  } catch (error: any) {
+    console.error(`Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (GET handler):`, error);
+    return NextResponse.json({ message: 'An unexpected server error occurred while fetching booking.', details: error.message || String(error), stack: error.stack }, { status: 500, headers: jsonHeaders });
   }
 }
 
@@ -67,24 +73,36 @@ const bookingUpdateSchema = z.object({
   vehicleType: z.string().optional(),
   fareEstimate: z.number().optional(),
   notes: z.string().optional(),
-  action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride']).optional(), // Added actions
+  action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride']).optional(),
 }).min(1, { message: "At least one field or action must be provided for update." });
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
-  const { bookingId } = context.params;
-
-  if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
-    return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
-  }
+  const { bookingId } = context.params; // Get bookingId early for logging in case of early failure
 
   try {
-    const body = await request.json();
+    if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
+      return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400, headers: jsonHeaders });
+    }
+
+    let body;
+    try {
+        body = await request.json();
+    } catch (jsonParseError: any) {
+        console.error(`API Error in /api/operator/bookings/[bookingId] POST: Failed to parse JSON body for bookingId ${bookingId}:`, jsonParseError);
+        return NextResponse.json({ message: 'Invalid JSON request body.', details: jsonParseError.message || String(jsonParseError) }, { status: 400, headers: jsonHeaders });
+    }
+    
     const parsedPayload = bookingUpdateSchema.safeParse(body);
 
     if (!parsedPayload.success) {
-      return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
+      return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400, headers: jsonHeaders });
+    }
+
+    if (!db) {
+      console.error("API Error in /api/operator/bookings/[bookingId] POST: Firestore (db) is not initialized.");
+      return NextResponse.json({ message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500, headers: jsonHeaders });
     }
 
     const updateDataFromPayload = parsedPayload.data;
@@ -93,30 +111,27 @@ export async function POST(request: NextRequest, context: GetContext) {
     const bookingSnap = await getDoc(bookingRef);
 
     if (!bookingSnap.exists()) {
-      return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
+      return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404, headers: jsonHeaders });
     }
 
     const currentBookingData = bookingSnap.data();
 
-    const updateData: any = { // Using any for flexibility with Firestore specific types like Timestamp and deleteField
-      operatorUpdatedAt: Timestamp.now(), // Always update this timestamp for operator/driver actions
+    const updateData: any = { 
+      operatorUpdatedAt: Timestamp.now(),
     };
 
     if (updateDataFromPayload.action === 'notify_arrival') {
-      // Add security: check if request is from assigned driver
       updateData.status = 'arrived_at_pickup';
       updateData.notifiedPassengerArrivalTimestamp = Timestamp.now();
     } else if (updateDataFromPayload.action === 'acknowledge_arrival') {
-      // Add security: check if request is from passenger
       updateData.passengerAcknowledgedArrivalTimestamp = Timestamp.now();
     } else if (updateDataFromPayload.action === 'start_ride') {
-      updateData.status = 'In Progress'; // Or 'in_progress'
+      updateData.status = 'In Progress'; 
       updateData.rideStartedAt = Timestamp.now();
     } else if (updateDataFromPayload.action === 'complete_ride') {
        updateData.status = 'Completed';
        updateData.completedAt = Timestamp.now();
     } else {
-      // General updates
       if (updateDataFromPayload.status) updateData.status = updateDataFromPayload.status;
       if (updateDataFromPayload.driverId) updateData.driverId = updateDataFromPayload.driverId;
       if (updateDataFromPayload.driverName) updateData.driverName = updateDataFromPayload.driverName;
@@ -131,7 +146,7 @@ export async function POST(request: NextRequest, context: GetContext) {
         updateData.completedAt = Timestamp.now();
       } else if (updateDataFromPayload.status === 'Cancelled') {
         updateData.cancelledAt = Timestamp.now();
-        updateData.cancelledBy = 'operator'; // Assume operator if no specific actor
+        updateData.cancelledBy = 'operator'; 
       }
     }
     
@@ -154,14 +169,10 @@ export async function POST(request: NextRequest, context: GetContext) {
         cancelledAt: serializeTimestamp(updatedBookingDataResult?.cancelledAt as Timestamp | undefined),
     };
 
-    return NextResponse.json({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }, { status: 200 });
+    return NextResponse.json({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }, { status: 200, headers: jsonHeaders });
 
-  } catch (error) {
-    console.error(`Error updating booking ${bookingId}:`, error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (error instanceof z.ZodError) {
-        return NextResponse.json({ message: 'Invalid update payload.', errors: error.format() }, { status: 400 });
-    }
-    return NextResponse.json({ message: `Failed to update booking ${bookingId}`, details: errorMessage }, { status: 500 });
+  } catch (error: any) {
+    console.error(`Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler) for bookingId ${bookingId}:`, error);
+    return NextResponse.json({ message: 'An unexpected server error occurred while updating booking.', details: error.message || String(error), stack: error.stack }, { status: 500, headers: jsonHeaders });
   }
 }

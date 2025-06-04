@@ -31,21 +31,13 @@ const firebaseConfig = {
   appId: firebaseConfigFromEnv.appId || FALLBACK_APP_ID,
 };
 
-const requiredEnvVars = [
-  'NEXT_PUBLIC_FIREBASE_API_KEY',
-  'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-  // storageBucket, messagingSenderId, appId are often optional for basic auth/firestore
-  // but good to check if issues persist
-];
-
 const criticalConfigKeys: Array<keyof typeof firebaseConfig> = ['apiKey', 'authDomain', 'projectId'];
 let firebaseConfigError = false;
 
 console.log("Firebase Init Script: Visible NEXT_PUBLIC_FIREBASE_ variables at runtime:");
 for (const envVar of Object.keys(process.env)) {
   if (envVar.startsWith('NEXT_PUBLIC_FIREBASE_')) {
-    console.log(`  ${envVar}: ${process.env[envVar] ? 'SET' : 'NOT SET'}`);
+    console.log(`  ${envVar}: ${process.env[envVar] ? 'SET' : 'NOT SET (or empty string)'}`);
   }
 }
 
@@ -60,13 +52,11 @@ for (const key of criticalConfigKeys) {
   }
 }
 
-
 if (firebaseConfigError) {
   console.error(
-    "Critical Firebase config error: One or more of API_KEY, AUTH_DOMAIN, or PROJECT_ID are effectively missing from environment variables and fallbacks. Firebase initialization WILL BE SKIPPED."
+    "Critical Firebase config error: One or more of API_KEY, AUTH_DOMAIN, or PROJECT_ID are effectively missing. Firebase initialization WILL BE SKIPPED."
   );
 }
-
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -89,26 +79,31 @@ if (firebaseConfigError) {
     if (app) {
         try {
           db = getFirestore(app);
-          console.log("Firestore instance (db) initialized successfully.");
+          console.log("Firestore instance (db) obtained successfully.");
         } catch (dbError) {
           console.error("Failed to initialize Firestore (db):", dbError);
-          db = null; // Ensure db is null if init fails
+          db = null;
         }
 
         try {
           auth = getAuth(app);
-          console.log("Firebase Auth instance initialized successfully.");
+          console.log("Firebase Auth instance obtained successfully.");
         } catch (authError) {
           console.error("Failed to initialize Firebase Auth:", authError);
-          auth = null; // Ensure auth is null if init fails
+          auth = null;
         }
     } else {
         console.error("Firebase app object is null after initialization/retrieval attempt, cannot proceed with db/auth initialization.");
+        db = null; // Ensure db and auth are null if app is null
+        auth = null;
     }
   } catch (initError) {
     console.error("Critical error during Firebase app initialization process:", initError);
-    app = null; db = null; auth = null; // Ensure all are null on critical failure
+    app = null; db = null; auth = null;
   }
 }
+
+// Log final state of db and auth
+console.log(`Firebase Init Script: Final state - db is ${db ? 'INITIALIZED' : 'NULL'}, auth is ${auth ? 'INITIALIZED' : 'NULL'}`);
 
 export { app, db, auth };
