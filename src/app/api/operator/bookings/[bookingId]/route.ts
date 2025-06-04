@@ -188,15 +188,15 @@ export async function POST(request: NextRequest, context: GetContext) {
     return new NextResponse(JSON.stringify({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }), { status: 200, headers: jsonHeaders });
 
   } catch (error: any) {
-    console.error(`Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingId}):`, error);
-    const safeErrorMessage = (typeof error?.message === 'string') ? error.message : 'No specific error message available.';
-    const safeErrorType = (typeof error?.name === 'string') ? error.name : 'UnknownError';
-    
-    const errorPayload = {
-      message: 'An unexpected server error occurred while updating booking.',
-      errorType: safeErrorType,
-      errorMessage: safeErrorMessage,
+    console.error(`Critical Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingId}):`, error);
+    // Simple, guaranteed valid JSON response
+    const errorResponsePayload = {
+        message: "API_ERROR: An internal server error occurred.",
+        details: "The server encountered an issue processing the update. Please check server logs.",
+        bookingId: bookingId,
+        errorName: error?.name || "UnknownError",
+        errorMessageStr: String(error?.message || "No specific message available.")
     };
-    return new NextResponse(JSON.stringify(errorPayload), { status: 500, headers: jsonHeaders });
+    return new NextResponse(JSON.stringify(errorResponsePayload), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }

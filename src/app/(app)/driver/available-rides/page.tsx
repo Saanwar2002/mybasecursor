@@ -138,21 +138,21 @@ export default function AvailableRidesPage() {
       const mockActiveRideData: RideRequest = {
         id: `active-mock-${Date.now()}`,
         passengerName: offerToAccept.passengerName || "Simulated Passenger",
-        passengerAvatar: 'https://placehold.co/40x40.png?text=SP',
+        passengerAvatar: 'https://placehold.co/48x48.png?text=SP', // Ensure avatar has placeholder
         pickupLocation: offerToAccept.pickupLocation,
         dropoffLocation: offerToAccept.dropoffLocation,
-        estimatedTime: "12 mins",
+        estimatedTime: "12 mins", // Mock
         fareEstimate: offerToAccept.fareEstimate,
-        status: 'driver_assigned',
+        status: 'driver_assigned', // Start with driver_assigned
         pickupCoords: offerToAccept.pickupCoords,
         dropoffCoords: offerToAccept.dropoffCoords,
-        distanceMiles: 3.5,
+        distanceMiles: 3.5, // Mock
         passengerCount: offerToAccept.passengerCount,
         notes: offerToAccept.notes,
-        passengerPhone: "07123456001",
-        passengerRating: 4.7,
+        passengerPhone: "07123456001", // Mock
+        passengerRating: 4.7, // Mock
       };
-      setRideRequests([mockActiveRideData]);
+      setRideRequests([mockActiveRideData]); // Set this as the only active ride
       toast({title: "Mock Ride Accepted!", description: `Now managing mock ride for ${mockActiveRideData.passengerName}.`});
     } else {
       const acceptedRequest = rideRequests.find(r => r.id === rideId);
@@ -246,17 +246,18 @@ export default function AvailableRidesPage() {
             break;
     }
 
-    if (newStatus && rideId !== 'mock-offer-123') { 
+    if (newStatus && rideId !== 'mock-offer-123' && !rideId.startsWith('active-mock-')) { 
         try {
             const payload: any = {};
             if (apiAction) {
                  payload.action = apiAction;
             } else {
-                 payload.status = newStatus;
+                 payload.status = newStatus; // For accept/decline if they don't use 'action'
             }
             if (actionType === 'accept' && driverUser) {
                 payload.driverId = driverUser.id;
                 payload.driverName = driverUser.name;
+                // Potentially add driverAvatar if available in driverUser
             }
             const response = await fetch(`/api/operator/bookings/${rideId}`, { 
                method: 'POST',
@@ -266,20 +267,38 @@ export default function AvailableRidesPage() {
 
             if (!response.ok) {
                 let descriptiveError = `Failed to update ride (Status: ${response.status}).`;
+                let responseBodyText: string | undefined;
+                let serverMessage: string | undefined;
+
                 try {
-                    const errorData = await response.json();
-                    descriptiveError += ` Server message: ${errorData.message || 'No specific message from server.'}`;
-                    if (errorData.details) descriptiveError += ` Details: ${errorData.details}.`;
-                    if (errorData.errorMessage && errorData.message !== errorData.errorMessage) descriptiveError += ` Error: ${errorData.errorMessage}.`;
-                } catch (jsonParseError) {
-                    try {
-                        const rawText = await response.text();
-                        descriptiveError += ` Raw response: ${rawText.substring(0, 200)}${rawText.length > 200 ? '...' : ''}`;
-                    } catch (textParseError) {
-                        descriptiveError += " Additionally, the error response body could not be parsed as JSON or text.";
+                    responseBodyText = await response.text(); // Read body ONCE as text
+                    if (responseBodyText && responseBodyText.trim() !== "") {
+                        try {
+                            const errorData = JSON.parse(responseBodyText); // Try to parse the text as JSON
+                            serverMessage = `Server: ${errorData.message || 'No specific message.'}`;
+                            if (errorData.details) serverMessage += ` Details: ${errorData.details}.`;
+                            if (errorData.errorMessage && errorData.message !== errorData.errorMessage) serverMessage += ` Error: ${errorData.errorMessage}.`;
+                            if (errorData.errorName) serverMessage += ` Type: ${errorData.errorName}.`;
+                        } catch (jsonParseError) {
+                            serverMessage = `Raw server response: ${responseBodyText.substring(0, 200)}${responseBodyText.length > 200 ? '...' : ''}`;
+                        }
+                    } else {
+                        serverMessage = "Server response body was empty.";
                     }
+                } catch (readError) {
+                    serverMessage = "Could not read server response body.";
                 }
-                console.error("handleRideAction API error response:", response, "Constructed error:", descriptiveError);
+                
+                if (serverMessage) {
+                    descriptiveError += ` ${serverMessage}`;
+                }
+                
+                console.error(
+                    "handleRideAction API error. Status:", response.status, 
+                    "StatusText:", response.statusText,
+                    "Headers:", Object.fromEntries(response.headers.entries()),
+                    "Constructed client error:", descriptiveError
+                );
                 throw new Error(descriptiveError);
             }
             const updatedBookingData = await response.json();
@@ -304,14 +323,24 @@ export default function AvailableRidesPage() {
         } finally {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
-    } else if (rideId.startsWith('active-mock-')) { 
-        setRideRequests(prev => prev.map(r => r.id === rideId && newStatus ? { ...r, status: newStatus } : r));
+    } else if (rideId.startsWith('active-mock-')) { // Handle mock active ride updates
+        setRideRequests(prev => prev.map(r => {
+          if (r.id === rideId && newStatus) {
+            const updatedMockRide = { ...r, status: newStatus };
+            if (newStatus === 'arrived_at_pickup') {
+                updatedMockRide.notifiedPassengerArrivalTimestamp = new Date().toISOString();
+            }
+            // Add more mock timestamp updates if needed for other statuses
+            return updatedMockRide;
+          }
+          return r;
+        }));
         toast({ title: toastTitle, description: toastMessage });
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
         if (newStatus === 'completed' || newStatus === 'cancelled_by_driver') {
             setTimeout(() => setRideRequests(prev => prev.filter(r => r.id !== rideId)), 1000);
         }
-    } else {
+    } else { // For 'decline' or other non-API affecting local updates
        setActionLoading(prev => ({ ...prev, [rideId]: false })); 
     }
   };
@@ -339,19 +368,28 @@ export default function AvailableRidesPage() {
         label: { text: "D", color: "white", fontWeight: "bold" } 
       });
     }
+    activeRide.stops?.forEach((stop, index) => {
+      if(stop.latitude && stop.longitude) {
+        markers.push({
+          position: {lat: stop.latitude, lng: stop.longitude},
+          title: `Stop ${index+1}: ${stop.address}`,
+          label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+        });
+      }
+    });
     return markers;
   };
   
   const getMapCenterForActiveRide = (): google.maps.LatLngLiteral => {
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) return activeRide.pickupCoords;
-    if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) return activeRide.dropoffCoords;
+    if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) return activeRide.dropoffCoords; // Could also be last stop if exists
     return driverLocation;
   };
 
   if (activeRide) {
     return (
       <div className="flex flex-col h-full">
-        <div className="h-[55%] md:h-[60%] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
+        <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
           <GoogleMapDisplay
             center={getMapCenterForActiveRide()}
             zoom={15}
@@ -409,6 +447,20 @@ export default function AvailableRidesPage() {
                 <p className="text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p>
               </div>
             )}
+            
+            {/* Arrival Acknowledgment Info */}
+            {activeRide.status === 'arrived_at_pickup' && activeRide.notifiedPassengerArrivalTimestamp && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-300 rounded-md text-xs text-blue-700 flex items-center gap-2">
+                    <BellRing className="h-4 w-4" />
+                    <span>Waiting for passenger to acknowledge arrival...</span>
+                </div>
+            )}
+            {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
+                 <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded-md text-xs text-green-700 flex items-center gap-2">
+                    <CheckCheck className="h-4 w-4" />
+                    <span>Passenger has acknowledged arrival.</span>
+                </div>
+            )}
           </CardContent>
 
           <CardFooter className="p-3 border-t grid grid-cols-2 gap-2">
@@ -418,7 +470,7 @@ export default function AvailableRidesPage() {
                 </Button>
             )}
             {activeRide.status === 'arrived_at_pickup' && (
-                 <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
+                 <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id] || !activeRide.passengerAcknowledgedArrivalTimestamp}>
                     {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride
                 </Button>
             )}
