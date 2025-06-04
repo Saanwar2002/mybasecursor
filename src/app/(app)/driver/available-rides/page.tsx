@@ -1,9 +1,9 @@
 
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -42,29 +42,80 @@ interface RideRequest {
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
+// Mock ride requests - will be replaced by API data or offers
 const mockRideRequests: RideRequest[] = [
   { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: 'Kingsgate Centre, Huddersfield', dropoffLocation: 'Huddersfield Royal Infirmary', estimatedTime: '10 min', fareEstimate: 7.50, status: 'pending', pickupCoords: [53.6458, -1.7845], dropoffCoords: [53.6530, -1.8000], distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
   { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Huddersfield Station', dropoffLocation: 'University of Huddersfield, Queensgate', estimatedTime: '5 min', fareEstimate: 5.00, status: 'pending', pickupCoords: [53.6490, -1.7795], dropoffCoords: [53.6430, -1.7720], distanceMiles: 1.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
-  { id: 'r3', passengerName: 'Carol White', passengerAvatar: 'https://placehold.co/40x40.png?text=CW', pickupLocation: 'Greenhead Park, Huddersfield', dropoffLocation: 'Lindley Village', estimatedTime: '12 min', fareEstimate: 6.75, status: 'pending', pickupCoords: [53.6495, -1.7950], dropoffCoords: [53.6580, -1.8200], distanceMiles: 3.1, passengerCount: 1, passengerPhone: '555-0103', passengerRating: 3.2 },
 ];
+
+const blueDotSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
+    <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
+  </svg>
+`;
+const blueDotSvgDataUrl = `data:image/svg+xml;base64,${typeof window !== 'undefined' ? window.btoa(blueDotSvg) : ''}`;
+
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
   const { toast } = useToast();
   const { user: driverUser } = useAuth();
-  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>({ lat: 53.6430, lng: -1.7800 }); // Mock driver location
+  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [currentOfferDetails, setCurrentOfferDetails] = useState<RideOffer | null>(null);
   const [isDriverOnline, setIsDriverOnline] = useState(true);
+  const [geolocationError, setGeolocationError] = useState<string | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+
+
+  useEffect(() => {
+    if (isDriverOnline && navigator.geolocation) {
+      setGeolocationError(null);
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          setDriverLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setGeolocationError(null);
+        },
+        (error) => {
+          console.warn("Error watching position:", error);
+          let message = "Could not get your location.";
+          if (error.code === 1) message = "Location permission denied by user.";
+          else if (error.code === 2) message = "Location information unavailable.";
+          else if (error.code === 3) message = "Location request timed out.";
+          setGeolocationError(message);
+          toast({ title: "Location Error", description: message, variant: "destructive" });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // Request high accuracy, fresh data
+      );
+    } else {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (!navigator.geolocation) {
+        setGeolocationError("Geolocation is not supported by this browser.");
+      }
+    }
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [isDriverOnline, toast]);
 
 
   const handleSimulateOffer = () => {
     const mockOffer: RideOffer = {
       id: 'mock-offer-123',
-      pickupLocation: "123 Main St, Anytown",
-      dropoffLocation: "456 Oak Ave, Anytown",
+      pickupLocation: "123 Main St, Huddersfield",
+      dropoffLocation: "456 Oak Ave, Huddersfield",
       fareEstimate: 15.75,
       passengerCount: 2,
       passengerName: "John Doe",
@@ -210,9 +261,9 @@ export default function AvailableRidesPage() {
 
              if (!response.ok) {
                 let apiErrorMessage = `Failed to update ride status (Status: ${response.status}).`;
-                const responseText = await response.text(); // Read text first
+                const responseText = await response.text();
                 try {
-                    const errorData = JSON.parse(responseText); // Then try to parse
+                    const errorData = JSON.parse(responseText); 
                     console.error(`API Error for ride ${rideId}, action ${actionType}:`, errorData);
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
@@ -289,8 +340,17 @@ export default function AvailableRidesPage() {
   };
 
   const getMapMarkersForActiveRide = () => {
-    if (!activeRide) return [{ position: driverLocation, title: "Your Location" }];
     const markers = [];
+     if (isDriverOnline && driverLocation) {
+        markers.push({ 
+            position: driverLocation, 
+            title: "Your Current Location",
+            iconUrl: blueDotSvgDataUrl,
+            iconScaledSize: { width: 24, height: 24 }
+        });
+    }
+    if (!activeRide) return markers; // Only driver location if no active ride
+    
     if (activeRide.pickupCoords) {
       markers.push({
         position: { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] },
@@ -303,11 +363,11 @@ export default function AvailableRidesPage() {
         title: `Dropoff: ${activeRide.dropoffLocation}`, label: 'D'
       });
     }
-    markers.push({ position: driverLocation, title: "Your Location" });
     return markers;
   };
 
   const getMapCenterForActiveRide = () => {
+    if (isDriverOnline && driverLocation) return driverLocation; // Prioritize live driver location for center
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) {
       return { lat: activeRide.pickupCoords[0], lng: activeRide.pickupCoords[1] };
     }
@@ -317,7 +377,7 @@ export default function AvailableRidesPage() {
     if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) {
       return { lat: activeRide.dropoffCoords[0], lng: activeRide.dropoffCoords[1] };
     }
-    return driverLocation || huddersfieldCenterGoogle;
+    return huddersfieldCenterGoogle; // Fallback
   };
 
   const handleNavigate = (locationName: string, coords?: [number,number]) => {
@@ -434,13 +494,24 @@ export default function AvailableRidesPage() {
     )
   }
 
+  const mapMarkers = [];
+  if (isDriverOnline && driverLocation) {
+    mapMarkers.push({ 
+        position: driverLocation, 
+        title: "Your Current Location",
+        iconUrl: blueDotSvgDataUrl, // Custom blue dot
+        iconScaledSize: { width: 24, height: 24 } // Adjust size as needed
+    });
+  }
+
+
   return (
     <div className="flex flex-col h-screen">
       <div className="h-[75vh] w-full relative">
         <GoogleMapDisplay
-            center={driverLocation}
-            zoom={15}
-            markers={[{ position: driverLocation, title: "Your Location" }]}
+            center={driverLocation} // Map always centers on driver's live location
+            zoom={15} // Zoom in a bit more for live tracking
+            markers={mapMarkers}
             className="w-full h-full"
         />
       </div>
@@ -449,8 +520,13 @@ export default function AvailableRidesPage() {
           <CardTitle className={cn("text-2xl font-headline", isDriverOnline ? "text-green-600" : "text-red-600")}>
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
+           {geolocationError && isDriverOnline && (
+            <p className="text-xs text-red-500 flex items-center justify-center gap-1">
+              <AlertTriangle className="h-3 w-3"/> {geolocationError}
+            </p>
+          )}
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center space-y-3 w-full">
+        <CardContent className="flex flex-col items-center justify-center space-y-2 w-full">
           {isDriverOnline ? (
             <>
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -459,14 +535,14 @@ export default function AvailableRidesPage() {
           ) : (
             <p className="text-muted-foreground text-sm">You are currently offline. Toggle on to receive ride offers.</p>
           )}
-           <div className="flex items-center space-x-2 pt-2">
+           <div className="flex items-center space-x-2 pt-1">
             <Switch 
               id="online-status-toggle" 
               checked={isDriverOnline} 
               onCheckedChange={setIsDriverOnline} 
               aria-label="Driver online status"
               className={cn(
-                isDriverOnline ? "data-[state=checked]:bg-green-500" : "data-[state=unchecked]:bg-red-500"
+                "data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
               )}
             />
             <Label 
@@ -476,8 +552,7 @@ export default function AvailableRidesPage() {
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          {/* Retaining this button for easier testing of the modal flow */}
-          <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-2">
+          <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-1 text-xs">
             Simulate Incoming Offer (Test)
           </Button>
         </CardContent>
@@ -493,3 +568,6 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
+
+    
