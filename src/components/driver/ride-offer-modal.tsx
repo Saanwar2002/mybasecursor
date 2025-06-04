@@ -196,7 +196,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               {rideDetails.notes && (
                  <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md">
                     <p className="text-sm md:text-base font-semibold text-accent-foreground/90">Note:</p>
-                    <p className="text-xs md:text-sm text-muted-foreground">{rideDetails.notes}</p>
+                    {/* Passenger note text is intentionally omitted here */}
                  </div>
               )}
             </div>
@@ -219,4 +219,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
