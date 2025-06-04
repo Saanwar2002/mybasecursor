@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck } from "lucide-react";
+import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX } from "lucide-react"; // Added ShieldX
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
@@ -32,6 +32,8 @@ import { cn } from "@/lib/utils";
 import { Loader } from '@googlemaps/js-api-loader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch"; // Import Switch
+import { Label } from "@/components/ui/label"; // Import Label
 
 
 interface JsonTimestamp {
@@ -106,6 +108,7 @@ export default function MyRidesPage() {
   
   const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellingRideIdSwitch, setCancellingRideIdSwitch] = useState<string | null>(null); // For the switch state
 
   const [rideToEditDetails, setRideToEditDetails] = useState<Ride | null>(null);
   const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
@@ -259,7 +262,15 @@ export default function MyRidesPage() {
     setSelectedRideForRating(null); setCurrentRating(0);
   };
 
-  const handleOpenCancelDialog = (ride: Ride) => setRideToCancel(ride);
+  const handleOpenCancelDialog = (ride: Ride) => {
+    setRideToCancel(ride);
+    setCancellingRideIdSwitch(ride.id); // Also set for switch state
+  };
+  const handleCancelDialogClose = () => {
+    setRideToCancel(null);
+    setCancellingRideIdSwitch(null);
+  };
+
   const handleConfirmCancel = async () => {
     if (!rideToCancel || !user) return; setIsCancelling(true);
     try {
@@ -268,7 +279,7 @@ export default function MyRidesPage() {
       setRides(prevRides => prevRides.map(r => r.id === rideToCancel.id ? { ...r, status: 'cancelled' } : r));
       toast({ title: "Booking Cancelled", description: "Your ride has been successfully cancelled." });
     } catch (error) { toast({ title: "Cancellation Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
-    } finally { setIsCancelling(false); setRideToCancel(null); }
+    } finally { setIsCancelling(false); handleCancelDialogClose(); }
   };
 
   const handleOpenEditDetailsDialog = (ride: Ride) => {
@@ -372,7 +383,7 @@ export default function MyRidesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {ride.driver && (<div className="flex items-center gap-2"><Image src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver.charAt(0)}`} alt={ride.driver} width={40} height={40} className="rounded-full" data-ai-hint="avatar driver" /><div><p className="font-medium">{ride.driver}</p><p className="text-xs text-muted-foreground">Driver</p></div></div>)}
+              {ride.driver && (<div className="flex items-center gap-2"><Image src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver.charAt(0)}`} alt={ride.driver} width={40} height={40} className="rounded-full" data-ai-hint="driver avatar" /><div><p className="font-medium">{ride.driver}</p><p className="text-xs text-muted-foreground">Driver</p></div></div>)}
               {!ride.driver && ride.status !== 'completed' && ride.status !== 'cancelled' && <p className="text-sm text-muted-foreground">Waiting for driver assignment...</p>}
               {ride.scheduledPickupAt && (<div className="mt-2"><p className="text-xs font-medium text-muted-foreground mb-1">Scheduled Pickup:</p><div className="flex items-center gap-2 text-sm bg-sky-100 dark:bg-sky-700/30 border border-sky-400 dark:border-sky-600 text-sky-800 dark:text-sky-100 px-3 py-1.5 rounded-lg shadow-sm"><Clock className="w-5 h-5" /> <span className="font-semibold">{formatDate(null, ride.scheduledPickupAt)}</span></div></div>)}
               <Separator />
@@ -409,7 +420,34 @@ export default function MyRidesPage() {
               </div>
               <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
                 {ride.status === 'completed' && (ride.rating ? (<div className="flex items-center"><p className="text-sm mr-2">Your Rating:</p>{[...Array(5)].map((_, i) => (<Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />))}</div>) : (<Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>))}
-                {ride.status === 'pending_assignment' && ( <> <Button variant="outline" size="sm" onClick={() => handleOpenEditDetailsDialog(ride)} className="w-full sm:w-auto"><Edit className="mr-2 h-4 w-4" /> Edit Booking</Button> <Button variant="destructive" size="sm" onClick={() => handleOpenCancelDialog(ride)} className="w-full sm:w-auto"><Trash2 className="mr-2 h-4 w-4" /> Cancel Ride</Button> </> )}
+                
+                {ride.status === 'pending_assignment' && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenEditDetailsDialog(ride)} className="w-full sm:w-auto"><Edit className="mr-2 h-4 w-4" /> Edit Booking</Button>
+                    <div className="flex items-center space-x-2 bg-destructive/10 p-2 rounded-md w-full sm:w-auto justify-between sm:justify-start">
+                      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm flex items-center gap-1">
+                        <ShieldX className="w-4 h-4" /> Initiate Cancellation
+                      </Label>
+                      <Switch
+                        id={`cancel-ride-switch-${ride.id}`}
+                        checked={cancellingRideIdSwitch === ride.id}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            handleOpenCancelDialog(ride);
+                          } else {
+                            // This case might not be directly reachable if dialog opens on check
+                            // but good for programmatic reset
+                            if (rideToCancel && rideToCancel.id === ride.id) {
+                              handleCancelDialogClose();
+                            }
+                          }
+                        }}
+                        disabled={isCancelling && rideToCancel?.id === ride.id}
+                        className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0"
+                      />
+                    </div>
+                  </>
+                )}
                 {['driver_assigned', 'in_progress', 'arrived_at_pickup'].includes(ride.status) && (<Button variant="outline" size="sm" disabled className="w-full sm:w-auto">Cannot Modify Ride Now</Button>)}
               </div>
             </CardContent>
@@ -418,7 +456,20 @@ export default function MyRidesPage() {
       </div>
 
       {selectedRideForRating && ( <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl"><div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRideForRating(null)} /><div className="relative bg-card rounded-lg p-6"><CardHeader><CardTitle>Rate ride with {selectedRideForRating.driver || 'driver'}</CardTitle><CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address}</CardDescription></CardHeader><CardContent className="flex justify-center space-x-1 py-4">{[...Array(5)].map((_, i) => (<Star key={i} className={`w-8 h-8 cursor-pointer ${i < currentRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`} onClick={() => setCurrentRating(i + 1)}/>))}</CardContent><CardFooter className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setSelectedRideForRating(null)}>Cancel</Button><Button onClick={submitRating} className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit</Button></CardFooter></div></Card> )}
-      <AlertDialog open={!!rideToCancel} onOpenChange={(open) => !open && setRideToCancel(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cancel ride?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={isCancelling}>Back</AlertDialogCancel><AlertDialogAction onClick={handleConfirmCancel} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isCancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Cancel</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      
+      <AlertDialog open={!!rideToCancel} onOpenChange={(open) => { if (!open) { handleCancelDialogClose(); }}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel ride?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDialogClose} disabled={isCancelling}>Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCancel} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">{isCancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Confirm Cancel</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {rideToEditDetails && ( <Dialog open={isEditDetailsDialogOpen} onOpenChange={setIsEditDetailsDialogOpen}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Edit Booking Details</DialogTitle><DialogDescription>Modify pickup, dropoff, stops, or time. Fare may change (not recalculated here).</DialogDescription></DialogHeader><Form {...editDetailsForm}><form onSubmit={editDetailsForm.handleSubmit(onSubmitEditDetails)} className="space-y-4 max-h-[70vh] overflow-y-auto p-1 pr-3">
         <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Pickup</FormLabel><div className="relative"><FormControl><Input placeholder="Pickup address" {...field} value={dialogPickupInputValue} onChange={(e) => handleDialogAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={handleDialogFocusFactory('pickupLocation')} onBlur={handleDialogBlurFactory('pickupLocation')} autoComplete="off"/></FormControl>{showDialogPickupSuggestions && renderDialogSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleDialogSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem>)} />
         {editStopsFields.map((stopField, index) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: '', suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null, fieldId: stopField.id }; return (<FormField key={stopField.id} control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => ( <FormItem><FormLabel className="flex items-center justify-between"><span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-muted-foreground" /> Stop {index + 1}</span><Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveEditStop(index)} className="text-destructive hover:text-destructive-foreground px-1 py-0 h-auto"><XCircle className="mr-1 h-4 w-4" /> Remove</Button></FormLabel><div className="relative"><FormControl><Input placeholder={`Stop ${index + 1} address`} {...field} value={currentStopData.inputValue} onChange={(e) => handleDialogAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={handleDialogFocusFactory(index)} onBlur={handleDialogBlurFactory(index)} autoComplete="off"/></FormControl>{currentStopData.showSuggestions && renderDialogSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleDialogSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>)} />); })}
@@ -431,3 +482,4 @@ export default function MyRidesPage() {
     </div>
   );
 }
+
