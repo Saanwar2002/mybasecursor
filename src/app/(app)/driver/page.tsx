@@ -14,9 +14,10 @@ export default function DriverDashboardPage() {
   const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
 
-  const activeRide = { pickup: "123 Main St, London", dropoff: "City Center Mall, London", passenger: "Alice Wonderland" };
+  // Mock data - in a real app, this would come from state/API
+  const activeRide = null; // Example: { pickup: "123 Main St, London", dropoff: "City Center Mall, London", passenger: "Alice Wonderland" };
   const earningsToday = 75.50;
-  const pendingRequests = 2;
+  // const pendingRequests = 2; // Removed as drivers won't see general pending requests
 
   return (
     <div className="space-y-6">
@@ -35,10 +36,10 @@ export default function DriverDashboardPage() {
         </CardHeader>
          <CardContent className="flex flex-col md:flex-row items-center gap-6">
           <div className="flex-1 space-y-4">
-            <p className="text-lg">You are currently <span className={isOnline ? "text-green-500 font-bold" : "text-red-500 font-bold"}>{isOnline ? "Online and available" : "Offline"}</span> for new ride requests.</p>
+            <p className="text-lg">You are currently <span className={isOnline ? "text-green-500 font-bold" : "text-red-500 font-bold"}>{isOnline ? "Online and available" : "Offline"}</span> for new ride offers.</p>
             <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               <Link href="/driver/available-rides">
-                <Car className="mr-2 h-5 w-5" /> View Available Rides
+                <Car className="mr-2 h-5 w-5" /> Check for Ride Offers
               </Link>
             </Button>
           </div>
@@ -64,7 +65,7 @@ export default function DriverDashboardPage() {
             </CardContent>
           </Card>
         )}
-        <Card>
+        <Card className={activeRide ? "" : "md:col-span-1"}>
           <CardHeader>
             <CardTitle className="text-xl font-headline flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-green-500" /> Earnings Today
@@ -75,29 +76,16 @@ export default function DriverDashboardPage() {
             <Link href="/driver/earnings" className="text-sm text-accent hover:underline">View Detailed Earnings</Link>
           </CardContent>
         </Card>
-         <Card>
-          <CardHeader>
-            <CardTitle className="text-xl font-headline flex items-center gap-2">
-              <Bell className="w-5 h-5 text-orange-500" /> Ride Requests
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{pendingRequests}</p>
-            <p className="text-sm text-muted-foreground">Pending requests</p>
-             <Button variant="outline" className="w-full mt-3" asChild>
-               <Link href="/driver/available-rides">View Requests</Link>
-             </Button>
-          </CardContent>
-        </Card>
+        {/* The "Ride Requests" card was here and has been removed */}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <FeatureCard
-          title="Manage Rides"
-          description="Accept or decline new ride requests."
-          icon={Users}
-          link="/driver/available-rides"
-          actionText="View Requests"
+          title="Manage Current Ride"
+          description="View details and manage your active ride."
+          icon={Car} // Changed from Users to Car for consistency with other ride buttons
+          link="/driver/available-rides" // This page will show active ride or "awaiting offers"
+          actionText="View Current Status"
         />
         <FeatureCard
           title="Earnings & History"
