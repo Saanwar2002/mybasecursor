@@ -390,6 +390,8 @@ export default function AvailableRidesPage() {
       }
   };
 
+  /*
+  // This block is commented out to test the parsing error location
   if (activeRide) {
     return (
       <div className="p-4 space-y-4">
@@ -495,8 +497,9 @@ export default function AvailableRidesPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
+  */
 
   const mapMarkers = [];
   if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
@@ -508,7 +511,7 @@ export default function AvailableRidesPage() {
     });
   }
 
-
+  // Fallback return for when no ride is active
   return (
     <div className="flex flex-col h-full">
       <div className="w-full relative h-[60vh]"> {/* Map takes roughly 60% of height */}
@@ -518,58 +521,59 @@ export default function AvailableRidesPage() {
             markers={mapMarkers}
             className="w-full h-full"
             disableDefaultUI={true}
+            fitBoundsToMarkers={false} // Keep centered on driver unless markers are far
         />
       </div>
-      <Card className="w-full rounded-t-lg shadow-xl flex flex-col items-center p-3 border-t-4 border-primary h-[40vh]"> {/* Bottom card takes ~40% */}
-        <CardHeader className="p-3 text-center"> {/* Increased padding */}
-          <CardTitle className={cn("text-2xl font-headline", isDriverOnline ? "text-green-600" : "text-red-600")}>
+      <Card className="flex-grow h-[40vh] rounded-t-2xl -mt-4 shadow-2xl bg-card flex flex-col">
+        <CardHeader className="p-3 text-center border-b">
+          <CardTitle className="text-2xl font-headline">
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
-           {geolocationError && isDriverOnline && (
-            <p className="text-xs text-red-500 flex items-center justify-center gap-1">
-              <AlertTriangle className="h-3 w-3"/> {geolocationError}
-            </p>
-          )}
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center space-y-3 w-full flex-grow p-3"> {/* Increased padding and space-y */}
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-3">
           {isDriverOnline ? (
             <>
-              <Loader2 className="h-10 w-10 text-primary animate-spin" /> {/* Larger loader */}
-              <p className="text-muted-foreground text-base text-center">Actively searching for ride offers for you...</p> {/* Larger text */}
+              {geolocationError ? (
+                <div className="text-center text-destructive p-2 bg-destructive/10 rounded-md">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-1" />
+                  <p className="text-sm font-semibold">Location Error</p>
+                  <p className="text-xs">{geolocationError}</p>
+                </div>
+              ) : (
+                 <>
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <p className="text-base text-muted-foreground">Actively searching for ride offers near you...</p>
+                 </>
+              )}
             </>
           ) : (
-            <p className="text-muted-foreground text-base text-center">You are currently offline. Toggle on to receive ride offers.</p> {/* Larger text */}
+            <Power className="h-10 w-10 text-muted-foreground" />
           )}
-           <div className="flex items-center space-x-2 pt-3"> {/* Increased top padding */}
+           <div className="flex items-center space-x-2 pt-1">
             <Switch
               id="online-status-toggle"
               checked={isDriverOnline}
               onCheckedChange={setIsDriverOnline}
-              aria-label="Driver online status"
-              className={cn(
-                "data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
-              )}
+              aria-label={isDriverOnline ? "Go Offline" : "Go Online"}
             />
-            <Label
-                htmlFor="online-status-toggle"
-                className={cn("text-xl font-medium", isDriverOnline ? "text-green-600" : "text-red-500")} // Larger label
-            >
+            <Label htmlFor="online-status-toggle" className="text-xl font-medium">
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-4 text-sm"> {/* Increased margin and text size */}
-            Simulate Incoming Ride Offer (Test)
+          <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="text-xs mt-4 h-7 px-3 py-1">
+            Simulate Incoming Offer
           </Button>
         </CardContent>
       </Card>
-
       <RideOfferModal
         isOpen={isOfferModalOpen}
         onClose={() => setIsOfferModalOpen(false)}
-        rideDetails={currentOfferDetails}
         onAccept={handleAcceptOffer}
         onDecline={handleDeclineOffer}
+        rideDetails={currentOfferDetails}
       />
     </div>
   );
 }
+
+    
