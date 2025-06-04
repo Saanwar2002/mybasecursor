@@ -14,6 +14,7 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
+import { cn } from '@/lib/utils';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -209,14 +210,14 @@ export default function AvailableRidesPage() {
 
              if (!response.ok) {
                 let apiErrorMessage = `Failed to update ride status (Status: ${response.status}).`;
-                const responseText = await response.text();
+                const responseText = await response.text(); // Read text first
                 try {
-                    const errorData = JSON.parse(responseText);
+                    const errorData = JSON.parse(responseText); // Then try to parse
                     console.error(`API Error for ride ${rideId}, action ${actionType}:`, errorData);
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
                     console.warn(`API response for ride ${rideId} (status ${response.status}) not valid JSON or error parsing it:`, parseError);
-                    console.log("Raw error response body:", responseText); // Log the raw text
+                    console.log("Raw error response body:", responseText); 
                     apiErrorMessage = `Status: ${response.status}. Body: ${responseText.substring(0,200)}`;
                 }
                 throw new Error(apiErrorMessage);
@@ -327,7 +328,6 @@ export default function AvailableRidesPage() {
       }
   };
 
-  // If active ride, show active ride UI (Simplified for now, can be expanded)
   if (activeRide) {
     return (
       <div className="p-4 space-y-4">
@@ -340,7 +340,7 @@ export default function AvailableRidesPage() {
           </CardHeader>
            <CardContent className="space-y-3">
             <div className="flex items-center gap-3 mb-3">
-                <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger" />
+                <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={48} height={48} className="rounded-full border-2 border-primary" data-ai-hint="avatar passenger"/>
                 <div>
                   <div className="flex items-center">
                     <p className="text-lg font-semibold">{activeRide.passengerName}</p>
@@ -436,41 +436,47 @@ export default function AvailableRidesPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="h-[70vh] w-full relative">
+      <div className="h-[75vh] w-full relative">
         <GoogleMapDisplay
             center={driverLocation}
             zoom={15}
             markers={[{ position: driverLocation, title: "Your Location" }]}
             className="w-full h-full"
         />
-        {/* We can add an overlay for the Online/Offline toggle on the map later if needed */}
       </div>
-      <Card className="h-[30vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
+      <Card className="h-[25vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
         <CardHeader className="p-2 text-center">
-          <CardTitle className="text-2xl font-headline">
+          <CardTitle className={cn("text-2xl font-headline", isDriverOnline ? "text-green-600" : "text-red-600")}>
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center space-y-3 w-full">
           {isDriverOnline ? (
             <>
-              <Loader2 className="h-10 w-10 text-primary animate-spin" />
-              <p className="text-muted-foreground">Actively searching for ride offers for you...</p>
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
+              <p className="text-muted-foreground text-sm">Actively searching for ride offers for you...</p>
             </>
           ) : (
-            <p className="text-muted-foreground">You are currently offline. Toggle on to receive ride offers.</p>
+            <p className="text-muted-foreground text-sm">You are currently offline. Toggle on to receive ride offers.</p>
           )}
-           <div className="flex items-center space-x-2 pt-3">
+           <div className="flex items-center space-x-2 pt-2">
             <Switch 
               id="online-status-toggle" 
               checked={isDriverOnline} 
               onCheckedChange={setIsDriverOnline} 
               aria-label="Driver online status"
+              className={cn(
+                isDriverOnline ? "data-[state=checked]:bg-green-500" : "data-[state=unchecked]:bg-red-500"
+              )}
             />
-            <Label htmlFor="online-status-toggle" className="text-lg">
+            <Label 
+                htmlFor="online-status-toggle" 
+                className={cn("text-lg font-medium", isDriverOnline ? "text-green-600" : "text-red-500")}
+            >
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
+          {/* Retaining this button for easier testing of the modal flow */}
           <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-2">
             Simulate Incoming Offer (Test)
           </Button>
@@ -487,5 +493,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
-    
