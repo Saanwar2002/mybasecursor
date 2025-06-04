@@ -43,7 +43,7 @@ interface RideRequest {
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
 const mockRideRequests: RideRequest[] = [
-  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: 'Kingsgate Centre, Huddersfield', dropoffLocation: 'Huddersfield Royal Infirmary', estimatedTime: '10 min', fareEstimate: 7.50, status: 'pending', pickupCoords: { lat: 53.6458, lng: -1.7845 }, dropoffCoords: { lat: 53.6530, lng: -1.8000 }, distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
+  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '6 Colne Street Paddock Huddersfield HD1 4RX', dropoffLocation: '12 Lindley Moor Road Lindley Huddersfield HD3 3RT', estimatedTime: '10 min', fareEstimate: 7.50, status: 'pending', pickupCoords: { lat: 53.6410, lng: -1.7950 }, dropoffCoords: { lat: 53.6600, lng: -1.8200 }, distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
   { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Huddersfield Station', dropoffLocation: 'University of Huddersfield, Queensgate', estimatedTime: '5 min', fareEstimate: 5.00, status: 'pending', pickupCoords: { lat: 53.6490, lng: -1.7795 }, dropoffCoords: { lat: 53.6430, lng: -1.7720 }, distanceMiles: 1.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
 ];
 
@@ -115,9 +115,9 @@ export default function AvailableRidesPage() {
     const mockOffer: RideOffer = {
       id: 'mock-offer-123',
       pickupLocation: "6 Colne Street Paddock Huddersfield HD1 4RX",
-      pickupCoords: { lat: 53.6410, lng: -1.7950 }, // Example coords for Paddock area
+      pickupCoords: { lat: 53.6410, lng: -1.7950 },
       dropoffLocation: "12 Lindley Moor Road Lindley Huddersfield HD3 3RT",
-      dropoffCoords: { lat: 53.6600, lng: -1.8200 }, // Example coords for Lindley Moor area
+      dropoffCoords: { lat: 53.6600, lng: -1.8200 },
       fareEstimate: 12.50,
       passengerCount: 1,
       passengerName: "Sarah Connor",
@@ -511,7 +511,7 @@ export default function AvailableRidesPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="h-[65vh] w-full relative">
+      <div className="h-[70vh] w-full relative">
         <GoogleMapDisplay
             center={driverLocation}
             zoom={15}
@@ -520,7 +520,7 @@ export default function AvailableRidesPage() {
             disableDefaultUI={true}
         />
       </div>
-      <Card className="h-[35vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
+      <Card className="h-[30vh] w-full rounded-t-lg shadow-xl flex flex-col items-center justify-center p-4 border-t-4 border-primary">
         <CardHeader className="p-2 text-center">
           <CardTitle className={cn("text-2xl font-headline", isDriverOnline ? "text-green-600" : "text-red-600")}>
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
