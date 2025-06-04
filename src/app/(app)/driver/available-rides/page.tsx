@@ -72,45 +72,45 @@ export default function AvailableRidesPage() {
   const [progressValue, setProgressValue] = useState(0);
 
 
-  // useEffect(() => {
-  //   if (isDriverOnline && navigator.geolocation) {
-  //     setGeolocationError(null);
-  //     watchIdRef.current = navigator.geolocation.watchPosition(
-  //       (position) => {
-  //         setDriverLocation({
-  //           lat: position.coords.latitude,
-  //           lng: position.coords.longitude,
-  //         });
-  //         setGeolocationError(null);
-  //       },
-  //       (error) => {
-  //         console.warn("Error watching position:", error);
-  //         let message = "Could not get your location.";
-  //         if (error.code === 1) message = "Location permission denied by user.";
-  //         else if (error.code === 2) message = "Location information unavailable.";
-  //         else if (error.code === 3) message = "Location request timed out.";
-  //         setGeolocationError(message);
-  //         toast({ title: "Location Error", description: message, variant: "destructive" });
-  //       },
-  //       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  //     );
-  //   } else {
-  //     if (watchIdRef.current !== null) {
-  //       navigator.geolocation.clearWatch(watchIdRef.current);
-  //       watchIdRef.current = null;
-  //     }
-  //     if (!navigator.geolocation && isDriverOnline) {
-  //       setGeolocationError("Geolocation is not supported by this browser.");
-  //       toast({ title: "Location Error", description: "Geolocation is not supported or enabled in your browser.", variant: "destructive" });
-  //     }
-  //   }
+//   useEffect(() => {
+//     if (isDriverOnline && navigator.geolocation) {
+//       setGeolocationError(null);
+//       watchIdRef.current = navigator.geolocation.watchPosition(
+//         (position) => {
+//           setDriverLocation({
+//             lat: position.coords.latitude,
+//             lng: position.coords.longitude,
+//           });
+//           setGeolocationError(null);
+//         },
+//         (error) => {
+//           console.warn("Error watching position:", error);
+//           let message = "Could not get your location.";
+//           if (error.code === 1) message = "Location permission denied by user.";
+//           else if (error.code === 2) message = "Location information unavailable.";
+//           else if (error.code === 3) message = "Location request timed out.";
+//           setGeolocationError(message);
+//           toast({ title: "Location Error", description: message, variant: "destructive" });
+//         },
+//         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+//       );
+//     } else {
+//       if (watchIdRef.current !== null) {
+//         navigator.geolocation.clearWatch(watchIdRef.current);
+//         watchIdRef.current = null;
+//       }
+//       if (!navigator.geolocation && isDriverOnline) {
+//         setGeolocationError("Geolocation is not supported by this browser.");
+//         toast({ title: "Location Error", description: "Geolocation is not supported or enabled in your browser.", variant: "destructive" });
+//       }
+//     }
 
-  //   return () => {
-  //     if (watchIdRef.current !== null) {
-  //       navigator.geolocation.clearWatch(watchIdRef.current);
-  //     }
-  //   };
-  // }, [isDriverOnline, toast]);
+//     return () => {
+//       if (watchIdRef.current !== null) {
+//         navigator.geolocation.clearWatch(watchIdRef.current);
+//       }
+//     };
+//   }, [isDriverOnline, toast]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | undefined;
@@ -434,15 +434,198 @@ export default function AvailableRidesPage() {
     });
   }
 
+/*
+  if (activeRide) {
+    return (
+      <div className="flex flex-col h-full bg-background">
+        <Card className="m-2 shadow-lg rounded-xl">
+          <CardHeader className="p-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg font-headline flex items-center gap-2">
+                <CarIcon className="w-5 h-5 text-primary" />
+                Active Ride: {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </CardTitle>
+              <Badge variant={
+                activeRide.status === 'in_progress' ? 'default' :
+                activeRide.status === 'arrived_at_pickup' ? 'outline' :
+                'secondary'
+              } className={cn(
+                activeRide.status === 'in_progress' && 'bg-blue-500 text-white',
+                activeRide.status === 'arrived_at_pickup' && 'border-green-500 text-green-500',
+                activeRide.status === 'driver_assigned' && 'bg-sky-500 text-white'
+              )}>
+                {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 space-y-2.5 text-sm">
+            <div className="flex items-center gap-2">
+              <Image src={activeRide.passengerAvatar} alt={activeRide.passengerName} width={30} height={30} className="rounded-full" data-ai-hint="avatar passenger" />
+              <div>
+                <p className="font-medium">{activeRide.passengerName} {renderPassengerRating(activeRide.passengerRating)}</p>
+                <p className="text-xs text-muted-foreground">Passenger</p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" /> <strong>Pickup:</strong> {activeRide.pickupLocation}</p>
+              <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-accent mt-0.5 shrink-0" /> <strong>Dropoff:</strong> {activeRide.dropoffLocation}</p>
+            </div>
+            <div className="flex items-center gap-1.5"><DollarSignIcon className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> ~£{activeRide.fareEstimate.toFixed(2)}</div>
 
-  // if (activeRide) {
-  //    return <p>Active Ride Test</p>;
-  // }
+             {activeRide.status === 'driver_assigned' && !activeRide.notifiedPassengerArrivalTimestamp && (
+                <Button onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} className="w-full bg-green-600 hover:bg-green-700 text-white" disabled={actionLoading[activeRide.id]}>
+                {actionLoading[activeRide.id] ? <Loader2 className="animate-spin"/> : <BellRing className="mr-2"/>}
+                Notify Arrival at Pickup
+              </Button>
+            )}
+            {activeRide.status === 'driver_assigned' && activeRide.notifiedPassengerArrivalTimestamp && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                <div className="p-2 bg-blue-50 border border-blue-300 rounded-md text-blue-700 text-xs flex items-center gap-2">
+                    <Info className="w-4 h-4"/> Passenger notified. Waiting for acknowledgement or start ride.
+                </div>
+            )}
+             {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                <div className="p-2 bg-yellow-50 border border-yellow-400 rounded-md text-yellow-700 text-xs flex items-center gap-2">
+                    <Clock className="w-4 h-4"/> Waiting for passenger. You can start the ride once they are in.
+                </div>
+            )}
+             {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
+                <div className="p-2 bg-green-50 border border-green-400 rounded-md text-green-700 text-xs flex items-center gap-2">
+                    <CheckCheck className="w-4 h-4"/> Passenger acknowledged arrival and is on their way!
+                </div>
+            )}
 
-  return <p>No Active Ride Test</p>;
+            { (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+              <Button onClick={() => handleRideAction(activeRide.id, 'start_ride')} className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={actionLoading[activeRide.id]}>
+                {actionLoading[activeRide.id] ? <Loader2 className="animate-spin"/> : <Navigation className="mr-2"/>}
+                Start Ride
+              </Button>
+            )}
+            {activeRide.status === 'in_progress' && (
+              <Button onClick={() => handleRideAction(activeRide.id, 'complete_ride')} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading[activeRide.id]}>
+                 {actionLoading[activeRide.id] ? <Loader2 className="animate-spin"/> : <CheckCircle className="mr-2"/>}
+                Complete Ride
+              </Button>
+            )}
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
+                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => handleNavigate('Pickup', activeRide.pickupCoords)}>
+                    <Route className="mr-1.5"/> Pickup Nav
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => handleNavigate('Dropoff', activeRide.dropoffCoords)}>
+                    <Route className="mr-1.5"/> Dropoff Nav
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => handleCallCustomer(activeRide.passengerPhone)}>
+                    <Phone className="mr-1.5"/> Call Passenger
+                </Button>
+                 <Button variant="outline" size="sm" className="text-xs h-8">
+                    <MessageSquare className="mr-1.5"/> Chat
+                </Button>
+            </div>
+            { (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status === 'in_progress') && (
+                 <Button variant="destructive" size="sm" className="w-full mt-1.5 text-xs h-8" onClick={() => handleRideAction(activeRide.id, 'cancel_active')} disabled={actionLoading[activeRide.id]}>
+                    {actionLoading[activeRide.id] ? <Loader2 className="animate-spin"/> : <XCircle className="mr-1.5"/>}
+                    Cancel Ride
+                </Button>
+            )}
+          </CardContent>
+        </Card>
+        <div className="flex-1 w-full relative rounded-b-xl md:rounded-xl overflow-hidden shadow-lg m-2 mt-0">
+           <GoogleMapDisplay
+                center={getMapCenterForActiveRide()}
+                zoom={14}
+                markers={getMapMarkersForActiveRide()}
+                className="w-full h-full"
+            />
+             {geolocationError && (
+                <div className="absolute bottom-2 left-2 right-2 bg-destructive/90 text-destructive-foreground p-2 rounded-md text-xs shadow-lg z-10">
+                     <div className="flex items-center gap-1.5"> <AlertTriangle className="h-4 w-4 shrink-0" /> <span>Location Error: {geolocationError}</span></div>
+                </div>
+            )}
+        </div>
+        <RideOfferModal
+            isOpen={isOfferModalOpen}
+            onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }}
+            onAccept={handleAcceptOffer}
+            onDecline={handleDeclineOffer}
+            rideDetails={currentOfferDetails}
+        />
+      </div>
+    );
+  }
+*/
+
+  // Fallback / No Active Ride View
+  return (
+    <div className="flex flex-col h-full">
+      {/* Map takes roughly 70% of height */}
+      <div className="flex-shrink-0 w-full relative h-[calc(100%-12rem)] md:h-[calc(100%-10rem)] rounded-t-xl md:rounded-xl overflow-hidden shadow-lg">
+        <GoogleMapDisplay
+          center={driverLocation}
+          zoom={15}
+          markers={mapMarkers}
+          className="w-full h-full"
+        />
+        {geolocationError && (
+          <div className="absolute bottom-2 left-2 right-2 bg-destructive/90 text-destructive-foreground p-2 rounded-md text-xs shadow-lg z-10">
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Location Error: {geolocationError}. Map may not be accurate.</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Status and controls card */}
+      <Card className="flex-shrink-0 h-48 md:h-40 rounded-t-2xl -mt-4 shadow-2xl bg-card flex flex-col p-3">
+        <CardHeader className="p-1 text-center border-b pb-2">
+          <CardTitle className="text-xl font-headline">
+            {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-2 space-y-2">
+          {isDriverOnline && !geolocationError && (
+            <>
+              <Progress value={progressValue} className="w-3/4 h-2.5 my-1" indicatorClassName={cn(progressValue < 30 ? 'bg-red-500' : progressValue < 70 ? 'bg-yellow-500' : 'bg-green-500')} />
+              <p className="text-xs text-muted-foreground">System Active - Searching for Offers...</p>
+            </>
+          )}
+          {isDriverOnline && geolocationError && (
+            <div className="text-destructive text-xs text-center font-medium p-1 rounded-md bg-destructive/10 w-full">
+              <AlertTriangle className="inline h-3 w-3 mr-1"/> Cannot update live location. Toggle off/on or check permissions.
+            </div>
+          )}
+          {!isDriverOnline && (
+            <p className="text-base text-muted-foreground">You are currently offline.</p>
+          )}
+          
+          <div className="flex items-center space-x-2 pt-1">
+            <Switch
+              id="online-status-toggle"
+              checked={isDriverOnline}
+              onCheckedChange={setIsDriverOnline}
+              aria-label={isDriverOnline ? "Switch to Offline" : "Switch to Online"}
+            />
+            <Label htmlFor="online-status-toggle" className="text-base font-medium">
+              {isDriverOnline ? "Online" : "Offline"}
+            </Label>
+          </div>
+          <Button variant="outline" onClick={handleSimulateOffer} className="mt-2 text-xs h-7 px-3 py-1">
+            Simulate Incoming Offer
+          </Button>
+        </CardContent>
+      </Card>
+      <RideOfferModal
+        isOpen={isOfferModalOpen}
+        onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }}
+        onAccept={handleAcceptOffer}
+        onDecline={handleDeclineOffer}
+        rideDetails={currentOfferDetails}
+      />
+    </div>
+  );
 }
     
 
     
+
 
 
