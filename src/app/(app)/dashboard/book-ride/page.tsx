@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -202,6 +202,8 @@ export default function BookRidePage() {
   const [showGpsSuggestionAlert, setShowGpsSuggestionAlert] = useState(false);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -345,7 +347,6 @@ export default function BookRidePage() {
       setGeolocationFetchStatus('success');
       toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
     } else if (suggestedGpsPickup) {
-        // This case should ideally not be triggerable if button only shown for accuracy <=20m
         toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
     }
   };
@@ -430,8 +431,8 @@ export default function BookRidePage() {
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
       setEstimatedWaitTime(null);
-      setShowGpsSuggestionAlert(false); // Hide GPS alert when user starts typing
-      setGeolocationFetchStatus('idle'); // Reset GPS status
+      setShowGpsSuggestionAlert(false); 
+      setGeolocationFetchStatus('idle'); 
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -638,7 +639,7 @@ export default function BookRidePage() {
     formOnChange(fav.address);
     const newCoords = { lat: fav.latitude, lng: fav.longitude };
     if (doorOrFlatFormFieldName) {
-        form.setValue(doorOrFlatFormFieldName, ""); // Clear door/flat for favorite, as it's not part of fav schema
+        form.setValue(doorOrFlatFormFieldName, "");
     }
 
 
@@ -902,7 +903,7 @@ export default function BookRidePage() {
 
 
       toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 10000 });
-
+      setShowConfirmationDialog(false); // Close dialog on successful booking
       form.reset();
       setPickupInputValue("");
       setDropoffInputValue("");
@@ -1235,7 +1236,7 @@ export default function BookRidePage() {
       let errorMessage = "Speech recognition failed.";
       if (event.error === 'no-speech') errorMessage = "No speech was detected. Please try again.";
       else if (event.error === 'audio-capture') errorMessage = "Microphone problem. Please check permissions.";
-      else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied. Please enable it in your browser settings.";
+      else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied. Please enable it in your browser settings for this site.";
       toast({ title: "Voice Error", description: errorMessage, variant: "destructive" });
       setIsListening(false);
       setIsProcessingAi(false);
@@ -1244,7 +1245,6 @@ export default function BookRidePage() {
     recognition.onend = () => {
       setIsListening(false);
       playSound('stop');
-      // isProcessingAi is set in onresult or onerror's finally block.
     };
   }, [toast, form, geocodeAiAddress, playSound]);
 
@@ -1258,8 +1258,6 @@ export default function BookRidePage() {
       return;
     }
     if (isListening) {
-      // This case should ideally not happen if onend resets isListening properly.
-      // But as a safeguard:
       recognitionRef.current.stop();
       setIsListening(false);
     }
@@ -1269,7 +1267,6 @@ export default function BookRidePage() {
       stream.getTracks().forEach(track => track.stop());
 
       recognitionRef.current.start();
-      // onstart will set isListening to true, play beep, and show toast.
     } catch (err) {
       console.error("Microphone permission error or start error:", err);
       let message = "Could not start listening.";
@@ -1286,7 +1283,6 @@ export default function BookRidePage() {
   const handleMicMouseUpOrLeave = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
-      // onend will set isListening to false and play stop beep
     }
   };
 
@@ -1361,7 +1357,7 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    if (showGpsSuggestionAlert) return null; // Don't show if the main suggestion alert is visible
+    if (showGpsSuggestionAlert) return null; 
 
     switch (geolocationFetchStatus) {
         case 'fetching':
@@ -1378,7 +1374,7 @@ export default function BookRidePage() {
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. <strong>Please enter your pickup address manually.</strong></p>;
         case 'error_geocoding':
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. <strong>Please enter your pickup address manually.</strong></p>;
-        case 'success': // If alert was dismissed or user typed over it
+        case 'success': 
              if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) {
                 return <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" />GPS location was used for pickup.</p>;
              }
@@ -1388,6 +1384,48 @@ export default function BookRidePage() {
             return null;
     }
 };
+
+const handleProceedToConfirmation = async () => {
+    // Trigger validation for essential fields
+    const pickupValid = await form.trigger("pickupLocation");
+    const dropoffValid = await form.trigger("dropoffLocation");
+    const stopsValid = await form.trigger("stops"); // Optional, but good to check if populated
+
+    if (!pickupValid || !dropoffValid) {
+      toast({
+        title: "Missing Journey Details",
+        description: "Please ensure pickup and drop-off locations are filled correctly.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!pickupCoords || !dropoffCoords) {
+      toast({
+        title: "Location Coordinates Missing",
+        description: "Please select pickup and drop-off locations from the suggestions to get coordinates.",
+        variant: "default",
+      });
+      return;
+    }
+
+    // If any stops are entered, ensure they are valid
+    const stopFields = form.getValues("stops");
+    if (stopFields && stopFields.length > 0) {
+        for (let i = 0; i < stopFields.length; i++) {
+            if (stopFields[i].location && stopFields[i].location.trim() !== "" && !stopAutocompleteData[i]?.coords) {
+                 toast({
+                    title: `Incomplete Stop ${i+1}`,
+                    description: `Please select stop ${i+1} from suggestions or remove it.`,
+                    variant: "destructive",
+                 });
+                 return;
+            }
+        }
+    }
+    setShowConfirmationDialog(true);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -1828,121 +1866,155 @@ export default function BookRidePage() {
                     )}
                   />
 
-                  <Card className="w-full text-center shadow-md mt-6">
-                    <CardHeader>
-                      <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                        <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {anyFetchingDetails && pickupCoords ? (
-                         <div className="flex flex-col items-center justify-center space-y-2">
-                            <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                            <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
-                         </div>
-                      ) : fareEstimate !== null ? (
-                        <>
-                          <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
-                          {isSurgeActive && (
-                            <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
-                              <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
-                            </p>
-                          )}
-                           {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
-                        </>
-                      ) : (
-                         <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
-                      )}
-
-                      {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
-                        <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                          <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
-                        </p>
-                      )}
-                      {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
-                         <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                           <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                        </p>
-                      )}
-                       {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
-                         <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                           <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                        </p>
-                      )}
-
-                      {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
-                        <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                          <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
-                        </p>
-                      )}
-                       {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
-                         <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                           <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
-                        </p>
-                      )}
-
-                      <p className="text-sm text-muted-foreground mt-3">
-                        {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="mt-6 shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
-                    <CardHeader>
-                      <CardTitle className="text-xl font-headline flex items-center gap-2">
-                        <CreditCard className="w-6 h-6 text-primary" /> Payment Method
-                      </CardTitle>
-                      <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <FormField
-                        control={form.control}
-                        name="paymentMethod"
-                        render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                              >
-                                <FormItem className="flex-1">
-                                  <FormControl>
-                                    <RadioGroupItem value="card" id="card" className="sr-only peer" />
-                                  </FormControl>
-                                  <Label
-                                    htmlFor="card"
-                                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                  >
-                                    <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
-                                    Pay by Card
-                                  </Label>
-                                </FormItem>
-                                <FormItem className="flex-1">
-                                  <FormControl>
-                                    <RadioGroupItem value="cash" id="cash" className="sr-only peer" />
-                                  </FormControl>
-                                  <Label
-                                    htmlFor="cash"
-                                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                  >
-                                    <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
-                                    Pay with Cash
-                                  </Label>
-                                </FormItem>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 mt-8" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}>
-                     {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                     {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
+                  <Button 
+                    type="button" 
+                    onClick={handleProceedToConfirmation} 
+                    className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3 mt-8"
+                    disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords}
+                  >
+                     <Send className="mr-2 h-5 w-5" />
+                     Review & Confirm Ride
                   </Button>
+
+                  {/* Dialog is part of the form, submit button inside will trigger form's onSubmit */}
+                  <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-headline">Confirm Your Booking</DialogTitle>
+                        <DialogDescription>
+                          Please review your ride details and confirm payment.
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="space-y-4 py-4">
+                        <Card className="w-full text-center shadow-md">
+                          <CardHeader>
+                            <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
+                              <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {anyFetchingDetails && pickupCoords ? (
+                              <div className="flex flex-col items-center justify-center space-y-2">
+                                  <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+                                  <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
+                              </div>
+                            ) : fareEstimate !== null ? (
+                              <>
+                                <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                                {isSurgeActive && (
+                                  <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
+                                    <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                                  </p>
+                                )}
+                                {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                              </>
+                            ) : (
+                              <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
+                            )}
+
+                            {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
+                              <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                                <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
+                              </p>
+                            )}
+                            {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
+                              <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                                <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                              </p>
+                            )}
+                            {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
+                              <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                                <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                              </p>
+                            )}
+
+                            {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
+                              <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                                <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
+                              </p>
+                            )}
+                            {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
+                              <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                                <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
+                              </p>
+                            )}
+
+                            <p className="text-sm text-muted-foreground mt-3">
+                              {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                          <CardHeader>
+                            <CardTitle className="text-xl font-headline flex items-center gap-2">
+                              <CreditCard className="w-6 h-6 text-primary" /> Payment Method
+                            </CardTitle>
+                            <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <FormField
+                              control={form.control}
+                              name="paymentMethod"
+                              render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                  <FormControl>
+                                    <RadioGroup
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                      className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                                    >
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
+                                        </FormControl>
+                                        <Label
+                                          htmlFor="dialog-card"
+                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                        >
+                                          <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
+                                          Pay by Card
+                                        </Label>
+                                      </FormItem>
+                                      <FormItem className="flex-1">
+                                        <FormControl>
+                                          <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
+                                        </FormControl>
+                                        <Label
+                                          htmlFor="dialog-cash"
+                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                        >
+                                          <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
+                                          Pay with Cash
+                                        </Label>
+                                      </FormItem>
+                                    </RadioGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </CardContent>
+                        </Card>
+                      </div>
+                      
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
+                        </DialogClose>
+                        <Button 
+                          type="submit" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground" 
+                          disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
+                        >
+                          {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                          {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
                 </form>
               </Form>
             </div>
@@ -1983,3 +2055,5 @@ export default function BookRidePage() {
     </div>
   );
 }
+
+
