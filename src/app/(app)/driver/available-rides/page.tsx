@@ -1,12 +1,12 @@
 
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"; // Kept for other states
+import { Button } from "@/components/ui/button"; // Kept for other states
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon } from "lucide-react"; // Kept for other states
+import { Badge } from "@/components/ui/badge"; // Kept for other states
+import { Switch } from "@/components/ui/switch"; // Kept for other states
+import { Label } from "@/components/ui/label"; // Kept for other states
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,7 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
-import { Progress } from '@/components/ui/progress'; // Keep for potential future use, but not used in this layout
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -43,11 +42,6 @@ interface RideRequest {
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
-const mockRideRequests: RideRequest[] = [
-  { id: 'r1', passengerName: 'Alice Smith', passengerAvatar: 'https://placehold.co/40x40.png?text=AS', pickupLocation: '6 Colne Street Paddock Huddersfield HD1 4RX', dropoffLocation: '12 Lindley Moor Road Lindley Huddersfield HD3 3RT', estimatedTime: '10 min', fareEstimate: 7.50, status: 'pending', pickupCoords: { lat: 53.6410, lng: -1.7950 }, dropoffCoords: { lat: 53.6600, lng: -1.8200 }, distanceMiles: 2.5, passengerCount: 1, passengerPhone: '555-0101', passengerRating: 4.5 },
-  { id: 'r2', passengerName: 'Bob Johnson', passengerAvatar: 'https://placehold.co/40x40.png?text=BJ', pickupLocation: 'Huddersfield Station', dropoffLocation: 'University of Huddersfield, Queensgate', estimatedTime: '5 min', fareEstimate: 5.00, status: 'pending', pickupCoords: { lat: 53.6490, lng: -1.7795 }, dropoffCoords: { lat: 53.6430, lng: -1.7720 }, distanceMiles: 1.2, passengerCount: 2, passengerPhone: '555-0102', passengerRating: 4.8 },
-];
-
 const blueDotSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
@@ -58,7 +52,7 @@ const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;ba
 
 
 export default function AvailableRidesPage() {
-  const [rideRequests, setRideRequests] = useState<RideRequest[]>(mockRideRequests);
+  const [rideRequests, setRideRequests] = useState<RideRequest[]>([]);
   const { toast } = useToast();
   const { user: driverUser } = useAuth();
   const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
@@ -66,53 +60,55 @@ export default function AvailableRidesPage() {
 
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [currentOfferDetails, setCurrentOfferDetails] = useState<RideOffer | null>(null);
-  const [isDriverOnline, setIsDriverOnline] = useState(true); // Kept for logic, but UI toggle removed from this view
-  const [geolocationError, setGeolocationError] = useState<string | null>(null); // Kept for logic
+  const [isDriverOnline, setIsDriverOnline] = useState(true);
+  const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
 
-//   useEffect(() => {
-//     if (isDriverOnline && navigator.geolocation) {
-//       setGeolocationError(null);
-//       watchIdRef.current = navigator.geolocation.watchPosition(
-//         (position) => {
-//           setDriverLocation({
-//             lat: position.coords.latitude,
-//             lng: position.coords.longitude,
-//           });
-//           setGeolocationError(null);
-//         },
-//         (error) => {
-//           console.warn("Error watching position:", error);
-//           let message = "Could not get your location.";
-//           if (error.code === 1) message = "Location permission denied by user.";
-//           else if (error.code === 2) message = "Location information unavailable.";
-//           else if (error.code === 3) message = "Location request timed out.";
-//           setGeolocationError(message);
-//           toast({ title: "Location Error", description: message, variant: "destructive" });
-//         },
-//         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-//       );
-//     } else {
-//       if (watchIdRef.current !== null) {
-//         navigator.geolocation.clearWatch(watchIdRef.current);
-//         watchIdRef.current = null;
-//       }
-//       if (!navigator.geolocation && isDriverOnline) {
-//         setGeolocationError("Geolocation is not supported by this browser.");
-//         toast({ title: "Location Error", description: "Geolocation is not supported or enabled in your browser.", variant: "destructive" });
-//       }
-//     }
+// Geolocation useEffect remains commented out to prevent blank screen issues for now
+/*
+  useEffect(() => {
+    if (isDriverOnline && navigator.geolocation) {
+      setGeolocationError(null);
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          setDriverLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setGeolocationError(null);
+        },
+        (error) => {
+          console.warn("Error watching position:", error);
+          let message = "Could not get your location.";
+          if (error.code === 1) message = "Location permission denied by user.";
+          else if (error.code === 2) message = "Location information unavailable.";
+          else if (error.code === 3) message = "Location request timed out.";
+          setGeolocationError(message);
+          toast({ title: "Location Error", description: message, variant: "destructive" });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (!navigator.geolocation && isDriverOnline) {
+        setGeolocationError("Geolocation is not supported by this browser.");
+        toast({ title: "Location Error", description: "Geolocation is not supported or enabled in your browser.", variant: "destructive" });
+      }
+    }
 
-//     return () => {
-//       if (watchIdRef.current !== null) {
-//         navigator.geolocation.clearWatch(watchIdRef.current);
-//       }
-//     };
-//   }, [isDriverOnline, toast]);
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [isDriverOnline, toast]);
+*/
 
-
-  const handleSimulateOffer = () => { // This button is removed from UI, but function kept for potential testing
+  const handleSimulateOffer = () => {
     const mockOffer: RideOffer = {
       id: 'mock-offer-123',
       pickupLocation: "6 Colne Street Paddock Huddersfield HD1 4RX",
@@ -401,61 +397,31 @@ export default function AvailableRidesPage() {
     });
   }
 
-/* // Keep this block commented out as per user interaction flow
+  // The `if (activeRide)` block remains commented out for now.
+  /*
   if (activeRide) {
+    // This is where the UI for an active ride would go.
+    // For now, we're focused on the "no active ride" screen.
     return (
-      // JSX for active ride state would go here
-      // For now, we return the "awaiting offers" state.
-       <p>Active Ride Test</p>
+       <p>Active Ride Test</p> // Simplified placeholder
     );
   }
-*/
+  */
 
-  // Render the "no active ride" state (awaiting offers)
+  // This is the "no active ride" / "awaiting offers" state.
+  // The image shows only a map and then empty space below it.
   return (
-    <div className="relative h-full">
-      <div className="absolute inset-0 z-0">
-        <GoogleMapDisplay
-          center={driverLocation}
-          zoom={15}
+    <div className="w-full h-[380px] rounded-xl overflow-hidden shadow-lg border">
+      <GoogleMapDisplay
+          center={driverLocation} 
+          zoom={14}
           markers={mapMarkers}
           className="w-full h-full"
-          disableDefaultUI={true}
-        />
-      </div>
+          disableDefaultUI={false} // Set to false to show Google Maps UI elements
+      />
+      {/* No status banner or card as per the image for this specific state */}
 
-      {isDriverOnline && !geolocationError && (
-        <div className="absolute bottom-0 left-0 right-0 z-10 bg-card rounded-t-2xl shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] border-t-4 border-green-500">
-          <CardContent className="flex flex-col items-center justify-center p-3 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
-            <p className="text-sm font-medium text-foreground">
-              Actively searching for ride offers for you...
-            </p>
-          </CardContent>
-        </div>
-      )}
-
-      {isDriverOnline && geolocationError && (
-        <div className="absolute bottom-0 left-0 right-0 z-10 bg-destructive/90 text-destructive-foreground p-2 rounded-t-md text-xs shadow-lg">
-          <div className="flex items-center gap-1.5 justify-center">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>Location Error: {geolocationError}. Map updates paused.</span>
-          </div>
-        </div>
-      )}
-      
-      {!isDriverOnline && (
-         <div className="absolute bottom-0 left-0 right-0 z-10 bg-card rounded-t-2xl shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] border-t-4 border-slate-400">
-            <CardContent className="flex flex-col items-center justify-center p-3 text-center">
-                <Power className="h-8 w-8 text-slate-500 mb-2" />
-                <p className="text-sm font-medium text-muted-foreground">
-                    You are currently offline. Go online to receive offers.
-                </p>
-                {/* The actual toggle is in AppLayout or driver dashboard, this is just a status indicator */}
-            </CardContent>
-        </div>
-      )}
-
+      {/* RideOfferModal is kept for future use if offers are presented */}
       <RideOfferModal
         isOpen={isOfferModalOpen}
         onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }}
