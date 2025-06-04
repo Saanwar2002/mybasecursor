@@ -208,8 +208,6 @@ export default function BookRidePage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
-  const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ waitTime: number; pickupLocation: string; bookingTime: number; } | null>(null);
-
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -834,22 +832,6 @@ export default function BookRidePage() {
     setMapMarkers(newMarkers);
   }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
 
-  useEffect(() => {
-    if (driverArrivalInfo && driverArrivalInfo.waitTime > 0) {
-      const arrivalTimeoutId = setTimeout(() => {
-        toast({
-          title: "Driver Arriving!",
-          description: `Your driver should be arriving at ${driverArrivalInfo.pickupLocation} now. Please be ready!`,
-          variant: "default",
-          duration: 10000,
-        });
-        setDriverArrivalInfo(null); 
-      }, driverArrivalInfo.waitTime * 60 * 1000); 
-
-      return () => clearTimeout(arrivalTimeoutId);
-    }
-  }, [driverArrivalInfo, toast]);
-
 
   async function handleBookRide(values: BookingFormValues) {
     if (!user) {
@@ -896,9 +878,6 @@ export default function BookRidePage() {
 
     setIsBooking(true);
 
-    const waitTimeForNotification = estimatedWaitTime; // Capture before reset
-    const pickupForNotification = values.pickupLocation;
-
     const bookingPayload = {
       passengerId: user.id,
       passengerName: user.name || "Passenger",
@@ -938,21 +917,6 @@ export default function BookRidePage() {
         duration: 7000 
       });
       
-      if (waitTimeForNotification !== null && waitTimeForNotification > 0 && bookingPayload.bookingType !== 'scheduled') {
-        toast({
-          title: "Driver Dispatched!",
-          description: `Estimated arrival at ${pickupForNotification} in ${waitTimeForNotification} minutes.`,
-          variant: "default",
-          duration: 7000,
-        });
-        setDriverArrivalInfo({
-          waitTime: waitTimeForNotification,
-          pickupLocation: pickupForNotification,
-          bookingTime: Date.now(), 
-        });
-      }
-
-
       setShowConfirmationDialog(false); 
       form.reset();
       setPickupInputValue("");
@@ -2104,4 +2068,3 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
-

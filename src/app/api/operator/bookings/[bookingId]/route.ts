@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, deleteField } from 'firebase/firestore';
 import { z } from 'zod';
 
 // Helper to convert Firestore Timestamp to a serializable format
@@ -21,8 +21,6 @@ interface GetContext {
 }
 
 export async function GET(request: NextRequest, context: GetContext) {
-  // TODO: Implement authentication/authorization for operator role. Ensure only authorized operators can access this.
-
   const { bookingId } = context.params;
 
   if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
@@ -38,16 +36,17 @@ export async function GET(request: NextRequest, context: GetContext) {
     }
 
     const bookingData = bookingSnap.data();
-    // Ensure all known and potential timestamp fields are serialized
     const serializedBooking = {
       id: bookingSnap.id,
       ...bookingData,
       bookingTimestamp: serializeTimestamp(bookingData.bookingTimestamp as Timestamp | undefined),
-      scheduledPickupAt: bookingData.scheduledPickupAt ? bookingData.scheduledPickupAt : null, // Already string or null
+      scheduledPickupAt: bookingData.scheduledPickupAt ? bookingData.scheduledPickupAt : null,
       updatedAt: serializeTimestamp(bookingData.updatedAt as Timestamp | undefined),
       cancelledAt: serializeTimestamp(bookingData.cancelledAt as Timestamp | undefined),
       operatorUpdatedAt: serializeTimestamp(bookingData.operatorUpdatedAt as Timestamp | undefined),
       driverAssignedAt: serializeTimestamp(bookingData.driverAssignedAt as Timestamp | undefined),
+      notifiedPassengerArrivalTimestamp: serializeTimestamp(bookingData.notifiedPassengerArrivalTimestamp as Timestamp | undefined),
+      passengerAcknowledgedArrivalTimestamp: serializeTimestamp(bookingData.passengerAcknowledgedArrivalTimestamp as Timestamp | undefined),
       completedAt: serializeTimestamp(bookingData.completedAt as Timestamp | undefined),
     };
     
@@ -60,22 +59,20 @@ export async function GET(request: NextRequest, context: GetContext) {
   }
 }
 
-// Schema for validating the update payload
 const bookingUpdateSchema = z.object({
   driverId: z.string().optional(),
-  driverName: z.string().optional(), // Typically, this would be fetched based on driverId or managed by a separate driver assignment flow. For simplicity, allowing operator to set.
+  driverName: z.string().optional(),
   driverAvatar: z.string().url().optional(),
-  status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'Cancelled', 'pending_assignment']).optional(), // Added 'pending_assignment' to match other usages
+  status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'Cancelled', 'pending_assignment', 'arrived_at_pickup', 'driver_assigned']).optional(),
   vehicleType: z.string().optional(),
   fareEstimate: z.number().optional(),
-  notes: z.string().optional(), // Operator can add notes
-}).min(1, { message: "At least one field must be provided for update." });
+  notes: z.string().optional(),
+  action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride']).optional(), // Added actions
+}).min(1, { message: "At least one field or action must be provided for update." });
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
-  // TODO: Implement authentication/authorization for operator role.
-
   const { bookingId } = context.params;
 
   if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
@@ -99,46 +96,62 @@ export async function POST(request: NextRequest, context: GetContext) {
       return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
     }
 
-    const updateData: Partial<BookingUpdatePayload & { operatorUpdatedAt: Timestamp, driverAssignedAt?: Timestamp, completedAt?: Timestamp, cancelledAt?: Timestamp, cancelledBy?: string }> = {
-      ...updateDataFromPayload,
-      operatorUpdatedAt: Timestamp.now(),
+    const currentBookingData = bookingSnap.data();
+
+    const updateData: any = { // Using any for flexibility with Firestore specific types like Timestamp and deleteField
+      operatorUpdatedAt: Timestamp.now(), // Always update this timestamp for operator/driver actions
     };
 
-    // Handle specific status changes
-    if (updateDataFromPayload.status) {
+    if (updateDataFromPayload.action === 'notify_arrival') {
+      // Add security: check if request is from assigned driver
+      updateData.status = 'arrived_at_pickup';
+      updateData.notifiedPassengerArrivalTimestamp = Timestamp.now();
+    } else if (updateDataFromPayload.action === 'acknowledge_arrival') {
+      // Add security: check if request is from passenger
+      updateData.passengerAcknowledgedArrivalTimestamp = Timestamp.now();
+    } else if (updateDataFromPayload.action === 'start_ride') {
+      updateData.status = 'In Progress'; // Or 'in_progress'
+      updateData.rideStartedAt = Timestamp.now();
+    } else if (updateDataFromPayload.action === 'complete_ride') {
+       updateData.status = 'Completed';
+       updateData.completedAt = Timestamp.now();
+    } else {
+      // General updates
+      if (updateDataFromPayload.status) updateData.status = updateDataFromPayload.status;
+      if (updateDataFromPayload.driverId) updateData.driverId = updateDataFromPayload.driverId;
+      if (updateDataFromPayload.driverName) updateData.driverName = updateDataFromPayload.driverName;
+      if (updateDataFromPayload.driverAvatar) updateData.driverAvatar = updateDataFromPayload.driverAvatar;
+      if (updateDataFromPayload.vehicleType) updateData.vehicleType = updateDataFromPayload.vehicleType;
+      if (updateDataFromPayload.fareEstimate !== undefined) updateData.fareEstimate = updateDataFromPayload.fareEstimate;
+      if (updateDataFromPayload.notes) updateData.notes = updateDataFromPayload.notes;
+
       if (updateDataFromPayload.status === 'Assigned' && updateDataFromPayload.driverId) {
         updateData.driverAssignedAt = Timestamp.now();
       } else if (updateDataFromPayload.status === 'Completed') {
         updateData.completedAt = Timestamp.now();
       } else if (updateDataFromPayload.status === 'Cancelled') {
         updateData.cancelledAt = Timestamp.now();
-        updateData.cancelledBy = 'operator'; // Indicate who cancelled
+        updateData.cancelledBy = 'operator'; // Assume operator if no specific actor
       }
     }
     
-    // Ensure driverName and driverAvatar are only set if driverId is also present or being set.
-    // This logic could be more complex, e.g., fetching driver details if only driverId is given.
-    if (updateDataFromPayload.driverId && !updateDataFromPayload.driverName) {
-        // Potentially fetch driver name based on ID here if needed
-        // For now, if driverId is set but name is not, we don't automatically clear/set it
-    }
+    await updateDoc(bookingRef, updateData);
 
-
-    await updateDoc(bookingRef, updateData as any); // Cast as any to handle nested objects and Timestamps for updateDoc
-
-    const updatedBookingSnap = await getDoc(bookingRef); // Fetch the updated document
-    const updatedBookingData = updatedBookingSnap.data();
+    const updatedBookingSnap = await getDoc(bookingRef);
+    const updatedBookingDataResult = updatedBookingSnap.data();
 
     const serializedUpdatedBooking = {
         id: updatedBookingSnap.id,
-        ...updatedBookingData,
-        bookingTimestamp: serializeTimestamp(updatedBookingData?.bookingTimestamp as Timestamp | undefined),
-        scheduledPickupAt: updatedBookingData?.scheduledPickupAt ? updatedBookingData.scheduledPickupAt : null,
-        updatedAt: serializeTimestamp(updatedBookingData?.updatedAt as Timestamp | undefined), // This is passenger update
-        operatorUpdatedAt: serializeTimestamp(updatedBookingData?.operatorUpdatedAt as Timestamp | undefined),
-        driverAssignedAt: serializeTimestamp(updatedBookingData?.driverAssignedAt as Timestamp | undefined),
-        completedAt: serializeTimestamp(updatedBookingData?.completedAt as Timestamp | undefined),
-        cancelledAt: serializeTimestamp(updatedBookingData?.cancelledAt as Timestamp | undefined),
+        ...updatedBookingDataResult,
+        bookingTimestamp: serializeTimestamp(updatedBookingDataResult?.bookingTimestamp as Timestamp | undefined),
+        scheduledPickupAt: updatedBookingDataResult?.scheduledPickupAt ? updatedBookingDataResult.scheduledPickupAt : null,
+        updatedAt: serializeTimestamp(updatedBookingDataResult?.updatedAt as Timestamp | undefined),
+        operatorUpdatedAt: serializeTimestamp(updatedBookingDataResult?.operatorUpdatedAt as Timestamp | undefined),
+        driverAssignedAt: serializeTimestamp(updatedBookingDataResult?.driverAssignedAt as Timestamp | undefined),
+        notifiedPassengerArrivalTimestamp: serializeTimestamp(updatedBookingDataResult?.notifiedPassengerArrivalTimestamp as Timestamp | undefined),
+        passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedBookingDataResult?.passengerAcknowledgedArrivalTimestamp as Timestamp | undefined),
+        completedAt: serializeTimestamp(updatedBookingDataResult?.completedAt as Timestamp | undefined),
+        cancelledAt: serializeTimestamp(updatedBookingDataResult?.cancelledAt as Timestamp | undefined),
     };
 
     return NextResponse.json({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }, { status: 200 });
