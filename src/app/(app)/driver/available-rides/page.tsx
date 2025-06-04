@@ -559,15 +559,15 @@ export default function AvailableRidesPage() {
           {isDriverOnline ? (
             <>
               {geolocationError ? (
-                <div className="text-center text-destructive p-2 bg-destructive/10 rounded-md">
+                <div className="text-center text-destructive p-2 bg-destructive/10 rounded-md w-full">
                   <AlertTriangle className="h-8 w-8 mx-auto mb-1" />
                   <p className="text-sm font-semibold">Location Error</p>
                   <p className="text-xs">{geolocationError}</p>
                 </div>
               ) : (
                  <>
-                    <Progress value={progressValue} className="w-3/4 h-2.5" />
-                    <p className="text-xs text-muted-foreground mt-1.5">System Active - Searching for Offers...</p>
+                    <Progress value={progressValue} className="w-3/4 h-2" />
+                    <p className="text-sm text-muted-foreground">System Active - Searching for Offers...</p>
                  </>
               )}
             </>
@@ -581,16 +581,17 @@ export default function AvailableRidesPage() {
               onCheckedChange={setIsDriverOnline}
               aria-label={isDriverOnline ? "Go Offline" : "Go Online"}
             />
-            <Label htmlFor="online-status-toggle" className="text-sm font-medium">
+            <Label htmlFor="online-status-toggle" className="text-base font-medium">
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button variant="outline" onClick={handleSimulateOffer} className="h-7 px-3 py-1 text-xs">
+          <Button variant="outline" onClick={handleSimulateOffer} className="text-sm h-8 px-3 py-1">
             Simulate Incoming Offer
           </Button>
         </CardContent>
       </Card>
-      <div className="flex-1 w-full relative">
+      
+      <div className="flex-1 w-full relative rounded-xl overflow-hidden">
         <GoogleMapDisplay
             center={driverLocation}
             zoom={15}
