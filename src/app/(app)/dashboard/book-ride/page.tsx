@@ -167,7 +167,7 @@ export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const [estimatedDurationMinutes, setEstimatedDurationMinutes] = useState<number | null>(null);
-  const [estimatedWaitTime, setEstimatedWaitTime] = useState<number | null>(null);
+  const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ pickupLocation: string; waitTimeMinutes: number } | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
@@ -457,7 +457,7 @@ export default function BookRidePage() {
     setEstimatedDistance(null);
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
-      setEstimatedWaitTime(null);
+      setDriverArrivalInfo(null); 
       setShowGpsSuggestionAlert(false); 
       setGeolocationFetchStatus('idle'); 
     }
@@ -530,7 +530,7 @@ export default function BookRidePage() {
       if (typeof formFieldNameOrStopIndex === 'string') {
         if (formFieldNameOrStopIndex === 'pickupLocation') {
           setPickupInputValue(prev => form.getValues('pickupLocation') || prev);
-          setPickupCoords(null); setShowPickupSuggestions(false); setEstimatedWaitTime(null);
+          setPickupCoords(null); setShowPickupSuggestions(false); setDriverArrivalInfo(null);
           setShowGpsSuggestionAlert(false); setGeolocationFetchStatus('idle');
         } else {
           setDropoffInputValue(prev => form.getValues('dropoffLocation') || prev);
@@ -594,7 +594,7 @@ export default function BookRidePage() {
           } else {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsFunc(null);
-            if (formFieldNameOrStopIndex === 'pickupLocation') setEstimatedWaitTime(null);
+            if (formFieldNameOrStopIndex === 'pickupLocation') setDriverArrivalInfo(null);
           }
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
@@ -602,7 +602,7 @@ export default function BookRidePage() {
     } else {
       setIsFetchingDetailsFunc(false);
       setCoordsFunc(null);
-      if (formFieldNameOrStopIndex === 'pickupLocation') setEstimatedWaitTime(null);
+      if (formFieldNameOrStopIndex === 'pickupLocation') setDriverArrivalInfo(null);
       toast({ title: "Warning", description: "Could not fetch location details (missing place ID or service).", variant: "default" });
     }
   }, [toast, placesServiceRef, autocompleteSessionTokenRef, form]);
@@ -721,17 +721,20 @@ export default function BookRidePage() {
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
 
   useEffect(() => {
-    let waitTimeoutId: NodeJS.Timeout;
-    if (pickupCoords && !anyFetchingDetails && !form.formState.isSubmitting) {
-      waitTimeoutId = setTimeout(() => {
-        const randomWaitTime = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
-        setEstimatedWaitTime(randomWaitTime);
-      }, 700);
-    } else if (!pickupCoords) {
-      setEstimatedWaitTime(null);
+    if (driverArrivalInfo && driverArrivalInfo.waitTimeMinutes > 0) {
+      const timeoutId = setTimeout(() => {
+        toast({
+          title: "Driver Arriving Soon!",
+          description: `Your driver should be arriving at ${driverArrivalInfo.pickupLocation} now! Please be ready.`,
+          variant: "default",
+          duration: 10000,
+        });
+        setDriverArrivalInfo(null); // Clear after notification
+      }, driverArrivalInfo.waitTimeMinutes * 60 * 1000); // Convert minutes to milliseconds
+
+      return () => clearTimeout(timeoutId); // Cleanup on unmount or if info changes
     }
-    return () => clearTimeout(waitTimeoutId);
-  }, [pickupCoords, anyFetchingDetails, form.formState.isSubmitting]);
+  }, [driverArrivalInfo, toast]);
 
 
   useEffect(() => {
@@ -909,13 +912,24 @@ export default function BookRidePage() {
       }
 
       const result = await response.json();
-
-      toast({ 
-        title: "Booking Confirmed!", 
-        description: `Ride ID: ${result.bookingId}. Your driver will be assigned shortly.`, 
-        variant: "default", 
-        duration: 7000 
-      });
+      
+      const randomWaitTime = Math.floor(Math.random() * (10 - 3 + 1)) + 3; // Simulating 3-10 min wait
+      if (values.bookingType === 'asap' && !scheduledPickupAt) {
+         setDriverArrivalInfo({ pickupLocation: values.pickupLocation, waitTimeMinutes: randomWaitTime });
+          toast({ 
+            title: "Booking Confirmed!", 
+            description: `Ride ID: ${result.bookingId}. Driver dispatched! Est. arrival in ~${randomWaitTime} min.`, 
+            variant: "default", 
+            duration: 7000 
+          });
+      } else {
+          toast({ 
+            title: "Booking Confirmed!", 
+            description: `Ride ID: ${result.bookingId}. Your driver will be assigned shortly.`, 
+            variant: "default", 
+            duration: 7000 
+          });
+      }
       
       setShowConfirmationDialog(false); 
       form.reset();
@@ -927,7 +941,6 @@ export default function BookRidePage() {
       setFareEstimate(null);
       setEstimatedDistance(null);
       setEstimatedDurationMinutes(null);
-      setEstimatedWaitTime(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
       setMapMarkers([]);
@@ -1902,7 +1915,7 @@ const handleProceedToConfirmation = async () => {
                           <Card className="w-full text-center shadow-md">
                             <CardHeader>
                               <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                                <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
+                                <DollarSign className="w-7 h-7 text-accent" /> Fare Estimate
                               </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -1920,41 +1933,12 @@ const handleProceedToConfirmation = async () => {
                                     </p>
                                   )}
                                   {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
-                                  {!isOperatorSurgeEnabled && <p className="text-xs text-muted-foreground">(Surge pricing currently disabled by operator)</p>}
                                 </>
                               ) : (
                                 <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                               )}
-
-                              {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
-                                <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                                  <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
-                                </p>
-                              )}
-                              {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
-                                <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                                  <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                                </p>
-                              )}
-                              {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
-                                <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                                  <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                                </p>
-                              )}
-
-                              {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
-                                <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                                  <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
-                                </p>
-                              )}
-                              {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
-                                <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                                  <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
-                                </p>
-                              )}
-
                               <p className="text-sm text-muted-foreground mt-3">
-                                {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
+                                {(anyFetchingDetails || fareEstimate !== null) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
                               </p>
                             </CardContent>
                           </Card>
@@ -2068,3 +2052,4 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
+
