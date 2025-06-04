@@ -108,6 +108,8 @@ export function RegisterForm() {
   const watchedRole = form.watch("role");
 
   useEffect(() => {
+    console.log("RegisterForm mounted. Firebase auth:", auth);
+    console.log("RegisterForm mounted. Firebase db:", db);
     if (auth && recaptchaContainerRef.current && !recaptchaVerifierRef.current && registrationStep === 'initial') {
       try {
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
@@ -142,8 +144,10 @@ export function RegisterForm() {
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log("RegisterForm onSubmit: Firebase auth:", auth);
+    console.log("RegisterForm onSubmit: Firebase db:", db);
     if (!auth || !db) {
-      toast({ title: "Registration Error", description: "Firebase services not initialized.", variant: "destructive" });
+      toast({ title: "Registration Error", description: "Firebase services not initialized. Please check server logs (terminal) and environment variable configuration in your project.", variant: "destructive", duration: 7000 });
       return;
     }
     setIsSubmitting(true);
