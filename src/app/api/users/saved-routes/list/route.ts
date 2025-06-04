@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore'; // Removed orderBy
 
 interface LocationPoint {
   address: string;
@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
     const savedRoutesRef = collection(db, 'savedRoutes');
     const q = query(
       savedRoutesRef,
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc') // Show most recently saved routes first
+      where('userId', '==', userId)
+      // orderBy('createdAt', 'desc') // Removed to prevent missing index error
     );
 
     const querySnapshot = await getDocs(q);
