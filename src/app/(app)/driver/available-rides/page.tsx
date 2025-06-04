@@ -538,13 +538,14 @@ export default function AvailableRidesPage() {
 */
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full">
       <div className="flex-1 w-full relative"> {/* Map container */}
         <GoogleMapDisplay
           center={driverLocation}
           zoom={15}
           markers={mapMarkers}
           className="w-full h-full"
+          disableDefaultUI={true}
         />
         {geolocationError && (
           <div className="absolute bottom-2 left-2 right-2 bg-destructive/90 text-destructive-foreground p-2 rounded-md text-xs shadow-lg z-10">
@@ -563,15 +564,15 @@ export default function AvailableRidesPage() {
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-4 pt-0">
+        <CardContent className="flex flex-col items-center space-y-3 pt-0">
           {isDriverOnline && !geolocationError && (
             <>
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground text-center">Actively searching for ride offers for you...</p>
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-base text-muted-foreground text-center">Actively searching for ride offers for you...</p>
             </>
           )}
           {isDriverOnline && geolocationError && (
-            <div className="text-destructive text-xs text-center font-medium p-2 rounded-md bg-destructive/10 w-full">
+            <div className="text-destructive text-sm text-center font-medium p-2 rounded-md bg-destructive/10 w-full">
               <AlertTriangle className="inline h-4 w-4 mr-1"/> Cannot update live location. Toggle off/on or check permissions.
             </div>
           )}
@@ -579,18 +580,18 @@ export default function AvailableRidesPage() {
             <p className="text-lg text-muted-foreground">You are currently offline.</p>
           )}
           
-          <div className="flex items-center space-x-2 pt-2">
+          <div className="flex items-center space-x-2 pt-1">
             <Switch
               id="online-status-toggle"
               checked={isDriverOnline}
               onCheckedChange={setIsDriverOnline}
               aria-label={isDriverOnline ? "Switch to Offline" : "Switch to Online"}
             />
-            <Label htmlFor="online-status-toggle" className={`text-lg font-medium ${isDriverOnline ? 'text-green-600' : 'text-slate-600'}`}>
+            <Label htmlFor="online-status-toggle" className={`text-xl font-medium ${isDriverOnline ? 'text-green-600' : 'text-slate-600'}`}>
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button variant="outline" onClick={handleSimulateOffer} className="w-full mt-2 text-sm">
+          <Button variant="outline" onClick={handleSimulateOffer} className="w-full mt-4 text-sm">
             Simulate Incoming Ride Offer (Test)
           </Button>
         </CardContent>
@@ -608,6 +609,7 @@ export default function AvailableRidesPage() {
     
 
     
+
 
 
 
