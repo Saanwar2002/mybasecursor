@@ -156,7 +156,7 @@ export async function POST(request: NextRequest, context: GetContext) {
       if (updateDataFromPayload.notes) updateData.notes = updateDataFromPayload.notes;
 
       // Specific timestamp logic for certain status transitions
-      if (updateDataFromPayload.status === 'Assigned' && updateDataFromPayload.driverId) {
+      if ((updateDataFromPayload.status === 'Assigned' || updateDataFromPayload.status === 'driver_assigned') && updateDataFromPayload.driverId) {
         updateData.driverAssignedAt = Timestamp.now();
       } else if (updateDataFromPayload.status === 'Completed') {
         updateData.completedAt = Timestamp.now();
@@ -189,11 +189,13 @@ export async function POST(request: NextRequest, context: GetContext) {
 
   } catch (error: any) {
     console.error(`Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingId}):`, error);
+    const safeErrorMessage = (typeof error?.message === 'string') ? error.message : 'No specific error message available.';
+    const safeErrorType = (typeof error?.name === 'string') ? error.name : 'UnknownError';
+    
     const errorPayload = {
       message: 'An unexpected server error occurred while updating booking.',
-      errorType: error.name || 'UnknownError',
-      errorMessage: error.message || 'No error message available.',
-      errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      errorType: safeErrorType,
+      errorMessage: safeErrorMessage,
     };
     return new NextResponse(JSON.stringify(errorPayload), { status: 500, headers: jsonHeaders });
   }
