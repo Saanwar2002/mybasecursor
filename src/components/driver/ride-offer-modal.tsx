@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Clock } from "lucide-react";
+import { Car, Users, DollarSign, MapPin, Info } from "lucide-react"; // Removed Clock
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -78,15 +78,15 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   useEffect(() => {
     if (!isOpen) {
-      setCountdown(COUNTDOWN_SECONDS);
+      setCountdown(COUNTDOWN_SECONDS); // Reset countdown when modal closes or is not open
       return;
     }
 
     if (countdown === 0) {
       if (rideDetails) {
-        onDecline(rideDetails.id);
+        onDecline(rideDetails.id); // Automatically decline if timer runs out
       }
-      onClose();
+      onClose(); // Close the modal
       return;
     }
 
@@ -117,9 +117,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     return markers;
   }, [rideDetails]);
 
-  // The map will now use fitBounds from GoogleMapDisplay if markers are present
   const mapCenter = useMemo(() => {
     if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
+    // A sensible default if no pickup coords (should ideally not happen for an offer)
     return { lat: 53.6450, lng: -1.7830 }; 
   }, [rideDetails]);
 
@@ -137,12 +137,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onClose();
   };
 
-  const getTimerColor = () => {
-    if (countdown <= 5) return "text-red-500";
-    if (countdown <= 10) return "text-orange-500";
-    return "text-green-600";
-  };
-
   const getProgressColorClass = () => {
     if (countdown <= 5) return "bg-red-500";
     if (countdown <= 10) return "bg-orange-500";
@@ -151,40 +145,32 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50">
-        <DialogHeader className="space-y-2">
+      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50 p-0"> {/* Removed default padding */}
+        <DialogHeader className="p-4 pb-2 space-y-1"> {/* Reduced bottom padding */}
           <DialogTitle className="text-2xl font-headline text-primary flex items-center gap-2">
             <Car className="w-7 h-7" /> New Ride Offer!
           </DialogTitle>
           <DialogDescription className="text-base">
-            Review details and respond within the time limit.
+            Review details and respond quickly.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="py-4 space-y-3">
-          <div className="flex items-center justify-center my-2">
-            <div className={`text-4xl font-bold ${getTimerColor()}`}>
-                <Clock className="inline-block w-8 h-8 mr-2 align-middle" />{countdown}s
-            </div>
-          </div>
-          <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} />
-
-
-          <div className="h-48 w-full rounded-md overflow-hidden border my-3">
+        <div className="h-48 sm:h-60 w-full"> {/* Map takes up space directly */}
             {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
               <GoogleMapDisplay
-                center={mapCenter} // This center is fallback if fitBoundsToMarkers fails
-                zoom={10} // Initial zoom, fitBounds will override
+                center={mapCenter}
+                zoom={10}
                 markers={mapMarkers}
-                className="w-full h-full"
-                disableDefaultUI={true} // Hide default map controls
-                fitBoundsToMarkers={true} // Enable automatic bounding
+                className="w-full h-full" // Let map fill its container
+                disableDefaultUI={true}
+                fitBoundsToMarkers={true}
               />
             ) : (
               <Skeleton className="w-full h-full" />
             )}
-          </div>
+        </div>
 
+        <div className="p-4 space-y-3"> {/* Content padding */}
           <div className="p-3 bg-muted/50 rounded-lg border border-muted">
             <p className="flex items-center gap-2 mb-1">
               <MapPin className="w-5 h-5 text-primary" /> 
@@ -211,8 +197,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
              </div>
           )}
         </div>
+        
+        <div className="px-4 pb-4 space-y-2"> {/* Container for progress bar */}
+            <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} />
+        </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-4 pt-4">
+        <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-4 p-4 pt-0"> {/* Footer padding adjusted */}
           <Button variant="destructive" onClick={handleDecline} className="text-lg py-3">
             Decline
           </Button>
@@ -224,4 +214,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
