@@ -520,8 +520,8 @@ export default function AvailableRidesPage() {
             disableDefaultUI={true}
         />
       </div>
-      <Card className="h-36 w-full rounded-t-lg shadow-xl flex flex-col items-center p-3 border-t-4 border-primary">
-        <CardHeader className="p-2 text-center">
+      <Card className="h-32 w-full rounded-t-lg shadow-xl flex flex-col items-center p-3 border-t-4 border-primary">
+        <CardHeader className="p-1 text-center">
           <CardTitle className={cn("text-2xl font-headline", isDriverOnline ? "text-green-600" : "text-red-600")}>
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
@@ -531,7 +531,7 @@ export default function AvailableRidesPage() {
             </p>
           )}
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-start pt-2 space-y-2 w-full flex-grow">
+        <CardContent className="flex flex-col items-center justify-center space-y-1 w-full flex-grow">
           {isDriverOnline ? (
             <>
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -573,3 +573,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
