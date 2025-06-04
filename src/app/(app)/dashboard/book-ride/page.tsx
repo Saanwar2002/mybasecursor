@@ -1897,7 +1897,7 @@ const handleProceedToConfirmation = async () => {
                         <Card className="w-full text-center shadow-md">
                           <CardHeader className="p-3">
                             <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
-                              <DollarSign className="w-6 h-6 text-accent" /> Fare Estimate
+                              <DollarSign className="w-5 h-5 text-accent" /> Fare Estimate
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="p-3 pt-0">
@@ -1915,13 +1915,13 @@ const handleProceedToConfirmation = async () => {
                                   </p>
                                 )}
                                 {!isSurgeActive && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
+                                 <p className="text-xs text-muted-foreground mt-1">
+                                    Estimates may vary based on real-time conditions.
+                                </p>
                               </>
                             ) : (
                               <p className="text-lg text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                             )}
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Estimates may vary based on real-time conditions.
-                            </p>
                           </CardContent>
                         </Card>
 
@@ -1982,7 +1982,8 @@ const handleProceedToConfirmation = async () => {
                           <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
                         </DialogClose>
                         <Button 
-                          type="submit" 
+                          type="button"
+                          onClick={() => form.handleSubmit(handleBookRide)()}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground" 
                           disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
                         >
