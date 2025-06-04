@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -420,14 +420,15 @@ export default function AvailableRidesPage() {
   }
 
 
+  // This is the "active ride" view
   if (activeRide) {
     const isAtPickup = activeRide.status === 'arrived_at_pickup';
     const isInProgress = activeRide.status === 'in_progress';
     const isDriverAssigned = activeRide.status === 'driver_assigned';
 
     return (
-      <div className="flex flex-col h-full"> {/* Ensure main div takes full height */}
-        <div className="w-full relative flex-1"> {/* Map takes remaining space */}
+      <div className="flex flex-col h-full">
+        <div className="w-full relative flex-1"> 
             <GoogleMapDisplay
               center={getMapCenterForActiveRide()}
               zoom={15}
@@ -437,7 +438,7 @@ export default function AvailableRidesPage() {
               fitBoundsToMarkers={true}
             />
         </div>
-        <Card className="shrink-0 rounded-t-2xl -mt-4 shadow-2xl bg-card"> {/* Card does not grow, fixed height content */}
+        <Card className="shrink-0 rounded-t-2xl -mt-4 shadow-2xl bg-card"> 
           <CardHeader className="p-3 border-b">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -467,7 +468,7 @@ export default function AvailableRidesPage() {
             </div>
             <div className="flex items-center justify-between text-sm">
               <p><UsersIcon className="w-4 h-4 inline mr-1 text-muted-foreground"/> {activeRide.passengerCount} Passenger(s)</p>
-              <p><DollarSign className="w-4 h-4 inline mr-0.5 text-muted-foreground"/> Fare: ~£{activeRide.fareEstimate.toFixed(2)}</p>
+              <p><DollarSignIcon className="w-4 h-4 inline mr-0.5 text-muted-foreground"/> Fare: ~£{activeRide.fareEstimate.toFixed(2)}</p>
             </div>
 
             {isAtPickup && !activeRide.passengerAcknowledgedArrivalTimestamp && (
@@ -545,25 +546,16 @@ export default function AvailableRidesPage() {
     );
   }
 
+  // This is the "no active ride" / "awaiting offers" view
   return (
-    <div className="relative h-full">
-      <div className="absolute inset-0 z-0">
-        <GoogleMapDisplay
-            center={driverLocation}
-            zoom={15}
-            markers={mapMarkers}
-            className="w-full h-full"
-            disableDefaultUI={true}
-            fitBoundsToMarkers={false} 
-        />
-      </div>
-      <Card className="absolute bottom-4 left-4 right-4 z-10 rounded-xl shadow-2xl bg-card flex flex-col p-3">
+    <div className="flex flex-col h-full">
+      <Card className="rounded-xl shadow-lg bg-card p-3 mb-2 shrink-0">
         <CardHeader className="p-0 text-center border-b pb-2 mb-2">
           <CardTitle className="text-lg font-semibold">
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center gap-2 p-0">
+        <CardContent className="p-0 flex flex-col items-center justify-center gap-2">
           {isDriverOnline ? (
             <>
               {geolocationError ? (
@@ -598,6 +590,16 @@ export default function AvailableRidesPage() {
           </Button>
         </CardContent>
       </Card>
+      <div className="flex-1 w-full relative">
+        <GoogleMapDisplay
+            center={driverLocation}
+            zoom={15}
+            markers={mapMarkers}
+            className="w-full h-full"
+            disableDefaultUI={true}
+            fitBoundsToMarkers={false} 
+        />
+      </div>
       <RideOfferModal
         isOpen={isOfferModalOpen}
         onClose={() => setIsOfferModalOpen(false)}
@@ -608,4 +610,6 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+    
+
     
