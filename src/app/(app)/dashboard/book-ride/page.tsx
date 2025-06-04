@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2 } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,12 +72,12 @@ interface MapMarker {
 type GeolocationFetchStatus =
   | "idle"
   | "fetching"
-  | "success" 
+  | "success"
   | "error_permission"
-  | "error_accuracy_moderate" 
-  | "error_accuracy_poor" 
+  | "error_accuracy_moderate"
+  | "error_accuracy_poor"
   | "error_unavailable"
-  | "error_geocoding"; 
+  | "error_geocoding";
 
 const bookingFormSchema = z.object({
   pickupDoorOrFlat: z.string().max(50, {message: "Door/Flat info too long."}).optional(),
@@ -97,6 +97,7 @@ const bookingFormSchema = z.object({
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
   promoCode: z.string().optional(),
+  paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
 }).superRefine((data, ctx) => {
   if (data.bookingType === "scheduled") {
     if (!data.desiredPickupDate) {
@@ -216,6 +217,7 @@ export default function BookRidePage() {
       passengers: 1,
       driverNotes: "",
       promoCode: "",
+      paymentMethod: "card",
     },
   });
 
@@ -331,7 +333,7 @@ export default function BookRidePage() {
       console.error("Failed to load Google Maps API for address search", e);
       toast({ title: "Error", description: "Could not load address search. Check API key or network.", variant: "destructive" });
     });
-  }, []);
+  }, [toast]);
 
   const handleApplyGpsSuggestion = () => {
     if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) {
@@ -536,8 +538,8 @@ export default function BookRidePage() {
         setPickupCoords(coords);
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
-        setShowGpsSuggestionAlert(false); 
-        setGeolocationFetchStatus('idle'); 
+        setShowGpsSuggestionAlert(false);
+        setGeolocationFetchStatus('idle');
       } else {
         setDropoffCoords(coords);
         setDropoffInputValue(addressText);
@@ -651,8 +653,8 @@ export default function BookRidePage() {
       setPickupInputValue(fav.address);
       setPickupCoords(newCoords);
       setShowPickupSuggestions(false);
-      setShowGpsSuggestionAlert(false); 
-      setGeolocationFetchStatus('idle'); 
+      setShowGpsSuggestionAlert(false);
+      setGeolocationFetchStatus('idle');
     } else {
       setDropoffInputValue(fav.address);
       setDropoffCoords(newCoords);
@@ -751,7 +753,7 @@ export default function BookRidePage() {
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
 
@@ -861,6 +863,7 @@ export default function BookRidePage() {
       scheduledPickupAt,
       driverNotes: values.driverNotes,
       promoCode: values.promoCode,
+      paymentMethod: values.paymentMethod,
     };
 
     try {
@@ -885,7 +888,7 @@ export default function BookRidePage() {
       rideDescription += ` to ${values.dropoffLocation}`;
       if (values.dropoffDoorOrFlat) rideDescription += ` (${values.dropoffDoorOrFlat})`;
 
-      rideDescription += ` is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
+      rideDescription += ` is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Payment: ${values.paymentMethod.charAt(0).toUpperCase() + values.paymentMethod.slice(1)}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
       if (values.bookingType === 'scheduled' && scheduledPickupAt) {
         rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
       }
@@ -898,7 +901,7 @@ export default function BookRidePage() {
       rideDescription += ` A driver will be assigned.`;
 
 
-      toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 7000 });
+      toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 10000 });
 
       form.reset();
       setPickupInputValue("");
@@ -988,8 +991,8 @@ export default function BookRidePage() {
     setPickupInputValue(route.pickupLocation.address);
     setPickupCoords({ lat: route.pickupLocation.latitude, lng: route.pickupLocation.longitude });
     setShowPickupSuggestions(false);
-    setShowGpsSuggestionAlert(false); 
-    setGeolocationFetchStatus('idle'); 
+    setShowGpsSuggestionAlert(false);
+    setGeolocationFetchStatus('idle');
 
     form.setValue('dropoffDoorOrFlat', route.dropoffLocation.doorOrFlat || "");
     form.setValue('dropoffLocation', route.dropoffLocation.address);
@@ -1040,7 +1043,7 @@ export default function BookRidePage() {
   ): Promise<void> => {
     if (!autocompleteServiceRef.current || !placesServiceRef.current || !addressString) {
       setCoordsFunc(null);
-      form.setValue(formField, addressString); 
+      form.setValue(formField, addressString);
       setInputValueFunc(addressString);
       toast({ title: `AI Geocoding Failed for ${locationType}`, description: `Address services not ready or no address provided for "${addressString}". Original text kept.`, variant: "default" });
       return;
@@ -1061,8 +1064,8 @@ export default function BookRidePage() {
                   setCoordsFunc(coords);
                   form.setValue(formField, finalAddress);
                   setInputValueFunc(finalAddress);
-                  if (formField === 'pickupLocation') { 
-                    setShowGpsSuggestionAlert(false); 
+                  if (formField === 'pickupLocation') {
+                    setShowGpsSuggestionAlert(false);
                     setGeolocationFetchStatus('idle');
                   }
                   toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
@@ -1105,7 +1108,7 @@ export default function BookRidePage() {
         return;
       }
     }
-  
+
     const playSingleBeep = (frequency: number, durationMs: number, volume = 0.2) => {
       return new Promise<void>(resolve => {
         try {
@@ -1122,17 +1125,17 @@ export default function BookRidePage() {
           oscillator.stop(audioContext.currentTime + durationMs / 1000);
         } catch (e) {
           console.error("Error playing beep:", e);
-          resolve(); 
+          resolve();
         }
       });
     };
-  
+
     if (type === 'start') {
-      await playSingleBeep(880, 300); 
+      await playSingleBeep(880, 300);
     } else if (type === 'stop') {
-      await playSingleBeep(1046, 100); 
-      await new Promise(resolve => setTimeout(resolve, 50)); 
-      await playSingleBeep(1046, 100); 
+      await playSingleBeep(1046, 100);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await playSingleBeep(1046, 100);
     }
   }, [toast]);
 
@@ -1166,7 +1169,7 @@ export default function BookRidePage() {
 
     recognition.onresult = async (event: SpeechRecognitionEvent) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
-      setIsProcessingAi(true); 
+      setIsProcessingAi(true);
       toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
 
       if (transcript) {
@@ -1189,7 +1192,7 @@ export default function BookRidePage() {
                 form.setValue('passengers', aiOutput.numberOfPassengers);
                  appliedFieldsCount++;
               } else {
-                form.setValue('passengers', 1); 
+                form.setValue('passengers', 1);
               }
               if (aiOutput.additionalNotes) {
                 form.setValue('driverNotes', aiOutput.additionalNotes);
@@ -1234,7 +1237,7 @@ export default function BookRidePage() {
       else if (event.error === 'audio-capture') errorMessage = "Microphone problem. Please check permissions.";
       else if (event.error === 'not-allowed') errorMessage = "Permission to use microphone was denied. Please enable it in your browser settings.";
       toast({ title: "Voice Error", description: errorMessage, variant: "destructive" });
-      setIsListening(false); 
+      setIsListening(false);
       setIsProcessingAi(false);
     };
 
@@ -1258,7 +1261,7 @@ export default function BookRidePage() {
       // This case should ideally not happen if onend resets isListening properly.
       // But as a safeguard:
       recognitionRef.current.stop();
-      setIsListening(false); 
+      setIsListening(false);
     }
 
     try {
@@ -1276,7 +1279,7 @@ export default function BookRidePage() {
         message = "No microphone found. Please connect a microphone.";
       }
       toast({ title: "Microphone Error", description: message, variant: "destructive" });
-      setIsListening(false); 
+      setIsListening(false);
     }
   };
 
@@ -1824,71 +1827,124 @@ export default function BookRidePage() {
                       </FormItem>
                     )}
                   />
-                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}>
-                     {isBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                     {isBooking ? 'Processing...' : 'Book Ride'}
+
+                  <Card className="w-full text-center shadow-md mt-6">
+                    <CardHeader>
+                      <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
+                        <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {anyFetchingDetails && pickupCoords ? (
+                         <div className="flex flex-col items-center justify-center space-y-2">
+                            <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+                            <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
+                         </div>
+                      ) : fareEstimate !== null ? (
+                        <>
+                          <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                          {isSurgeActive && (
+                            <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
+                              <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                            </p>
+                          )}
+                           {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                        </>
+                      ) : (
+                         <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
+                      )}
+
+                      {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
+                        <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                          <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
+                        </p>
+                      )}
+                      {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
+                         <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                           <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                        </p>
+                      )}
+                       {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
+                         <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                           <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                        </p>
+                      )}
+
+                      {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
+                        <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                          <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
+                        </p>
+                      )}
+                       {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
+                         <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                           <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
+                        </p>
+                      )}
+
+                      <p className="text-sm text-muted-foreground mt-3">
+                        {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="mt-6 shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-headline flex items-center gap-2">
+                        <CreditCard className="w-6 h-6 text-primary" /> Payment Method
+                      </CardTitle>
+                      <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <FormField
+                        control={form.control}
+                        name="paymentMethod"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                              >
+                                <FormItem className="flex-1">
+                                  <FormControl>
+                                    <RadioGroupItem value="card" id="card" className="sr-only peer" />
+                                  </FormControl>
+                                  <Label
+                                    htmlFor="card"
+                                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                  >
+                                    <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
+                                    Pay by Card
+                                  </Label>
+                                </FormItem>
+                                <FormItem className="flex-1">
+                                  <FormControl>
+                                    <RadioGroupItem value="cash" id="cash" className="sr-only peer" />
+                                  </FormControl>
+                                  <Label
+                                    htmlFor="cash"
+                                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                  >
+                                    <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
+                                    Pay with Cash
+                                  </Label>
+                                </FormItem>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3 mt-8" disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}>
+                     {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                     {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
                   </Button>
                 </form>
               </Form>
-
-              <Card className="w-full text-center shadow-md mt-6">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                    <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {anyFetchingDetails && pickupCoords ? (
-                     <div className="flex flex-col items-center justify-center space-y-2">
-                        <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                        <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
-                     </div>
-                  ) : fareEstimate !== null ? (
-                    <>
-                      <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
-                      {isSurgeActive && (
-                        <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
-                          <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
-                        </p>
-                      )}
-                       {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
-                    </>
-                  ) : (
-                     <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
-                  )}
-
-                  {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
-                    <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                      <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
-                    </p>
-                  )}
-                  {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
-                     <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                       <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                    </p>
-                  )}
-                   {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
-                     <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                       <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                    </p>
-                  )}
-
-                  {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
-                    <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                      <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
-                    </p>
-                  )}
-                   {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
-                     <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                       <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
-                    </p>
-                  )}
-
-                  <p className="text-sm text-muted-foreground mt-3">
-                    {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
-                  </p>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </CardContent>

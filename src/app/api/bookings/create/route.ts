@@ -1,20 +1,20 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase'; 
+import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface LocationPoint {
   address: string;
   latitude: number;
   longitude: number;
-  doorOrFlat?: string; 
+  doorOrFlat?: string;
 }
 
 // Define the expected structure of the booking data coming from the client
 interface BookingPayload {
   passengerId: string;
-  passengerName: string; 
+  passengerName: string;
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops: LocationPoint[];
@@ -24,11 +24,12 @@ interface BookingPayload {
   isSurgeApplied: boolean;
   surgeMultiplier: number;
   stopSurchargeTotal: number;
-  scheduledPickupAt?: string | null; 
-  customerPhoneNumber?: string; 
-  bookedByOperatorId?: string; 
-  driverNotes?: string; 
+  scheduledPickupAt?: string | null;
+  customerPhoneNumber?: string;
+  bookedByOperatorId?: string;
+  driverNotes?: string;
   promoCode?: string;
+  paymentMethod: "card" | "cash"; // Added paymentMethod
 }
 
 export async function POST(request: NextRequest) {
@@ -41,20 +42,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid JSON request body. Please ensure the request is a valid JSON object.', details: jsonError.message || String(jsonError) }, { status: 400 });
     }
 
-    // Basic validation 
-    if (!bookingData.passengerId || !bookingData.pickupLocation || !bookingData.dropoffLocation || !bookingData.passengerName) {
-      return NextResponse.json({ message: 'Missing required booking fields (passengerId, passengerName, pickup, dropoff).' }, { status: 400 });
+    // Basic validation
+    if (!bookingData.passengerId || !bookingData.pickupLocation || !bookingData.dropoffLocation || !bookingData.passengerName || !bookingData.paymentMethod) {
+      return NextResponse.json({ message: 'Missing required booking fields (passengerId, passengerName, pickup, dropoff, paymentMethod).' }, { status: 400 });
     }
-    
+    if (bookingData.paymentMethod !== "card" && bookingData.paymentMethod !== "cash") {
+      return NextResponse.json({ message: 'Invalid payment method. Must be "card" or "cash".' }, { status: 400 });
+    }
+
     // Ensure db is not null before using it
     if (!db) {
       console.error('Firestore (db) is not initialized. This is a server configuration issue. Check Firebase initialization logs.');
       return NextResponse.json({ message: 'Server configuration error: Firestore not initialized. Unable to process booking.' }, { status: 500 });
     }
 
-    const newBooking: any = { 
+    const newBooking: any = {
       passengerId: bookingData.passengerId,
-      passengerName: bookingData.passengerName, 
+      passengerName: bookingData.passengerName,
       pickupLocation: {
         address: bookingData.pickupLocation.address,
         latitude: bookingData.pickupLocation.latitude,
@@ -79,8 +83,9 @@ export async function POST(request: NextRequest) {
       isSurgeApplied: bookingData.isSurgeApplied,
       surgeMultiplier: bookingData.surgeMultiplier,
       stopSurchargeTotal: bookingData.stopSurchargeTotal,
-      status: 'pending_assignment', 
-      bookingTimestamp: serverTimestamp(), 
+      status: 'pending_assignment',
+      bookingTimestamp: serverTimestamp(),
+      paymentMethod: bookingData.paymentMethod, // Store the payment method
     };
 
     if (bookingData.scheduledPickupAt) {
@@ -92,7 +97,7 @@ export async function POST(request: NextRequest) {
     if (bookingData.bookedByOperatorId) {
       newBooking.bookedByOperatorId = bookingData.bookedByOperatorId;
     }
-    if (bookingData.driverNotes && bookingData.driverNotes.trim() !== "") { 
+    if (bookingData.driverNotes && bookingData.driverNotes.trim() !== "") {
       newBooking.driverNotes = bookingData.driverNotes.trim();
     }
     if (bookingData.promoCode && bookingData.promoCode.trim() !== "") {
@@ -101,12 +106,12 @@ export async function POST(request: NextRequest) {
 
 
     const docRef = await addDoc(collection(db, 'bookings'), newBooking);
-    
-    const responseData = { ...newBooking, bookingTimestamp: new Date().toISOString() }; 
+
+    const responseData = { ...newBooking, bookingTimestamp: new Date().toISOString() };
 
     return NextResponse.json({ message: 'Booking created successfully', bookingId: docRef.id, data: responseData }, { status: 201 });
 
-  } catch (error) { 
+  } catch (error) {
     console.error('Error in POST /api/bookings/create (General Catch):', error);
     let errorMessage = 'Internal Server Error during booking creation.';
     let errorDetails = '';
