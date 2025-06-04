@@ -15,7 +15,6 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
     };
   }
   // Handle cases where it might already be an object { seconds: ..., nanoseconds: ... }
-  // This can happen if data is fetched and re-serialized without full re-conversion to Timestamp
   if (typeof timestamp === 'object' && timestamp !== null && ('_seconds' in timestamp || 'seconds' in timestamp)) {
     return {
       _seconds: (timestamp as any)._seconds ?? (timestamp as any).seconds,
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest, context: GetContext) {
       message: 'An unexpected server error occurred while fetching booking.',
       errorType: error.name || 'UnknownError',
       errorMessage: error.message || 'No error message available.',
-      errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined, // Only include stack in dev
+      errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     };
     return new NextResponse(JSON.stringify(errorPayload), { status: 500, headers: jsonHeaders });
   }
@@ -147,6 +146,7 @@ export async function POST(request: NextRequest, context: GetContext) {
        updateData.status = 'Completed';
        updateData.completedAt = Timestamp.now();
     } else {
+      // Handle direct status updates or other field updates
       if (updateDataFromPayload.status) updateData.status = updateDataFromPayload.status;
       if (updateDataFromPayload.driverId) updateData.driverId = updateDataFromPayload.driverId;
       if (updateDataFromPayload.driverName) updateData.driverName = updateDataFromPayload.driverName;
@@ -155,6 +155,7 @@ export async function POST(request: NextRequest, context: GetContext) {
       if (updateDataFromPayload.fareEstimate !== undefined) updateData.fareEstimate = updateDataFromPayload.fareEstimate;
       if (updateDataFromPayload.notes) updateData.notes = updateDataFromPayload.notes;
 
+      // Specific timestamp logic for certain status transitions
       if (updateDataFromPayload.status === 'Assigned' && updateDataFromPayload.driverId) {
         updateData.driverAssignedAt = Timestamp.now();
       } else if (updateDataFromPayload.status === 'Completed') {
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest, context: GetContext) {
     }
     
     await updateDoc(bookingRef, updateData);
-    const updatedBookingSnap = await getDoc(bookingRef); // Re-fetch to get all fields with server-applied timestamps
+    const updatedBookingSnap = await getDoc(bookingRef);
     const updatedBookingDataResult = updatedBookingSnap.data();
 
     const serializedUpdatedBooking = {
@@ -192,7 +193,7 @@ export async function POST(request: NextRequest, context: GetContext) {
       message: 'An unexpected server error occurred while updating booking.',
       errorType: error.name || 'UnknownError',
       errorMessage: error.message || 'No error message available.',
-      errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined, // Only include stack in dev
+      errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     };
     return new NextResponse(JSON.stringify(errorPayload), { status: 500, headers: jsonHeaders });
   }
