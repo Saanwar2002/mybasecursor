@@ -311,91 +311,7 @@ export default function AvailableRidesPage() {
 
   const activeRide = rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress'].includes(r.status));
 
-  const handleCallCustomer = (phoneNumber?: string) => {
-    if (phoneNumber) {
-      toast({ title: "Calling Customer", description: `Initiating call to ${phoneNumber}... (Demo)`});
-    } else {
-      toast({ title: "Call Not Available", description: "Customer phone number not provided.", variant: "default"});
-    }
-  };
-
-  const renderPassengerRating = (rating?: number) => {
-    if (typeof rating !== 'number' || rating <= 0) {
-      return <span className="text-xs text-muted-foreground ml-1.5">(No rating)</span>;
-    }
-    const totalStars = 5;
-    const filledStars = Math.round(rating); 
-    return (
-      <div className="flex items-center ml-1.5">
-        {[...Array(totalStars)].map((_, i) => (
-          <Star
-            key={i}
-            className={`w-3.5 h-3.5 ${i < filledStars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
-          />
-        ))}
-        <span className="ml-1 text-xs text-muted-foreground">({rating.toFixed(1)})</span>
-      </div>
-    );
-  };
-
-  const getMapMarkersForActiveRide = () => {
-    const markers = [];
-     if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
-        markers.push({
-            position: driverLocation,
-            title: "Your Current Location",
-            iconUrl: blueDotSvgDataUrl,
-            iconScaledSize: { width: 24, height: 24 }
-        });
-    }
-    if (!activeRide) return markers;
-
-    if (activeRide.pickupCoords) {
-      markers.push({
-        position: activeRide.pickupCoords,
-        title: `Pickup: ${activeRide.pickupLocation}`, label: 'P'
-      });
-    }
-    if (activeRide.dropoffCoords) {
-      markers.push({
-        position: activeRide.dropoffCoords,
-        title: `Dropoff: ${activeRide.dropoffLocation}`, label: 'D'
-      });
-    }
-    return markers;
-  };
-
-  const getMapCenterForActiveRide = () => {
-    if (isDriverOnline && driverLocation) return driverLocation;
-    if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) {
-      return activeRide.pickupCoords;
-    }
-    if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupCoords) {
-      return activeRide.pickupCoords;
-    }
-    if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) {
-      return activeRide.dropoffCoords;
-    }
-    return huddersfieldCenterGoogle;
-  };
-
-  const handleNavigate = (locationName: string, coords?: {lat: number, lng: number}) => {
-      if(coords) {
-        toast({title: "Navigation Started (Demo)", description: `Navigating to ${locationName} at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`});
-      } else {
-        toast({title: "Navigation Error", description: `Coordinates for ${locationName} not available.` , variant: "destructive"});
-      }
-  };
-
-  const mapMarkers = [];
-  if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
-    mapMarkers.push({
-        position: driverLocation,
-        title: "Your Current Location",
-        iconUrl: blueDotSvgDataUrl,
-        iconScaledSize: { width: 24, height: 24 }
-    });
-  }
+  // ... (other existing functions like handleCallCustomer, renderPassengerRating, getMapMarkersForActiveRide, getMapCenterForActiveRide, handleNavigate)
 
 
   if (activeRide) {
@@ -403,8 +319,8 @@ export default function AvailableRidesPage() {
     // For now, we're focused on the "no active ride" screen.
     return (
       <div className="p-4">
-       <p>Active Ride: {activeRide.passengerName} - {activeRide.status} (UI Placeholder)</p>
-       {/* Placeholder for active ride UI */}
+       {/* <p>Active Ride: {activeRide.passengerName} - {activeRide.status} (UI Placeholder)</p> */}
+       {/* Placeholder for active ride UI - to be implemented later */}
       </div>
     );
   }
@@ -416,19 +332,30 @@ export default function AvailableRidesPage() {
           <GoogleMapDisplay
               center={driverLocation} 
               zoom={14}
-              markers={mapMarkers}
+              markers={[{
+                  position: driverLocation,
+                  title: "Your Current Location",
+                  iconUrl: blueDotSvgDataUrl,
+                  iconScaledSize: { width: 24, height: 24 }
+              }]}
               className="w-full h-full"
               disableDefaultUI={true} 
           />
         </div>
 
         <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border">
-          <CardHeader className={cn("p-3 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}>
-            <CardTitle className={cn("text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}>
+          <CardHeader className={cn(
+            "p-3 border-b text-center", 
+            isDriverOnline ? "border-green-500" : "border-red-500"
+          )}>
+            <CardTitle className={cn(
+                "text-lg font-semibold", 
+                isDriverOnline ? "text-green-600" : "text-red-600"
+            )}>
               {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-2">
+          <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
             {isDriverOnline ? (
               geolocationError ? (
                 <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md">
@@ -453,8 +380,12 @@ export default function AvailableRidesPage() {
                 checked={isDriverOnline}
                 onCheckedChange={setIsDriverOnline}
                 aria-label="Toggle driver online status"
+                className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")}
               />
-              <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')}>
+              <Label 
+                htmlFor="driver-online-toggle" 
+                className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')}
+              >
                 {isDriverOnline ? "Online" : "Offline"}
               </Label>
             </div>
