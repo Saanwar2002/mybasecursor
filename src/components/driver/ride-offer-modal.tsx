@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Car, Users, DollarSign, MapPin, Info } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
@@ -148,20 +148,17 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       <DialogContent 
         className={cn(
           "sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col",
-          "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem)] md:h-[calc(100vh-4rem)]"
+          "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] md:h-[calc(100vh-2rem)]"
         )}
       >
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
           <DialogTitle className="text-xl md:text-xl font-headline text-primary flex items-center gap-2">
             <Car className="w-6 h-6" /> New Ride Offer!
           </DialogTitle>
-          <DialogDescription className="text-sm">
-            Review details and respond quickly.
-          </DialogDescription>
         </DialogHeader>
         
         <ScrollArea className="flex-1"> 
-          <div className="p-4 flex flex-col h-full"> 
+          <div className="px-4 pt-2 pb-4 flex flex-col h-full"> 
             <div className="h-44 sm:h-52 w-full mb-3 rounded-md overflow-hidden border shrink-0"> 
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
@@ -176,7 +173,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <Skeleton className="w-full h-full rounded-md" />
                 )}
             </div>
-            <div className="space-y-2.5 flex-1 overflow-y-auto"> {/* Adjusted space-y and added flex-1 */}
+            <div className="space-y-2.5 flex-1 overflow-y-auto">
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
                 <p className="flex items-center gap-2 mb-1 text-xs md:text-sm">
                   <MapPin className="w-4 h-4 text-primary shrink-0" /> 
@@ -222,4 +219,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
