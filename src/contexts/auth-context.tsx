@@ -8,22 +8,22 @@ import type { Timestamp } from 'firebase/firestore'; // Import Timestamp for typ
 
 export type UserRole = 'passenger' | 'driver' | 'operator';
 
-// Ensure User interface includes all fields that might be set
 interface User {
-  id: string;
+  id: string; // Firebase UID for registered users, or a temp ID for guests
   email: string;
   name: string;
   role: UserRole;
   vehicleCategory?: string;
   phoneNumber?: string | null;
   phoneVerified?: boolean;
-  status?: 'Active' | 'Pending Approval' | 'Suspended'; // Added
+  status?: 'Active' | 'Pending Approval' | 'Suspended';
   phoneVerificationDeadline?: string | null; // Store as ISO string
 }
 
 interface AuthContextType {
   user: User | null;
   login: (
+    id: string, // Now a mandatory parameter, should be Firebase UID for real users
     email: string,
     name: string,
     role: UserRole,
@@ -47,15 +47,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    // This effect establishes the initial auth state from localStorage
     let isMounted = true;
     try {
       const storedUserJson = localStorage.getItem('linkCabsUser');
       if (storedUserJson) {
         const storedUserObject = JSON.parse(storedUserJson) as User;
-        // Ensure all fields align, especially that phoneVerificationDeadline is a string or null
         if (isMounted) {
-          setUser(storedUserObject);
+          // Basic validation for critical fields from localStorage
+          if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
+            setUser(storedUserObject);
+          } else {
+            console.warn("Stored user object from localStorage is missing critical fields. Clearing.");
+            localStorage.removeItem('linkCabsUser');
+            setUser(null);
+          }
         }
       }
     } catch (error) {
@@ -69,6 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (
+    id: string,
     email: string,
     name: string,
     role: UserRole,
@@ -81,21 +87,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let deadlineISO: string | null = null;
     if (phoneVerificationDeadlineInput) {
       if (typeof phoneVerificationDeadlineInput === 'string') {
-        // Check if it's already a valid ISO string, otherwise try parsing if it's from older format
         try {
-            if (new Date(phoneVerificationDeadlineInput).toISOString() === phoneVerificationDeadlineInput) {
-                 deadlineISO = phoneVerificationDeadlineInput;
-            } else {
-                 // Attempt to parse if it might be non-ISO date string, though less reliable
-                 const parsedDate = new Date(phoneVerificationDeadlineInput);
-                 if (!isNaN(parsedDate.getTime())) deadlineISO = parsedDate.toISOString();
-            }
+            const parsedDate = new Date(phoneVerificationDeadlineInput);
+            if (!isNaN(parsedDate.getTime())) deadlineISO = parsedDate.toISOString();
         } catch (e) { /* ignore if not a valid date string */ }
-
       } else if (phoneVerificationDeadlineInput instanceof Date) {
         deadlineISO = phoneVerificationDeadlineInput.toISOString();
       } else if (typeof phoneVerificationDeadlineInput === 'object' && ('seconds' in phoneVerificationDeadlineInput || '_seconds' in phoneVerificationDeadlineInput)) {
-        // Handle Firestore Timestamp-like object from JSON.parse or direct Timestamp
         const seconds = (phoneVerificationDeadlineInput as any).seconds ?? (phoneVerificationDeadlineInput as any)._seconds;
         const nanoseconds = (phoneVerificationDeadlineInput as any).nanoseconds ?? (phoneVerificationDeadlineInput as any)._nanoseconds ?? 0;
         if (typeof seconds === 'number') {
@@ -105,7 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const newUser: User = {
-      id: user?.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Preserve ID if updating, else new robust temp ID
+      id, // Use the provided ID (Firebase UID for real users)
       email,
       name,
       role,
@@ -118,18 +116,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(newUser);
     localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
 
-    if (pathname.includes('/login') || pathname.includes('/register')) {
+    // Only redirect if currently on a public page after successful login
+    if (pathname.includes('/login') || pathname.includes('/register') || pathname === '/') {
         if (role === 'passenger') router.push('/dashboard');
         else if (role === 'driver') router.push('/driver');
         else if (role === 'operator') router.push('/operator');
-        else router.push('/');
+        else router.push('/'); // Fallback to a sensible default if role is unexpected
     }
   };
 
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        const updatedUser = { ...currentUser, ...updatedProfileData };
+        // Ensure the ID is not accidentally changed by the partial update
+        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id };
         localStorage.setItem('linkCabsUser', JSON.stringify(updatedUser));
         return updatedUser;
       }
@@ -140,28 +140,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('linkCabsUser');
+    // Optional: Firebase sign out if you integrate Firebase Auth more directly for session state
+    // if (auth) auth.signOut();
     router.push('/login');
   };
 
   useEffect(() => {
-    // This effect handles redirection after loading is complete and user state is established
     if (loading) {
-      return; // Don't do anything until initial loading is done
+      return;
     }
 
-    const publicPaths = ['/login', '/register', '/'];
-    const isPublicPath = publicPaths.includes(pathname) || pathname.startsWith('/_next/');
+    const publicPaths = ['/login', '/register', '/forgot-password', '/']; // Added forgot-password
+    // More robust check for public paths, allowing for sub-paths like /_next/*
+    const isPublicPath = publicPaths.some(p => pathname === p) || pathname.startsWith('/_next/');
+
 
     if (!user && !isPublicPath) {
       router.push('/login');
     }
-    // Optional: Redirect logged-in users away from login/register
-    // else if (user && (pathname === '/login' || pathname === '/register')) {
-    //   if (user.role === 'passenger') router.push('/dashboard');
-    //   else if (user.role === 'driver') router.push('/driver');
-    //   else if (user.role === 'operator') router.push('/operator');
-    //   else router.push('/'); // Fallback
-    // }
+    // Commenting out the redirect from login/register if user exists,
+    // as the login function itself handles redirection upon successful login.
+    // This prevents potential redirect loops if user lands on /login but localStorage still has data.
+    /*
+    else if (user && (pathname === '/login' || pathname === '/register')) {
+      if (user.role === 'passenger') router.push('/dashboard');
+      else if (user.role === 'driver') router.push('/driver');
+      else if (user.role === 'operator') router.push('/operator');
+      else router.push('/'); 
+    }
+    */
   }, [user, loading, router, pathname]);
 
   return (
@@ -178,3 +185,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

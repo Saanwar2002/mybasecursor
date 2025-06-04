@@ -18,8 +18,12 @@ import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
-import { User, Briefcase, CarIcon } from "lucide-react";
+import { User, Briefcase, CarIcon, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { useState } from "react";
+import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -28,8 +32,9 @@ const formSchema = z.object({
 });
 
 export function LoginForm() {
-  const { login } = useAuth();
+  const { login: contextLogin } = useAuth();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,19 +45,122 @@ export function LoginForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // In a real app, you'd authenticate against a backend.
-    // Here, we're just using the email as the name for simplicity.
-    login(values.email, values.email.split('@')[0], values.role as UserRole);
-    toast({
-      title: "Login Successful",
-      description: `Welcome back, ${values.email.split('@')[0]}!`,
-    });
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    if (!auth || !db) {
+      toast({
+        title: "Login Error",
+        description: "Firebase services not available. Please try again later.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const firebaseUser = userCredential.user;
+
+      // Fetch user profile from Firestore
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (!userDocSnap.exists()) {
+        toast({
+          title: "Login Failed",
+          description: "User profile not found. Please contact support.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        // Optionally sign out the Firebase user if profile is mandatory
+        // await auth.signOut(); 
+        return;
+      }
+
+      const userProfile = userDocSnap.data();
+
+      if (userProfile.role !== values.role) {
+        toast({
+          title: "Role Mismatch",
+          description: `You're trying to log in as ${values.role}, but your account is registered as ${userProfile.role}. Please select the correct role.`,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        // Optionally sign out
+        // await auth.signOut();
+        return;
+      }
+      
+      let deadlineISO: string | null = null;
+      if (userProfile.phoneVerificationDeadline) {
+          if (userProfile.phoneVerificationDeadline instanceof Timestamp) {
+              deadlineISO = userProfile.phoneVerificationDeadline.toDate().toISOString();
+          } else if (typeof userProfile.phoneVerificationDeadline === 'string') {
+              // Assume it's already an ISO string or attempt to parse
+              try {
+                  deadlineISO = new Date(userProfile.phoneVerificationDeadline).toISOString();
+              } catch (e) { console.warn("Could not parse phoneVerificationDeadline from string", userProfile.phoneVerificationDeadline); }
+          } else if (typeof userProfile.phoneVerificationDeadline === 'object' && ('seconds' in userProfile.phoneVerificationDeadline || '_seconds' in userProfile.phoneVerificationDeadline)) {
+              const seconds = (userProfile.phoneVerificationDeadline as any).seconds ?? (userProfile.phoneVerificationDeadline as any)._seconds;
+              const nanoseconds = (userProfile.phoneVerificationDeadline as any).nanoseconds ?? (userProfile.phoneVerificationDeadline as any)._nanoseconds ?? 0;
+              if (typeof seconds === 'number') {
+                  deadlineISO = new Date(seconds * 1000 + nanoseconds / 1000000).toISOString();
+              }
+          }
+      }
+
+
+      contextLogin(
+        firebaseUser.uid,
+        firebaseUser.email || values.email,
+        userProfile.name || firebaseUser.displayName || values.email.split('@')[0],
+        userProfile.role as UserRole,
+        userProfile.vehicleCategory,
+        userProfile.phoneNumber || firebaseUser.phoneNumber,
+        userProfile.phoneVerified,
+        userProfile.status,
+        deadlineISO
+      );
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${userProfile.name || firebaseUser.displayName}!`,
+      });
+
+    } catch (error: any) {
+      console.error("Login error:", error);
+      let errorMessage = "Invalid email or password.";
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            errorMessage = "Invalid email or password. Please try again.";
+            break;
+          case 'auth/too-many-requests':
+            errorMessage = "Too many login attempts. Please try again later.";
+            break;
+          case 'auth/user-disabled':
+            errorMessage = "This account has been disabled.";
+            break;
+          default:
+            errorMessage = `Login failed: ${error.message}`;
+        }
+      }
+      toast({
+        title: "Login Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const handleGuestLogin = (role: UserRole) => {
     let email = "";
     let name = "";
+    const guestId = `guest-${Date.now()}`;
     switch (role) {
       case "passenger":
         email = "guest-passenger@taxinow.com";
@@ -67,7 +175,7 @@ export function LoginForm() {
         name = "Guest Operator";
         break;
     }
-    login(email, name, role);
+    contextLogin(guestId, email, name, role, undefined, undefined, 'Active', undefined);
     toast({
       title: "Guest Login Successful",
       description: `Logged in as ${name}.`,
@@ -85,7 +193,7 @@ export function LoginForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="your@email.com" {...field} />
+                  <Input placeholder="your@email.com" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -98,13 +206,13 @@ export function LoginForm() {
               <FormItem>
                 <div className="flex justify-between items-center">
                   <FormLabel>Password</FormLabel>
-                  <Link href="/forgot-password" // Placeholder link
+                  <Link href="/forgot-password"
                         className="text-xs text-muted-foreground hover:text-primary underline">
                     Forgot Password?
                   </Link>
                 </div>
                 <FormControl>
-                  <Input type="password" placeholder="••••••••" {...field} />
+                  <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -121,6 +229,7 @@ export function LoginForm() {
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                     className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4"
+                    disabled={isLoading}
                   >
                     <FormItem className="flex items-center space-x-3 space-y-0">
                       <FormControl>
@@ -146,7 +255,10 @@ export function LoginForm() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Login</Button>
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Login
+          </Button>
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="underline text-accent hover:text-accent/90">
@@ -187,3 +299,4 @@ export function LoginForm() {
     </>
   );
 }
+
