@@ -1,12 +1,12 @@
 
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"; // Kept for other states
-import { Button } from "@/components/ui/button"; // Kept for other states
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon } from "lucide-react"; // Kept for other states
-import { Badge } from "@/components/ui/badge"; // Kept for other states
-import { Switch } from "@/components/ui/switch"; // Kept for other states
-import { Label } from "@/components/ui/label"; // Kept for other states
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,7 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
-// import { Progress } from "@/components/ui/progress"; // Progress bar no longer used in this simplified view
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -64,7 +63,6 @@ export default function AvailableRidesPage() {
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  // const [progressValue, setProgressValue] = useState(0); // Progress bar no longer used in this simplified view
 
 
 // Geolocation useEffect remains commented out to prevent blank screen issues for now
@@ -400,30 +398,79 @@ export default function AvailableRidesPage() {
   }
 
 
-  // The `if (activeRide)` block remains for handling active ride UI,
-  // but the main "no active ride" state is simplified per the screenshot.
   if (activeRide) {
     // This is where the UI for an active ride would go.
     // For now, we're focused on the "no active ride" screen.
     return (
       <div className="p-4">
-       <p>Active Ride: {activeRide.passengerName} - {activeRide.status}</p>
+       <p>Active Ride: {activeRide.passengerName} - {activeRide.status} (UI Placeholder)</p>
        {/* Placeholder for active ride UI */}
       </div>
     );
   }
 
-  // This is the "no active ride" / "awaiting offers" state based on the last screenshot.
   return (
-    <div className="w-full h-[400px] rounded-xl overflow-hidden shadow-lg border">
-      <GoogleMapDisplay
-          center={driverLocation} 
-          zoom={14}
-          markers={mapMarkers}
-          className="w-full h-full"
-          disableDefaultUI={true} 
-      />
-      {/* RideOfferModal is kept for future use if offers are presented */}
+    <>
+      <div className="flex flex-col h-full space-y-2">
+        <div className="h-[400px] w-full rounded-xl overflow-hidden shadow-lg border">
+          <GoogleMapDisplay
+              center={driverLocation} 
+              zoom={14}
+              markers={mapMarkers}
+              className="w-full h-full"
+              disableDefaultUI={true} 
+          />
+        </div>
+
+        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border">
+          <CardHeader className="p-3 border-b">
+            <CardTitle className={cn("text-base font-semibold text-center", isDriverOnline ? "text-green-600" : "text-red-600")}>
+              {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-3">
+            {isDriverOnline ? (
+              geolocationError ? (
+                <>
+                  <AlertTriangle className="w-8 h-8 text-destructive" />
+                  <p className="text-sm text-destructive text-center">{geolocationError}</p>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  <p className="text-sm text-muted-foreground text-center">Actively searching for ride offers...</p>
+                </>
+              )
+            ) : (
+              <>
+                <Power className="w-8 h-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">You are currently offline.</p>
+              </>
+            )}
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch
+                id="driver-online-toggle"
+                checked={isDriverOnline}
+                onCheckedChange={setIsDriverOnline}
+                aria-label="Toggle driver online status"
+              />
+              <Label htmlFor="driver-online-toggle" className={`text-sm font-medium ${isDriverOnline ? 'text-green-600' : 'text-red-600'}`}>
+                {isDriverOnline ? "Online" : "Offline"}
+              </Label>
+            </div>
+            {isDriverOnline && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSimulateOffer}
+                className="mt-2 text-xs h-8 px-3 py-1"
+              >
+                Simulate Incoming Ride Offer (Test)
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
       <RideOfferModal
         isOpen={isOfferModalOpen}
         onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }}
@@ -431,7 +478,6 @@ export default function AvailableRidesPage() {
         onDecline={handleDeclineOffer}
         rideDetails={currentOfferDetails}
       />
-    </div>
+    </>
   );
 }
-
