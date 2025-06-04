@@ -719,15 +719,15 @@ export default function BookRidePage() {
   };
 
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
+  const validStopsForFare = stopAutocompleteData.filter((stopData, index) => {
+    const formStopValue = form.getValues(`stops.${index}.location`);
+    return stopData.coords && formStopValue && formStopValue.trim() !== "";
+  });
 
 
   useEffect(() => {
     let totalDistanceMiles = 0;
-    const validStopsForFare = stopAutocompleteData.filter((stopData, index) => {
-        const formStopValue = form.getValues(`stops.${index}.location`);
-        return stopData.coords && formStopValue && formStopValue.trim() !== "";
-    });
-
+    
     if (pickupCoords && dropoffCoords && !isLoadingSurgeSetting) { 
       let currentPoint = pickupCoords;
       for (const stopData of validStopsForFare) {
@@ -786,7 +786,7 @@ export default function BookRidePage() {
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting]); 
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare]); 
 
 
  useEffect(() => {
@@ -1895,31 +1895,31 @@ const handleProceedToConfirmation = async () => {
                       </DialogHeader>
                       <div className="space-y-4 py-4 overflow-y-auto">
                         <Card className="w-full text-center shadow-md">
-                          <CardHeader>
-                            <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                              <DollarSign className="w-7 h-7 text-accent" /> Fare Estimate
+                          <CardHeader className="p-3">
+                            <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
+                              <DollarSign className="w-6 h-6 text-accent" /> Fare Estimate
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="p-3 pt-0">
                             {anyFetchingDetails && pickupCoords ? (
-                              <div className="flex flex-col items-center justify-center space-y-2">
-                                  <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                                  <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
+                              <div className="flex flex-col items-center justify-center space-y-1">
+                                  <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+                                  <p className="text-lg font-bold text-muted-foreground">Calculating...</p>
                               </div>
                             ) : fareEstimate !== null ? (
                               <>
-                                <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                                <p className="text-3xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
                                 {isSurgeActive && (
-                                  <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
-                                    <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                                  <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
+                                    <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
                                   </p>
                                 )}
-                                {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                                {!isSurgeActive && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
                               </>
                             ) : (
-                              <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
+                              <p className="text-lg text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                             )}
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               Estimates may vary based on real-time conditions.
                             </p>
                           </CardContent>
