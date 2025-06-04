@@ -15,7 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
-// import { Progress } from "@/components/ui/progress"; // Progress component no longer needed
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -69,7 +68,6 @@ export default function AvailableRidesPage() {
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  // const [progressValue, setProgressValue] = useState(0); // Progress bar state removed
 
 
 //   useEffect(() => {
@@ -112,7 +110,6 @@ export default function AvailableRidesPage() {
 //     };
 //   }, [isDriverOnline, toast]);
 
-  // useEffect for progress bar removed
 
   const handleSimulateOffer = () => {
     const mockOffer: RideOffer = {
@@ -548,7 +545,7 @@ export default function AvailableRidesPage() {
           disableDefaultUI={true}
         />
         {geolocationError && (
-          <div className="absolute bottom-2 left-2 right-2 bg-destructive/90 text-destructive-foreground p-2 rounded-md text-xs shadow-lg z-10">
+          <div className="absolute bottom-2 left-2 right-2 bg-destructive/90 text-destructive-foreground p-1 rounded-md text-xs shadow-lg z-10">
             <div className="flex items-center gap-1.5">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>Location Error: {geolocationError}. Map may not be accurate.</span>
@@ -558,26 +555,26 @@ export default function AvailableRidesPage() {
       </div>
 
       {/* Status and controls card */}
-      <Card className="flex-shrink-0 bg-card p-4 shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] rounded-t-2xl -mt-5 z-10 border-t-4 border-green-500">
-        <CardHeader className="p-0 text-center pb-3">
-          <CardTitle className="text-2xl font-bold text-green-600">
+      <Card className="flex-shrink-0 bg-card p-2 shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] rounded-t-2xl -mt-5 z-10 border-t-4 border-green-500">
+        <CardHeader className="p-0 text-center pb-1">
+          <CardTitle className="text-lg font-bold text-green-600">
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-3 pt-0">
+        <CardContent className="flex flex-col items-center space-y-1 pt-0">
           {isDriverOnline && !geolocationError && (
             <>
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-base text-muted-foreground text-center">Actively searching for ride offers for you...</p>
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p>
             </>
           )}
           {isDriverOnline && geolocationError && (
-            <div className="text-destructive text-sm text-center font-medium p-2 rounded-md bg-destructive/10 w-full">
-              <AlertTriangle className="inline h-4 w-4 mr-1"/> Cannot update live location. Toggle off/on or check permissions.
+            <div className="text-destructive text-xs text-center font-medium p-1 rounded-md bg-destructive/10 w-full">
+              <AlertTriangle className="inline h-3 w-3 mr-1"/> Cannot update live location. Toggle off/on or check permissions.
             </div>
           )}
           {!isDriverOnline && (
-            <p className="text-lg text-muted-foreground">You are currently offline.</p>
+            <p className="text-sm text-muted-foreground">You are currently offline.</p>
           )}
           
           <div className="flex items-center space-x-2 pt-1">
@@ -587,11 +584,11 @@ export default function AvailableRidesPage() {
               onCheckedChange={setIsDriverOnline}
               aria-label={isDriverOnline ? "Switch to Offline" : "Switch to Online"}
             />
-            <Label htmlFor="online-status-toggle" className={`text-xl font-medium ${isDriverOnline ? 'text-green-600' : 'text-slate-600'}`}>
+            <Label htmlFor="online-status-toggle" className={`text-sm font-medium ${isDriverOnline ? 'text-green-600' : 'text-slate-600'}`}>
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button variant="outline" onClick={handleSimulateOffer} className="w-full mt-4 text-sm">
+          <Button variant="outline" onClick={handleSimulateOffer} className="w-full mt-2 text-xs h-8 px-3 py-1">
             Simulate Incoming Ride Offer (Test)
           </Button>
         </CardContent>
@@ -609,6 +606,7 @@ export default function AvailableRidesPage() {
     
 
     
+
 
 
 
