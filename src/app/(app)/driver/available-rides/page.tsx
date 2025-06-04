@@ -423,22 +423,22 @@ export default function AvailableRidesPage() {
         </div>
 
         <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border">
-          <CardHeader className="p-3 border-b">
-            <CardTitle className={cn("text-base font-semibold text-center", isDriverOnline ? "text-green-600" : "text-red-600")}>
+          <CardHeader className={cn("p-3 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}>
+            <CardTitle className={cn("text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}>
               {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-3">
+          <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-2">
             {isDriverOnline ? (
               geolocationError ? (
-                <>
-                  <AlertTriangle className="w-8 h-8 text-destructive" />
-                  <p className="text-sm text-destructive text-center">{geolocationError}</p>
-                </>
+                <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md">
+                  <AlertTriangle className="w-6 h-6 text-destructive" />
+                  <p className="text-xs text-destructive">{geolocationError}</p>
+                </div>
               ) : (
                 <>
-                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                  <p className="text-sm text-muted-foreground text-center">Actively searching for ride offers...</p>
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers...</p>
                 </>
               )
             ) : (
@@ -447,14 +447,14 @@ export default function AvailableRidesPage() {
                 <p className="text-sm text-muted-foreground">You are currently offline.</p>
               </>
             )}
-            <div className="flex items-center space-x-2 pt-2">
+            <div className="flex items-center space-x-2 pt-1">
               <Switch
                 id="driver-online-toggle"
                 checked={isDriverOnline}
                 onCheckedChange={setIsDriverOnline}
                 aria-label="Toggle driver online status"
               />
-              <Label htmlFor="driver-online-toggle" className={`text-sm font-medium ${isDriverOnline ? 'text-green-600' : 'text-red-600'}`}>
+              <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')}>
                 {isDriverOnline ? "Online" : "Offline"}
               </Label>
             </div>
@@ -481,3 +481,4 @@ export default function AvailableRidesPage() {
     </>
   );
 }
+
