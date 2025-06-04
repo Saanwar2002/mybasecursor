@@ -32,7 +32,7 @@ interface RideRequest {
   dropoffLocation: string;
   estimatedTime: string;
   fareEstimate: number;
-  status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'completed' | 'cancelled_by_driver';
+  status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver'; // Added 'In Progress'
   pickupCoords?: { lat: number; lng: number };
   dropoffCoords?: { lat: number; lng: number };
   stops?: Array<{ address: string; latitude: number; longitude: number }>;
@@ -69,7 +69,7 @@ export default function AvailableRidesPage() {
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
-  const activeRide = useMemo(() => rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress'].includes(r.status)), [rideRequests]);
+  const activeRide = useMemo(() => rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress'].includes(r.status)), [rideRequests]);
 
 
 // Geolocation useEffect remains commented out to prevent blank screen issues for now
@@ -118,14 +118,14 @@ export default function AvailableRidesPage() {
   const handleSimulateOffer = () => {
     const mockOffer: RideOffer = {
       id: 'mock-offer-123',
-      pickupLocation: "6 Colne Street Paddock Huddersfield HD1 4RX",
-      pickupCoords: { lat: 53.6410, lng: -1.7950 },
-      dropoffLocation: "12 Lindley Moor Road Lindley Huddersfield HD3 3RT",
-      dropoffCoords: { lat: 53.6600, lng: -1.8200 },
-      fareEstimate: 12.50,
+      pickupLocation: "Huddersfield Royal Infirmary, Acre St, Lindley, Huddersfield HD3 3EA",
+      pickupCoords: { lat: 53.6560, lng: -1.8180 }, // Approx coords for HRI
+      dropoffLocation: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB",
+      dropoffCoords: { lat: 53.6475, lng: -1.7810 }, // Approx coords for Train Station
+      fareEstimate: 8.75,
       passengerCount: 1,
       passengerName: "Sarah Connor",
-      notes: "Going to the hospital. Please be quick."
+      notes: "Main entrance of A&E. Please call upon arrival if possible."
     };
     setCurrentOfferDetails(mockOffer);
     setIsOfferModalOpen(true);
@@ -140,12 +140,12 @@ export default function AvailableRidesPage() {
       const mockActiveRideData: RideRequest = {
         id: `active-mock-${Date.now()}`,
         passengerName: offerToAccept.passengerName || "Sarah Connor",
-        passengerAvatar: 'https://placehold.co/48x48.png?text=SC', // Use SC for Sarah Connor
+        passengerAvatar: 'https://placehold.co/48x48.png?text=SC',
         pickupLocation: offerToAccept.pickupLocation,
         dropoffLocation: offerToAccept.dropoffLocation,
-        estimatedTime: "12 mins", // Keep some default values
+        estimatedTime: "12 mins", 
         fareEstimate: offerToAccept.fareEstimate,
-        status: 'driver_assigned', // Start with driver_assigned to show "En Route to Pickup"
+        status: 'driver_assigned', 
         pickupCoords: offerToAccept.pickupCoords,
         dropoffCoords: offerToAccept.dropoffCoords,
         distanceMiles: 3.5,
@@ -226,7 +226,7 @@ export default function AvailableRidesPage() {
             toastMessage = `Passenger ${rideDisplayName} has been notified of your arrival.`;
             break;
         case 'start_ride':
-            newStatus = 'in_progress';
+            newStatus = 'In Progress'; // Changed to match API
             apiAction = 'start_ride';
             toastTitle = "Ride Started";
             toastMessage = `Ride with ${rideDisplayName} is now in progress.`;
@@ -266,22 +266,21 @@ export default function AvailableRidesPage() {
             if (!response.ok) {
                 let descriptiveError = `Failed to update ride (Status: ${response.status}).`;
                 try {
+                    // Attempt to read as text first, as it might not be JSON
                     const responseBodyText = await response.text();
-                    if (responseBodyText && responseBodyText.trim() !== "") {
+                    descriptiveError += ` Response: ${responseBodyText.substring(0, 200)}${responseBodyText.length > 200 ? '...' : ''}`;
+                    // Then try to parse as JSON if it's not empty
+                    if (responseBodyText.trim() !== "") {
                         try {
                             const errorData = JSON.parse(responseBodyText);
-                            descriptiveError += ` Server: ${errorData.message || 'No specific message.'}`;
+                            if(errorData.message) descriptiveError = `Server: ${errorData.message}`;
                             if(errorData.details) descriptiveError += ` Details: ${errorData.details}.`;
-                        } catch (jsonParseError) {
-                             descriptiveError += ` Raw server response: ${responseBodyText.substring(0,200)}${responseBodyText.length > 200 ? '...' : ''}`;
-                        }
-                    } else {
-                         descriptiveError += " Server response body was empty.";
+                        } catch (jsonParseError) { /* Ignore if not JSON */ }
                     }
                 } catch (readError) {
                      descriptiveError += " Could not read server response body.";
                 }
-                console.error("handleRideAction API error response:", response, "Constructed error:", descriptiveError);
+                console.error("handleRideAction API error response:", {status: response.status, statusText: response.statusText, headers: Object.fromEntries(response.headers.entries())}, "Constructed error:", descriptiveError);
                 throw new Error(descriptiveError);
             }
             const updatedBookingData = await response.json();
@@ -319,10 +318,8 @@ export default function AvailableRidesPage() {
             const updatedMockRide = { ...r, status: newStatus };
             if (newStatus === 'arrived_at_pickup') {
                 updatedMockRide.notifiedPassengerArrivalTimestamp = new Date().toISOString();
-                 // For mock, let's also simulate passenger acknowledging immediately for "Arrived At Pickup" test
-                 // updatedMockRide.passengerAcknowledgedArrivalTimestamp = new Date(Date.now() + 2000).toISOString();
             }
-            if (newStatus === 'in_progress' && actionType === 'start_ride'){
+            if (newStatus === 'In Progress' && actionType === 'start_ride'){
                 updatedMockRide.passengerAcknowledgedArrivalTimestamp = new Date().toISOString();
             }
             return updatedMockRide;
@@ -356,7 +353,8 @@ export default function AvailableRidesPage() {
         label: { text: "P", color: "white", fontWeight: "bold"}
       });
     }
-    if (activeRide.status === 'in_progress' && activeRide.dropoffCoords) {
+    // Only show dropoff if in progress or beyond
+    if ((activeRide.status === 'in_progress' || activeRide.status === 'In Progress' || activeRide.status === 'completed') && activeRide.dropoffCoords) {
       markers.push({
         position: activeRide.dropoffCoords,
         title: `Dropoff: ${activeRide.dropoffLocation}`,
@@ -378,14 +376,14 @@ export default function AvailableRidesPage() {
   const getMapCenterForActiveRide = (): google.maps.LatLngLiteral => {
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) return activeRide.pickupCoords;
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupCoords) return activeRide.pickupCoords;
-    if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) return activeRide.dropoffCoords;
+    if ((activeRide?.status === 'in_progress' || activeRide?.status === 'In Progress') && activeRide.dropoffCoords) return activeRide.dropoffCoords;
     return driverLocation;
   };
 
   if (activeRide) {
-    const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
-    const showInProgressStatus = activeRide.status === 'in_progress';
     const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
+    const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
+    const showInProgressStatus = activeRide.status === 'in_progress' || activeRide.status === 'In Progress';
 
     return (
       <div className="flex flex-col h-full">
@@ -505,7 +503,7 @@ export default function AvailableRidesPage() {
                     </Button>
                 </div>
             )}
-            {activeRide.status === 'in_progress' && (
+            {(activeRide.status === 'in_progress' || activeRide.status === 'In Progress') && (
                  <div className="grid grid-cols-2 gap-2">
                     <Button className="w-full bg-primary hover:bg-primary/80 text-lg py-3 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
                         {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride
@@ -604,5 +602,4 @@ export default function AvailableRidesPage() {
       </div>
   );
 }
-
     
