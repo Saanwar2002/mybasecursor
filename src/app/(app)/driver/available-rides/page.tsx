@@ -76,8 +76,10 @@ export default function AvailableRidesPage() {
             apiAction = undefined; 
             toastTitle = "Ride Accepted";
             toastMessage = `Ride request from ${currentRide.passengerName} accepted.`;
+            // Optimistically update other rides if this one is accepted
             setRideRequests(prev => prev.map(r => {
                 if (r.id === rideId) return { ...r, status: newStatus! };
+                // If another ride was active, set it back to pending (or handle as per business logic)
                 if (r.status === 'driver_assigned' || r.status === 'active' || r.status === 'arrived_at_pickup' || r.status === 'in_progress') return { ...r, status: 'pending' }; 
                 return r;
             }));
@@ -116,33 +118,60 @@ export default function AvailableRidesPage() {
             break;
     }
     
-    if (newStatus) {
+    if (newStatus || apiAction) {
         try {
-            const payload: any = { status: newStatus };
-            if (actionType === 'accept' && driverUser) {
-                payload.driverId = driverUser.id;
-                payload.driverName = driverUser.name;
-            }
+            const payload: any = {};
             if (apiAction) {
                  payload.action = apiAction;
+            } else if (newStatus) {
+                payload.status = newStatus;
+                if (actionType === 'accept' && driverUser) {
+                    payload.driverId = driverUser.id;
+                    payload.driverName = driverUser.name;
+                }
+            } else {
+                setActionLoading(prev => ({ ...prev, [rideId]: false }));
+                return;
             }
+
              const response = await fetch(`/api/operator/bookings/${rideId}`, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify(payload),
              });
+
              if (!response.ok) {
-                const errorData = await response.json().catch(()=> ({message: "Failed to update ride status on server."}));
-                throw new Error(errorData.message);
+                let apiErrorMessage = `Server responded with status ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    apiErrorMessage = errorData.message || errorData.details || apiErrorMessage;
+                } catch (jsonError) {
+                    console.warn(`API response for ${response.url} (status ${response.status}) was not valid JSON. Attempting to read as text.`);
+                    try {
+                        const textError = await response.text();
+                        console.error("Non-JSON API error response text:", textError);
+                        apiErrorMessage = `Server error (status ${response.status}), non-JSON response. Details: ${textError.substring(0, 200)}${textError.length > 200 ? '...' : ''}`;
+                    } catch (textParseError) {
+                        console.error("Failed to parse API error response as text:", textParseError);
+                        apiErrorMessage = `Server error (status ${response.status}), and response body could not be parsed.`;
+                    }
+                }
+                throw new Error(apiErrorMessage);
              }
+
              const updatedBooking = await response.json();
             
             setRideRequests(prevRequests =>
                 prevRequests.map(req => {
                     if (req.id === rideId) {
-                        const updatedReq = { ...req, status: updatedBooking.booking.status };
-                        if (actionType === 'notify_arrival') updatedReq.notifiedPassengerArrivalTimestamp = updatedBooking.booking.notifiedPassengerArrivalTimestamp?._seconds ? new Date(updatedBooking.booking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString() : new Date().toISOString();
+                        const updatedReq: RideRequest = { ...req, status: updatedBooking.booking.status };
+                        if (actionType === 'notify_arrival') {
+                            updatedReq.notifiedPassengerArrivalTimestamp = updatedBooking.booking.notifiedPassengerArrivalTimestamp?._seconds 
+                                ? new Date(updatedBooking.booking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString() 
+                                : new Date().toISOString();
+                        }
                         if (actionType === 'accept') {
+                            // Assuming driverId and driverName are set by the backend upon acceptance
                             // updatedReq.driverId = updatedBooking.booking.driverId; 
                             // updatedReq.driverName = updatedBooking.booking.driverName;
                         }
@@ -159,7 +188,10 @@ export default function AvailableRidesPage() {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     } else {
-        setActionLoading(prev => ({ ...prev, [rideId]: false }));
+        // This case implies no action was determined, or it's a decline that filters locally
+        if (actionType !== 'decline' && actionType !== 'cancel_active') { // Decline is handled by filtering
+            setActionLoading(prev => ({ ...prev, [rideId]: false }));
+        }
     }
   };
 
@@ -281,7 +313,6 @@ export default function AvailableRidesPage() {
                 <p className="flex items-center gap-1.5 text-md"><Route className="w-5 h-5 text-muted-foreground" /> <strong>Ride Distance:</strong> {activeRide.distanceMiles.toFixed(1)} miles</p>
             )}
 
-            {/* Arrival Status Section */}
             {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
                  <div className="p-3 my-2 bg-blue-100 border border-blue-300 rounded-md text-blue-700 flex items-center gap-2">
                     <BellRing className="w-5 h-5 animate-pulse" />
@@ -307,7 +338,7 @@ export default function AvailableRidesPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
-              {activeRide.status === 'driver_assigned' && (
+               {activeRide.status === 'driver_assigned' && (
                 <>
                   <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white text-base py-3" onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)} disabled={actionLoading[activeRide.id]}>
                     <Navigation className="mr-2 h-5 w-5" /> Navigate to Pickup
@@ -318,7 +349,7 @@ export default function AvailableRidesPage() {
                 </>
               )}
               {activeRide.status === 'arrived_at_pickup' && (
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
+                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3 sm:col-span-2" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Car className="mr-2 h-5 w-5" />} Start Ride
                 </Button>
               )}
@@ -344,7 +375,7 @@ export default function AvailableRidesPage() {
               </Button>
               {['driver_assigned', 'arrived_at_pickup'].includes(activeRide.status) && (
                 <Button variant="destructive" className="w-full text-base py-3" onClick={() => handleRideAction(activeRide.id, 'cancel_active')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <XCircle className="mr-2 h-5 w-5" />} Cancel
+                    {actionLoading[activeRide.id] ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <XCircle className="mr-2 h-5 w-5" />} Cancel Ride
                 </Button>
               )}
             </div>
@@ -411,3 +442,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
