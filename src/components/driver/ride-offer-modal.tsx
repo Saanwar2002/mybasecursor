@@ -4,12 +4,13 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info } from "lucide-react"; // Removed Clock
+import { Car, Users, DollarSign, MapPin, Info } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -62,7 +63,7 @@ const Progress = React.forwardRef<
   <ProgressPrimitive.Root
     ref={ref}
     className={cn(
-      "relative h-2.5 w-full overflow-hidden rounded-full bg-secondary",
+      "relative h-2 w-full overflow-hidden rounded-full bg-secondary",
       className
     )}
     {...props}
@@ -78,15 +79,15 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   useEffect(() => {
     if (!isOpen) {
-      setCountdown(COUNTDOWN_SECONDS); // Reset countdown when modal closes or is not open
+      setCountdown(COUNTDOWN_SECONDS); 
       return;
     }
 
     if (countdown === 0) {
       if (rideDetails) {
-        onDecline(rideDetails.id); // Automatically decline if timer runs out
+        onDecline(rideDetails.id); 
       }
-      onClose(); // Close the modal
+      onClose(); 
       return;
     }
 
@@ -119,7 +120,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const mapCenter = useMemo(() => {
     if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
-    // A sensible default if no pickup coords (should ideally not happen for an offer)
     return { lat: 53.6450, lng: -1.7830 }; 
   }, [rideDetails]);
 
@@ -145,8 +145,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50 p-0"> {/* Removed default padding */}
-        <DialogHeader className="p-4 pb-2 space-y-1"> {/* Reduced bottom padding */}
+      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col max-h-[calc(100vh-4rem)] md:max-h-[85vh]">
+        <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
           <DialogTitle className="text-2xl font-headline text-primary flex items-center gap-2">
             <Car className="w-7 h-7" /> New Ride Offer!
           </DialogTitle>
@@ -155,58 +155,61 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </DialogDescription>
         </DialogHeader>
         
-        <div className="h-48 sm:h-60 w-full"> {/* Map takes up space directly */}
-            {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
-              <GoogleMapDisplay
-                center={mapCenter}
-                zoom={10}
-                markers={mapMarkers}
-                className="w-full h-full" // Let map fill its container
-                disableDefaultUI={true}
-                fitBoundsToMarkers={true}
-              />
-            ) : (
-              <Skeleton className="w-full h-full" />
-            )}
-        </div>
+        <ScrollArea className="flex-1"> {/* Make this area scrollable and take up remaining space */}
+          <div className="p-4"> {/* Inner padding for scrollable content */}
+            <div className="h-48 sm:h-56 w-full mb-4"> {/* Map container */}
+                {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
+                  <GoogleMapDisplay
+                    center={mapCenter}
+                    zoom={10} 
+                    markers={mapMarkers}
+                    className="w-full h-full rounded-md"
+                    disableDefaultUI={true}
+                    fitBoundsToMarkers={true}
+                  />
+                ) : (
+                  <Skeleton className="w-full h-full rounded-md" />
+                )}
+            </div>
+            <div className="space-y-3"> {/* Details section */}
+              <div className="p-3 bg-muted/50 rounded-lg border border-muted">
+                <p className="flex items-center gap-2 mb-1">
+                  <MapPin className="w-5 h-5 text-primary" /> 
+                  <strong>Pickup:</strong> {rideDetails.pickupLocation}
+                </p>
+                <p className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-accent" /> 
+                  <strong>Dropoff:</strong> {rideDetails.dropoffLocation}
+                </p>
+              </div>
 
-        <div className="p-4 space-y-3"> {/* Content padding */}
-          <div className="p-3 bg-muted/50 rounded-lg border border-muted">
-            <p className="flex items-center gap-2 mb-1">
-              <MapPin className="w-5 h-5 text-primary" /> 
-              <strong>Pickup:</strong> {rideDetails.pickupLocation}
-            </p>
-            <p className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-accent" /> 
-              <strong>Dropoff:</strong> {rideDetails.dropoffLocation}
-            </p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <p className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
+                <p className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
+              </div>
+
+              {rideDetails.passengerName && (
+                <p className="text-sm"><Info className="inline w-4 h-4 mr-1 text-muted-foreground" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
+              )}
+              {rideDetails.notes && (
+                 <div className="border-l-4 border-accent pl-3 py-1 bg-accent/10">
+                    <p className="text-sm font-semibold">Note:</p>
+                    <p className="text-sm text-muted-foreground">{rideDetails.notes}</p>
+                 </div>
+              )}
+            </div>
           </div>
+        </ScrollArea>
 
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <p className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
-            <p className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
-          </div>
-
-          {rideDetails.passengerName && (
-            <p className="text-sm"><Info className="inline w-4 h-4 mr-1 text-muted-foreground" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
-          )}
-          {rideDetails.notes && (
-             <div className="border-l-4 border-accent pl-3 py-1 bg-accent/10">
-                <p className="text-sm font-semibold">Note:</p>
-                <p className="text-sm text-muted-foreground">{rideDetails.notes}</p>
-             </div>
-          )}
-        </div>
-        
-        <div className="px-4 pb-4 space-y-2"> {/* Container for progress bar */}
-            <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} />
+        <div className="px-4 py-3 space-y-2 border-t border-border shrink-0"> {/* Progress Bar section */}
+            <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} className="h-2" />
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-4 p-4 pt-0"> {/* Footer padding adjusted */}
-          <Button variant="destructive" onClick={handleDecline} className="text-lg py-3">
+        <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-4 p-4 border-t border-border shrink-0">
+          <Button variant="destructive" onClick={handleDecline} className="text-lg py-3 h-auto">
             Decline
           </Button>
-          <Button variant="default" onClick={handleAccept} className="bg-green-600 hover:bg-green-700 text-white text-lg py-3">
+          <Button variant="default" onClick={handleAccept} className="bg-green-600 hover:bg-green-700 text-white text-lg py-3 h-auto">
             Accept Ride
           </Button>
         </DialogFooter>
@@ -214,3 +217,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
