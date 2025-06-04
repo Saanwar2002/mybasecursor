@@ -138,7 +138,7 @@ const PER_MINUTE_RATE = 0.10;
 const AVERAGE_SPEED_MPH = 15;
 const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
-const SURGE_MULTIPLIER_VALUE = 1.5; // Example surge multiplier
+const SURGE_MULTIPLIER_VALUE = 1.5; 
 const PER_STOP_SURCHARGE = 0.50;
 
 
@@ -175,9 +175,9 @@ export default function BookRidePage() {
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
-  const [isSurgeActive, setIsSurgeActive] = useState(false); // For UI display if surge *is* applied
-  const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1); // Actual multiplier used
-  const [isOperatorSurgeEnabled, setIsOperatorSurgeEnabled] = useState<boolean>(false); // Fetched setting
+  const [isSurgeActive, setIsSurgeActive] = useState(false); 
+  const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1); 
+  const [isOperatorSurgeEnabled, setIsOperatorSurgeEnabled] = useState<boolean>(false); 
   const [isLoadingSurgeSetting, setIsLoadingSurgeSetting] = useState<boolean>(true);
 
 
@@ -207,6 +207,8 @@ export default function BookRidePage() {
 
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ waitTime: number; pickupLocation: string; bookingTime: number; } | null>(null);
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -741,7 +743,7 @@ export default function BookRidePage() {
         return stopData.coords && formStopValue && formStopValue.trim() !== "";
     });
 
-    if (pickupCoords && dropoffCoords && !isLoadingSurgeSetting) { // Check isLoadingSurgeSetting
+    if (pickupCoords && dropoffCoords && !isLoadingSurgeSetting) { 
       let currentPoint = pickupCoords;
       for (const stopData of validStopsForFare) {
         if (stopData.coords) {
@@ -755,11 +757,7 @@ export default function BookRidePage() {
       const duration = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
       setEstimatedDurationMinutes(totalDistanceMiles > 0 ? parseFloat(duration.toFixed(0)) : null);
 
-
-      // Determine if surge *conditions* are met (e.g., high demand time)
-      const potentialSurgeConditionsMet = Math.random() < 0.3; // Example: 30% chance
-      
-      // Determine if surge is *actually applied* based on operator setting AND conditions
+      const potentialSurgeConditionsMet = Math.random() < 0.3; 
       const actualSurgeIsActive = isOperatorSurgeEnabled && potentialSurgeConditionsMet;
       setIsSurgeActive(actualSurgeIsActive);
       
@@ -786,12 +784,12 @@ export default function BookRidePage() {
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; // Example: estate might have same base rate
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
 
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; // Example: +10% per additional passenger
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
 
       const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
       setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
@@ -803,7 +801,7 @@ export default function BookRidePage() {
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting]); // Added isOperatorSurgeEnabled, isLoadingSurgeSetting
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting]); 
 
 
  useEffect(() => {
@@ -835,6 +833,22 @@ export default function BookRidePage() {
     }
     setMapMarkers(newMarkers);
   }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
+
+  useEffect(() => {
+    if (driverArrivalInfo && driverArrivalInfo.waitTime > 0) {
+      const arrivalTimeoutId = setTimeout(() => {
+        toast({
+          title: "Driver Arriving!",
+          description: `Your driver should be arriving at ${driverArrivalInfo.pickupLocation} now. Please be ready!`,
+          variant: "default",
+          duration: 10000,
+        });
+        setDriverArrivalInfo(null); 
+      }, driverArrivalInfo.waitTime * 60 * 1000); 
+
+      return () => clearTimeout(arrivalTimeoutId);
+    }
+  }, [driverArrivalInfo, toast]);
 
 
   async function handleBookRide(values: BookingFormValues) {
@@ -882,17 +896,20 @@ export default function BookRidePage() {
 
     setIsBooking(true);
 
+    const waitTimeForNotification = estimatedWaitTime; // Capture before reset
+    const pickupForNotification = values.pickupLocation;
+
     const bookingPayload = {
       passengerId: user.id,
-      passengerName: user.name,
+      passengerName: user.name || "Passenger",
       pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
       dropoffLocation: { address: values.dropoffLocation, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat },
       stops: validStopsData,
       vehicleType: values.vehicleType,
       passengers: values.passengers,
       fareEstimate: fareEstimate,
-      isSurgeApplied: isSurgeActive, // This will be true only if operator enabled AND conditions met
-      surgeMultiplier: currentSurgeMultiplier, // This will be 1 if surge not applied
+      isSurgeApplied: isSurgeActive, 
+      surgeMultiplier: currentSurgeMultiplier, 
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
       driverNotes: values.driverNotes,
@@ -914,28 +931,28 @@ export default function BookRidePage() {
 
       const result = await response.json();
 
-      let rideDescription = `Your ride from ${values.pickupLocation}`;
-      if (values.pickupDoorOrFlat) rideDescription += ` (${values.pickupDoorOrFlat})`;
-      if (validStopsData.length > 0) {
-          rideDescription += ` via ${validStopsData.map(s => `${s.address}${s.doorOrFlat ? ` (${s.doorOrFlat})` : ''}`).join(' via ')}`;
+      toast({ 
+        title: "Booking Confirmed!", 
+        description: `Ride ID: ${result.bookingId}. Your driver will be assigned shortly.`, 
+        variant: "default", 
+        duration: 7000 
+      });
+      
+      if (waitTimeForNotification !== null && waitTimeForNotification > 0 && bookingPayload.bookingType !== 'scheduled') {
+        toast({
+          title: "Driver Dispatched!",
+          description: `Estimated arrival at ${pickupForNotification} in ${waitTimeForNotification} minutes.`,
+          variant: "default",
+          duration: 7000,
+        });
+        setDriverArrivalInfo({
+          waitTime: waitTimeForNotification,
+          pickupLocation: pickupForNotification,
+          bookingTime: Date.now(), 
+        });
       }
-      rideDescription += ` to ${values.dropoffLocation}`;
-      if (values.dropoffDoorOrFlat) rideDescription += ` (${values.dropoffDoorOrFlat})`;
 
-      rideDescription += ` is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Payment: ${values.paymentMethod.charAt(0).toUpperCase() + values.paymentMethod.slice(1)}. Estimated fare: £${fareEstimate}${isSurgeActive ? ` (Surge Applied - Multiplier: ${currentSurgeMultiplier}x)` : ''}.`;
-      if (values.bookingType === 'scheduled' && scheduledPickupAt) {
-        rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
-      }
-      if (values.promoCode && values.promoCode.trim() !== "") {
-        rideDescription += ` Promo: ${values.promoCode}.`;
-      }
-      if (values.driverNotes && values.driverNotes.trim() !== "") {
-        rideDescription += ` Notes: "${values.driverNotes}".`;
-      }
-      rideDescription += ` A driver will be assigned.`;
 
-
-      toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 10000 });
       setShowConfirmationDialog(false); 
       form.reset();
       setPickupInputValue("");
