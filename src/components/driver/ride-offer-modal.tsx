@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info } from "lucide-react";
+import { Car, Users, DollarSign, MapPin, Info, Briefcase } from "lucide-react"; // Added Briefcase
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,7 @@ export interface RideOffer {
   passengerCount: number;
   passengerName?: string;
   notes?: string;
+  requiredOperatorId?: string; // New field for operator-specific offers
 }
 
 interface RideOfferModalProps {
@@ -174,6 +175,13 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
             </div>
             <div className="space-y-2.5"> 
+              {rideDetails.requiredOperatorId && (
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-lg text-center">
+                  <p className="text-sm font-semibold text-purple-700 dark:text-purple-200 flex items-center justify-center gap-1">
+                    <Briefcase className="w-4 h-4"/> This ride is restricted to Operator: {rideDetails.requiredOperatorId}
+                  </p>
+                </div>
+              )}
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
                 <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
                   <MapPin className="w-4 h-4 text-primary shrink-0 mt-1" /> 
@@ -218,3 +226,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
