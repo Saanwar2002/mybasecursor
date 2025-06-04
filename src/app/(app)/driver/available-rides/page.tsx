@@ -27,17 +27,17 @@ interface RideRequest {
   passengerAvatar: string;
   pickupLocation: string;
   dropoffLocation: string;
-  estimatedTime: string; 
+  estimatedTime: string;
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'completed' | 'cancelled_by_driver';
   pickupCoords?: { lat: number; lng: number };
   dropoffCoords?: { lat: number; lng: number };
-  distanceMiles?: number; 
+  distanceMiles?: number;
   passengerCount: number;
   passengerPhone?: string;
   passengerRating?: number;
-  notifiedPassengerArrivalTimestamp?: string | null; 
-  passengerAcknowledgedArrivalTimestamp?: string | null; 
+  notifiedPassengerArrivalTimestamp?: string | null;
+  passengerAcknowledgedArrivalTimestamp?: string | null;
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -142,8 +142,8 @@ export default function AvailableRidesPage() {
   const handleDeclineOffer = (rideId: string) => {
     console.log("Offer declined:", rideId);
      const declinedRequest = rideRequests.find(r => r.id === rideId || rideId === 'mock-offer-123');
-    if (declinedRequest && declinedRequest.status !== 'pending') { 
-        handleRideAction(declinedRequest.id, 'decline'); 
+    if (declinedRequest && declinedRequest.status !== 'pending') {
+        handleRideAction(declinedRequest.id, 'decline');
     } else {
          toast({title: "Mock Ride Declined", description: `Declined offer for ride ID ${rideId}.`});
     }
@@ -165,31 +165,31 @@ export default function AvailableRidesPage() {
     let toastTitle = "";
 
     const currentRide = rideRequests.find(r => r.id === rideId);
-    if (!currentRide && rideId !== 'mock-offer-123') { 
+    if (!currentRide && rideId !== 'mock-offer-123') {
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
         toast({ title: "Error", description: `Ride with ID ${rideId} not found locally.`, variant: "destructive" });
         return;
     }
-    
+
     let actualRideToUpdate = currentRide;
     if (rideId === 'mock-offer-123' && actionType === 'accept') {
         const firstPending = rideRequests.find(r => r.status === 'pending');
         if (firstPending) {
             actualRideToUpdate = firstPending;
-            rideId = firstPending.id; 
+            rideId = firstPending.id;
         } else {
             toast({ title: "No Pending Rides", description: "No pending rides available to accept for this mock offer.", variant: "default"});
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
             return;
         }
     }
-    
+
     const rideDisplayName = actualRideToUpdate?.passengerName || "the passenger";
 
     switch(actionType) {
         case 'accept':
-            newStatus = 'driver_assigned'; 
-            apiAction = undefined; 
+            newStatus = 'driver_assigned';
+            apiAction = undefined;
             toastTitle = "Ride Accepted";
             toastMessage = `Ride request from ${rideDisplayName} accepted.`;
             setRideRequests(prev => prev.map(r => {
@@ -202,10 +202,10 @@ export default function AvailableRidesPage() {
                 toastTitle = "Offer Declined";
                 toastMessage = `Ride offer for ${rideDisplayName} declined.`;
                 if (rideId !== 'mock-offer-123' && currentRide?.status === 'pending') {
-                    setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
+                    setRideRequests(prev => prev.filter(r => r.id !== rideId));
                 }
             } else {
-                newStatus = 'declined'; 
+                newStatus = 'declined';
                 apiAction = undefined;
                 toastTitle = "Ride Declined";
                 toastMessage = `Ride request for ${rideDisplayName} declined.`;
@@ -232,19 +232,19 @@ export default function AvailableRidesPage() {
             break;
         case 'cancel_active':
             newStatus = 'cancelled_by_driver';
-            apiAction = undefined; 
+            apiAction = undefined;
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
-            setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
+            setRideRequests(prev => prev.filter(r => r.id !== rideId));
             break;
     }
-    
-    if ((newStatus || apiAction) && rideId !== 'mock-offer-123') { 
+
+    if ((newStatus || apiAction) && rideId !== 'mock-offer-123') {
         try {
             const payload: any = {};
             if (apiAction) {
                  payload.action = apiAction;
-            } else if (newStatus) { 
+            } else if (newStatus) {
                 payload.status = newStatus;
                 if (actionType === 'accept' && driverUser) {
                     payload.driverId = driverUser.id;
@@ -270,15 +270,15 @@ export default function AvailableRidesPage() {
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
                     console.warn(`API response for ride ${rideId} (status ${response.status}) not valid JSON or error parsing it:`, parseError);
-                    console.log("Raw error response body:", responseText); 
+                    console.log("Raw error response body:", responseText);
                     apiErrorMessage = `Status: ${response.status}. Body: ${responseText.substring(0,200)}`;
                 }
                 throw new Error(apiErrorMessage);
             }
 
              const updatedBookingData = await response.json();
-             const updatedBooking = updatedBookingData.booking; 
-            
+             const updatedBooking = updatedBookingData.booking;
+
             setRideRequests(prevRequests =>
                 prevRequests.map(req => {
                     if (req.id === rideId) {
@@ -306,7 +306,7 @@ export default function AvailableRidesPage() {
         toast({ title: toastTitle, description: toastMessage });
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
     } else {
-        if (actionType !== 'decline' && actionType !== 'cancel_active') { 
+        if (actionType !== 'decline' && actionType !== 'cancel_active') {
              setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     }
@@ -344,15 +344,15 @@ export default function AvailableRidesPage() {
   const getMapMarkersForActiveRide = () => {
     const markers = [];
      if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
-        markers.push({ 
-            position: driverLocation, 
+        markers.push({
+            position: driverLocation,
             title: "Your Current Location",
             iconUrl: blueDotSvgDataUrl,
             iconScaledSize: { width: 24, height: 24 }
         });
     }
     if (!activeRide) return markers;
-    
+
     if (activeRide.pickupCoords) {
       markers.push({
         position: activeRide.pickupCoords,
@@ -416,8 +416,8 @@ export default function AvailableRidesPage() {
             </div>
             <p className="flex items-center gap-1.5 text-md"><MapPin className="w-5 h-5 text-muted-foreground" /> <strong>From:</strong> {activeRide.pickupLocation}</p>
             <p className="flex items-center gap-1.5 text-md"><Building className="w-5 h-5 text-muted-foreground" /> <strong>To:</strong> {activeRide.dropoffLocation}</p>
-            
-            {activeRide.status === 'driver_assigned' && 
+
+            {activeRide.status === 'driver_assigned' &&
                 <p className="flex items-center gap-1.5 text-md"><Clock className="w-5 h-5 text-muted-foreground" /> <strong>Est. Time to Pickup:</strong> {activeRide.estimatedTime}</p>
             }
             {activeRide.distanceMiles && (
@@ -445,7 +445,7 @@ export default function AvailableRidesPage() {
                     zoom={15}
                     markers={getMapMarkersForActiveRide()}
                     className="w-full h-full"
-                    disableDefaultUI={true} 
+                    disableDefaultUI={true}
                     fitBoundsToMarkers={true}
                  />
               </div>
@@ -500,8 +500,8 @@ export default function AvailableRidesPage() {
 
   const mapMarkers = [];
   if (isDriverOnline && driverLocation && blueDotSvgDataUrl) {
-    mapMarkers.push({ 
-        position: driverLocation, 
+    mapMarkers.push({
+        position: driverLocation,
         title: "Your Current Location",
         iconUrl: blueDotSvgDataUrl,
         iconScaledSize: { width: 24, height: 24 }
@@ -511,7 +511,7 @@ export default function AvailableRidesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 w-full relative">
+      <div className="w-full relative h-[60vh]"> {/* Map takes roughly 60% of height */}
         <GoogleMapDisplay
             center={driverLocation}
             zoom={15}
@@ -520,8 +520,8 @@ export default function AvailableRidesPage() {
             disableDefaultUI={true}
         />
       </div>
-      <Card className="h-32 w-full rounded-t-lg shadow-xl flex flex-col items-center p-3 border-t-4 border-primary">
-        <CardHeader className="p-1 text-center">
+      <Card className="w-full rounded-t-lg shadow-xl flex flex-col items-center p-3 border-t-4 border-primary h-[40vh]"> {/* Bottom card takes ~40% */}
+        <CardHeader className="p-3 text-center"> {/* Increased padding */}
           <CardTitle className={cn("text-2xl font-headline", isDriverOnline ? "text-green-600" : "text-red-600")}>
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
@@ -531,33 +531,33 @@ export default function AvailableRidesPage() {
             </p>
           )}
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center space-y-1 w-full flex-grow">
+        <CardContent className="flex flex-col items-center justify-center space-y-3 w-full flex-grow p-3"> {/* Increased padding and space-y */}
           {isDriverOnline ? (
             <>
-              <Loader2 className="h-8 w-8 text-primary animate-spin" />
-              <p className="text-muted-foreground text-sm text-center">Actively searching for ride offers for you...</p>
+              <Loader2 className="h-10 w-10 text-primary animate-spin" /> {/* Larger loader */}
+              <p className="text-muted-foreground text-base text-center">Actively searching for ride offers for you...</p> {/* Larger text */}
             </>
           ) : (
-            <p className="text-muted-foreground text-sm text-center">You are currently offline. Toggle on to receive ride offers.</p>
+            <p className="text-muted-foreground text-base text-center">You are currently offline. Toggle on to receive ride offers.</p> {/* Larger text */}
           )}
-           <div className="flex items-center space-x-2 pt-1">
-            <Switch 
-              id="online-status-toggle" 
-              checked={isDriverOnline} 
-              onCheckedChange={setIsDriverOnline} 
+           <div className="flex items-center space-x-2 pt-3"> {/* Increased top padding */}
+            <Switch
+              id="online-status-toggle"
+              checked={isDriverOnline}
+              onCheckedChange={setIsDriverOnline}
               aria-label="Driver online status"
               className={cn(
                 "data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
               )}
             />
-            <Label 
-                htmlFor="online-status-toggle" 
-                className={cn("text-lg font-medium", isDriverOnline ? "text-green-600" : "text-red-500")}
+            <Label
+                htmlFor="online-status-toggle"
+                className={cn("text-xl font-medium", isDriverOnline ? "text-green-600" : "text-red-500")} // Larger label
             >
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
-          <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-1 text-xs">
+          <Button onClick={handleSimulateOffer} variant="outline" size="sm" className="mt-4 text-sm"> {/* Increased margin and text size */}
             Simulate Incoming Ride Offer (Test)
           </Button>
         </CardContent>
@@ -573,4 +573,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
