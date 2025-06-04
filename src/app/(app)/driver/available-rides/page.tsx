@@ -83,6 +83,9 @@ export default function AvailableRidesPage() {
 
   const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
+  
+  const [passengerRatingByDriver, setPassengerRatingByDriver] = useState(0);
+  const [isPassengerRatingSubmitted, setIsPassengerRatingSubmitted] = useState(false);
 
   const activeRide = useMemo(() => rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress', 'completed'].includes(r.status)), [rideRequests]);
 
@@ -160,7 +163,7 @@ export default function AvailableRidesPage() {
         dropoffLocation: "Town Centre Cinema, King Street, Huddersfield HD1 2QR",
         estimatedTime: "12 mins",
         fareEstimate: 7.50,
-        status: 'driver_assigned', // Start with this status
+        status: 'driver_assigned', 
         pickupCoords: { lat: 53.6570, lng: -1.8195 },
         dropoffCoords: { lat: 53.6465, lng: -1.7830 },
         distanceMiles: 3.5,
@@ -226,7 +229,6 @@ export default function AvailableRidesPage() {
             newStatus = 'driver_assigned';
             toastTitle = "Ride Accepted";
             toastMessage = `Ride request from ${rideDisplayName} accepted.`;
-            // No API call for mock, just local state update
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, passengerAvatar: r.passengerAvatar || 'https://placehold.co/40x40.png?text=P' } : r));
             break;
         case 'decline':
@@ -262,13 +264,12 @@ export default function AvailableRidesPage() {
     }
 
     if (newStatus && rideId !== 'mock-offer-123' && !rideId.startsWith('active-mock-')) {
-        // This block handles real API calls for non-mock rides
         try {
             const payload: any = {};
             if (apiAction) {
                  payload.action = apiAction;
             } else {
-                 payload.status = newStatus; // For direct status changes like 'accept'
+                 payload.status = newStatus; 
             }
             if ((actionType === 'accept') && driverUser) {
                 payload.driverId = driverUser.id;
@@ -300,7 +301,7 @@ export default function AvailableRidesPage() {
                 } catch (readError) {
                      descriptiveError += ` Could not read server response body. Server status: ${response.status} ${response.statusText}.`;
                 }
-                console.error("handleRideAction API error response details:", {status: response.status, statusText: response.statusText, headers: Object.fromEntries(response.headers.entries())}, "Constructed error:", descriptiveError);
+                console.error("handleRideAction API error response:", response, "Constructed error:", descriptiveError);
                 throw new Error(descriptiveError);
             }
 
@@ -322,22 +323,16 @@ export default function AvailableRidesPage() {
             );
             toast({ title: toastTitle, description: toastMessage });
 
-            if (newStatus === 'completed' || newStatus === 'cancelled_by_driver') {
-                // For real rides, we might want to remove them after completion/cancellation or move to a history
-                // For now, let's just keep it with the updated status.
-            }
-
         } catch (error) {
              console.error(`Error in handleRideAction for ride ${rideId}, action ${actionType}:`, error);
              toast({ title: "Action Failed", description: `Could not update ride: ${error instanceof Error ? error.message : "Unknown error"}`, variant: "destructive"});
-             if (actionType === 'accept') { // Revert optimistic UI update on real accept failure
+             if (actionType === 'accept') { 
                 setRideRequests(prev => prev.map(r => r.id === rideId ? {...r, status: 'pending'} : r));
              }
         } finally {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     } else if (rideId.startsWith('active-mock-') && newStatus) {
-        // This block handles mock rides (those starting with 'active-mock-')
         setRideRequests(prev => prev.map(r => {
           if (r.id === rideId) {
             const updatedMockRide: RideRequest = { ...r, status: newStatus };
@@ -345,7 +340,7 @@ export default function AvailableRidesPage() {
                 updatedMockRide.notifiedPassengerArrivalTimestamp = new Date().toISOString();
             }
             if (newStatus === 'In Progress' && actionType === 'start_ride' && r.status === 'arrived_at_pickup'){
-                if (r.notifiedPassengerArrivalTimestamp) { // Only acknowledge if notified
+                if (r.notifiedPassengerArrivalTimestamp) { 
                     updatedMockRide.passengerAcknowledgedArrivalTimestamp = new Date().toISOString();
                 }
                 updatedMockRide.rideStartedAt = new Date().toISOString();
@@ -359,9 +354,7 @@ export default function AvailableRidesPage() {
         }));
         toast({ title: toastTitle, description: toastMessage });
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
-        // For mock completed/cancelled, we won't remove it immediately to allow viewing the "Completed" screen
     } else {
-       // If neither real nor mock ride conditions met, or no newStatus (e.g. for 'decline' on non-mock)
        setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
   };
@@ -441,7 +434,7 @@ export default function AvailableRidesPage() {
 
     return (
       <div className="flex flex-col h-full">
-        {!showCompletedStatus && (
+        {(!showCompletedStatus && (
              <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
                 <GoogleMapDisplay
                     center={getMapCenterForActiveRide()}
@@ -452,10 +445,10 @@ export default function AvailableRidesPage() {
                     fitBoundsToMarkers={true}
                 />
             </div>
-        )}
+        ))}
         <Card className={cn(
             "flex-1 flex flex-col rounded-t-xl z-10 shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] border-t-4 border-primary bg-card overflow-hidden",
-            showCompletedStatus ? "mt-0 rounded-b-xl" : "-mt-3" // Full height if completed
+            showCompletedStatus ? "mt-0 rounded-b-xl" : "-mt-3" 
         )}>
            <CardContent className="p-3 space-y-2 flex-1 overflow-y-auto">
             {showDriverAssignedStatus && (
@@ -515,31 +508,31 @@ export default function AvailableRidesPage() {
             </div>
 
             <div className="space-y-1 text-sm py-1">
-               <p className={cn(
+                <p className={cn(
                     "flex items-start gap-1.5",
-                    showInProgressStatus && "text-muted-foreground opacity-60"
+                    (showInProgressStatus || showCompletedStatus) && "text-muted-foreground opacity-60"
                   )}>
                   <MapPin className={cn(
                       "w-4 h-4 mt-0.5 shrink-0",
-                      showInProgressStatus ? "text-muted-foreground" : "text-green-500"
+                      (showInProgressStatus || showCompletedStatus) ? "text-muted-foreground" : "text-green-500"
                     )} />
                   <span><strong>Pickup:</strong> {activeRide.pickupLocation}</span>
                 </p>
               <p className={cn(
                   "flex items-start gap-1.5",
-                  showDriverAssignedStatus && "opacity-60"
+                  (showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus)) && "text-muted-foreground opacity-60"
                 )}>
                 <MapPin className={cn(
                     "w-4 h-4 mt-0.5 shrink-0",
-                    showDriverAssignedStatus ? "text-muted-foreground" : "text-orange-500"
+                    (showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus)) ? "text-muted-foreground" : "text-orange-500"
                   )} />
-                <span className={cn(showDriverAssignedStatus && "text-muted-foreground")}>
+                <span className={cn((showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus)) && "text-muted-foreground")}>
                   <strong>Dropoff:</strong> {activeRide.dropoffLocation}
                 </span>
               </p>
               {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => (
-                <p key={index} className={cn("flex items-start gap-1.5 pl-5", (showDriverAssignedStatus || showInProgressStatus) && "text-muted-foreground opacity-60")}>
-                  <Route className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus || showInProgressStatus) ? "text-muted-foreground" : "text-muted-foreground")} />
+                <p key={index} className={cn("flex items-start gap-1.5 pl-5", (showDriverAssignedStatus || showInProgressStatus || showCompletedStatus) && "text-muted-foreground opacity-60")}>
+                  <Route className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus || showInProgressStatus || showCompletedStatus) ? "text-muted-foreground" : "text-muted-foreground")} />
                   <strong>Stop {index + 1}:</strong> {stop.address}
                 </p>
               ))}
@@ -555,7 +548,7 @@ export default function AvailableRidesPage() {
               </div>
             )}
 
-             {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+            {showArrivedAtPickupStatus && !activeRide.passengerAcknowledgedArrivalTimestamp && (
                 <Alert variant="default" className="bg-blue-100 dark:bg-blue-700/30 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-100 my-1">
                     <BellRing className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Waiting for Passenger</ShadAlertTitle>
@@ -564,13 +557,68 @@ export default function AvailableRidesPage() {
                     </ShadAlertDescription>
                  </Alert>
             )}
-            {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
+            {showArrivedAtPickupStatus && activeRide.passengerAcknowledgedArrivalTimestamp && (
                  <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-100 my-1">
                     <CheckCheck className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Passenger Acknowledged</ShadAlertTitle>
                     <ShadAlertDescription className="text-current">Passenger has confirmed your arrival and is on their way.</ShadAlertDescription>
                  </Alert>
             )}
+
+            {showCompletedStatus && (
+              <>
+                {!isPassengerRatingSubmitted ? (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-sm font-medium text-center mb-2">How was your experience with {activeRide.passengerName}?</p>
+                    <div className="flex justify-center space-x-1 mb-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            "w-7 h-7 cursor-pointer",
+                            i < passengerRatingByDriver ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"
+                          )}
+                          onClick={() => {
+                            setPassengerRatingByDriver(i + 1);
+                          }}
+                        />
+                      ))}
+                    </div>
+                    {passengerRatingByDriver > 0 && (
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full mt-1"
+                            onClick={() => {
+                                toast({ title: "Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${passengerRatingByDriver} stars.` });
+                                setIsPassengerRatingSubmitted(true);
+                            }}
+                        >
+                            Submit Rating for Passenger
+                        </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-4 pt-4 border-t text-center">
+                      <p className="text-sm text-green-600 flex items-center justify-center gap-1">
+                        <CheckCircle className="w-4 h-4"/> You rated {activeRide.passengerName} {passengerRatingByDriver} stars.
+                      </p>
+                  </div>
+                )}
+
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-sm font-medium text-center text-muted-foreground mb-1">
+                    Remind your passenger to rate their ride!
+                  </p>
+                  <div className="flex justify-center space-x-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 text-gray-300" />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
           </CardContent>
 
           <CardFooter className="p-3 border-t grid gap-2">
@@ -616,7 +664,11 @@ export default function AvailableRidesPage() {
             {showCompletedStatus && (
                 <Button
                     className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto"
-                    onClick={() => setRideRequests([])} // Clear the active ride from the list
+                    onClick={() => {
+                        setRideRequests([]);
+                        setPassengerRatingByDriver(0);
+                        setIsPassengerRatingSubmitted(false);
+                    }} 
                     disabled={actionLoading[activeRide.id]}
                 >
                     {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />}
@@ -632,37 +684,36 @@ export default function AvailableRidesPage() {
                 setIsCancelSwitchOn(false);
             }
         }}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. The passenger will be notified.
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => {setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel>
-                <AlertDialogAction
-                    onClick={() => {
-                    if (activeRide) {
-                        handleRideAction(activeRide.id, 'cancel_active');
-                    }
-                    setIsCancelSwitchOn(false);
-                    setShowCancelConfirmationDialog(false);
-                    }}
-                    disabled={activeRide ? actionLoading[activeRide.id] : false}
-                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                >
-                    {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Confirm Cancel
-                </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. The passenger will be notified.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel>
+            <AlertDialogAction
+                onClick={() => {
+                if (activeRide) {
+                    handleRideAction(activeRide.id, 'cancel_active');
+                }
+                setIsCancelSwitchOn(false);
+                setShowCancelConfirmationDialog(false);
+                }}
+                disabled={activeRide ? actionLoading[activeRide.id] : false}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+                {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Confirm Cancel
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
         </AlertDialog>
       </div>
     );
   }
 
-  // UI for when no active ride (awaiting offers)
   return (
     <div className="flex flex-col h-full space-y-2">
         <div className="h-[400px] w-full rounded-xl overflow-hidden shadow-lg border">
@@ -778,4 +829,3 @@ export default function AvailableRidesPage() {
   );
 }
     
-
