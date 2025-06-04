@@ -158,8 +158,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </DialogHeader>
         
         <ScrollArea className="flex-1"> 
-          <div className="px-4 pt-2 pb-4"> {/* Simplified: No longer flex flex-col h-full */}
-            <div className="h-44 sm:h-52 w-full mb-3 rounded-md overflow-hidden border shrink-0">
+          <div className="px-4 pt-2 pb-4">
+            <div className="h-36 sm:h-48 w-full mb-3 rounded-md overflow-hidden border shrink-0">
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
                     center={mapCenter}
@@ -173,7 +173,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <Skeleton className="w-full h-full rounded-md" />
                 )}
             </div>
-            {/* This div now just flows, ScrollArea will handle its overflow */}
             <div className="space-y-2.5"> 
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
                 <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
@@ -196,7 +195,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )}
               {rideDetails.notes && (
                  <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md">
-                    <p className="text-base md:text-lg font-semibold text-accent-foreground/90">Note:</p>
+                    <p className="text-sm md:text-base font-semibold text-accent-foreground/90">Note:</p>
                     <p className="text-xs md:text-sm text-muted-foreground">{rideDetails.notes}</p>
                  </div>
               )}
