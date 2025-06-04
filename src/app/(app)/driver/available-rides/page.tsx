@@ -72,45 +72,45 @@ export default function AvailableRidesPage() {
   const [progressValue, setProgressValue] = useState(0);
 
 
-  useEffect(() => {
-    if (isDriverOnline && navigator.geolocation) {
-      setGeolocationError(null);
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          setDriverLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-          setGeolocationError(null);
-        },
-        (error) => {
-          console.warn("Error watching position:", error);
-          let message = "Could not get your location.";
-          if (error.code === 1) message = "Location permission denied by user.";
-          else if (error.code === 2) message = "Location information unavailable.";
-          else if (error.code === 3) message = "Location request timed out.";
-          setGeolocationError(message);
-          toast({ title: "Location Error", description: message, variant: "destructive" });
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    } else {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-      if (!navigator.geolocation && isDriverOnline) {
-        setGeolocationError("Geolocation is not supported by this browser.");
-        toast({ title: "Location Error", description: "Geolocation is not supported or enabled in your browser.", variant: "destructive" });
-      }
-    }
+  // useEffect(() => {
+  //   if (isDriverOnline && navigator.geolocation) {
+  //     setGeolocationError(null);
+  //     watchIdRef.current = navigator.geolocation.watchPosition(
+  //       (position) => {
+  //         setDriverLocation({
+  //           lat: position.coords.latitude,
+  //           lng: position.coords.longitude,
+  //         });
+  //         setGeolocationError(null);
+  //       },
+  //       (error) => {
+  //         console.warn("Error watching position:", error);
+  //         let message = "Could not get your location.";
+  //         if (error.code === 1) message = "Location permission denied by user.";
+  //         else if (error.code === 2) message = "Location information unavailable.";
+  //         else if (error.code === 3) message = "Location request timed out.";
+  //         setGeolocationError(message);
+  //         toast({ title: "Location Error", description: message, variant: "destructive" });
+  //       },
+  //       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  //     );
+  //   } else {
+  //     if (watchIdRef.current !== null) {
+  //       navigator.geolocation.clearWatch(watchIdRef.current);
+  //       watchIdRef.current = null;
+  //     }
+  //     if (!navigator.geolocation && isDriverOnline) {
+  //       setGeolocationError("Geolocation is not supported by this browser.");
+  //       toast({ title: "Location Error", description: "Geolocation is not supported or enabled in your browser.", variant: "destructive" });
+  //     }
+  //   }
 
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
-  }, [isDriverOnline, toast]);
+  //   return () => {
+  //     if (watchIdRef.current !== null) {
+  //       navigator.geolocation.clearWatch(watchIdRef.current);
+  //     }
+  //   };
+  // }, [isDriverOnline, toast]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | undefined;
@@ -435,13 +435,14 @@ export default function AvailableRidesPage() {
   }
 
 
-  if (activeRide) {
-     return <p>Active Ride Test</p>;
-  }
+  // if (activeRide) {
+  //    return <p>Active Ride Test</p>;
+  // }
 
   return <p>No Active Ride Test</p>;
 }
     
 
     
+
 
