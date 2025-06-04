@@ -186,12 +186,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-lg md:text-xl font-semibold">
-                <p className="flex items-center gap-1"><DollarSign className="w-5 h-5 text-muted-foreground shrink-0" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
-                <p className="flex items-center gap-1"><Users className="w-5 h-5 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
+                <p className="flex items-center gap-1.5"><DollarSign className="w-5 h-5 text-muted-foreground shrink-0" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
+                <p className="flex items-center gap-1.5"><Users className="w-5 h-5 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
               </div>
 
               {rideDetails.passengerName && (
-                <p className="text-lg md:text-xl font-semibold flex items-center gap-1"><Info className="inline w-5 h-5 mr-0.5 text-muted-foreground shrink-0" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
+                <p className="text-lg md:text-xl font-semibold flex items-center gap-1.5"><Info className="inline w-5 h-5 mr-0.5 text-muted-foreground shrink-0" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
               )}
               {rideDetails.notes && (
                  <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md">
@@ -203,11 +203,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </ScrollArea>
 
-        <div className="px-4 py-2.5 space-y-2 border-t border-border shrink-0">
+        <div className="px-4 py-1.5 space-y-1 border-t border-border shrink-0"> {/* Reduced py-2.5 to py-1.5 and space-y-2 to space-y-1 */}
             <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} className="h-2" />
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 p-3 border-t border-border shrink-0">
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0"> {/* Changed p-3 to px-3 pt-2 pb-3 */}
           <Button variant="destructive" onClick={handleDecline} size="default" className="py-2 h-auto">
             Decline
           </Button>
@@ -219,4 +219,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
