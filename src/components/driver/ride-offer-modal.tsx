@@ -145,19 +145,19 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col max-h-[calc(100vh-4rem)] md:max-h-[85vh]">
+      <DialogContent className="sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col max-h-[calc(100vh-4rem)] md:max-h-[90vh]">
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
-          <DialogTitle className="text-2xl font-headline text-primary flex items-center gap-2">
-            <Car className="w-7 h-7" /> New Ride Offer!
+          <DialogTitle className="text-xl md:text-2xl font-headline text-primary flex items-center gap-2">
+            <Car className="w-6 md:w-7 h-6 md:h-7" /> New Ride Offer!
           </DialogTitle>
-          <DialogDescription className="text-base">
+          <DialogDescription className="text-sm md:text-base">
             Review details and respond quickly.
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="flex-1"> {/* Make this area scrollable and take up remaining space */}
-          <div className="p-4"> {/* Inner padding for scrollable content */}
-            <div className="h-48 sm:h-56 w-full mb-4"> {/* Map container */}
+        <ScrollArea className="flex-1"> 
+          <div className="p-4"> 
+            <div className="h-48 sm:h-60 w-full mb-4"> 
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
                     center={mapCenter}
@@ -171,45 +171,45 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <Skeleton className="w-full h-full rounded-md" />
                 )}
             </div>
-            <div className="space-y-3"> {/* Details section */}
+            <div className="space-y-3"> 
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
-                <p className="flex items-center gap-2 mb-1">
+                <p className="flex items-center gap-2 mb-1 text-sm md:text-base">
                   <MapPin className="w-5 h-5 text-primary" /> 
                   <strong>Pickup:</strong> {rideDetails.pickupLocation}
                 </p>
-                <p className="flex items-center gap-2">
+                <p className="flex items-center gap-2 text-sm md:text-base">
                   <MapPin className="w-5 h-5 text-accent" /> 
                   <strong>Dropoff:</strong> {rideDetails.dropoffLocation}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-3 text-xs md:text-sm">
                 <p className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
                 <p className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
               </div>
 
               {rideDetails.passengerName && (
-                <p className="text-sm"><Info className="inline w-4 h-4 mr-1 text-muted-foreground" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
+                <p className="text-xs md:text-sm"><Info className="inline w-4 h-4 mr-1 text-muted-foreground" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
               )}
               {rideDetails.notes && (
                  <div className="border-l-4 border-accent pl-3 py-1 bg-accent/10">
-                    <p className="text-sm font-semibold">Note:</p>
-                    <p className="text-sm text-muted-foreground">{rideDetails.notes}</p>
+                    <p className="text-xs md:text-sm font-semibold">Note:</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">{rideDetails.notes}</p>
                  </div>
               )}
             </div>
           </div>
         </ScrollArea>
 
-        <div className="px-4 py-3 space-y-2 border-t border-border shrink-0"> {/* Progress Bar section */}
+        <div className="px-4 py-3 space-y-2 border-t border-border shrink-0"> 
             <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} className="h-2" />
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-3 sm:gap-4 p-4 border-t border-border shrink-0">
-          <Button variant="destructive" onClick={handleDecline} className="text-lg py-3 h-auto">
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 p-3 border-t border-border shrink-0">
+          <Button variant="destructive" onClick={handleDecline} size="default" className="py-2 text-sm">
             Decline
           </Button>
-          <Button variant="default" onClick={handleAccept} className="bg-green-600 hover:bg-green-700 text-white text-lg py-3 h-auto">
+          <Button variant="default" onClick={handleAccept} size="default" className="bg-green-600 hover:bg-green-700 text-white py-2 text-sm">
             Accept Ride
           </Button>
         </DialogFooter>
