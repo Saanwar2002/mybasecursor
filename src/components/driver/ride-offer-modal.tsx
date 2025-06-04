@@ -148,7 +148,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       <DialogContent 
         className={cn(
           "sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col",
-          "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)]" 
+          "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] md:h-[calc(100vh-4rem)]" 
         )}
       >
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
@@ -203,11 +203,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </ScrollArea>
 
-        <div className="px-4 py-1.5 space-y-1 border-t border-border shrink-0"> {/* Reduced py-2.5 to py-1.5 and space-y-2 to space-y-1 */}
+        <div className="px-4 py-1 space-y-1 border-t border-border shrink-0">
             <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} className="h-2" />
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0"> {/* Changed p-3 to px-3 pt-2 pb-3 */}
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0">
           <Button variant="destructive" onClick={handleDecline} size="default" className="py-2 h-auto">
             Decline
           </Button>
