@@ -1,3 +1,4 @@
+
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,26 +6,44 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings, Bell, Palette, Lock, HelpCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false); // Local state for demo
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('theme');
+      // Default to OS preference if no theme saved in localStorage
+      if (savedMode === null) {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      return savedMode === 'dark';
+    }
+    return false; // Fallback for SSR or if window is not defined (should not happen in client component)
+  });
   const [language, setLanguage] = useState("en");
 
+  // Effect to apply theme and save to localStorage when darkMode state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+    }
+  }, [darkMode]);
+
   const handleSaveChanges = () => {
-    // In a real app, save these settings to backend / user preferences
+    // Theme is already applied by useEffect. This button can confirm or save other settings.
     toast({
-      title: "Settings Saved",
+      title: "Settings Confirmed",
       description: "Your preferences have been updated.",
     });
-    if (darkMode) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
   };
 
   return (
