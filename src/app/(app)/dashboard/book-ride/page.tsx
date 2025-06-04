@@ -31,7 +31,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
@@ -1890,128 +1890,128 @@ const handleProceedToConfirmation = async () => {
                   </Button>
 
                   <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="sm:max-w-md grid grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh]">
                       <DialogHeader>
                         <DialogTitle className="text-2xl font-headline">Confirm Your Booking</DialogTitle>
                         <DialogDescription>
                           Please review your ride details and confirm payment.
                         </DialogDescription>
                       </DialogHeader>
-                      
-                      <div className="space-y-4 py-4">
-                        <Card className="w-full text-center shadow-md">
-                          <CardHeader>
-                            <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
-                              <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            {anyFetchingDetails && pickupCoords ? (
-                              <div className="flex flex-col items-center justify-center space-y-2">
-                                  <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
-                                  <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
-                              </div>
-                            ) : fareEstimate !== null ? (
-                              <>
-                                <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
-                                {isSurgeActive && (
-                                  <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
-                                    <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
-                                  </p>
-                                )}
-                                {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
-                                {!isOperatorSurgeEnabled && <p className="text-xs text-muted-foreground">(Surge pricing currently disabled by operator)</p>}
-                              </>
-                            ) : (
-                              <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
-                            )}
-
-                            {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
-                              <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                                <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
-                              </p>
-                            )}
-                            {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
-                              <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                                <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                              </p>
-                            )}
-                            {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
-                              <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-                                <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
-                              </p>
-                            )}
-
-                            {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
-                              <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                                <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
-                              </p>
-                            )}
-                            {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
-                              <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
-                                <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
-                              </p>
-                            )}
-
-                            <p className="text-sm text-muted-foreground mt-3">
-                              {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
-                            </p>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
-                          <CardHeader>
-                            <CardTitle className="text-xl font-headline flex items-center gap-2">
-                              <CreditCard className="w-6 h-6 text-primary" /> Payment Method
-                            </CardTitle>
-                            <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <FormField
-                              control={form.control}
-                              name="paymentMethod"
-                              render={({ field }) => (
-                                <FormItem className="space-y-3">
-                                  <FormControl>
-                                    <RadioGroup
-                                      onValueChange={field.onChange}
-                                      defaultValue={field.value}
-                                      className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                                    >
-                                      <FormItem className="flex-1">
-                                        <FormControl>
-                                          <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
-                                        </FormControl>
-                                        <Label
-                                          htmlFor="dialog-card"
-                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                        >
-                                          <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
-                                          Pay by Card
-                                        </Label>
-                                      </FormItem>
-                                      <FormItem className="flex-1">
-                                        <FormControl>
-                                          <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
-                                        </FormControl>
-                                        <Label
-                                          htmlFor="dialog-cash"
-                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                        >
-                                          <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
-                                          Pay with Cash
-                                        </Label>
-                                      </FormItem>
-                                    </RadioGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
+                      <ScrollArea className="h-full">
+                        <div className="space-y-4 py-4 px-1">
+                          <Card className="w-full text-center shadow-md">
+                            <CardHeader>
+                              <CardTitle className="text-2xl font-headline flex items-center justify-center gap-2">
+                                <DollarSign className="w-7 h-7 text-accent" /> Fare & Time Estimates
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              {anyFetchingDetails && pickupCoords ? (
+                                <div className="flex flex-col items-center justify-center space-y-2">
+                                    <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+                                    <p className="text-xl font-bold text-muted-foreground">Calculating...</p>
+                                </div>
+                              ) : fareEstimate !== null ? (
+                                <>
+                                  <p className="text-4xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                                  {isSurgeActive && (
+                                    <p className="text-sm font-semibold text-orange-500 flex items-center justify-center gap-1">
+                                      <Zap className="w-4 h-4" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                                    </p>
+                                  )}
+                                  {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                                  {!isOperatorSurgeEnabled && <p className="text-xs text-muted-foreground">(Surge pricing currently disabled by operator)</p>}
+                                </>
+                              ) : (
+                                <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                               )}
-                            />
-                          </CardContent>
-                        </Card>
-                      </div>
-                      
+
+                              {!anyFetchingDetails && estimatedWaitTime !== null && pickupCoords && (
+                                <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                                  <Clock className="w-5 h-5 text-primary" /> Estimated Wait: ~{estimatedWaitTime} min
+                                </p>
+                              )}
+                              {anyFetchingDetails && pickupCoords && !estimatedWaitTime && (
+                                <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                                  <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                                </p>
+                              )}
+                              {!anyFetchingDetails && pickupCoords && estimatedWaitTime === null && (
+                                <p className="text-lg text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                                  <Clock className="w-5 h-5 text-primary animate-pulse" /> Estimating wait time...
+                                </p>
+                              )}
+
+                              {!anyFetchingDetails && estimatedDurationMinutes !== null && pickupCoords && dropoffCoords && (
+                                <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                                  <Route className="w-5 h-5 text-primary" /> Estimated Ride Duration: ~{estimatedDurationMinutes} min
+                                </p>
+                              )}
+                              {anyFetchingDetails && pickupCoords && dropoffCoords && !estimatedDurationMinutes && (
+                                <p className="text-lg text-muted-foreground mt-2 flex items-center justify-center gap-1.5">
+                                  <Route className="w-5 h-5 text-primary animate-pulse" /> Estimating ride duration...
+                                </p>
+                              )}
+
+                              <p className="text-sm text-muted-foreground mt-3">
+                                {(anyFetchingDetails || fareEstimate !== null || (pickupCoords && estimatedWaitTime !== null)) ? "Estimates may vary based on real-time conditions." : "Enter details to see your estimates here."}
+                              </p>
+                            </CardContent>
+                          </Card>
+
+                          <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                            <CardHeader>
+                              <CardTitle className="text-xl font-headline flex items-center gap-2">
+                                <CreditCard className="w-6 h-6 text-primary" /> Payment Method
+                              </CardTitle>
+                              <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <FormField
+                                control={form.control}
+                                name="paymentMethod"
+                                render={({ field }) => (
+                                  <FormItem className="space-y-3">
+                                    <FormControl>
+                                      <RadioGroup
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                                      >
+                                        <FormItem className="flex-1">
+                                          <FormControl>
+                                            <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
+                                          </FormControl>
+                                          <Label
+                                            htmlFor="dialog-card"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                          >
+                                            <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
+                                            Pay by Card
+                                          </Label>
+                                        </FormItem>
+                                        <FormItem className="flex-1">
+                                          <FormControl>
+                                            <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
+                                          </FormControl>
+                                          <Label
+                                            htmlFor="dialog-cash"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                          >
+                                            <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
+                                            Pay with Cash
+                                          </Label>
+                                        </FormItem>
+                                      </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </ScrollArea>
                       <DialogFooter>
                         <DialogClose asChild>
                           <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
