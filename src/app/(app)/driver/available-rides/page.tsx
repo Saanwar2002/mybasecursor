@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
-import { Progress } from "@/components/ui/progress"; // Import Progress component
+import { Progress } from "@/components/ui/progress";
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -115,12 +115,12 @@ export default function AvailableRidesPage() {
   useEffect(() => {
     let intervalId: NodeJS.Timeout | undefined;
     if (isDriverOnline && !geolocationError) {
-      setProgressValue(0); // Reset progress when becoming active
+      setProgressValue(0); 
       intervalId = setInterval(() => {
-        setProgressValue((prev) => (prev >= 100 ? 0 : prev + 10)); // Cycle progress
-      }, 300); // Adjust speed of "movement"
+        setProgressValue((prev) => (prev >= 100 ? 0 : prev + 10)); 
+      }, 300); 
     } else {
-      setProgressValue(0); // Reset if not online or error
+      setProgressValue(0); 
     }
     return () => {
       if (intervalId) {
@@ -419,26 +419,151 @@ export default function AvailableRidesPage() {
     });
   }
 
-  // Fallback return for when no ride is active
+
+  if (activeRide) {
+    const isAtPickup = activeRide.status === 'arrived_at_pickup';
+    const isInProgress = activeRide.status === 'in_progress';
+    const isDriverAssigned = activeRide.status === 'driver_assigned';
+
+    return (
+      <div className="flex flex-col h-full"> {/* Ensure main div takes full height */}
+        <div className="w-full relative flex-1"> {/* Map takes remaining space */}
+            <GoogleMapDisplay
+              center={getMapCenterForActiveRide()}
+              zoom={15}
+              markers={getMapMarkersForActiveRide()}
+              className="w-full h-full"
+              disableDefaultUI={true}
+              fitBoundsToMarkers={true}
+            />
+        </div>
+        <Card className="shrink-0 rounded-t-2xl -mt-4 shadow-2xl bg-card"> {/* Card does not grow, fixed height content */}
+          <CardHeader className="p-3 border-b">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                {isDriverAssigned && <><CarIcon className="w-5 h-5 text-primary" /> En Route to Pickup</>}
+                {isAtPickup && <><Building className="w-5 h-5 text-orange-500" /> At Pickup Location</>}
+                {isInProgress && <><Route className="w-5 h-5 text-green-500" /> Ride In Progress</>}
+              </CardTitle>
+              <Badge variant={activeRide.status === 'arrived_at_pickup' ? "default" : "outline"}
+                     className={cn(activeRide.status === 'arrived_at_pickup' && 'bg-orange-500 text-white')}>
+                {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </Badge>
+            </div>
+            <CardDescription className="text-xs">
+              Passenger: {activeRide.passengerName} {renderPassengerRating(activeRide.passengerRating)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 space-y-2.5">
+            <div className="space-y-1 text-sm">
+              <p className="flex items-start gap-1.5">
+                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <strong>{isDriverAssigned ? "Pickup:" : "From:"}</strong> {activeRide.pickupLocation}
+              </p>
+              <p className="flex items-start gap-1.5">
+                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <strong>Dropoff:</strong> {activeRide.dropoffLocation}
+              </p>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <p><UsersIcon className="w-4 h-4 inline mr-1 text-muted-foreground"/> {activeRide.passengerCount} Passenger(s)</p>
+              <p><DollarSign className="w-4 h-4 inline mr-0.5 text-muted-foreground"/> Fare: ~£{activeRide.fareEstimate.toFixed(2)}</p>
+            </div>
+
+            {isAtPickup && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                 <p className="text-xs text-center text-orange-600 bg-orange-100 p-1.5 rounded-md border border-orange-300">
+                    <BellRing className="inline w-3 h-3 mr-1"/>Waiting for passenger to acknowledge arrival...
+                </p>
+            )}
+            {isAtPickup && activeRide.passengerAcknowledgedArrivalTimestamp && (
+                 <p className="text-xs text-center text-green-600 bg-green-100 p-1.5 rounded-md border border-green-300">
+                    <CheckCheck className="inline w-3 h-3 mr-1"/>Passenger acknowledged. Ready to start ride.
+                </p>
+            )}
+
+
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Button variant="outline" size="sm" className="h-9" onClick={() => handleCallCustomer(activeRide.passengerPhone)}>
+                <Phone className="w-4 h-4 mr-1.5" /> Call Passenger
+              </Button>
+              <Button variant="outline" size="sm" className="h-9" onClick={() => toast({ title: "Chat Opened (Demo)" })}>
+                <MessageSquare className="w-4 h-4 mr-1.5" /> Chat
+              </Button>
+            </div>
+
+             {isDriverAssigned && (
+              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-10 mt-1.5"
+                      onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)}
+                      disabled={actionLoading[activeRide.id]}>
+                <Navigation className="w-4 h-4 mr-1.5" /> Navigate to Pickup
+              </Button>
+            )}
+          </CardContent>
+          <CardFooter className="p-3 border-t">
+            {isDriverAssigned && (
+              <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white h-10"
+                      onClick={() => handleRideAction(activeRide.id, 'notify_arrival')}
+                      disabled={actionLoading[activeRide.id]}>
+                {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <BellRing className="w-4 h-4 mr-1.5" />}
+                Arrived at Pickup
+              </Button>
+            )}
+            {isAtPickup && (
+              <Button className="w-full bg-green-600 hover:bg-green-700 text-white h-10"
+                      onClick={() => handleRideAction(activeRide.id, 'start_ride')}
+                      disabled={actionLoading[activeRide.id]}>
+                {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <CheckCircle className="w-4 h-4 mr-1.5" />}
+                Start Ride
+              </Button>
+            )}
+            {isInProgress && (
+              <div className="grid grid-cols-2 gap-2 w-full">
+                 <Button variant="destructive" className="h-10"
+                         onClick={() => handleRideAction(activeRide.id, 'cancel_active')}
+                         disabled={actionLoading[activeRide.id]}>
+                    {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <XCircle className="w-4 h-4 mr-1.5" />}
+                    Cancel Ride
+                </Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-10"
+                        onClick={() => handleRideAction(activeRide.id, 'complete_ride')}
+                        disabled={actionLoading[activeRide.id]}>
+                  {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <CheckCircle className="w-4 h-4 mr-1.5" />}
+                  Complete Ride
+                </Button>
+              </div>
+            )}
+          </CardFooter>
+        </Card>
+        <RideOfferModal
+          isOpen={isOfferModalOpen}
+          onClose={() => setIsOfferModalOpen(false)}
+          onAccept={handleAcceptOffer}
+          onDecline={handleDeclineOffer}
+          rideDetails={currentOfferDetails}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="w-full relative h-[60vh]"> {/* Map takes roughly 60% of height */}
+    <div className="relative h-full">
+      <div className="absolute inset-0 z-0">
         <GoogleMapDisplay
             center={driverLocation}
             zoom={15}
             markers={mapMarkers}
             className="w-full h-full"
             disableDefaultUI={true}
-            fitBoundsToMarkers={false} // Keep centered on driver unless markers are far
+            fitBoundsToMarkers={false} 
         />
       </div>
-      <Card className="flex-grow h-[40vh] rounded-t-2xl -mt-4 shadow-2xl bg-card flex flex-col p-2">
-        <CardHeader className="p-1 text-center border-b">
+      <Card className="absolute bottom-4 left-4 right-4 z-10 rounded-xl shadow-2xl bg-card flex flex-col p-3">
+        <CardHeader className="p-0 text-center border-b pb-2 mb-2">
           <CardTitle className="text-lg font-semibold">
             {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col items-center justify-center p-2 gap-1.5 flex-grow">
+        <CardContent className="flex flex-col items-center justify-center gap-2 p-0">
           {isDriverOnline ? (
             <>
               {geolocationError ? (
@@ -483,5 +608,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
     
