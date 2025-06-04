@@ -138,7 +138,7 @@ const PER_MINUTE_RATE = 0.10;
 const AVERAGE_SPEED_MPH = 15;
 const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
-const SURGE_MULTIPLIER_VALUE = 1.5;
+const SURGE_MULTIPLIER_VALUE = 1.5; // Example surge multiplier
 const PER_STOP_SURCHARGE = 0.50;
 
 
@@ -175,8 +175,11 @@ export default function BookRidePage() {
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
-  const [isSurgeActive, setIsSurgeActive] = useState(false);
-  const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
+  const [isSurgeActive, setIsSurgeActive] = useState(false); // For UI display if surge *is* applied
+  const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1); // Actual multiplier used
+  const [isOperatorSurgeEnabled, setIsOperatorSurgeEnabled] = useState<boolean>(false); // Fetched setting
+  const [isLoadingSurgeSetting, setIsLoadingSurgeSetting] = useState<boolean>(true);
+
 
   const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
   const [isBooking, setIsBooking] = useState(false);
@@ -246,6 +249,29 @@ export default function BookRidePage() {
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
   useEffect(() => {
+    const fetchSurgeSetting = async () => {
+      setIsLoadingSurgeSetting(true);
+      try {
+        const response = await fetch('/api/operator/settings/pricing');
+        if (!response.ok) {
+          console.warn('Failed to fetch surge pricing setting, defaulting to normal fares.');
+          setIsOperatorSurgeEnabled(false); 
+          return;
+        }
+        const data = await response.json();
+        setIsOperatorSurgeEnabled(data.enableSurgePricing || false);
+      } catch (error) {
+        console.error('Error fetching surge pricing setting:', error);
+        setIsOperatorSurgeEnabled(false); 
+      } finally {
+        setIsLoadingSurgeSetting(false);
+      }
+    };
+    fetchSurgeSetting();
+  }, []);
+
+
+  useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
       console.warn("Google Maps API Key is missing or empty. Address autocomplete will not work.");
@@ -282,7 +308,7 @@ export default function BookRidePage() {
               if (accuracy > 500) {
                 setGeolocationFetchStatus('error_accuracy_poor');
                 setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
-                setShowGpsSuggestionAlert(false); // Don't show alert for poor accuracy
+                setShowGpsSuggestionAlert(false); 
                 return;
               }
 
@@ -294,19 +320,19 @@ export default function BookRidePage() {
 
                     if (accuracy <= 20) {
                       setGeolocationFetchStatus('success');
-                      setShowGpsSuggestionAlert(true); // Show alert for high accuracy
-                    } else { // Accuracy is > 20m and <= 500m
+                      setShowGpsSuggestionAlert(true); 
+                    } else { 
                       setGeolocationFetchStatus('error_accuracy_moderate');
-                      setShowGpsSuggestionAlert(false); // Don't show alert for moderate accuracy
+                      setShowGpsSuggestionAlert(false); 
                     }
                   } else {
                     setGeolocationFetchStatus('error_geocoding');
-                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); // Store coords even if geocoding fails
+                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); 
                     setShowGpsSuggestionAlert(false);
                   }
                 });
               } else {
-                  setGeolocationFetchStatus('error_unavailable'); // Should ideally not happen if SDK loaded
+                  setGeolocationFetchStatus('error_unavailable'); 
                   toast({ title: "Service Error", description: "Geocoder service not available.", variant: "destructive" });
               }
             },
@@ -714,7 +740,7 @@ export default function BookRidePage() {
         return stopData.coords && formStopValue && formStopValue.trim() !== "";
     });
 
-    if (pickupCoords && dropoffCoords) {
+    if (pickupCoords && dropoffCoords && !isLoadingSurgeSetting) { // Check isLoadingSurgeSetting
       let currentPoint = pickupCoords;
       for (const stopData of validStopsForFare) {
         if (stopData.coords) {
@@ -729,9 +755,14 @@ export default function BookRidePage() {
       setEstimatedDurationMinutes(totalDistanceMiles > 0 ? parseFloat(duration.toFixed(0)) : null);
 
 
-      const isCurrentlySurge = Math.random() < 0.3;
-      setIsSurgeActive(isCurrentlySurge);
-      const surgeMultiplierToApply = isCurrentlySurge ? SURGE_MULTIPLIER_VALUE : 1;
+      // Determine if surge *conditions* are met (e.g., high demand time)
+      const potentialSurgeConditionsMet = Math.random() < 0.3; // Example: 30% chance
+      
+      // Determine if surge is *actually applied* based on operator setting AND conditions
+      const actualSurgeIsActive = isOperatorSurgeEnabled && potentialSurgeConditionsMet;
+      setIsSurgeActive(actualSurgeIsActive);
+      
+      const surgeMultiplierToApply = actualSurgeIsActive ? SURGE_MULTIPLIER_VALUE : 1;
       setCurrentSurgeMultiplier(surgeMultiplierToApply);
 
       let calculatedFareBeforeMultipliers = 0;
@@ -754,12 +785,12 @@ export default function BookRidePage() {
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; // Example: estate might have same base rate
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
 
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; // Example: +10% per additional passenger
 
       const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
       setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
@@ -771,7 +802,8 @@ export default function BookRidePage() {
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form]);
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting]); // Added isOperatorSurgeEnabled, isLoadingSurgeSetting
+
 
  useEffect(() => {
     const newMarkers: MapMarker[] = [];
@@ -858,8 +890,8 @@ export default function BookRidePage() {
       vehicleType: values.vehicleType,
       passengers: values.passengers,
       fareEstimate: fareEstimate,
-      isSurgeApplied: isSurgeActive,
-      surgeMultiplier: currentSurgeMultiplier,
+      isSurgeApplied: isSurgeActive, // This will be true only if operator enabled AND conditions met
+      surgeMultiplier: currentSurgeMultiplier, // This will be 1 if surge not applied
       stopSurchargeTotal: validStopsData.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
       driverNotes: values.driverNotes,
@@ -889,7 +921,7 @@ export default function BookRidePage() {
       rideDescription += ` to ${values.dropoffLocation}`;
       if (values.dropoffDoorOrFlat) rideDescription += ` (${values.dropoffDoorOrFlat})`;
 
-      rideDescription += ` is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Payment: ${values.paymentMethod.charAt(0).toUpperCase() + values.paymentMethod.slice(1)}. Estimated fare: £${fareEstimate}${isSurgeActive ? ' (Surge Applied)' : ''}.`;
+      rideDescription += ` is confirmed (ID: ${result.bookingId}). Vehicle: ${values.vehicleType}. Payment: ${values.paymentMethod.charAt(0).toUpperCase() + values.paymentMethod.slice(1)}. Estimated fare: £${fareEstimate}${isSurgeActive ? ` (Surge Applied - Multiplier: ${currentSurgeMultiplier}x)` : ''}.`;
       if (values.bookingType === 'scheduled' && scheduledPickupAt) {
         rideDescription += ` Scheduled for: ${format(new Date(scheduledPickupAt), "PPPp")}.`;
       }
@@ -903,7 +935,7 @@ export default function BookRidePage() {
 
 
       toast({ title: "Booking Confirmed!", description: rideDescription, variant: "default", duration: 10000 });
-      setShowConfirmationDialog(false); // Close dialog on successful booking
+      setShowConfirmationDialog(false); 
       form.reset();
       setPickupInputValue("");
       setDropoffInputValue("");
@@ -1386,10 +1418,9 @@ export default function BookRidePage() {
 };
 
 const handleProceedToConfirmation = async () => {
-    // Trigger validation for essential fields
     const pickupValid = await form.trigger("pickupLocation");
     const dropoffValid = await form.trigger("dropoffLocation");
-    const stopsValid = await form.trigger("stops"); // Optional, but good to check if populated
+    await form.trigger("stops"); 
 
     if (!pickupValid || !dropoffValid) {
       toast({
@@ -1409,7 +1440,6 @@ const handleProceedToConfirmation = async () => {
       return;
     }
 
-    // If any stops are entered, ensure they are valid
     const stopFields = form.getValues("stops");
     if (stopFields && stopFields.length > 0) {
         for (let i = 0; i < stopFields.length; i++) {
@@ -1870,13 +1900,12 @@ const handleProceedToConfirmation = async () => {
                     type="button" 
                     onClick={handleProceedToConfirmation} 
                     className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3 mt-8"
-                    disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords}
+                    disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords || isLoadingSurgeSetting}
                   >
-                     <Send className="mr-2 h-5 w-5" />
-                     Review & Confirm Ride
+                     {isLoadingSurgeSetting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" /> }
+                     {isLoadingSurgeSetting ? 'Loading Settings...' : 'Review & Confirm Ride'}
                   </Button>
 
-                  {/* Dialog is part of the form, submit button inside will trigger form's onSubmit */}
                   <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
                     <DialogContent className="sm:max-w-md">
                       <DialogHeader>
@@ -1908,6 +1937,7 @@ const handleProceedToConfirmation = async () => {
                                   </p>
                                 )}
                                 {!isSurgeActive && <p className="text-sm text-muted-foreground">(Normal Fare)</p>}
+                                {!isOperatorSurgeEnabled && <p className="text-xs text-muted-foreground">(Surge pricing currently disabled by operator)</p>}
                               </>
                             ) : (
                               <p className="text-xl text-muted-foreground">Enter pickup & drop-off to see fare.</p>
@@ -2055,5 +2085,3 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
-
-

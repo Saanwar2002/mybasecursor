@@ -1,5 +1,4 @@
 
-
 import type { UserRole } from '@/contexts/auth-context';
 import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -37,6 +36,7 @@ export const navItems: NavItem[] = [
   { href: '/operator/manage-operators', label: 'Manage Operators', icon: Building, roles: ['operator'] },
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
+  { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
 
 
   // Common
@@ -48,5 +48,3 @@ export const getNavItemsForRole = (role: UserRole | undefined): NavItem[] => {
   if (!role) return [];
   return navItems.filter(item => item.roles.includes(role));
 };
-
-    
