@@ -15,7 +15,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
+
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -131,28 +133,30 @@ export default function AvailableRidesPage() {
 
   const handleAcceptOffer = (rideId: string) => {
     setIsOfferModalOpen(false);
-    const offerToAccept = currentOfferDetails; 
+    const offerToAccept = currentOfferDetails;
     setCurrentOfferDetails(null);
 
     if (rideId === 'mock-offer-123' && offerToAccept) {
       const mockActiveRideData: RideRequest = {
         id: `active-mock-${Date.now()}`,
         passengerName: offerToAccept.passengerName || "Simulated Passenger",
-        passengerAvatar: 'https://placehold.co/48x48.png?text=SP', // Ensure avatar has placeholder
+        passengerAvatar: 'https://placehold.co/48x48.png?text=SP',
         pickupLocation: offerToAccept.pickupLocation,
         dropoffLocation: offerToAccept.dropoffLocation,
-        estimatedTime: "12 mins", // Mock
+        estimatedTime: "12 mins",
         fareEstimate: offerToAccept.fareEstimate,
         status: 'driver_assigned', // Start with driver_assigned
         pickupCoords: offerToAccept.pickupCoords,
         dropoffCoords: offerToAccept.dropoffCoords,
-        distanceMiles: 3.5, // Mock
+        distanceMiles: 3.5,
         passengerCount: offerToAccept.passengerCount,
         notes: offerToAccept.notes,
-        passengerPhone: "07123456001", // Mock
-        passengerRating: 4.7, // Mock
+        passengerPhone: "07123456001",
+        passengerRating: 4.7,
+        // notifiedPassengerArrivalTimestamp: new Date().toISOString(), // Simulate notified for 'arrived_at_pickup' testing
+        // passengerAcknowledgedArrivalTimestamp: null, // For testing "waiting for ack"
       };
-      setRideRequests([mockActiveRideData]); // Set this as the only active ride
+      setRideRequests([mockActiveRideData]);
       toast({title: "Mock Ride Accepted!", description: `Now managing mock ride for ${mockActiveRideData.passengerName}.`});
     } else {
       const acceptedRequest = rideRequests.find(r => r.id === rideId);
@@ -169,7 +173,7 @@ export default function AvailableRidesPage() {
     console.log("Offer declined:", rideId);
     const declinedRequest = rideRequests.find(r => r.id === rideId || rideId === 'mock-offer-123');
     if (declinedRequest && declinedRequest.status === 'pending') {
-      setRideRequests(prev => prev.filter(r => r.id !== rideId)); 
+      setRideRequests(prev => prev.filter(r => r.id !== rideId));
       toast({title: "Ride Declined", description: `Ride for ${declinedRequest.passengerName} declined.`});
     } else {
          toast({title: "Mock Ride Offer Declined", description: `Declined offer for ride ID ${rideId}.`});
@@ -179,8 +183,8 @@ export default function AvailableRidesPage() {
   };
 
 
-  const handleRideAction = async (rideId: string, actionType: 'accept' | 'decline' | 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active') => {
-    if (!driverUser && actionType !== 'decline') { 
+ const handleRideAction = async (rideId: string, actionType: 'accept' | 'decline' | 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active') => {
+    if (!driverUser && actionType !== 'decline') {
       toast({ title: "Error", description: "Driver not logged in.", variant: "destructive"});
       return;
     }
@@ -209,17 +213,18 @@ export default function AvailableRidesPage() {
             newStatus = 'driver_assigned';
             toastTitle = "Ride Accepted";
             toastMessage = `Ride request from ${rideDisplayName} accepted.`;
+            // Optimistic update for accept, real data comes from API for others
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, passengerAvatar: r.passengerAvatar || 'https://placehold.co/40x40.png?text=P' } : r));
             break;
-        case 'decline': 
-            newStatus = 'declined'; 
+        case 'decline':
+            newStatus = 'declined';
             toastTitle = "Ride Declined";
             toastMessage = `Ride request for ${rideDisplayName} declined.`;
             setRideRequests(prev => prev.filter(r => r.id !== rideId));
             break;
         case 'notify_arrival':
             newStatus = 'arrived_at_pickup';
-            apiAction = 'notify_arrival'; 
+            apiAction = 'notify_arrival';
             toastTitle = "Passenger Notified";
             toastMessage = `Passenger ${rideDisplayName} has been notified of your arrival.`;
             break;
@@ -234,32 +239,35 @@ export default function AvailableRidesPage() {
             apiAction = 'complete_ride';
             toastTitle = "Ride Completed";
             toastMessage = `Ride with ${rideDisplayName} marked as completed.`;
-            setTimeout(() => {
-                setRideRequests(prev => prev.filter(r => r.id !== rideId));
-            }, 2000); 
+            // No optimistic removal here if API call is made, let API response handle final state.
             break;
         case 'cancel_active':
-            newStatus = 'cancelled_by_driver'; 
+            newStatus = 'cancelled_by_driver';
+            // No direct API action string, status change implies cancellation by driver
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
-            setRideRequests(prev => prev.filter(r => r.id !== rideId));
+            // No optimistic removal here if API call is made.
             break;
     }
 
-    if (newStatus && rideId !== 'mock-offer-123' && !rideId.startsWith('active-mock-')) { 
+    if (newStatus && rideId !== 'mock-offer-123' && !rideId.startsWith('active-mock-')) {
         try {
             const payload: any = {};
             if (apiAction) {
                  payload.action = apiAction;
             } else {
-                 payload.status = newStatus; // For accept/decline if they don't use 'action'
+                 payload.status = newStatus;
             }
-            if (actionType === 'accept' && driverUser) {
+            if ((actionType === 'accept' || actionType === 'decline') && driverUser) { // Include driver details on accept/decline
                 payload.driverId = driverUser.id;
                 payload.driverName = driverUser.name;
                 // Potentially add driverAvatar if available in driverUser
             }
-            const response = await fetch(`/api/operator/bookings/${rideId}`, { 
+            // For cancel_active, the status change is enough if handled by a generic status update mechanism.
+            // If specific cancel API endpoint is needed, it would be called here.
+            // Let's assume for now it's handled by the booking/[bookingId] POST endpoint via status change.
+
+            const response = await fetch(`/api/operator/bookings/${rideId}`, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify(payload),
@@ -268,37 +276,23 @@ export default function AvailableRidesPage() {
             if (!response.ok) {
                 let descriptiveError = `Failed to update ride (Status: ${response.status}).`;
                 let responseBodyText: string | undefined;
-                let serverMessage: string | undefined;
-
                 try {
-                    responseBodyText = await response.text(); // Read body ONCE as text
+                    responseBodyText = await response.text();
                     if (responseBodyText && responseBodyText.trim() !== "") {
                         try {
-                            const errorData = JSON.parse(responseBodyText); // Try to parse the text as JSON
-                            serverMessage = `Server: ${errorData.message || 'No specific message.'}`;
-                            if (errorData.details) serverMessage += ` Details: ${errorData.details}.`;
-                            if (errorData.errorMessage && errorData.message !== errorData.errorMessage) serverMessage += ` Error: ${errorData.errorMessage}.`;
-                            if (errorData.errorName) serverMessage += ` Type: ${errorData.errorName}.`;
+                            const errorData = JSON.parse(responseBodyText);
+                            descriptiveError += ` Server: ${errorData.message || 'No specific message.'}`;
+                            if(errorData.details) descriptiveError += ` Details: ${errorData.details}.`;
                         } catch (jsonParseError) {
-                            serverMessage = `Raw server response: ${responseBodyText.substring(0, 200)}${responseBodyText.length > 200 ? '...' : ''}`;
+                            descriptiveError += ` Raw server response: ${responseBodyText.substring(0,200)}${responseBodyText.length > 200 ? '...' : ''}`;
                         }
                     } else {
-                        serverMessage = "Server response body was empty.";
+                        descriptiveError += " Server response body was empty.";
                     }
                 } catch (readError) {
-                    serverMessage = "Could not read server response body.";
+                    descriptiveError += " Could not read server response body.";
                 }
-                
-                if (serverMessage) {
-                    descriptiveError += ` ${serverMessage}`;
-                }
-                
-                console.error(
-                    "handleRideAction API error. Status:", response.status, 
-                    "StatusText:", response.statusText,
-                    "Headers:", Object.fromEntries(response.headers.entries()),
-                    "Constructed client error:", descriptiveError
-                );
+                console.error("handleRideAction API error response:", response, "Constructed error:", descriptiveError);
                 throw new Error(descriptiveError);
             }
             const updatedBookingData = await response.json();
@@ -308,8 +302,9 @@ export default function AvailableRidesPage() {
                 prevRequests.map(req => {
                     if (req.id === rideId) {
                         const updatedReq: RideRequest = { ...req, status: updatedBooking.status };
-                        if (updatedBooking.notifiedPassengerArrivalTimestamp?._seconds) updatedReq.notifiedPassengerArrivalTimestamp = new Date(updatedBooking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString();
-                        if (updatedBooking.passengerAcknowledgedArrivalTimestamp?._seconds) updatedReq.passengerAcknowledgedArrivalTimestamp = new Date(updatedBooking.passengerAcknowledgedArrivalTimestamp._seconds * 1000).toISOString();
+                        if (updatedBooking.notifiedPassengerArrivalTimestamp) updatedReq.notifiedPassengerArrivalTimestamp = updatedBooking.notifiedPassengerArrivalTimestamp._seconds ? new Date(updatedBooking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString() : updatedBooking.notifiedPassengerArrivalTimestamp;
+                        if (updatedBooking.passengerAcknowledgedArrivalTimestamp) updatedReq.passengerAcknowledgedArrivalTimestamp = updatedBooking.passengerAcknowledgedArrivalTimestamp._seconds ? new Date(updatedBooking.passengerAcknowledgedArrivalTimestamp._seconds * 1000).toISOString() : updatedBooking.passengerAcknowledgedArrivalTimestamp;
+                        // Add similar handling for rideStartedAt, completedAt if they come as timestamps
                         return updatedReq;
                     }
                     return req;
@@ -317,9 +312,18 @@ export default function AvailableRidesPage() {
             );
             toast({ title: toastTitle, description: toastMessage });
 
+            if (newStatus === 'completed' || newStatus === 'cancelled_by_driver') {
+                setTimeout(() => setRideRequests(prev => prev.filter(r => r.id !== rideId)), 2000);
+            }
+
         } catch (error) {
              console.error(`Error in handleRideAction for ride ${rideId}, action ${actionType}:`, error);
              toast({ title: "Action Failed", description: `Could not update ride: ${error instanceof Error ? error.message : "Unknown error"}`, variant: "destructive"});
+             // Revert optimistic update on failure if needed, or re-fetch state.
+             // For 'accept' it was already optimistic, might need to revert if API fails.
+             if (actionType === 'accept') {
+                setRideRequests(prev => prev.map(r => r.id === rideId ? {...r, status: 'pending'} : r));
+             }
         } finally {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
@@ -330,7 +334,9 @@ export default function AvailableRidesPage() {
             if (newStatus === 'arrived_at_pickup') {
                 updatedMockRide.notifiedPassengerArrivalTimestamp = new Date().toISOString();
             }
-            // Add more mock timestamp updates if needed for other statuses
+            if (newStatus === 'in_progress' && actionType === 'start_ride'){ // Simulate passenger ack for mock
+                updatedMockRide.passengerAcknowledgedArrivalTimestamp = new Date().toISOString();
+            }
             return updatedMockRide;
           }
           return r;
@@ -340,32 +346,33 @@ export default function AvailableRidesPage() {
         if (newStatus === 'completed' || newStatus === 'cancelled_by_driver') {
             setTimeout(() => setRideRequests(prev => prev.filter(r => r.id !== rideId)), 1000);
         }
-    } else { // For 'decline' or other non-API affecting local updates
-       setActionLoading(prev => ({ ...prev, [rideId]: false })); 
+    } else { // For local 'decline' or other non-API affecting local updates
+       setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
   };
+
 
   const getMapMarkersForActiveRide = (): Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> => {
     if (!activeRide) return [];
     const markers = [];
-    markers.push({ 
-        position: driverLocation, 
-        title: "Your Location", 
-        iconUrl: blueDotSvgDataUrl, 
-        iconScaledSize: {width: 24, height: 24} 
+    markers.push({
+        position: driverLocation,
+        title: "Your Location",
+        iconUrl: blueDotSvgDataUrl,
+        iconScaledSize: {width: 24, height: 24}
     });
     if (activeRide.pickupCoords) {
-      markers.push({ 
-        position: activeRide.pickupCoords, 
-        title: `Pickup: ${activeRide.pickupLocation}`, 
-        label: { text: "P", color: "white", fontWeight: "bold"} 
+      markers.push({
+        position: activeRide.pickupCoords,
+        title: `Pickup: ${activeRide.pickupLocation}`,
+        label: { text: "P", color: "white", fontWeight: "bold"}
       });
     }
     if (activeRide.status === 'in_progress' && activeRide.dropoffCoords) {
-      markers.push({ 
-        position: activeRide.dropoffCoords, 
-        title: `Dropoff: ${activeRide.dropoffLocation}`, 
-        label: { text: "D", color: "white", fontWeight: "bold" } 
+      markers.push({
+        position: activeRide.dropoffCoords,
+        title: `Dropoff: ${activeRide.dropoffLocation}`,
+        label: { text: "D", color: "white", fontWeight: "bold" }
       });
     }
     activeRide.stops?.forEach((stop, index) => {
@@ -379,14 +386,19 @@ export default function AvailableRidesPage() {
     });
     return markers;
   };
-  
+
   const getMapCenterForActiveRide = (): google.maps.LatLngLiteral => {
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) return activeRide.pickupCoords;
-    if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) return activeRide.dropoffCoords; // Could also be last stop if exists
+    if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupCoords) return activeRide.pickupCoords;
+    if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) return activeRide.dropoffCoords;
     return driverLocation;
   };
 
   if (activeRide) {
+    const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
+    const showInProgressStatus = activeRide.status === 'in_progress';
+    const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
+
     return (
       <div className="flex flex-col h-full">
         <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
@@ -400,14 +412,30 @@ export default function AvailableRidesPage() {
           />
         </div>
         <Card className="flex-1 flex flex-col rounded-t-xl -mt-3 z-10 shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] border-t-4 border-primary bg-card overflow-hidden">
-          <CardHeader className="p-3 border-b">
-            <Badge 
-              variant={activeRide.status === 'in_progress' ? 'default' : activeRide.status === 'arrived_at_pickup' ? 'outline' : 'secondary'} 
-              className={cn("text-sm w-fit mx-auto", activeRide.status === 'in_progress' && 'bg-green-600 text-white', activeRide.status === 'arrived_at_pickup' && 'border-blue-500 text-blue-500', activeRide.status === 'driver_assigned' && 'bg-sky-500 text-white')}>
-              {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </Badge>
-          </CardHeader>
-          <CardContent className="p-3 space-y-2 flex-1 overflow-y-auto">
+           <CardContent className="p-3 space-y-2 flex-1 overflow-y-auto">
+             {showArrivedAtPickupStatus && (
+                <div className="flex justify-center mb-2">
+                    <Badge variant="outline" className="text-sm w-fit mx-auto border-blue-500 text-blue-500 py-1 px-3">
+                        Arrived At Pickup
+                    </Badge>
+                </div>
+            )}
+            {showInProgressStatus && (
+                <div className="flex justify-center mb-2">
+                    <Badge variant="default" className="text-sm w-fit mx-auto bg-green-600 text-white py-1 px-3">
+                        Ride In Progress
+                    </Badge>
+                </div>
+            )}
+            {showDriverAssignedStatus && (
+                <div className="flex justify-center mb-2">
+                    <Badge variant="secondary" className="text-sm w-fit mx-auto bg-sky-500 text-white py-1 px-3">
+                       En Route to Pickup
+                    </Badge>
+                </div>
+            )}
+
+
             <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border">
               <Avatar className="h-12 w-12">
                 <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/48x48.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar" />
@@ -447,47 +475,54 @@ export default function AvailableRidesPage() {
                 <p className="text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p>
               </div>
             )}
-            
-            {/* Arrival Acknowledgment Info */}
-            {activeRide.status === 'arrived_at_pickup' && activeRide.notifiedPassengerArrivalTimestamp && !activeRide.passengerAcknowledgedArrivalTimestamp && (
-                <div className="mt-2 p-2 bg-blue-50 border border-blue-300 rounded-md text-xs text-blue-700 flex items-center gap-2">
-                    <BellRing className="h-4 w-4" />
-                    <span>Waiting for passenger to acknowledge arrival...</span>
-                </div>
+
+             {activeRide.status === 'arrived_at_pickup' && activeRide.notifiedPassengerArrivalTimestamp && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                <Alert variant="default" className="bg-blue-100 dark:bg-blue-700/30 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-100">
+                    <BellRing className="h-5 w-5 text-current" />
+                    <ShadAlertTitle className="font-semibold text-current">Waiting for Passenger</ShadAlertTitle>
+                    <ShadAlertDescription className="text-current">
+                        Waiting for passenger to acknowledge arrival...
+                    </ShadAlertDescription>
+                 </Alert>
             )}
             {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
-                 <div className="mt-2 p-2 bg-green-50 border border-green-300 rounded-md text-xs text-green-700 flex items-center gap-2">
-                    <CheckCheck className="h-4 w-4" />
-                    <span>Passenger has acknowledged arrival.</span>
-                </div>
+                 <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-100">
+                    <CheckCheck className="h-5 w-5 text-current" />
+                    <ShadAlertTitle className="font-semibold text-current">Passenger Acknowledged</ShadAlertTitle>
+                    <ShadAlertDescription className="text-current">Passenger has confirmed your arrival.</ShadAlertDescription>
+                 </Alert>
             )}
           </CardContent>
 
           <CardFooter className="p-3 border-t grid grid-cols-2 gap-2">
              {activeRide.status === 'driver_assigned' && (
-                <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
-                  {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 col-span-2" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}>
+                  {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Passenger of Arrival
                 </Button>
             )}
-            {activeRide.status === 'arrived_at_pickup' && (
-                 <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id] || !activeRide.passengerAcknowledgedArrivalTimestamp}>
-                    {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride
-                </Button>
+             {activeRide.status === 'arrived_at_pickup' && (
+                <>
+                    <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}>
+                        {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride
+                    </Button>
+                     <Button variant="outline" className="w-full" onClick={() => toast({title: "Navigate", description: `Mock navigating to pickup location for ${activeRide.passengerName}...`})}>
+                        <Navigation className="mr-2"/> Navigate
+                    </Button>
+                </>
             )}
             {activeRide.status === 'in_progress' && (
-                <Button className="w-full bg-primary hover:bg-primary/80" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride
-                </Button>
+                <>
+                    <Button className="w-full bg-primary hover:bg-primary/80" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}>
+                        {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={() => toast({title: "Navigate", description: `Mock navigating to dropoff for ${activeRide.passengerName}...`})}>
+                        <Navigation className="mr-2"/> Navigate
+                    </Button>
+                </>
             )}
 
             {['driver_assigned', 'arrived_at_pickup', 'in_progress'].includes(activeRide.status) && (
-                 <Button variant="outline" className="w-full" onClick={() => toast({title: "Navigate", description: `Mock navigating to ${activeRide.status === 'in_progress' ? 'dropoff' : 'pickup'}...`})}>
-                    <Navigation className="mr-2"/> Navigate
-                </Button>
-            )}
-           
-            {['driver_assigned', 'arrived_at_pickup'].includes(activeRide.status) && (
-                <Button variant="destructive" className="w-full col-span-2" onClick={() => handleRideAction(activeRide.id, 'cancel_active')} disabled={actionLoading[activeRide.id]}>
+                 <Button variant="destructive" className="w-full col-span-2" onClick={() => handleRideAction(activeRide.id, 'cancel_active')} disabled={actionLoading[activeRide.id]}>
                     {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Cancel Ride
                 </Button>
             )}
@@ -501,7 +536,7 @@ export default function AvailableRidesPage() {
     <div className="flex flex-col h-full space-y-2">
         <div className="h-[400px] w-full rounded-xl overflow-hidden shadow-lg border">
           <GoogleMapDisplay
-              center={driverLocation} 
+              center={driverLocation}
               zoom={14}
               markers={[{
                   position: driverLocation,
@@ -510,19 +545,13 @@ export default function AvailableRidesPage() {
                   iconScaledSize: { width: 24, height: 24 }
               }]}
               className="w-full h-full"
-              disableDefaultUI={true} 
+              disableDefaultUI={true}
           />
         </div>
 
         <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border">
-          <CardHeader className={cn(
-            "p-2 border-b text-center", 
-            isDriverOnline ? "border-green-500" : "border-red-500"
-          )}>
-            <CardTitle className={cn(
-                "text-lg font-semibold", 
-                isDriverOnline ? "text-green-600" : "text-red-600"
-            )}>
+           <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}>
+            <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}>
               {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
             </CardTitle>
           </CardHeader>
@@ -536,7 +565,7 @@ export default function AvailableRidesPage() {
               ) : (
                 <>
                   <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                  <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers...</p>
+                  <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p>
                 </>
               )
             ) : (
@@ -553,8 +582,8 @@ export default function AvailableRidesPage() {
                 aria-label="Toggle driver online status"
                 className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")}
               />
-              <Label 
-                htmlFor="driver-online-toggle" 
+              <Label
+                htmlFor="driver-online-toggle"
                 className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')}
               >
                 {isDriverOnline ? "Online" : "Offline"}
@@ -582,3 +611,5 @@ export default function AvailableRidesPage() {
       </div>
   );
 }
+
+    
