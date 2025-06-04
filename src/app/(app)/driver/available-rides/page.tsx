@@ -213,6 +213,8 @@ export default function AvailableRidesPage() {
             toastMessage = `Ride request from ${rideDisplayName} accepted.`;
             setRideRequests(prev => prev.map(r => {
                 if (r.id === rideId) return { ...r, status: newStatus! };
+                // For mock, decline other pending offers if one is accepted
+                // if (r.status === 'pending' && r.id !== rideId) return { ...r, status: 'declined' };
                 return r;
             }));
             break;
@@ -254,6 +256,7 @@ export default function AvailableRidesPage() {
             apiAction = undefined;
             toastTitle = "Ride Cancelled";
             toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
+            // Remove from list for this mock-up
             setRideRequests(prev => prev.filter(r => r.id !== rideId));
             break;
     }
@@ -271,10 +274,10 @@ export default function AvailableRidesPage() {
                 }
             } else {
                 setActionLoading(prev => ({ ...prev, [rideId]: false }));
-                return;
+                return; // Should not happen if newStatus or apiAction is set
             }
 
-            const response = await fetch(`/api/operator/bookings/${rideId}`, {
+            const response = await fetch(`/api/operator/bookings/${rideId}`, { // Use the new unified endpoint
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
                body: JSON.stringify(payload),
@@ -282,12 +285,13 @@ export default function AvailableRidesPage() {
 
              if (!response.ok) {
                 let apiErrorMessage = `Failed to update ride status (Status: ${response.status}).`;
-                const responseText = await response.text();
+                const responseText = await response.text(); // Get raw response text
                 try {
-                    const errorData = JSON.parse(responseText);
+                    const errorData = JSON.parse(responseText); // Try to parse as JSON
                     console.error(`API Error for ride ${rideId}, action ${actionType}:`, errorData);
                     apiErrorMessage = errorData.message || errorData.details || JSON.stringify(errorData);
                 } catch (parseError) {
+                    // If not JSON, use the raw text (or part of it)
                     console.warn(`API response for ride ${rideId} (status ${response.status}) not valid JSON or error parsing it:`, parseError);
                     console.log("Raw error response body:", responseText);
                     apiErrorMessage = `Status: ${response.status}. Body: ${responseText.substring(0,200)}`;
@@ -296,18 +300,21 @@ export default function AvailableRidesPage() {
             }
 
              const updatedBookingData = await response.json();
-             const updatedBooking = updatedBookingData.booking;
+             const updatedBooking = updatedBookingData.booking; // API returns { booking: {...} }
 
+            // Update local state based on the successfully updated booking from API
             setRideRequests(prevRequests =>
                 prevRequests.map(req => {
                     if (req.id === rideId) {
                         const updatedReq: RideRequest = { ...req, status: updatedBooking.status };
+                        // Update timestamps if they are present in the API response
                         if (updatedBooking.notifiedPassengerArrivalTimestamp) {
                             updatedReq.notifiedPassengerArrivalTimestamp = new Date(updatedBooking.notifiedPassengerArrivalTimestamp._seconds * 1000).toISOString();
                         }
                         if (updatedBooking.passengerAcknowledgedArrivalTimestamp) {
                            updatedReq.passengerAcknowledgedArrivalTimestamp = new Date(updatedBooking.passengerAcknowledgedArrivalTimestamp._seconds * 1000).toISOString();
                         }
+                        // Add other relevant fields if returned and needed by UI
                         return updatedReq;
                     }
                     return req;
@@ -322,10 +329,13 @@ export default function AvailableRidesPage() {
             setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     } else if (rideId === 'mock-offer-123' && (actionType === 'accept' || actionType === 'decline')) {
+        // Handle mock offer acceptance/decline if needed (toast already shown)
         toast({ title: toastTitle, description: toastMessage });
         setActionLoading(prev => ({ ...prev, [rideId]: false }));
     } else {
+        // For decline/cancel_active where no API call might be made for mock/pending
         if (actionType !== 'decline' && actionType !== 'cancel_active') {
+             // This branch should ideally not be hit if logic is correct
              setActionLoading(prev => ({ ...prev, [rideId]: false }));
         }
     }
@@ -336,6 +346,7 @@ export default function AvailableRidesPage() {
   const handleCallCustomer = (phoneNumber?: string) => {
     if (phoneNumber) {
       toast({ title: "Calling Customer", description: `Initiating call to ${phoneNumber}... (Demo)`});
+      // window.location.href = `tel:${phoneNumber}`; // For real device
     } else {
       toast({ title: "Call Not Available", description: "Customer phone number not provided.", variant: "default"});
     }
@@ -346,7 +357,7 @@ export default function AvailableRidesPage() {
       return <span className="text-xs text-muted-foreground ml-1.5">(No rating)</span>;
     }
     const totalStars = 5;
-    const filledStars = Math.round(rating);
+    const filledStars = Math.round(rating); // Or Math.floor / Math.ceil depending on preference
     return (
       <div className="flex items-center ml-1.5">
         {[...Array(totalStars)].map((_, i) => (
@@ -396,14 +407,18 @@ export default function AvailableRidesPage() {
       return activeRide.pickupCoords;
     }
     if (activeRide?.status === 'in_progress' && activeRide.dropoffCoords) {
+      // Could also be driverLocation if you prefer that during the ride
       return activeRide.dropoffCoords;
     }
-    return huddersfieldCenterGoogle;
+    return huddersfieldCenterGoogle; // Default if no active ride relevant location
   };
 
   const handleNavigate = (locationName: string, coords?: {lat: number, lng: number}) => {
       if(coords) {
+        // In a real app, open Google Maps or other navigation app
+        // For demo:
         toast({title: "Navigation Started (Demo)", description: `Navigating to ${locationName} at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`});
+        // window.open(`https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`, '_blank');
       } else {
         toast({title: "Navigation Error", description: `Coordinates for ${locationName} not available.` , variant: "destructive"});
       }
@@ -414,202 +429,19 @@ export default function AvailableRidesPage() {
     mapMarkers.push({
         position: driverLocation,
         title: "Your Current Location",
-        iconUrl: blueDotSvgDataUrl,
+        iconUrl: blueDotSvgDataUrl, // Use the SVG data URL
         iconScaledSize: { width: 24, height: 24 }
     });
   }
 
 
-  // This is the "active ride" view
   if (activeRide) {
-    const isAtPickup = activeRide.status === 'arrived_at_pickup';
-    const isInProgress = activeRide.status === 'in_progress';
-    const isDriverAssigned = activeRide.status === 'driver_assigned';
-
-    return (
-      <div className="flex flex-col h-full">
-        <div className="w-full relative flex-1"> 
-            <GoogleMapDisplay
-              center={getMapCenterForActiveRide()}
-              zoom={15}
-              markers={getMapMarkersForActiveRide()}
-              className="w-full h-full"
-              disableDefaultUI={true}
-              fitBoundsToMarkers={true}
-            />
-        </div>
-        <Card className="shrink-0 rounded-t-2xl -mt-4 shadow-2xl bg-card"> 
-          <CardHeader className="p-3 border-b">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                {isDriverAssigned && <><CarIcon className="w-5 h-5 text-primary" /> En Route to Pickup</>}
-                {isAtPickup && <><Building className="w-5 h-5 text-orange-500" /> At Pickup Location</>}
-                {isInProgress && <><Route className="w-5 h-5 text-green-500" /> Ride In Progress</>}
-              </CardTitle>
-              <Badge variant={activeRide.status === 'arrived_at_pickup' ? "default" : "outline"}
-                     className={cn(activeRide.status === 'arrived_at_pickup' && 'bg-orange-500 text-white')}>
-                {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </Badge>
-            </div>
-            <CardDescription className="text-xs">
-              Passenger: {activeRide.passengerName} {renderPassengerRating(activeRide.passengerRating)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 space-y-2.5">
-            <div className="space-y-1 text-sm">
-              <p className="flex items-start gap-1.5">
-                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                <strong>{isDriverAssigned ? "Pickup:" : "From:"}</strong> {activeRide.pickupLocation}
-              </p>
-              <p className="flex items-start gap-1.5">
-                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                <strong>Dropoff:</strong> {activeRide.dropoffLocation}
-              </p>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <p><UsersIcon className="w-4 h-4 inline mr-1 text-muted-foreground"/> {activeRide.passengerCount} Passenger(s)</p>
-              <p><DollarSignIcon className="w-4 h-4 inline mr-0.5 text-muted-foreground"/> Fare: ~£{activeRide.fareEstimate.toFixed(2)}</p>
-            </div>
-
-            {isAtPickup && !activeRide.passengerAcknowledgedArrivalTimestamp && (
-                 <p className="text-xs text-center text-orange-600 bg-orange-100 p-1.5 rounded-md border border-orange-300">
-                    <BellRing className="inline w-3 h-3 mr-1"/>Waiting for passenger to acknowledge arrival...
-                </p>
-            )}
-            {isAtPickup && activeRide.passengerAcknowledgedArrivalTimestamp && (
-                 <p className="text-xs text-center text-green-600 bg-green-100 p-1.5 rounded-md border border-green-300">
-                    <CheckCheck className="inline w-3 h-3 mr-1"/>Passenger acknowledged. Ready to start ride.
-                </p>
-            )}
-
-
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Button variant="outline" size="sm" className="h-9" onClick={() => handleCallCustomer(activeRide.passengerPhone)}>
-                <Phone className="w-4 h-4 mr-1.5" /> Call Passenger
-              </Button>
-              <Button variant="outline" size="sm" className="h-9" onClick={() => toast({ title: "Chat Opened (Demo)" })}>
-                <MessageSquare className="w-4 h-4 mr-1.5" /> Chat
-              </Button>
-            </div>
-
-             {isDriverAssigned && (
-              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-10 mt-1.5"
-                      onClick={() => handleNavigate("Pickup", activeRide.pickupCoords)}
-                      disabled={actionLoading[activeRide.id]}>
-                <Navigation className="w-4 h-4 mr-1.5" /> Navigate to Pickup
-              </Button>
-            )}
-          </CardContent>
-          <CardFooter className="p-3 border-t">
-            {isDriverAssigned && (
-              <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white h-10"
-                      onClick={() => handleRideAction(activeRide.id, 'notify_arrival')}
-                      disabled={actionLoading[activeRide.id]}>
-                {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <BellRing className="w-4 h-4 mr-1.5" />}
-                Arrived at Pickup
-              </Button>
-            )}
-            {isAtPickup && (
-              <Button className="w-full bg-green-600 hover:bg-green-700 text-white h-10"
-                      onClick={() => handleRideAction(activeRide.id, 'start_ride')}
-                      disabled={actionLoading[activeRide.id]}>
-                {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <CheckCircle className="w-4 h-4 mr-1.5" />}
-                Start Ride
-              </Button>
-            )}
-            {isInProgress && (
-              <div className="grid grid-cols-2 gap-2 w-full">
-                 <Button variant="destructive" className="h-10"
-                         onClick={() => handleRideAction(activeRide.id, 'cancel_active')}
-                         disabled={actionLoading[activeRide.id]}>
-                    {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <XCircle className="w-4 h-4 mr-1.5" />}
-                    Cancel Ride
-                </Button>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-10"
-                        onClick={() => handleRideAction(activeRide.id, 'complete_ride')}
-                        disabled={actionLoading[activeRide.id]}>
-                  {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2"/> : <CheckCircle className="w-4 h-4 mr-1.5" />}
-                  Complete Ride
-                </Button>
-              </div>
-            )}
-          </CardFooter>
-        </Card>
-        <RideOfferModal
-          isOpen={isOfferModalOpen}
-          onClose={() => setIsOfferModalOpen(false)}
-          onAccept={handleAcceptOffer}
-          onDecline={handleDeclineOffer}
-          rideDetails={currentOfferDetails}
-        />
-      </div>
-    );
+     return <p>Active Ride Test</p>;
   }
 
-  // This is the "no active ride" / "awaiting offers" view
-  return (
-    <div className="relative h-full">
-      <div className="absolute inset-0 z-0 rounded-xl overflow-hidden">
-        <GoogleMapDisplay
-            center={driverLocation}
-            zoom={15}
-            markers={mapMarkers}
-            className="w-full h-full"
-            disableDefaultUI={true}
-            fitBoundsToMarkers={false} 
-        />
-      </div>
-      <Card className="absolute bottom-4 left-4 right-4 z-10 rounded-xl shadow-2xl bg-card flex flex-col p-3">
-        <CardHeader className="p-0 text-center border-b pb-2 mb-2">
-          <CardTitle className="text-lg font-semibold">
-            {isDriverOnline ? "Online - Awaiting Offers" : "Offline"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 flex flex-col items-center justify-center gap-2 flex-grow">
-          {isDriverOnline ? (
-            <>
-              {geolocationError ? (
-                <div className="text-center text-destructive p-2 bg-destructive/10 rounded-md w-full">
-                  <AlertTriangle className="h-8 w-8 mx-auto mb-1" />
-                  <p className="text-sm font-semibold">Location Error</p>
-                  <p className="text-xs">{geolocationError}</p>
-                </div>
-              ) : (
-                 <>
-                    <Progress value={progressValue} className="w-3/4 h-2" />
-                    <p className="text-sm text-muted-foreground">System Active - Searching for Offers...</p>
-                 </>
-              )}
-            </>
-          ) : (
-            <Power className="h-10 w-10 text-muted-foreground" />
-          )}
-           <div className="flex items-center space-x-2 pt-1">
-            <Switch
-              id="online-status-toggle"
-              checked={isDriverOnline}
-              onCheckedChange={setIsDriverOnline}
-              aria-label={isDriverOnline ? "Go Offline" : "Go Online"}
-            />
-            <Label htmlFor="online-status-toggle" className="text-base font-medium">
-              {isDriverOnline ? "Online" : "Offline"}
-            </Label>
-          </div>
-          <Button variant="outline" onClick={handleSimulateOffer} className="text-sm h-8 px-3 py-1 mt-1">
-            Simulate Incoming Offer
-          </Button>
-        </CardContent>
-      </Card>
-      <RideOfferModal
-        isOpen={isOfferModalOpen}
-        onClose={() => setIsOfferModalOpen(false)}
-        onAccept={handleAcceptOffer}
-        onDecline={handleDeclineOffer}
-        rideDetails={currentOfferDetails}
-      />
-    </div>
-  );
+  return <p>No Active Ride Test</p>;
 }
     
 
     
+
