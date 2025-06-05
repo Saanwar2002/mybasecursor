@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX } from "lucide-react"; // Added ShieldX
+import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins } from "lucide-react"; // Added ShieldX, CreditCard, Coins
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
@@ -32,8 +32,8 @@ import { cn } from "@/lib/utils";
 import { Loader } from '@googlemaps/js-api-loader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch"; // Import Switch
-import { Label } from "@/components/ui/label"; // Import Label
+import { Switch } from "@/components/ui/switch"; 
+import { Label } from "@/components/ui/label"; 
 
 
 interface JsonTimestamp {
@@ -58,12 +58,13 @@ interface Ride {
   driverAvatar?: string;
   vehicleType: string;
   fareEstimate: number;
-  status: string; // e.g. 'pending_assignment', 'driver_assigned', 'arrived_at_pickup', 'in_progress', 'completed', 'cancelled'
+  status: string; 
   rating?: number;
   passengerName: string;
   isSurgeApplied?: boolean;
   notifiedPassengerArrivalTimestamp?: JsonTimestamp | null;
   passengerAcknowledgedArrivalTimestamp?: JsonTimestamp | null;
+  paymentMethod?: "card" | "cash"; // Added paymentMethod
 }
 
 const formatDate = (timestamp?: JsonTimestamp | null, isoString?: string | null): string => {
@@ -108,7 +109,7 @@ export default function MyRidesPage() {
   
   const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [cancellingRideIdSwitch, setCancellingRideIdSwitch] = useState<string | null>(null); // For the switch state
+  const [cancellingRideIdSwitch, setCancellingRideIdSwitch] = useState<string | null>(null); 
 
   const [rideToEditDetails, setRideToEditDetails] = useState<Ride | null>(null);
   const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
@@ -264,7 +265,7 @@ export default function MyRidesPage() {
 
   const handleOpenCancelDialog = (ride: Ride) => {
     setRideToCancel(ride);
-    setCancellingRideIdSwitch(ride.id); // Also set for switch state
+    setCancellingRideIdSwitch(ride.id); 
   };
   const handleCancelDialogClose = () => {
     setRideToCancel(null);
@@ -339,7 +340,7 @@ export default function MyRidesPage() {
         const updatedRide = await response.json();
         setRides(prev => prev.map(r => r.id === rideId ? {
             ...r, 
-            status: updatedRide.booking.status, // API might update status
+            status: updatedRide.booking.status, 
             passengerAcknowledgedArrivalTimestamp: updatedRide.booking.passengerAcknowledgedArrivalTimestamp 
         } : r));
         toast({ title: "Arrival Acknowledged", description: "You've let the driver know you're on your way."});
@@ -417,6 +418,12 @@ export default function MyRidesPage() {
                 {ride.stops && ride.stops.length > 0 && ride.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1 pl-5"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>Stop {index+1}:</strong> {stop.address}</p> ))}
                 <p className="flex items-start gap-1"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>To:</strong> {ride.dropoffLocation.address}</p>
                 <div className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}{ride.isSurgeApplied && <Badge variant="outline" className="ml-1 border-orange-500 text-orange-500">Surge</Badge>}</div>
+                {ride.paymentMethod && (
+                  <div className="flex items-center gap-1">
+                    {ride.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
+                    <strong>Payment:</strong> {ride.paymentMethod === 'card' ? 'Card (Mock Paid)' : 'Cash to Driver'}
+                  </div>
+                )}
               </div>
               <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
                 {ride.status === 'completed' && (ride.rating ? (<div className="flex items-center"><p className="text-sm mr-2">Your Rating:</p>{[...Array(5)].map((_, i) => (<Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />))}</div>) : (<Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>))}
@@ -435,8 +442,6 @@ export default function MyRidesPage() {
                           if (checked) {
                             handleOpenCancelDialog(ride);
                           } else {
-                            // This case might not be directly reachable if dialog opens on check
-                            // but good for programmatic reset
                             if (rideToCancel && rideToCancel.id === ride.id) {
                               handleCancelDialogClose();
                             }

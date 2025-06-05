@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -186,6 +186,8 @@ export default function BookRidePage() {
 
   const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
   const [isBooking, setIsBooking] = useState(false);
+  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
+
 
   const [favoriteLocations, setFavoriteLocations] = useState<FavoriteLocation[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
@@ -243,6 +245,8 @@ export default function BookRidePage() {
     control: form.control,
     name: "stops",
   });
+
+  const watchedPaymentMethod = form.watch("paymentMethod");
 
   const [pickupInputValue, setPickupInputValue] = useState("");
   const [pickupSuggestions, setPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
@@ -914,10 +918,15 @@ export default function BookRidePage() {
       scheduledPickupAt = combinedDateTime.toISOString();
     }
 
-
     setIsBooking(true);
+    if (values.paymentMethod === 'card') {
+        setIsSimulatingPayment(true);
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate payment processing
+        setIsSimulatingPayment(false);
+    }
 
-    const bookingPayload: any = { // Using 'any' temporarily for the new field
+
+    const bookingPayload: any = { 
       passengerId: user.id,
       passengerName: user.name || "Passenger",
       pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
@@ -953,22 +962,24 @@ export default function BookRidePage() {
 
       const result = await response.json();
       
-      
+      let toastDescription = `Ride ID: ${result.bookingId}. `;
       if (values.bookingType === 'asap' && !scheduledPickupAt) {
-          toast({ 
-            title: "Booking Confirmed!", 
-            description: `Ride ID: ${result.bookingId}. We'll notify you when your driver is on the way.`, 
-            variant: "default", 
-            duration: 7000 
-          });
+          toastDescription += `We'll notify you when your driver is on the way. `;
       } else {
-          toast({ 
-            title: "Booking Confirmed!", 
-            description: `Ride ID: ${result.bookingId}. Your driver will be assigned shortly for the scheduled time.`, 
-            variant: "default", 
-            duration: 7000 
-          });
+          toastDescription += `Your driver will be assigned shortly for the scheduled time. `;
       }
+      if (values.paymentMethod === 'cash') {
+          toastDescription += `Payment: Cash to driver.`;
+      } else {
+          toastDescription += `Payment: Card (Mock Processed).`;
+      }
+      
+      toast({ 
+        title: "Booking Confirmed!", 
+        description: toastDescription, 
+        variant: "default", 
+        duration: 7000 
+      });
       
       setShowConfirmationDialog(false); 
       form.reset();
@@ -2022,7 +2033,6 @@ const handleProceedToConfirmation = async () => {
                             <CardTitle className="text-xl font-headline flex items-center gap-2">
                               <CreditCard className="w-6 h-6 text-primary" /> Payment Method
                             </CardTitle>
-                            <CardDescription>Choose how you'd like to pay for your ride.</CardDescription>
                           </CardHeader>
                           <CardContent>
                             <FormField
@@ -2063,6 +2073,24 @@ const handleProceedToConfirmation = async () => {
                                     </RadioGroup>
                                   </FormControl>
                                   <FormMessage />
+                                  {watchedPaymentMethod === "card" && (
+                                    <div className="mt-3 pt-3 border-t border-muted/50">
+                                        <p className="text-sm font-medium text-muted-foreground mb-2">Card Options (Mock UI)</p>
+                                        <div className="p-3 bg-muted/30 rounded-md space-y-2">
+                                            <div className="flex items-center justify-between p-2 bg-background rounded-md border border-primary/50 shadow-sm">
+                                                <Label htmlFor="mock-saved-card" className="flex items-center gap-2">
+                                                    <input type="radio" id="mock-saved-card" name="card-option" defaultChecked className="form-radio text-primary focus:ring-primary" />
+                                                    <CreditCard className="w-5 h-5 text-primary" />
+                                                    <span>Visa ending in 1234</span>
+                                                </Label>
+                                                <span className="text-xs text-muted-foreground">Expires 12/25</span>
+                                            </div>
+                                            <Button variant="outline" size="sm" className="w-full" disabled>
+                                                <PlusCircle className="mr-2 h-4 w-4"/> Add New Card (Coming Soon)
+                                            </Button>
+                                        </div>
+                                    </div>
+                                  )}
                                 </FormItem>
                               )}
                             />
@@ -2071,16 +2099,16 @@ const handleProceedToConfirmation = async () => {
                       </div>
                       <DialogFooter>
                         <DialogClose asChild>
-                          <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
+                          <Button type="button" variant="outline" disabled={isBooking || isSimulatingPayment}>Back to Edit</Button>
                         </DialogClose>
                         <Button 
                           type="button"
                           onClick={() => form.handleSubmit(handleBookRide)()}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground" 
-                          disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
+                          disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking || isSimulatingPayment}
                         >
-                          {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                          {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
+                          {(isBooking || isSimulatingPayment) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                          {isSimulatingPayment ? 'Processing Payment...' : isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
