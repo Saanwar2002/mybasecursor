@@ -40,13 +40,13 @@ export default function AdminDashboardPage() {
           icon={Users}
           link="/admin/platform-users" 
           actionText="View All Users"
-          disabled={false} // Enabled this feature
+          disabled={false} 
         />
         <FeatureCard
           title="System Analytics (Soon)"
           description="Access comprehensive analytics for the entire platform, including overall ride volume, revenue, and growth trends."
           icon={BarChart3}
-          link="#" // Placeholder
+          link="#" 
           actionText="View Platform Analytics"
           disabled
         />
@@ -54,7 +54,7 @@ export default function AdminDashboardPage() {
           title="Global Settings (Soon)"
           description="Configure platform-wide settings, commission rates, and default policies."
           icon={Settings}
-          link="#" // Placeholder
+          link="#" 
           actionText="Configure Settings"
           disabled
         />

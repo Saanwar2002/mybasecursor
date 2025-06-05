@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield } from 'lucide-react'; // Added Shield
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch } from 'lucide-react'; // Added more user icons
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -40,7 +40,19 @@ export const navItems: NavItem[] = [
   // Admin
   { href: '/admin', label: 'Admin Dashboard', icon: Shield, roles: ['admin'] },
   { href: '/admin/manage-operators', label: 'Manage Operators', icon: Building, roles: ['admin'] },
-  { href: '/admin/platform-users', label: 'Platform Users', icon: Users, roles: ['admin'] },
+  { 
+    href: '/admin/platform-users', 
+    label: 'Platform Users', 
+    icon: Users, 
+    roles: ['admin'],
+    subItems: [
+      { href: '/admin/platform-users', label: 'All Users', icon: Users, roles: ['admin']},
+      { href: '/admin/platform-users?role=passenger', label: 'Passengers', icon: UserSearch, roles: ['admin']},
+      { href: '/admin/platform-users?role=driver', label: 'Drivers', icon: Car, roles: ['admin']},
+      { href: '/admin/platform-users?role=operator', label: 'Operators', icon: Briefcase, roles: ['admin']},
+      { href: '/admin/platform-users?role=admin', label: 'Administrators', icon: UserCog, roles: ['admin']},
+    ]
+  },
   // { href: '/admin/platform-settings', label: 'Platform Settings', icon: Settings, roles: ['admin'] },
 
 
@@ -49,7 +61,19 @@ export const navItems: NavItem[] = [
   { href: '/settings', label: 'Settings', icon: Settings, roles: ['passenger', 'driver', 'operator', 'admin'] },
 ];
 
+// Function to get navigation items based on role, handling sub-items
 export const getNavItemsForRole = (role: UserRole | undefined): NavItem[] => {
   if (!role) return [];
-  return navItems.filter(item => item.roles.includes(role));
+  
+  const filteredNavItems: NavItem[] = [];
+
+  navItems.forEach(item => {
+    if (item.roles.includes(role)) {
+      // If the item has sub-items, filter them as well if needed (though for now, sub-items inherit role)
+      // For simplicity, if the parent is included, all its sub-items are included.
+      // You could add role checks to sub-items too if necessary.
+      filteredNavItems.push({ ...item });
+    }
+  });
+  return filteredNavItems;
 };

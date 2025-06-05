@@ -48,6 +48,7 @@ const querySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   searchName: z.string().optional(),
   searchEmail: z.string().optional(),
+  searchId: z.string().optional(), // New: Search by document ID
 });
 
 interface PlatformUser {
@@ -67,7 +68,6 @@ interface PlatformUser {
 
 export async function GET(request: NextRequest) {
   // TODO: Implement authentication/authorization for admin role.
-  // For now, assumes the caller is authorized.
 
   const { searchParams } = new URL(request.url);
   const params = Object.fromEntries(searchParams.entries());
@@ -86,9 +86,42 @@ export async function GET(request: NextRequest) {
     sortOrder,
     searchName,
     searchEmail,
+    searchId, // New
   } = parsedQuery.data;
 
   try {
+    // If searchId is provided, perform a direct document lookup
+    if (searchId) {
+      const userDocRef = doc(db, 'users', searchId);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const data = userDocSnap.data();
+        const user: PlatformUser = {
+          id: userDocSnap.id,
+          name: data.name || 'N/A',
+          email: data.email || 'N/A',
+          role: data.role || 'passenger',
+          status: data.status || 'Inactive',
+          createdAt: serializeTimestamp(data.createdAt as Timestamp | undefined),
+          lastLogin: serializeTimestamp(data.lastLogin as Timestamp | undefined),
+          phone: data.phoneNumber || data.phone,
+          operatorCode: data.operatorCode,
+          driverIdentifier: data.driverIdentifier,
+          vehicleCategory: data.vehicleCategory,
+          customId: data.customId,
+        };
+        // Only return the specific user if its role matches the role filter (if provided and not 'all')
+        if (role === 'all' || user.role === role) {
+            return NextResponse.json({ users: [user], nextCursor: null }, { status: 200 });
+        } else {
+            return NextResponse.json({ users: [], nextCursor: null, message: `User with ID ${searchId} found, but does not match role filter '${role}'.` }, { status: 200 });
+        }
+      } else {
+        return NextResponse.json({ users: [], nextCursor: null, message: `User with ID ${searchId} not found.` }, { status: 200 }); // Return empty for not found ID
+      }
+    }
+
+    // Proceed with collection query if searchId is not provided
     const usersRef = collection(db, 'users');
     const queryConstraints: QueryConstraint[] = [];
 
@@ -99,29 +132,24 @@ export async function GET(request: NextRequest) {
       queryConstraints.push(where('status', '==', status));
     }
 
-    // Name search (prefix based)
     if (searchName) {
       queryConstraints.push(where('name', '>=', searchName));
       queryConstraints.push(where('name', '<=', searchName + '\uf8ff'));
     }
-    // Email search (can be exact, or prefix if Firestore supports it well enough or use third-party search)
     if (searchEmail) {
       queryConstraints.push(where('email', '>=', searchEmail));
       queryConstraints.push(where('email', '<=', searchEmail + '\uf8ff'));
     }
     
-    // Firestore requires the first orderBy field to match the field in inequality filters if present.
-    // Adjusting order of orderBy constraints based on search fields.
     if (searchName) {
-      queryConstraints.push(orderBy('name', sortOrder)); // Primary sort on name if searching by name
-      if (sortBy !== 'name') queryConstraints.push(orderBy(sortBy, sortOrder)); // Secondary sort
+      queryConstraints.push(orderBy('name', sortOrder));
+      if (sortBy !== 'name') queryConstraints.push(orderBy(sortBy, sortOrder));
     } else if (searchEmail) {
-      queryConstraints.push(orderBy('email', sortOrder)); // Primary sort on email if searching by email
-      if (sortBy !== 'email') queryConstraints.push(orderBy(sortBy, sortOrder)); // Secondary sort
+      queryConstraints.push(orderBy('email', sortOrder));
+      if (sortBy !== 'email') queryConstraints.push(orderBy(sortBy, sortOrder));
     } else if (sortBy) {
       queryConstraints.push(orderBy(sortBy, sortOrder));
     }
-
 
     if (startAfterDocId) {
       const startAfterDocRef = doc(db, 'users', startAfterDocId);
@@ -143,8 +171,8 @@ export async function GET(request: NextRequest) {
         id: userDoc.id,
         name: data.name || 'N/A',
         email: data.email || 'N/A',
-        role: data.role || 'passenger', // Default if role is missing
-        status: data.status || 'Inactive', // Default status
+        role: data.role || 'passenger',
+        status: data.status || 'Inactive',
         createdAt: serializeTimestamp(data.createdAt as Timestamp | undefined),
         lastLogin: serializeTimestamp(data.lastLogin as Timestamp | undefined),
         phone: data.phoneNumber || data.phone,

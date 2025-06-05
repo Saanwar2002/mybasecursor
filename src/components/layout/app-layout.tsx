@@ -8,24 +8,41 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Car, LogOut, Menu, Settings, UserCircle } from 'lucide-react';
+import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
 import { Skeleton } from '../ui/skeleton';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // Redirect to login if not loading, no user, and not on a public/login/register path
     if (!loading && !user && !['/login', '/register', '/'].includes(pathname) && !pathname.startsWith('/_next/')) {
       router.push('/login');
     }
   }, [user, loading, router, pathname]);
+
+  useEffect(() => {
+    // Initialize openSubMenus based on current path
+    if (user) {
+      const navItems = getNavItemsForRole(user.role);
+      const newOpenSubMenus: Record<string, boolean> = {};
+      navItems.forEach(item => {
+        if (item.subItems && item.subItems.some(subItem => pathname.startsWith(subItem.href))) {
+          newOpenSubMenus[item.href] = true;
+        }
+      });
+      setOpenSubMenus(newOpenSubMenus);
+    }
+  }, [pathname, user, loading]);
 
 
   if (loading) {
@@ -52,27 +69,62 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    // User is not authenticated and not loading, useEffect above will handle redirect.
-    // Render null or a minimal loading state to avoid rendering main layout briefly.
     return null;
   }
 
   const navItems = getNavItemsForRole(user.role);
 
-  const SidebarContent = () => (
-    <nav className="grid gap-2 text-sm font-medium">
-      {navItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-primary/10 ${
-            pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/') ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
-          }`}
-        >
-          <item.icon className="h-4 w-4" />
-          {item.label}
-        </Link>
-      ))}
+  const toggleSubMenu = (href: string) => {
+    setOpenSubMenus(prev => ({ ...prev, [href]: !prev[href] }));
+  };
+
+  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
+    <nav className="grid gap-1 text-sm font-medium">
+      {navItems.map((item) => 
+        item.subItems && item.subItems.length > 0 ? (
+          <Collapsible key={item.href} open={openSubMenus[item.href]} onOpenChange={() => toggleSubMenu(item.href)} className="w-full">
+            <CollapsibleTrigger asChild>
+              <div className={cn(
+                "flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-primary/10 w-full cursor-pointer",
+                (pathname.startsWith(item.href) && item.href !== '/') || item.subItems.some(sub => pathname.startsWith(sub.href)) ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+              )}>
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </div>
+                {openSubMenus[item.href] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-7 pt-1 space-y-1">
+              {item.subItems.map((subItem) => (
+                <Link
+                  key={subItem.href}
+                  href={subItem.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-primary/10 ${
+                    pathname === subItem.href || (pathname.startsWith(subItem.href) && subItem.href !== '/') ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+                  }`}
+                  onClick={isMobile ? () => document.dispatchEvent(new CustomEvent('closeSheet')) : undefined}
+                >
+                  <subItem.icon className="h-4 w-4" />
+                  {subItem.label}
+                </Link>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-primary/10 ${
+              pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/') ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+            }`}
+            onClick={isMobile ? () => document.dispatchEvent(new CustomEvent('closeSheet')) : undefined}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.label}
+          </Link>
+        )
+      )}
     </nav>
   );
 
@@ -100,7 +152,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <span className="sr-only">Toggle Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="sm:max-w-xs w-60 p-0">
+            <SheetContent side="left" className="sm:max-w-xs w-60 p-0" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
               <SheetTitle className="sr-only">Menu</SheetTitle>
               <div className="flex h-16 items-center border-b px-6">
                 <Link href="/" className="flex items-center gap-2 font-semibold text-primary">
@@ -109,7 +161,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </Link>
               </div>
               <ScrollArea className="h-[calc(100vh-4rem)] py-4">
-                 <SidebarContent />
+                 <SidebarContent isMobile={true} />
               </ScrollArea>
             </SheetContent>
           </Sheet>

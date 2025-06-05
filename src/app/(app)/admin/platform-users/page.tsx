@@ -1,11 +1,11 @@
 
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserPlus, Edit, Filter, Search, Loader2, AlertTriangle, CheckCircle, XCircle, ShieldAlert, Eye, Shield } from "lucide-react";
+import { Users, UserPlus, Edit, Filter, Search, Loader2, AlertTriangle, CheckCircle, XCircle, ShieldAlert, Eye, Shield, Briefcase, Car as CarIcon } from "lucide-react"; // Added CarIcon
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,16 +13,16 @@ import type { UserRole } from '@/contexts/auth-context';
 import { useAuth } from '@/contexts/auth-context';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
-// UID of THE platform administrator who can change status of other admins (if needed in future)
-const SUPER_ADMIN_UID = "qWDHrEVDBfWu3A2F5qY6N9tGgnI3"; // Example, adjust as needed
+const SUPER_ADMIN_UID = "qWDHrEVDBfWu3A2F5qY6N9tGgnI3";
 
 interface PlatformUser {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  status: string; // 'Active', 'Inactive', 'Pending Approval', 'Suspended'
+  status: string;
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
   lastLogin?: { _seconds: number; _nanoseconds: number } | null;
   phone?: string;
@@ -34,15 +34,17 @@ const formatDateFromTimestamp = (timestamp?: { _seconds: number; _nanoseconds: n
   if (!timestamp || typeof timestamp._seconds !== 'number' || typeof timestamp._nanoseconds !== 'number') return 'N/A';
   try {
     const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
-    return format(date, "P"); // Changed format from "PPpp" to "P"
+    return format(date, "P");
   } catch (e) {
     return 'Date Error';
   }
 };
 
-
-export default function PlatformUsersPage() {
+function PlatformUsersContent() {
   const { user: currentAdminUser } = useAuth();
+  const searchParams = useSearchParams();
+  const roleFromUrl = searchParams.get('role') as UserRole | 'all' | null;
+
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +52,8 @@ export default function PlatformUsersPage() {
 
   const [searchName, setSearchName] = useState<string>("");
   const [searchEmail, setSearchEmail] = useState<string>("");
-  const [filterRole, setFilterRole] = useState<string>("all");
+  const [searchId, setSearchId] = useState<string>(""); // New state for ID search
+  const [filterRole, setFilterRole] = useState<UserRole | 'all'>(roleFromUrl || "all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
@@ -82,6 +85,9 @@ export default function PlatformUsersPage() {
       if (searchEmail.trim() !== "") {
         params.append('searchEmail', searchEmail.trim());
       }
+      if (searchId.trim() !== "") { // Add searchId to params
+        params.append('searchId', searchId.trim());
+      }
       
       const response = await fetch(`/api/admin/users?${params.toString()}`);
       if (!response.ok) {
@@ -96,10 +102,10 @@ export default function PlatformUsersPage() {
       if (direction === 'filter') {
         setCurrentPage(1);
         setPrevCursors([]);
-      } else if (direction === 'next') {
-        if (users.length > 0 && cursor) {
-           setPrevCursors(prev => [...prev, users[0]?.id || null]);
-        }
+      } else if (direction === 'next' && cursor) { // ensure cursor is present for next
+         if (users.length > 0) { // Check if users array has elements
+            setPrevCursors(prev => [...prev, users[0]?.id || null]);
+         }
       }
 
     } catch (err) {
@@ -110,14 +116,18 @@ export default function PlatformUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterRole, filterStatus, searchName, searchEmail, toast, users]); // `users` in dep for prevCursors
+  }, [filterRole, filterStatus, searchName, searchEmail, searchId, toast, users]); // searchId, users in deps
+
+  useEffect(() => {
+    setFilterRole(roleFromUrl || "all");
+  }, [roleFromUrl]);
 
   useEffect(() => {
     if (currentAdminUser) { 
       fetchUsers(null, 'filter');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterRole, filterStatus, searchName, searchEmail, currentAdminUser]); // removed fetchUsers from dep
+  }, [filterRole, filterStatus, searchName, searchEmail, searchId, currentAdminUser]);
 
 
   const handleNextPage = () => {
@@ -156,8 +166,6 @@ export default function PlatformUsersPage() {
             payload.statusReason = reason;
         }
         
-        // Use the generic user update endpoint (which is /api/operator/drivers/[driverId] for now)
-        // This should ideally be a dedicated /api/admin/users/[userId]/status endpoint
         const response = await fetch(`/api/operator/drivers/${userIdToUpdate}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -192,19 +200,32 @@ export default function PlatformUsersPage() {
     );
   }
 
+  const pageTitleSuffix = roleFromUrl && roleFromUrl !== 'all'
+    ? `: ${roleFromUrl.charAt(0).toUpperCase() + roleFromUrl.slice(1)}s`
+    : ': All Users';
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
-            <Users className="w-8 h-8 text-primary" /> Platform Users
+            <Users className="w-8 h-8 text-primary" /> Platform Users {pageTitleSuffix}
           </CardTitle>
-          <CardDescription>View, search, and manage all user accounts across the platform.</CardDescription>
+          <CardDescription>View, search, and manage user accounts.</CardDescription>
         </CardHeader>
       </Card>
 
       <Card>
-        <CardHeader className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardHeader className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex items-center gap-1">
+                <Search className="w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by ID..." 
+                  value={searchId}
+                  onChange={(e) => setSearchId(e.target.value)}
+                  className="h-9 text-sm"
+                />
+            </div>
             <div className="flex items-center gap-1">
                 <Search className="w-4 h-4 text-muted-foreground" />
                 <Input 
@@ -225,7 +246,7 @@ export default function PlatformUsersPage() {
             </div>
             <div className="flex items-center gap-1">
                 <Filter className="w-4 h-4 text-muted-foreground" />
-                <Select value={filterRole} onValueChange={setFilterRole}>
+                <Select value={filterRole} onValueChange={(value) => setFilterRole(value as UserRole | 'all')} disabled={!!roleFromUrl && roleFromUrl !== 'all'}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Filter by role" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Roles</SelectItem>
@@ -269,10 +290,10 @@ export default function PlatformUsersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Email / Custom ID</TableHead>
+                    <TableHead>Email / Custom ID / Op. Code</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Registered</TableHead> {/* Changed header text */}
+                    <TableHead>Registered</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -284,7 +305,23 @@ export default function PlatformUsersPage() {
                         <div>{userToList.email}</div>
                         <div className="text-xs text-muted-foreground">{userToList.customId || userToList.operatorCode || userToList.id}</div>
                       </TableCell>
-                      <TableCell><Badge variant="secondary" className="capitalize">{userToList.role}</Badge></TableCell>
+                      <TableCell>
+                        <Badge 
+                            variant={
+                                userToList.role === 'admin' ? 'destructive' : 
+                                userToList.role === 'operator' ? 'default' :
+                                userToList.role === 'driver' ? 'secondary' : 
+                                'outline'
+                            } 
+                            className="capitalize"
+                        >
+                            {userToList.role === 'admin' && <Shield className="w-3 h-3 mr-1 inline-block" />}
+                            {userToList.role === 'operator' && <Briefcase className="w-3 h-3 mr-1 inline-block" />}
+                            {userToList.role === 'driver' && <CarIcon className="w-3 h-3 mr-1 inline-block" />}
+                            {userToList.role === 'passenger' && <Users className="w-3 h-3 mr-1 inline-block" />}
+                            {userToList.role}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <Badge variant={
                           userToList.status === 'Active' ? 'default' :
@@ -343,3 +380,10 @@ export default function PlatformUsersPage() {
   );
 }
 
+export default function PlatformUsersPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}>
+      <PlatformUsersContent />
+    </Suspense>
+  )
+}
