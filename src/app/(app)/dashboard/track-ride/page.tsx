@@ -1,88 +1,577 @@
-
 "use client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Car, Clock } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins } from "lucide-react";
 import dynamic from 'next/dynamic';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
+import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import Image from 'next/image';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useFieldArray } from "react-hook-form";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader'; // Renamed to avoid conflict
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
 
-// Use the new GoogleMapDisplay component
+
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 }; 
-const initialTaxiLocationHuddersfield: google.maps.LatLngLiteral = { lat: 53.6500, lng: -1.7750 }; 
+interface LocationPoint {
+  address: string;
+  latitude: number;
+  longitude: number;
+  doorOrFlat?: string;
+}
 
-export default function TrackRidePage() {
-  const [taxiLocation, setTaxiLocation] = useState<google.maps.LatLngLiteral>(initialTaxiLocationHuddersfield);
-  const [estimatedArrival, setEstimatedArrival] = useState(5); 
+interface SerializedTimestamp {
+  _seconds: number;
+  _nanoseconds: number;
+}
 
+interface ActiveRide {
+  id: string;
+  bookingTimestamp?: SerializedTimestamp | null;
+  scheduledPickupAt?: string | null;
+  pickupLocation: LocationPoint;
+  dropoffLocation: LocationPoint;
+  stops?: LocationPoint[];
+  driver?: string; 
+  driverId?: string;
+  driverAvatar?: string;
+  vehicleType: string;
+  fareEstimate: number;
+  status: string; 
+  rating?: number;
+  passengerName: string;
+  isSurgeApplied?: boolean;
+  paymentMethod?: "card" | "cash";
+  notifiedPassengerArrivalTimestamp?: SerializedTimestamp | null;
+  passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | null;
+  rideStartedAt?: SerializedTimestamp | null;
+  driverCurrentLocation?: { lat: number; lng: number };
+  driverEtaMinutes?: number;
+  driverVehicleDetails?: string;
+}
+
+const formatDate = (timestamp?: SerializedTimestamp | null, isoString?: string | null): string => {
+  if (isoString) {
+    try {
+      const date = parseISO(isoString);
+      if (!isValid(date)) return 'Scheduled N/A';
+      return format(date, "MMM do, yyyy 'at' p");
+    } catch (e) { return 'Scheduled N/A'; }
+  }
+  if (!timestamp) return 'N/A';
+  try {
+    const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
+    if (!isValid(date)) return 'Invalid Date';
+    return format(date, "MMM do, yyyy 'at' p");
+  } catch (e) { return 'Date Error'; }
+};
+
+const editDetailsFormSchema = z.object({
+  pickupDoorOrFlat: z.string().max(50).optional(),
+  pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
+  dropoffDoorOrFlat: z.string().max(50).optional(),
+  dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
+  stops: z.array(z.object({
+      doorOrFlat: z.string().max(50).optional(),
+      location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
+  })).optional(),
+  desiredPickupDate: z.date().optional(),
+  desiredPickupTime: z.string().optional(),
+}).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
+  message: "If scheduling, both date and time must be provided. For ASAP, leave both empty.", path: ["desiredPickupTime"],
+});
+
+type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
+type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
+
+
+export default function MyActiveRidePage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [rideToCancel, setRideToCancel] = useState<ActiveRide | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
+
+  const [rideToEditDetails, setRideToEditDetails] = useState<ActiveRide | null>(null);
+  const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
+  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
+  
+  const [dialogPickupInputValue, setDialogPickupInputValue] = useState("");
+  const [dialogPickupSuggestions, setDialogPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [showDialogPickupSuggestions, setShowDialogPickupSuggestions] = useState(false);
+  const [isFetchingDialogPickupDetails, setIsFetchingDialogPickupDetails] = useState(false);
+  const [dialogPickupCoords, setDialogPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
+
+  const [dialogDropoffInputValue, setDialogDropoffInputValue] = useState("");
+  const [dialogDropoffSuggestions, setDialogDropoffSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [showDialogDropoffSuggestions, setShowDialogDropoffSuggestions] = useState(false);
+  const [isFetchingDialogDropoffDetails, setIsFetchingDialogDropoffDetails] = useState(false);
+  const [dialogDropoffCoords, setDialogDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
+  
+  const [dialogStopAutocompleteData, setDialogStopAutocompleteData] = useState<DialogAutocompleteData[]>([]);
+
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+
+  const editDetailsForm = useForm<EditDetailsFormValues>({
+    resolver: zodResolver(editDetailsFormSchema),
+    defaultValues: { pickupDoorOrFlat: "", pickupLocation: "", dropoffDoorOrFlat: "", dropoffLocation: "", stops: [], desiredPickupDate: undefined, desiredPickupTime: "" },
+  });
+
+  const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
+  
   useEffect(() => {
-    // Simulate taxi movement
-    const interval = setInterval(() => {
-      setTaxiLocation(prev => {
-        const newLat = prev.lat - (prev.lat - huddersfieldCenter.lat) * 0.1;
-        const newLng = prev.lng - (prev.lng - huddersfieldCenter.lng) * 0.1;
-        return { lat: newLat, lng: newLng };
-      });
-      setEstimatedArrival(prev => Math.max(0, prev - 1));
-    }, 5000); 
-
-    return () => clearInterval(interval);
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) { console.warn("Maps API Key missing."); return; }
+    const loader = new GoogleApiLoader({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["places", "marker", "maps"]});
+    loader.load().then((google) => {
+      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+      placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
+      autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+    }).catch(e => console.error("Failed to load Maps API", e));
   }, []);
 
-  const mapMarkers = [
-    { 
-      position: taxiLocation, 
-      title: "Your Taxi",
-      // Example custom icon (optional, ensure the URL is valid or remove for default Google marker)
-      // iconUrl: "/icons/taxi-marker.png", // Replace with your actual icon path
-      // iconScaledSize: { width: 32, height: 32 }
-    },
-    { 
-      position: huddersfieldCenter, 
-      title: "Your Location (Huddersfield)" 
+  const fetchActiveRide = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true); setError(null);
+    try {
+      const response = await fetch(`/api/bookings/my-active-ride?passengerId=${user.id}`);
+      if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`})); throw new Error(errorData.details || errorData.message); }
+      const data: ActiveRide | null = await response.json();
+      setActiveRide(data);
+    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; setError(message); toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" });
+    } finally { setIsLoading(false); }
+  }, [user, toast]);
+
+  useEffect(() => { fetchActiveRide(); }, [fetchActiveRide]);
+  
+  useEffect(() => { // Simulate driver ETA updates
+    if (activeRide && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup')) {
+      const interval = setInterval(() => {
+        setActiveRide(prev => {
+          if (!prev) return null;
+          let newEta = prev.driverEtaMinutes ? Math.max(0, prev.driverEtaMinutes - 1) : (Math.floor(Math.random() * 5) + 2); // Initial random if not set
+          if (prev.status === 'arrived_at_pickup') newEta = 0;
+          return { ...prev, driverEtaMinutes: newEta };
+        });
+      }, 60000); // Update ETA every minute
+      return () => clearInterval(interval);
     }
-  ];
+  }, [activeRide]);
+
+
+  const handleCancelRide = async () => {
+    if (!rideToCancel || !user) return;
+    setIsCancelling(true);
+    try {
+      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: rideToCancel.id, passengerId: user.id })});
+      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
+      toast({ title: "Ride Cancelled", description: `Your ride ${rideToCancel.id} has been cancelled.` });
+      setActiveRide(null); setRideToCancel(null); setIsCancelSwitchOn(false);
+    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
+    } finally { setIsCancelling(false); }
+  };
+
+  const handleOpenCancelDialog = (ride: ActiveRide) => { setRideToCancel(ride); };
+  const handleCancelSwitchChange = (checked: boolean) => { setIsCancelSwitchOn(checked); if (checked && activeRide) { handleOpenCancelDialog(activeRide); } else if (!checked) { setRideToCancel(null); }};
+
+  const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
+    setRideToEditDetails(ride);
+    editDetailsForm.reset({
+        pickupDoorOrFlat: ride.pickupLocation.doorOrFlat || "",
+        pickupLocation: ride.pickupLocation.address,
+        dropoffDoorOrFlat: ride.dropoffLocation.doorOrFlat || "",
+        dropoffLocation: ride.dropoffLocation.address,
+        stops: ride.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || ""})) || [],
+        desiredPickupDate: ride.scheduledPickupAt ? parseISO(ride.scheduledPickupAt) : undefined,
+        desiredPickupTime: ride.scheduledPickupAt ? format(parseISO(ride.scheduledPickupAt), "HH:mm") : "",
+    });
+    setDialogPickupInputValue(ride.pickupLocation.address);
+    setDialogPickupCoords({ lat: ride.pickupLocation.latitude, lng: ride.pickupLocation.longitude });
+    setDialogDropoffInputValue(ride.dropoffLocation.address);
+    setDialogDropoffCoords({ lat: ride.dropoffLocation.latitude, lng: ride.dropoffLocation.longitude });
+    
+    const initialStopData: DialogAutocompleteData[] = (ride.stops || []).map((stop, index) => ({
+        fieldId: `dialog-stop-${index}-${Date.now()}`, inputValue: stop.address,
+        coords: { lat: stop.latitude, lng: stop.longitude },
+        suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false,
+    }));
+    setDialogStopAutocompleteData(initialStopData);
+    setIsEditDetailsDialogOpen(true);
+  };
+
+  const handleEditAddressInputChangeFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (inputValue: string, formOnChange: (value: string) => void) => {
+    formOnChange(inputValue);
+    const setCoordsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (coords) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords} : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupCoords : setDialogDropoffCoords);
+    setCoordsFunc(null);
+
+    const setShowSuggestionsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (show) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show, inputValue } : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setShowDialogPickupSuggestions : setShowDialogDropoffSuggestions);
+    setShowSuggestionsFunc(inputValue.length >= 2);
+    
+    if (typeof formFieldNameOrStopIndex === 'string' && formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupInputValue(inputValue);
+    if (typeof formFieldNameOrStopIndex === 'string' && formFieldNameOrStopIndex === 'dropoffLocation') setDialogDropoffInputValue(inputValue);
+
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (inputValue.length < 2) return;
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (!autocompleteServiceRef.current) return;
+      const setSuggestionsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg, isFetchingSuggestions: false} : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupSuggestions : setDialogDropoffSuggestions);
+      const setIsFetchingFunc = (fetch) => { if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch} : item)); else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupSuggestions(fetch); else setIsFetchingDialogDropoffSuggestions(fetch); };
+      
+      setIsFetchingFunc(true);
+      autocompleteServiceRef.current.getPlacePredictions({ input: inputValue, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } }, (predictions, status) => {
+        setIsFetchingFunc(false);
+        setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
+      });
+    }, 300);
+  }, []);
+
+ const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
+    const addressText = suggestion?.description;
+    if (!addressText || !placesServiceRef.current || !suggestion.place_id) return;
+    formOnChange(addressText);
+
+    const setIsFetchingDetailsFunc = (isFetching: boolean) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(isFetching); else setIsFetchingDialogDropoffDetails(isFetching);
+    };
+    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: addressText, showSuggestions: false } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupCoords(coords); setDialogPickupInputValue(addressText); setShowDialogPickupSuggestions(false); }
+        else { setDialogDropoffCoords(coords); setDialogDropoffInputValue(addressText); setShowDialogDropoffSuggestions(false); }
+    };
+
+    setIsFetchingDetailsFunc(true);
+    placesServiceRef.current.getDetails({ placeId: suggestion.place_id, fields: ['geometry.location'], sessionToken: autocompleteSessionTokenRef.current }, (place, status) => {
+      setIsFetchingDetailsFunc(false);
+      setCoordsFunc(status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
+      if (status !== google.maps.places.PlacesServiceStatus.OK) toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"});
+      else toast({ title: "Location Updated", description: `${addressText} selected.`});
+      autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+    });
+  }, [toast]);
+
+  const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
+    // Simplified: only show if suggestions already exist and input is long enough
+    if (typeof fieldNameOrIndex === 'number') {
+        const stop = dialogStopAutocompleteData[fieldNameOrIndex];
+        if (stop?.inputValue.length >= 2 && stop.suggestions.length > 0) setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
+    } else if (fieldNameOrIndex === 'pickupLocation' && dialogPickupInputValue.length >= 2 && dialogPickupSuggestions.length > 0) setShowDialogPickupSuggestions(true);
+    else if (fieldNameOrIndex === 'dropoffLocation' && dialogDropoffInputValue.length >= 2 && dialogDropoffSuggestions.length > 0) setShowDialogDropoffSuggestions(true);
+  };
+  const handleEditBlurFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
+    setTimeout(() => {
+      if (typeof fieldNameOrIndex === 'number') setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: false} : item));
+      else if (fieldNameOrIndex === 'pickupLocation') setShowDialogPickupSuggestions(false);
+      else setShowDialogDropoffSuggestions(false);
+    }, 150);
+  };
+
+  const onEditDetailsSubmit = async (values: EditDetailsFormValues) => {
+    if (!rideToEditDetails || !user || !dialogPickupCoords || !dialogDropoffCoords) {
+      toast({ title: "Error", description: "Missing ride data or user session.", variant: "destructive" }); return;
+    }
+    
+    const validStopsData = [];
+    for (let i = 0; i < (values.stops?.length || 0); i++) {
+        const stopValue = values.stops?.[i];
+        const stopCoordsData = dialogStopAutocompleteData[i];
+        if (stopValue?.location && stopValue.location.trim() !== "" && !stopCoordsData?.coords) {
+            toast({ title: `Stop ${i+1} Incomplete`, description: `Please ensure Stop ${i+1} has coordinates by selecting from suggestions.`, variant: "destructive"}); return;
+        }
+        if (stopValue?.location && stopValue.location.trim() !== "" && stopCoordsData?.coords) {
+            validStopsData.push({ address: stopValue.location, latitude: stopCoordsData.coords.lat, longitude: stopCoordsData.coords.lng, doorOrFlat: stopValue.doorOrFlat });
+        }
+    }
+
+    setIsUpdatingDetails(true);
+    let scheduledAtISO: string | null = null;
+    if (values.desiredPickupDate && values.desiredPickupTime) {
+        const [hours, minutes] = values.desiredPickupTime.split(':').map(Number);
+        const combinedDateTime = new Date(values.desiredPickupDate);
+        combinedDateTime.setHours(hours, minutes, 0, 0);
+        scheduledAtISO = combinedDateTime.toISOString();
+    }
+
+    const payload: UpdateDetailsPayload = {
+        bookingId: rideToEditDetails.id, passengerId: user.id,
+        pickupLocation: { address: values.pickupLocation, latitude: dialogPickupCoords.lat, longitude: dialogPickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
+        dropoffLocation: { address: values.dropoffLocation, latitude: dialogDropoffCoords.lat, longitude: dialogDropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat },
+        stops: validStopsData,
+        scheduledPickupAt: scheduledAtISO,
+    };
+
+    try {
+        const response = await fetch(`/api/bookings/update-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)});
+        if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to update booking.'); }
+        const updatedRideData = await response.json();
+        setActiveRide(prev => prev ? {...prev, ...updatedRideData, id: rideToEditDetails.id} : null );
+        toast({ title: "Booking Updated", description: "Your ride details have been successfully changed." });
+        setIsEditDetailsDialogOpen(false);
+    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error."; toast({ title: "Update Failed", description: message, variant: "destructive" });
+    } finally { setIsUpdatingDetails(false); }
+  };
+
+  const handleAcknowledgeArrival = async (rideId: string) => {
+    // Simulate passenger acknowledging driver's arrival
+    setActiveRide(prev => prev ? { ...prev, passengerAcknowledgedArrivalTimestamp: { _seconds: Math.floor(Date.now()/1000), _nanoseconds: 0 } } : null);
+    toast({title: "Arrival Acknowledged", description: "You've let the driver know you're aware of their arrival."});
+    // In real app, this would call: POST /api/operator/bookings/[bookingId] with { action: 'acknowledge_arrival' }
+  };
+
+  const getStatusMessage = (ride: ActiveRide) => {
+    switch (ride.status.toLowerCase()) {
+        case 'pending_assignment': return "Waiting for driver assignment...";
+        case 'driver_assigned': return `Driver ${ride.driver || 'N/A'} is on the way. ETA: ${ride.driverEtaMinutes ?? 'calculating...'} min.`;
+        case 'arrived_at_pickup': return `Driver ${ride.driver || 'N/A'} has arrived at pickup.`;
+        case 'in_progress': return "Ride in progress...";
+        default: return "Loading status...";
+    }
+  };
+  
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+        case 'pending_assignment': return 'secondary';
+        case 'driver_assigned': return 'default';
+        case 'arrived_at_pickup': return 'outline';
+        case 'in_progress': return 'default';
+        default: return 'secondary';
+    }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status.toLowerCase()) {
+        case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
+        case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
+        case 'arrived_at_pickup': return 'border-green-500 text-green-600 hover:bg-green-500/10';
+        case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
+        default: return '';
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  if (error) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
+
+  const renderAutocompleteSuggestions = (
+    suggestions: google.maps.places.AutocompletePrediction[],
+    isFetchingSugg: boolean, isFetchingDet: boolean, inputValue: string,
+    onSuggClick: (suggestion: google.maps.places.AutocompletePrediction) => void, fieldKey: string
+  ) => (
+    <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60">
+      <div className="space-y-1 p-1">
+        {isFetchingSugg && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</div>}
+        {isFetchingDet && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</div>}
+        {!isFetchingSugg && !isFetchingDet && suggestions.length === 0 && inputValue.length >= 2 && <div className="p-2 text-sm text-muted-foreground">No suggestions.</div>}
+        {!isFetchingSugg && !isFetchingDet && suggestions.map((s) => (
+          <div key={`${fieldKey}-${s.place_id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm" onMouseDown={() => onSuggClick(s)}>{s.description}</div>
+        ))}
+      </div>
+    </ScrollArea>
+  );
 
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline flex items-center gap-2">
-            <MapPin className="w-8 h-8 text-primary" /> Real-Time Ride Tracking
-          </CardTitle>
-          <CardDescription>
-            Monitor your taxi's location live on the map. (Now using Google Maps)
-          </CardDescription>
+          <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle>
+          <CardDescription>Track your current ride details and status live.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="relative w-full h-96 md:h-[500px] rounded-lg overflow-hidden shadow-md border">
-            <GoogleMapDisplay 
-              center={huddersfieldCenter} 
-              zoom={14} 
-              markers={mapMarkers} 
+      </Card>
+
+      {!activeRide ? (
+        <Card>
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            <p className="text-lg mb-4">You have no active rides at the moment.</p>
+            <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Link href="/dashboard/book-ride">Book a New Ride</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
+            <GoogleMapDisplay
+              center={{ lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude }}
+              zoom={14}
+              markers={[{ position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude }, title: "Pickup" }]}
               className="h-full w-full"
               disableDefaultUI={true}
             />
           </div>
 
-          <Card className="bg-primary/10 border-primary/30">
-            <CardHeader>
-              <CardTitle className="text-xl">Ride Details</CardTitle>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row justify-between items-start gap-2">
+                <div>
+                    <CardTitle className="text-xl flex items-center gap-2">
+                        <Car className="w-5 h-5 text-primary" /> {activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ')}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                        {activeRide.scheduledPickupAt ? `Scheduled: ${formatDate(null, activeRide.scheduledPickupAt)}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}
+                    </CardDescription>
+                </div>
+                <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("text-xs sm:text-sm", getStatusBadgeClass(activeRide.status))}>
+                    {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </Badge>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> <strong>Vehicle:</strong> Toyota Camry (ABC 123)</p>
-              <p className="flex items-center gap-2"><MapPin className="w-5 h-5 text-primary" /> <strong>Driver:</strong> John B.</p>
-              <p className="flex items-center gap-2"><Clock className="w-5 h-5 text-primary" /> <strong>Estimated Arrival:</strong> {estimatedArrival} minutes</p>
-              <p className="flex items-center gap-2"><MapPin className="w-5 h-5 text-primary" /> <strong>Current Location:</strong> Approaching Town Centre (Mock)</p>
+            <CardContent className="space-y-3">
+                <p className="text-base text-muted-foreground">{getStatusMessage(activeRide)}</p>
+
+                {activeRide.driver && (
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border">
+                        <Avatar className="h-12 w-12">
+                            <AvatarImage src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} data-ai-hint="driver avatar" />
+                            <AvatarFallback>{activeRide.driver.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="font-semibold">{activeRide.driver}</p>
+                            <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p>
+                        </div>
+                         <Button variant="outline" size="sm" className="ml-auto">
+                            <MessageSquare className="w-4 h-4 mr-1.5" /> Chat
+                        </Button>
+                    </div>
+                )}
+                <Separator />
+                <div className="text-sm space-y-1">
+                    <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {activeRide.pickupLocation.address}</p>
+                    {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index+1}:</strong> {stop.address}</p> ))}
+                    <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {activeRide.dropoffLocation.address}</p>
+                    <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{activeRide.fareEstimate.toFixed(2)}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div>
+                    <div className="flex items-center gap-1.5">
+                        {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
+                        <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card (pay driver directly)' : 'Cash to Driver'}
+                    </div>
+                </div>
+                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                    <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}>
+                        <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival
+                    </Button>
+                )}
             </CardContent>
+             {activeRide.status === 'pending_assignment' && (
+                <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2">
+                    <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto">
+                        <Edit className="mr-2 h-4 w-4" /> Edit Booking
+                    </Button>
+                    <div className="flex items-center space-x-2 bg-destructive/10 p-2 rounded-md w-full sm:w-auto justify-center sm:justify-start">
+                        <Label htmlFor={`cancel-switch-${activeRide.id}`} className="text-destructive font-medium text-sm flex items-center">
+                            <ShieldX className="mr-1.5 h-4 w-4" /> Initiate Cancellation
+                        </Label>
+                        <Switch
+                            id={`cancel-switch-${activeRide.id}`}
+                            checked={isCancelSwitchOn && rideToCancel?.id === activeRide.id}
+                            onCheckedChange={handleCancelSwitchChange}
+                            disabled={isCancelling}
+                            className="data-[state=checked]:bg-destructive data-[state=unchecked]:bg-muted shrink-0"
+                        />
+                    </div>
+                </CardFooter>
+            )}
           </Card>
-        </CardContent>
-      </Card>
+        </>
+      )}
+
+      <AlertDialog open={!!rideToCancel && isCancelSwitchOn} onOpenChange={(isOpen) => { if (!isOpen) { setRideToCancel(null); setIsCancelSwitchOn(false); }}}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel onClick={() => { setRideToCancel(null); setIsCancelSwitchOn(false);}} disabled={isCancelling}>Keep Ride</AlertDialogCancel><AlertDialogAction onClick={handleCancelRide} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90">{isCancelling ? <Loader2 className="animate-spin mr-2"/> : null}Confirm Cancel</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset();}}}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader><DialogTitle>Edit Booking Details</DialogTitle><DialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</DialogDescription></DialogHeader>
+          <ScrollArea className="flex-1 pr-2"> {/* Added ScrollArea */}
+            <Form {...editDetailsForm}>
+              <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4 py-2">
+                {/* Pickup Location */}
+                <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
+                <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => (
+                  <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl>
+                  {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupDetails, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem>
+                )} />
+
+                {/* Stops */}
+                {editStopsFields.map((stopField, index) => (
+                    <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50">
+                        <div className="flex justify-between items-center">
+                             <FormLabel className="text-sm">Stop {index + 1}</FormLabel>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button>
+                        </div>
+                        <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
+                        <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => {
+                            const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`};
+                            return (<FormItem><FormLabel>Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl>
+                            {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>);
+                        }} />
+                    </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
+                
+                {/* Dropoff Location */}
+                <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
+                <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => (
+                  <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl>
+                  {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffDetails, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem>
+                )} />
+                
+                {/* Scheduled Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => (
+                    <FormItem><FormLabel>Pickup Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => (
+                    <FormItem><FormLabel>Pickup Time</FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+                {!editDetailsForm.watch('desiredPickupDate') && <p className="text-xs text-muted-foreground text-center">Leave date/time blank for ASAP booking.</p>}
+              </form>
+            </Form>
+          </ScrollArea>
+          <DialogFooter className="mt-auto pt-4 border-t"> {/* Ensure footer is at bottom */}
+            <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingDetails}>Cancel</Button></DialogClose>
+            <Button type="submit" form="edit-details-form-actual" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isUpdatingDetails || !dialogPickupCoords || !dialogDropoffCoords}>
+              {isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
-
