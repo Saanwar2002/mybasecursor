@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send, MessageCircle, X } from "lucide-react";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useRouter } from 'next/navigation'; // Import useRouter
+// import { useRouter } from 'next/navigation'; // Reverted: No longer using router.back()
 
 interface ChatUser {
   id: string;
@@ -60,7 +60,7 @@ const contextualInitialMessages: { [key: string]: Message[] } = {
 
 
 export default function DriverChatPage() {
-  const router = useRouter(); // Initialize useRouter
+  // const router = useRouter(); // Reverted: No longer using router.back()
   const [chatUsersList, setChatUsersList] = useState<ChatUser[]>(contextualInitialChatUsers);
   const [selectedChat, setSelectedChat] = useState<ChatUser | null>(
     contextualInitialChatUsers.find(u => u.id === activePassengerIdForContext) || contextualInitialChatUsers[0] || null
@@ -197,7 +197,8 @@ export default function DriverChatPage() {
                 </Avatar>
                 <CardTitle className="text-xl font-headline">{selectedChat.name}</CardTitle>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
+              {/* Reverted onClick to setSelectedChat(null) */}
+              <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
                 <span className="sr-only">Close chat</span>
               </Button>
@@ -239,4 +240,3 @@ export default function DriverChatPage() {
     </div>
   );
 }
-
