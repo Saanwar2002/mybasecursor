@@ -46,7 +46,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPinLogin, setShowPinLogin] = useState(false);
   const [pinUserEmail, setPinUserEmail] = useState<string | null>(null);
-  const [pinInputValue, setPinInputValue] = useState(""); // Local state for PIN input
+  const [pinInputValue, setPinInputValue] = useState(""); 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -62,6 +62,7 @@ export function LoginForm() {
     defaultValues: {
       pin: "",
     },
+    // mode: "onChange", // You might consider this if errors don't clear as expected
   });
 
   useEffect(() => {
@@ -156,7 +157,7 @@ export function LoginForm() {
         title: "Login Successful",
         description: `Welcome back, ${userProfile.name || firebaseUser.displayName}!`,
       });
-      setPinInputValue(""); // Clear PIN input on successful email/pass login
+      setPinInputValue(""); 
 
     } catch (error: any) {
       console.error("Login error:", error);
@@ -200,7 +201,7 @@ export function LoginForm() {
     }
     try {
       const storedUser: StoredPinUser = JSON.parse(storedUserData);
-      if (storedUser.pin === values.pin) { // values.pin is from RHF, which got it from pinInputValue
+      if (storedUser.pin === values.pin) { 
         contextLogin(
           storedUser.id,
           storedUser.email,
@@ -216,7 +217,7 @@ export function LoginForm() {
           storedUser.driverIdentifier
         );
         toast({ title: "PIN Login Successful", description: `Welcome back, ${storedUser.name}!` });
-        setPinInputValue(""); // Clear PIN input on successful PIN login
+        setPinInputValue(""); 
       } else {
         toast({ title: "PIN Login Failed", description: "Incorrect PIN.", variant: "destructive" });
         pinForm.resetField("pin");
@@ -229,7 +230,6 @@ export function LoginForm() {
         setIsLoading(false);
     }
   }
-
 
   const handleGuestLogin = (role: UserRole) => {
     let email = "";
@@ -258,7 +258,7 @@ export function LoginForm() {
       title: "Guest Login Successful",
       description: `Logged in as ${name}.`,
     });
-    setPinInputValue(""); // Clear PIN input on guest login
+    setPinInputValue(""); 
   };
 
   return (
@@ -374,18 +374,15 @@ export function LoginForm() {
                   <FormLabel>Enter 4-Digit PIN</FormLabel>
                   <FormControl>
                     <Input
-                      type="tel"
+                      type="tel" 
                       placeholder="••••"
                       value={pinInputValue} 
                       onChange={(e) => {
                         const newRawValue = e.target.value;
                         const newNumericValue = newRawValue.replace(/\D/g, "").slice(0, 4);
                         setPinInputValue(newNumericValue); 
-                        field.onChange(newNumericValue);   
-                        // console.log("PIN Input onChange - raw:", newRawValue, "numeric:", newNumericValue);
-                      }}
-                      onKeyDown={(e) => {
-                        // console.log("PIN Input onKeyDown event:", e.key);
+                        // Use pinForm.setValue to explicitly update RHF and trigger validation
+                        pinForm.setValue("pin", newNumericValue, { shouldValidate: true });
                       }}
                       disabled={isLoading}
                       className="text-center text-2xl tracking-[0.5em]"
@@ -406,7 +403,6 @@ export function LoginForm() {
           </form>
         </Form>
       )}
-
 
       <Separator className="my-6" />
 
@@ -446,3 +442,4 @@ export function LoginForm() {
     </>
   );
 }
+
