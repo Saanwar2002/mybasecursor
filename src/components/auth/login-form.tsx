@@ -18,7 +18,7 @@ import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
-import { User, Briefcase, CarIcon, Loader2 } from "lucide-react";
+import { User, Briefcase, CarIcon, Loader2, Shield } from "lucide-react"; // Added Shield
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
 import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth";
@@ -28,7 +28,7 @@ import { doc, getDoc, Timestamp } from "firebase/firestore";
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(["passenger", "driver", "operator"], { required_error: "You must select a role." }),
+  role: z.enum(["passenger", "driver", "operator", "admin"], { required_error: "You must select a role." }), // Added admin
 });
 
 export function LoginForm() {
@@ -61,7 +61,6 @@ export function LoginForm() {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       const firebaseUser = userCredential.user;
 
-      // Fetch user profile from Firestore
       const userDocRef = doc(db, "users", firebaseUser.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -72,8 +71,6 @@ export function LoginForm() {
           variant: "destructive",
         });
         setIsLoading(false);
-        // Optionally sign out the Firebase user if profile is mandatory
-        // await auth.signOut(); 
         return;
       }
 
@@ -86,8 +83,6 @@ export function LoginForm() {
           variant: "destructive",
         });
         setIsLoading(false);
-        // Optionally sign out
-        // await auth.signOut();
         return;
       }
       
@@ -96,7 +91,6 @@ export function LoginForm() {
           if (userProfile.phoneVerificationDeadline instanceof Timestamp) {
               deadlineISO = userProfile.phoneVerificationDeadline.toDate().toISOString();
           } else if (typeof userProfile.phoneVerificationDeadline === 'string') {
-              // Assume it's already an ISO string or attempt to parse
               try {
                   deadlineISO = new Date(userProfile.phoneVerificationDeadline).toISOString();
               } catch (e) { console.warn("Could not parse phoneVerificationDeadline from string", userProfile.phoneVerificationDeadline); }
@@ -109,7 +103,6 @@ export function LoginForm() {
           }
       }
 
-
       contextLogin(
         firebaseUser.uid,
         firebaseUser.email || values.email,
@@ -119,7 +112,10 @@ export function LoginForm() {
         userProfile.phoneNumber || firebaseUser.phoneNumber,
         userProfile.phoneVerified,
         userProfile.status,
-        deadlineISO
+        deadlineISO,
+        userProfile.customId, // Pass customId
+        userProfile.operatorCode, // Pass operatorCode
+        userProfile.driverIdentifier // Pass driverIdentifier
       );
 
       toast({
@@ -174,8 +170,13 @@ export function LoginForm() {
         email = "guest-operator@taxinow.com";
         name = "Guest Operator";
         break;
+      case "admin": // Added admin guest login
+        email = "guest-admin@taxinow.com";
+        name = "Guest Platform Admin";
+        break;
     }
-    contextLogin(guestId, email, name, role, undefined, undefined, 'Active', undefined);
+    // For guests, phoneVerified can be true, no deadline, status Active.
+    contextLogin(guestId, email, name, role, undefined, undefined, true, 'Active', null);
     toast({
       title: "Guest Login Successful",
       description: `Logged in as ${name}.`,
@@ -228,26 +229,32 @@ export function LoginForm() {
                   <RadioGroup
                     onValueChange={field.onChange}
                     defaultValue={field.value}
-                    className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4"
+                    className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-2 md:flex-wrap" // Added flex-wrap
                     disabled={isLoading}
                   >
-                    <FormItem className="flex items-center space-x-3 space-y-0">
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1">
                       <FormControl>
                         <RadioGroupItem value="passenger" />
                       </FormControl>
                       <FormLabel className="font-normal">Passenger</FormLabel>
                     </FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0">
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1">
                       <FormControl>
                         <RadioGroupItem value="driver" />
                       </FormControl>
                       <FormLabel className="font-normal">Driver</FormLabel>
                     </FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0">
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1">
                       <FormControl>
                         <RadioGroupItem value="operator" />
                       </FormControl>
                       <FormLabel className="font-normal">Taxi Base Operator</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"> {/* Added Admin option */}
+                      <FormControl>
+                        <RadioGroupItem value="admin" />
+                      </FormControl>
+                      <FormLabel className="font-normal">Platform Administrator</FormLabel>
                     </FormItem>
                   </RadioGroup>
                 </FormControl>
@@ -295,8 +302,14 @@ export function LoginForm() {
         >
           <Briefcase className="mr-2 h-4 w-4" /> Login as Guest Operator
         </Button>
+        <Button
+          variant="outline"
+          className="w-full border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white" // Distinct style for admin guest
+          onClick={() => handleGuestLogin("admin")}
+        >
+          <Shield className="mr-2 h-4 w-4" /> Login as Guest Admin
+        </Button>
       </div>
     </>
   );
 }
-

@@ -6,27 +6,27 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Timestamp } from 'firebase/firestore'; // Import Timestamp for type checking
 
-export type UserRole = 'passenger' | 'driver' | 'operator';
+export type UserRole = 'passenger' | 'driver' | 'operator' | 'admin'; // Added 'admin' role
 
 interface User {
   id: string; // Firebase UID
   email: string;
   name: string;
   role: UserRole;
-  customId?: string; // For CUxxx (passenger) or OPxxx (operator)
-  operatorCode?: string; // For drivers, e.g., "OP001"
-  driverIdentifier?: string; // For drivers, e.g., "DR123"
+  customId?: string; 
+  operatorCode?: string; 
+  driverIdentifier?: string; 
   vehicleCategory?: string;
   phoneNumber?: string | null;
   phoneVerified?: boolean;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
-  phoneVerificationDeadline?: string | null; // Store as ISO string
+  phoneVerificationDeadline?: string | null; 
 }
 
 interface AuthContextType {
   user: User | null;
   login: (
-    id: string, // Firebase UID
+    id: string, 
     email: string,
     name: string,
     role: UserRole,
@@ -35,9 +35,9 @@ interface AuthContextType {
     phoneVerified?: boolean,
     status?: 'Active' | 'Pending Approval' | 'Suspended',
     phoneVerificationDeadlineInput?: Date | string | null | { seconds: number, nanoseconds: number } | Timestamp,
-    customId?: string, // For CUxxx or OPxxx
-    operatorCode?: string, // For drivers
-    driverIdentifier?: string // For drivers
+    customId?: string, 
+    operatorCode?: string, 
+    driverIdentifier?: string 
   ) => void;
   logout: () => void;
   loading: boolean;
@@ -131,6 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (role === 'passenger') router.push('/dashboard');
         else if (role === 'driver') router.push('/driver/available-rides');
         else if (role === 'operator') router.push('/operator');
+        else if (role === 'admin') router.push('/admin'); // Added admin redirect
         else router.push('/');
     }
   };

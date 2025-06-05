@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building } from 'lucide-react';
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield } from 'lucide-react'; // Added Shield
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -33,15 +33,22 @@ export const navItems: NavItem[] = [
   { href: '/operator/manage-rides', label: 'Manage Rides', icon: Car, roles: ['operator'] },
   { href: '/operator/manage-drivers', label: 'Manage Drivers', icon: Users, roles: ['operator'] },
   { href: '/operator/manage-passengers', label: 'Manage Passengers', icon: Contact, roles: ['operator'] },
-  { href: '/operator/manage-operators', label: 'Manage Operators', icon: Building, roles: ['operator'] },
+  // "Manage Operators" is removed from here, moved to Admin
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
   { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
 
+  // Admin
+  { href: '/admin', label: 'Admin Dashboard', icon: Shield, roles: ['admin'] },
+  { href: '/admin/manage-operators', label: 'Manage Operators', icon: Building, roles: ['admin'] },
+  // Add other admin-specific pages here, e.g., platform-wide settings, user search, logs etc.
+  // For now, Manage Operators is the primary admin function.
+  // { href: '/admin/platform-settings', label: 'Platform Settings', icon: Settings, roles: ['admin'] },
+
 
   // Common
-  { href: '/profile', label: 'Profile', icon: UserCircle, roles: ['passenger', 'driver', 'operator'] },
-  { href: '/settings', label: 'Settings', icon: Settings, roles: ['passenger', 'driver', 'operator'] },
+  { href: '/profile', label: 'Profile', icon: UserCircle, roles: ['passenger', 'driver', 'operator', 'admin'] },
+  { href: '/settings', label: 'Settings', icon: Settings, roles: ['passenger', 'driver', 'operator', 'admin'] },
 ];
 
 export const getNavItemsForRole = (role: UserRole | undefined): NavItem[] => {

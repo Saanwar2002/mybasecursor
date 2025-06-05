@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Car, Loader2, PhoneOutcome, Briefcase, ShieldCheck } from "lucide-react";
+import { Car, Loader2, PhoneOutcome, Briefcase, Shield, ShieldCheck } from "lucide-react"; // Added Shield
 import React, { useState, useEffect, useRef } from "react";
 import { 
   createUserWithEmailAndPassword, 
@@ -38,15 +38,15 @@ const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
 );
 
-const operatorCodeRegex = /^OP\d{3,}$/; // e.g., OP001, OP123
+const operatorCodeRegex = /^OP\d{3,}$/; 
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(["passenger", "driver", "operator"], { required_error: "You must select a role." }),
+  role: z.enum(["passenger", "driver", "operator", "admin"], { required_error: "You must select a role." }), // Added admin
   vehicleCategory: z.string().optional(),
-  operatorCode: z.string().optional(), // For drivers: e.g., OP001
+  operatorCode: z.string().optional(), 
   phoneNumber: z.string().optional(),
   verificationCode: z.string().optional().refine(value => !value || /^\d{6}$/.test(value), {
     message: "Verification code must be 6 digits."
@@ -71,7 +71,7 @@ const formSchema = z.object({
   if (data.role === 'passenger') {
     return !!data.phoneNumber && data.phoneNumber.trim() !== "" && phoneRegex.test(data.phoneNumber);
   }
-  // Phone number is optional for drivers and operators during self-registration
+  // Phone number optional for driver, operator, admin during self-registration
   return !data.phoneNumber || data.phoneNumber.trim() === "" || phoneRegex.test(data.phoneNumber);
 }, {
   message: "Valid phone number (e.g., +14155552671) is required for passengers.",
@@ -80,19 +80,19 @@ const formSchema = z.object({
 
 type RegistrationStep = 'initial' | 'verifyingPhone';
 
-interface UserProfile { // More specific type for Firestore document
+interface UserProfile { 
   uid: string;
   name: string;
   email: string;
   role: UserRole;
-  createdAt: any; // serverTimestamp placeholder
+  createdAt: any; 
   status: 'Active' | 'Pending Approval' | 'Suspended';
-  customId?: string; // For CUxxx or OPxxx
-  operatorCode?: string; // For drivers
-  driverIdentifier?: string; // For drivers
-  vehicleCategory?: string; // For drivers
-  phoneNumberInput?: string; // Raw phone input
-  phoneNumber?: string | null; // E.164 format from Firebase Auth
+  customId?: string; 
+  operatorCode?: string; 
+  driverIdentifier?: string; 
+  vehicleCategory?: string; 
+  phoneNumberInput?: string; 
+  phoneNumber?: string | null; 
   phoneVerified?: boolean;
   phoneVerificationDeadline?: Timestamp | null;
 }
@@ -191,13 +191,11 @@ export function RegisterForm() {
         
         if (values.role === 'passenger') userProfile.customId = `CU-mock-${firebaseUser.uid.slice(0,4)}`;
         if (values.role === 'operator') userProfile.customId = `OP-mock-${firebaseUser.uid.slice(0,4)}`;
+        if (values.role === 'admin') userProfile.customId = `AD-mock-${firebaseUser.uid.slice(0,4)}`; // Admin custom ID
         
         if (values.role === 'driver') {
           if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
           if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
-          // Mock driverIdentifier generation
-          // IMPORTANT: For production, this MUST be done on the backend to ensure uniqueness and proper sequencing per operator.
-          // This is a client-side placeholder for demonstration.
           userProfile.driverIdentifier = `DR-mock-${firebaseUser.uid.slice(0,4)}`;
           console.log(`Mock driverIdentifier generated: ${userProfile.driverIdentifier} for operator ${userProfile.operatorCode}`);
         }
@@ -216,7 +214,7 @@ export function RegisterForm() {
         await setDoc(doc(db, "users", firebaseUser.uid), userProfile);
 
         const shouldVerifyPhone = (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") ||
-                                  ((values.role === 'driver' || values.role === 'operator') && values.phoneNumber && values.phoneNumber.trim() !== "");
+                                  ((values.role === 'driver' || values.role === 'operator' || values.role === 'admin') && values.phoneNumber && values.phoneNumber.trim() !== "");
 
         if (shouldVerifyPhone && recaptchaVerifierRef.current) {
           toast({ title: "Account Created!", description: "Next, verify your phone number."});
@@ -276,7 +274,7 @@ export function RegisterForm() {
         
         const userDocRef = doc(db, "users", firebaseUserForLinking.uid);
         await updateDoc(userDocRef, {
-          phoneNumber: firebaseUserForLinking.phoneNumber,
+          phoneNumber: firebaseUserForLinking.phoneNumber, // Store E.164 from Firebase Auth
           phoneVerified: true,
           phoneVerificationDeadline: deleteField(),
         });
@@ -371,10 +369,11 @@ export function RegisterForm() {
                         form.setValue('phoneNumber', ""); 
                         form.clearErrors('phoneNumber'); 
                     }
-                 }} defaultValue={field.value} className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4" disabled={isSubmitting}>
-                    <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="passenger" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Passenger</FormLabel></FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="driver" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Driver</FormLabel></FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="operator" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Taxi Base Operator</FormLabel></FormItem>
+                 }} defaultValue={field.value} className="flex flex-col space-y-1 md:flex-row md:flex-wrap md:space-y-0 md:space-x-2" disabled={isSubmitting}>
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="passenger" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Passenger</FormLabel></FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="driver" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Driver</FormLabel></FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="operator" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Taxi Base Operator</FormLabel></FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="admin" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Platform Administrator</FormLabel></FormItem>
                 </RadioGroup></FormControl><FormMessage /></FormItem>
             )} />
             {watchedRole === "driver" && (
@@ -382,7 +381,6 @@ export function RegisterForm() {
                 <FormField control={form.control} name="operatorCode" render={({ field }) => (
                     <FormItem><FormLabel className="flex items-center gap-1"><Briefcase className="w-4 h-4 text-muted-foreground" /> Your Affiliated Operator Code <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., OP001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                 )} />
-                {/* Driver Identifier Suffix field removed as per request */}
                 <FormField control={form.control} name="vehicleCategory" render={({ field }) => (
                     <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4 text-muted-foreground" /> Vehicle Category <span className="text-destructive font-bold">*</span></FormLabel><Select onValueChange={field.onChange} defaultValue={field.value || "car"} disabled={isSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle category" /></SelectTrigger></FormControl><SelectContent>
                         <SelectItem value="car">Car (Standard)</SelectItem><SelectItem value="estate">Estate Car</SelectItem><SelectItem value="minibus_6">Minibus (6 people)</SelectItem><SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
@@ -393,7 +391,7 @@ export function RegisterForm() {
             <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Phone Number {watchedRole === 'passenger' && <span className="text-destructive font-bold">*</span>} { (watchedRole === 'driver' || watchedRole === 'operator') && '(Optional)' }
+                    Phone Number {watchedRole === 'passenger' && <span className="text-destructive font-bold">*</span>} { (watchedRole === 'driver' || watchedRole === 'operator' || watchedRole === 'admin') && '(Optional)' }
                   </FormLabel>
                   <FormControl><Input type="tel" placeholder="+16505551234" {...field} disabled={isSubmitting || (watchedRole !== 'passenger' && !field.value && !form.formState.dirtyFields.phoneNumber) } /></FormControl>
                   <FormMessage />
@@ -429,4 +427,3 @@ export function RegisterForm() {
     </Form>
   );
 }
-
