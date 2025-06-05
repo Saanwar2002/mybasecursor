@@ -84,7 +84,8 @@ const bookingUpdateSchema = z.object({
   driverName: z.string().optional(),
   driverAvatar: z.string().url().optional(),
   status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'completed', 'Cancelled', 'cancelled', 'pending_assignment', 'arrived_at_pickup', 'driver_assigned']).optional(),
-  vehicleType: z.string().optional(),
+  vehicleType: z.string().optional(), // Added from client payload
+  driverVehicleDetails: z.string().optional(), // Added from client payload
   fareEstimate: z.number().optional(),
   notes: z.string().optional(),
   action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride']).optional(),
@@ -160,6 +161,7 @@ export async function POST(request: NextRequest, context: GetContext) {
       if (updateDataFromPayload.driverName) updateData.driverName = updateDataFromPayload.driverName;
       if (updateDataFromPayload.driverAvatar) updateData.driverAvatar = updateDataFromPayload.driverAvatar;
       if (updateDataFromPayload.vehicleType) updateData.vehicleType = updateDataFromPayload.vehicleType;
+      if (updateDataFromPayload.driverVehicleDetails) updateData.driverVehicleDetails = updateDataFromPayload.driverVehicleDetails; // Store this field
       if (updateDataFromPayload.fareEstimate !== undefined) updateData.fareEstimate = updateDataFromPayload.fareEstimate;
       if (updateDataFromPayload.notes) updateData.notes = updateDataFromPayload.notes;
 
@@ -197,13 +199,21 @@ export async function POST(request: NextRequest, context: GetContext) {
 
   } catch (error: any) {
     console.error(`Critical Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingId}):`, error);
-    const errorResponsePayload = {
-        message: "API_ERROR: An internal server error occurred.",
-        details: "The server encountered an issue processing the update. Please check server logs.",
-        bookingId: bookingId,
-        errorName: error?.name || "UnknownError",
-        errorMessageStr: String(error?.message || "No specific message available.")
+    // Ensure absolutely nothing complex is done here that could fail serialization
+    let errName = "UnknownError";
+    let errMsg = "An unspecified error occurred on the server.";
+    if (error && typeof error === 'object') {
+        if (error.name && typeof error.name === 'string') errName = error.name;
+        if (error.message && typeof error.message === 'string') errMsg = error.message;
+    } else if (typeof error === 'string') {
+        errMsg = error;
+    }
+
+    const minimalErrorPayload = {
+        error: true,
+        message: "Failed to process booking update.",
+        details: `Error processing booking ${bookingId}. Type: ${errName}. Message: ${errMsg.substring(0,150)}`, // Keep details brief
     };
-    return NextResponse.json(errorResponsePayload, { status: 500 });
+    return NextResponse.json(minimalErrorPayload, { status: 500 });
   }
 }
