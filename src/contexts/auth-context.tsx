@@ -127,11 +127,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(newUser);
     localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
 
-    if (pathname.includes('/login') || pathname.includes('/register') || pathname === '/') {
+    // This redirection should happen AFTER successful login from the login page
+    // The useEffect below will handle redirects from '/' if already logged in.
+    if (pathname.includes('/login') || pathname.includes('/register')) {
         if (role === 'passenger') router.push('/dashboard');
         else if (role === 'driver') router.push('/driver/available-rides');
         else if (role === 'operator') router.push('/operator');
-        else if (role === 'admin') router.push('/admin'); // Added admin redirect
+        else if (role === 'admin') router.push('/admin');
         else router.push('/');
     }
   };
@@ -150,7 +152,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('linkCabsUser');
-    // Also remove PIN login details on logout
     localStorage.removeItem('linkCabsUserWithPin');
     router.push('/login');
   };
@@ -174,7 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       case "operator":
         email = "guest-operator@taxinow.com";
         name = "Guest Operator";
-        operatorCodeForGuest = "OP001"; // Changed from OP002 to OP001
+        operatorCodeForGuest = "OP001";
         break;
       case "admin":
         email = "guest-admin@taxinow.com";
@@ -190,17 +191,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     const publicPaths = ['/login', '/register', '/forgot-password', '/'];
+    const isAuthPage = ['/login', '/register', '/forgot-password'].includes(pathname);
+    const isRootMarketingPage = pathname === '/';
     const isPublicPath = publicPaths.some(p => pathname === p) || pathname.startsWith('/_next/');
 
+
     if (!user && !isPublicPath) {
+      // If not logged in and not on a public path, redirect to login
       router.push('/login');
-    } else if (user && isPublicPath && pathname !== '/') {
-        if (user.role === 'passenger') router.push('/dashboard');
-        else if (user.role === 'driver') router.push('/driver/available-rides');
-        else if (user.role === 'operator') router.push('/operator');
-        else if (user.role === 'admin') router.push('/admin');
-        else router.push('/'); 
+    } else if (user && isRootMarketingPage) {
+      // If logged in and on the root marketing page, redirect to the appropriate dashboard
+      if (user.role === 'passenger') router.push('/dashboard');
+      else if (user.role === 'driver') router.push('/driver/available-rides');
+      else if (user.role === 'operator') router.push('/operator');
+      else if (user.role === 'admin') router.push('/admin');
+      else router.push('/'); // Fallback, though should be covered by roles
     }
+    // If user is logged in and on /login, /register, /forgot-password (isAuthPage = true),
+    // DO NOT redirect from here. Let them stay on the page.
+    // The login() function itself will handle redirection after a successful login attempt.
+    
   }, [user, loading, router, pathname]);
 
   return (
@@ -217,5 +227,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-    
