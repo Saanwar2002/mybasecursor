@@ -14,6 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { UserRole } from '@/contexts/auth-context';
 import { useAuth } from '@/contexts/auth-context'; // To exclude current admin from list
 
+// IMPORTANT: Replace this with the actual Firebase UID of your platform administrator user.
+// This UID is used to determine who can approve new operators.
+const PLATFORM_ADMIN_UID = "YOUR_FIREBASE_ADMIN_UID_HERE"; 
+
 interface OperatorUser {
   id: string;
   name: string;
@@ -42,6 +46,8 @@ export default function OperatorManageOperatorsPage() {
   const [prevCursors, setPrevCursors] = useState<Array<string | null>>([]);
   const OPERATORS_PER_PAGE = 10;
 
+  const isPlatformAdmin = currentAdminUser?.id === PLATFORM_ADMIN_UID;
+
   const fetchOperators = useCallback(async (cursor?: string | null, direction: 'next' | 'prev' | 'filter' = 'filter') => {
     setIsLoading(true);
     setError(null);
@@ -65,9 +71,8 @@ export default function OperatorManageOperatorsPage() {
       }
       const data = await response.json();
       
-      // Filter out the current admin from the list on client-side
       const fetchedOperators = (data.operators || [])
-        .filter((op: OperatorUser) => op.id !== currentAdminUser?.id)
+        .filter((op: OperatorUser) => op.id !== currentAdminUser?.id) // Exclude self
         .map((op: any) => ({
           ...op,
           status: op.status || 'Inactive'
@@ -92,10 +97,10 @@ export default function OperatorManageOperatorsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterStatus, searchTerm, toast, currentAdminUser, operators]); // Added currentAdminUser and operators to dependencies
+  }, [filterStatus, searchTerm, toast, currentAdminUser, operators]); 
 
   useEffect(() => {
-    if (currentAdminUser) { // Only fetch if current admin user is loaded
+    if (currentAdminUser) { 
       fetchOperators(null, 'filter');
     }
   }, [filterStatus, searchTerm, currentAdminUser]);
@@ -136,7 +141,8 @@ export default function OperatorManageOperatorsPage() {
             payload.statusReason = reason;
         }
 
-        // Using the existing driver update endpoint, which should be generalized for users
+        // Using the existing driver update endpoint, which should be generalized for users.
+        // In a real app, this might be /api/operator/users/[userId]/status or similar.
         const response = await fetch(`/api/operator/drivers/${operatorId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -148,6 +154,9 @@ export default function OperatorManageOperatorsPage() {
         }
         const updatedOperatorData = await response.json();
         
+        // Assuming the response from the drivers endpoint has a 'driver' object, 
+        // even though we are updating an 'operator' role user.
+        // Adapt if your API response structure differs.
         setOperators(prevOperators => prevOperators.map(op => op.id === operatorId ? { ...op, status: updatedOperatorData.driver.status } : op));
         toast({ title: "Operator Status Updated", description: `Operator ${updatedOperatorData.driver.name || operatorId} status set to ${newStatus}.`});
     } catch (err) {
@@ -167,7 +176,8 @@ export default function OperatorManageOperatorsPage() {
               <Briefcase className="w-8 h-8 text-primary" /> Manage Operators
             </CardTitle>
             <CardDescription>
-              View and manage other operator accounts. Currently, any logged-in operator can manage other operator accounts listed here.
+              View and manage other operator accounts.
+              {isPlatformAdmin ? " As platform admin, you can approve new operators." : " You can view operator statuses."}
             </CardDescription>
           </div>
            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0" disabled>
@@ -258,12 +268,12 @@ export default function OperatorManageOperatorsPage() {
                             <Loader2 className="h-5 w-5 animate-spin inline-block" />
                         ) : (
                             <>
-                                {operator.status === 'Pending Approval' && (
+                                {isPlatformAdmin && operator.status === 'Pending Approval' && (
                                     <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" title="Approve Operator" onClick={() => handleOperatorStatusUpdate(operator.id, 'Active')}>
                                         <CheckCircle className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Approve</span>
                                     </Button>
                                 )}
-                                {operator.status === 'Active' && (
+                                {isPlatformAdmin && operator.status === 'Active' && (
                                     <Button variant="outline" size="sm" className="h-8 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white" title="Suspend Operator" onClick={() => {
                                         const reason = prompt("Reason for suspension (optional):");
                                         handleOperatorStatusUpdate(operator.id, 'Suspended', reason || undefined);
@@ -271,12 +281,11 @@ export default function OperatorManageOperatorsPage() {
                                         <ShieldAlert className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Suspend</span>
                                     </Button>
                                 )}
-                                {(operator.status === 'Inactive' || operator.status === 'Suspended') && (
+                                {isPlatformAdmin && (operator.status === 'Inactive' || operator.status === 'Suspended') && (
                                     <Button variant="outline" size="sm" className="h-8 border-sky-500 text-sky-500 hover:bg-sky-500 hover:text-white" title="Activate Operator" onClick={() => handleOperatorStatusUpdate(operator.id, 'Active')}>
                                         <UserPlus className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Activate</span>
                                     </Button>
                                 )}
-                                {/* Add Edit button if needed later */}
                             </>
                         )}
                       </TableCell>
