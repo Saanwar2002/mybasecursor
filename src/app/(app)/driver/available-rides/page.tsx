@@ -282,7 +282,7 @@ export default function AvailableRidesPage() {
             }, 3000);
             break;
         case 'start_ride':
-            newStatus = 'In Progress'; toastTitle = "Ride Started"; toastMessage = `Ride with ${rideDisplayName} is now in progress.`;
+            newStatus = 'in_progress'; toastTitle = "Ride Started"; toastMessage = `Ride with ${rideDisplayName} is now in progress.`;
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, rideStartedAt: new Date().toISOString() } : r));
             break;
         case 'complete_ride':
@@ -317,7 +317,7 @@ export default function AvailableRidesPage() {
         label: { text: "P", color: "white", fontWeight: "bold"}
       });
     }
-    if ((activeRide.status.toLowerCase().includes('in progress') || activeRide.status === 'completed') && activeRide.dropoffCoords) {
+    if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffCoords) {
       markers.push({
         position: activeRide.dropoffCoords,
         title: `Dropoff: ${activeRide.dropoffLocation}`,
@@ -339,7 +339,7 @@ export default function AvailableRidesPage() {
   const getMapCenterForActiveRide = (): google.maps.LatLngLiteral => {
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupCoords) return activeRide.pickupCoords;
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupCoords) return activeRide.pickupCoords;
-    if (activeRide?.status.toLowerCase().includes('in progress') && activeRide.dropoffCoords) return activeRide.dropoffCoords;
+    if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffCoords) return activeRide.dropoffCoords;
     if (activeRide?.status === 'completed' && activeRide.dropoffCoords) return activeRide.dropoffCoords;
     return driverLocation;
   };
@@ -369,9 +369,13 @@ export default function AvailableRidesPage() {
   if (activeRide) {
     const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
     const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
-    const showInProgressStatus = activeRide.status.toLowerCase().includes('in progress');
+    const showInProgressStatus = activeRide.status.toLowerCase().includes('in_progress');
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
+
+    const showNotes = activeRide.notes && 
+                      !['in_progress', 'In Progress', 'completed', 'cancelled_by_driver']
+                      .includes(activeRide.status.toLowerCase());
 
     return (
       <div className="flex flex-col h-full">
@@ -507,7 +511,7 @@ export default function AvailableRidesPage() {
               </div>
             </div>
 
-            {activeRide.notes && (!showCompletedStatus && !showCancelledByDriverStatus) && (
+            {showNotes && (
               <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1">
                 <p className="text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p>
               </div>
@@ -664,7 +668,10 @@ export default function AvailableRidesPage() {
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setIsCancelSwitchOn(false);
+              setShowCancelConfirmationDialog(false);
+            }} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel>
             <AlertDialogAction
                 onClick={() => {
                 if (activeRide) {
