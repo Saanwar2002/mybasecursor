@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins } from "lucide-react"; // Added CreditCard, Coins
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -49,7 +49,8 @@ interface RideRequest {
   distanceMiles?: number;
   passengerCount: number;
   passengerPhone?: string;
-  passengerRating?: number;
+  passengerRating?: number; // Passenger's overall rating
+  passengerRatingOfDriver?: number | null; // Passenger's rating FOR THIS specific ride/driver
   notes?: string;
   notifiedPassengerArrivalTimestamp?: string | null;
   passengerAcknowledgedArrivalTimestamp?: string | null;
@@ -87,8 +88,6 @@ export default function AvailableRidesPage() {
   const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
   
-  const [passengerRatingByDriver, setPassengerRatingByDriver] = useState(0);
-  const [isPassengerRatingSubmitted, setIsPassengerRatingSubmitted] = useState(false);
   const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string | null>(null);
 
   const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
@@ -101,13 +100,12 @@ export default function AvailableRidesPage() {
     const intervalId = setInterval(() => {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
-    }, 4000); // Cycle every 4 seconds
+    }, 4000); 
 
     return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
-    // Use driverUser.operatorCode if available, otherwise parse from ID as fallback
     if (driverUser?.operatorCode) {
       setCurrentDriverOperatorPrefix(driverUser.operatorCode);
     } else if (driverUser?.id && driverUser.id.includes('/')) {
@@ -126,7 +124,7 @@ export default function AvailableRidesPage() {
     const randomScenario = Math.random();
     let mockOffer: RideOffer;
     let offerTypeDescription = "";
-    const distance = parseFloat((Math.random() * 10 + 2).toFixed(1)); // Random distance between 2 and 12 miles
+    const distance = parseFloat((Math.random() * 10 + 2).toFixed(1)); 
     const paymentMethod: 'card' | 'cash' = Math.random() < 0.5 ? 'card' : 'cash';
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) { 
@@ -228,7 +226,7 @@ export default function AvailableRidesPage() {
         passengerPhone: "07123456789", 
         passengerRating: Math.random() * 2 + 3, 
         requiredOperatorId: offerToAccept.requiredOperatorId,
-        paymentMethod: offerToAccept.paymentMethod, // Carry over payment method
+        paymentMethod: offerToAccept.paymentMethod, 
       };
       setRideRequests([newActiveRideData]); 
       toast({title: "Ride Accepted!", description: `En Route to Pickup for ${newActiveRideData.passengerName}. ${newActiveRideData.requiredOperatorId ? '(Operator: ' + newActiveRideData.requiredOperatorId + ')' : '(General Ride)'} Payment: ${newActiveRideData.paymentMethod === 'card' ? 'Card' : 'Cash'}.`});
@@ -259,6 +257,8 @@ export default function AvailableRidesPage() {
     let newStatus: RideRequest['status'] | undefined = undefined;
     let toastMessage = "";
     let toastTitle = "";
+    let passengerRatingOfDriverForMock: number | null = null;
+
 
     const currentRide = rideRequests.find(r => r.id === rideId);
     if (!currentRide) {
@@ -287,7 +287,9 @@ export default function AvailableRidesPage() {
             break;
         case 'complete_ride':
             newStatus = 'completed'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed.`;
-            setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString() } : r));
+            // Mock passenger rating for this completed ride
+            passengerRatingOfDriverForMock = Math.floor(Math.random() * 3) + 3; // Random rating between 3 and 5
+            setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString(), passengerRatingOfDriver: passengerRatingOfDriverForMock } : r));
             break;
         case 'cancel_active':
             newStatus = 'cancelled_by_driver'; toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
@@ -535,57 +537,29 @@ export default function AvailableRidesPage() {
             )}
 
             {showCompletedStatus && (
-              <>
-                {!isPassengerRatingSubmitted ? (
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-sm font-medium text-center mb-2">How was your experience with {activeRide.passengerName}?</p>
+              <div className="mt-4 pt-4 border-t text-center">
+                {activeRide.passengerRatingOfDriver !== null && activeRide.passengerRatingOfDriver !== undefined ? (
+                  <>
+                    <p className="text-sm font-medium mb-1">Passenger rated this ride:</p>
                     <div className="flex justify-center space-x-1 mb-2">
                       {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
                           className={cn(
-                            "w-7 h-7 cursor-pointer",
-                            i < passengerRatingByDriver ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"
+                            "w-6 h-6",
+                            i < activeRide.passengerRatingOfDriver! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
                           )}
-                          onClick={() => {
-                            setPassengerRatingByDriver(i + 1);
-                          }}
                         />
                       ))}
                     </div>
-                    {passengerRatingByDriver > 0 && (
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="w-full mt-1"
-                            onClick={() => {
-                                toast({ title: "Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${passengerRatingByDriver} stars.` });
-                                setIsPassengerRatingSubmitted(true);
-                            }}
-                        >
-                            Submit Rating for Passenger
-                        </Button>
-                    )}
-                  </div>
+                  </>
                 ) : (
-                  <div className="mt-4 pt-4 border-t text-center">
-                      <p className="text-sm text-green-600 flex items-center justify-center gap-1">
-                        <CheckCircle className="w-4 h-4"/> You rated {activeRide.passengerName} {passengerRatingByDriver} stars.
-                      </p>
-                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">Passenger has not rated this ride yet.</p>
                 )}
-
-                <div className="mt-3 pt-3 border-t">
-                  <p className="text-sm font-medium text-center text-muted-foreground mb-1">
-                    Remind your passenger to rate their ride!
-                  </p>
-                  <div className="flex justify-center space-x-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 text-gray-300" />
-                    ))}
-                  </div>
-                </div>
-              </>
+                <p className="text-xs text-muted-foreground">
+                  Encourage passengers to rate their experience on their app!
+                </p>
+              </div>
             )}
 
             {showCancelledByDriverStatus && (
@@ -641,8 +615,6 @@ export default function AvailableRidesPage() {
                     className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto"
                     onClick={() => {
                         setRideRequests([]); 
-                        setPassengerRatingByDriver(0);
-                        setIsPassengerRatingSubmitted(false);
                         setIsCancelSwitchOn(false); 
                     }} 
                     disabled={activeRide ? actionLoading[activeRide.id] : false}
@@ -693,7 +665,7 @@ export default function AvailableRidesPage() {
   }
 
   const mapContainerClasses = cn(
-    "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", // Changed to border-4
+    "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", 
     {
       'border-border': mapBusynessLevel === 'idle',
       'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
@@ -815,3 +787,5 @@ export default function AvailableRidesPage() {
   );
 }
     
+
+  
