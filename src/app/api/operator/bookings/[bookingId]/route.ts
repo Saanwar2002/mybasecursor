@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, deleteField } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, deleteField, DocumentData } from 'firebase/firestore';
 import { z } from 'zod';
 
 // Helper to convert Firestore Timestamp to a serializable format
@@ -93,77 +93,59 @@ const bookingUpdateSchema = z.object({
   fareEstimate: z.number().optional(),
   notes: z.string().optional(),
   action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride', 'cancel_active']).optional(),
+  finalFare: z.number().optional(), // Added for complete_ride action
+  cancelledBy: z.string().optional(), // Added for cancel_active action
 }).min(1, { message: "At least one field or action must be provided for update." });
 
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
-  // Early check for bookingId validity from context
   if (!context || !context.params || typeof context.params.bookingId !== 'string' || context.params.bookingId.trim() === '') {
-    console.error("API Error in /api/operator/bookings/[bookingId] POST: Invalid or missing bookingId in context. Context:", context);
-    const errorPayload = { error: true, message: 'A valid Booking ID path parameter is required and was not found in context.' };
-    return new Response(JSON.stringify(errorPayload), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-    });
+    console.error("API POST Error: Invalid or missing bookingId in context. Context:", context);
+    return NextResponse.json({ error: true, message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
   }
   const { bookingId } = context.params; 
 
   if (!db) {
-    console.error(`API Error in /api/operator/bookings/${bookingId} POST: Firestore (db) is not initialized.`);
-    const errorPayload = { error: true, message: 'Server configuration error: Firestore (db) is not initialized.' };
-    return new Response(JSON.stringify(errorPayload), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-    });
+    console.error(`API POST Error /api/operator/bookings/${bookingId}: Firestore (db) is not initialized.`);
+    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500 });
   }
 
   try {
     let body;
     try {
         body = await request.json();
+        console.log(`API POST /api/operator/bookings/${bookingId} - Received body:`, JSON.stringify(body, null, 2));
     } catch (jsonParseError: any) {
-        console.error(`API Error in /api/operator/bookings/${bookingId} POST: Failed to parse JSON body:`, jsonParseError);
-        const errorPayload = { error: true, message: 'Invalid JSON request body.', details: String(jsonParseError.message || jsonParseError) };
-        return new Response(JSON.stringify(errorPayload), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        console.error(`API POST Error /api/operator/bookings/${bookingId}: Failed to parse JSON body:`, jsonParseError);
+        return NextResponse.json({ error: true, message: 'Invalid JSON request body.', details: String(jsonParseError.message || jsonParseError) }, { status: 400 });
     }
     
     const parsedPayload = bookingUpdateSchema.safeParse(body);
 
     if (!parsedPayload.success) {
-      const errorPayload = { error: true, message: 'Invalid update payload.', errors: parsedPayload.error.format() };
-      return new Response(JSON.stringify(errorPayload), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-      });
+      console.log(`API POST /api/operator/bookings/${bookingId} - Payload validation failed:`, parsedPayload.error.format());
+      return NextResponse.json({ error: true, message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
     }
 
     const updateDataFromPayload = parsedPayload.data;
-    
+    console.log(`API POST /api/operator/bookings/${bookingId} - Parsed payload:`, JSON.stringify(updateDataFromPayload, null, 2));
+
     const bookingRef = doc(db, 'bookings', bookingId);
-    const bookingSnap = await getDoc(bookingRef);
+    const bookingSnap = await getDoc(bookingRef); // Initial fetch
 
     if (!bookingSnap.exists()) {
-      const errorPayload = { error: true, message: `Booking with ID ${bookingId} not found.` };
-      return new Response(JSON.stringify(errorPayload), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-      });
+      console.log(`API POST /api/operator/bookings/${bookingId} - Booking not found.`);
+      return NextResponse.json({ error: true, message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
     }
-
     const currentBookingData = bookingSnap.data();
+    console.log(`API POST /api/operator/bookings/${bookingId} - Current booking status: ${currentBookingData.status}`);
 
     if (updateDataFromPayload.action === 'cancel_active' && 
         !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress'].includes(currentBookingData.status)) {
-        const errorPayload = { error: true, message: `Cannot cancel ride with status: ${currentBookingData.status}.`};
-        return new Response(JSON.stringify(errorPayload), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        console.log(`API POST /api/operator/bookings/${bookingId} - Invalid status for cancellation: ${currentBookingData.status}`);
+        return NextResponse.json({ error: true, message: `Cannot cancel ride with status: ${currentBookingData.status}.`}, { status: 400 });
     }
 
     const updateData: { [key: string]: any } = { 
@@ -171,6 +153,7 @@ export async function POST(request: NextRequest, context: GetContext) {
     };
 
     if (updateDataFromPayload.action) {
+        console.log(`API POST /api/operator/bookings/${bookingId} - Processing action: ${updateDataFromPayload.action}`);
         switch (updateDataFromPayload.action) {
             case 'notify_arrival':
                 updateData.status = 'arrived_at_pickup';
@@ -186,17 +169,18 @@ export async function POST(request: NextRequest, context: GetContext) {
             case 'complete_ride':
                 updateData.status = 'completed'; 
                 updateData.completedAt = Timestamp.now();
-                if (body.finalFare !== undefined && typeof body.finalFare === 'number') {
-                    updateData.fareEstimate = body.finalFare; 
+                if (updateDataFromPayload.finalFare !== undefined) { // Use finalFare from Zod validated payload
+                    updateData.fareEstimate = updateDataFromPayload.finalFare; 
                 }
                 break;
             case 'cancel_active':
                 updateData.status = 'cancelled';
                 updateData.cancelledAt = Timestamp.now();
-                updateData.cancelledBy = body.cancelledBy || 'driver';
+                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver'; // Use cancelledBy from Zod
                 break;
         }
     } else {
+      console.log(`API POST /api/operator/bookings/${bookingId} - Processing direct field updates.`);
       if (updateDataFromPayload.status) {
         const statusLower = updateDataFromPayload.status.toLowerCase();
         if (statusLower === 'completed') updateData.status = 'completed';
@@ -213,34 +197,42 @@ export async function POST(request: NextRequest, context: GetContext) {
       
       if ((updateData.status === 'Assigned' || updateData.status === 'driver_assigned') && updateDataFromPayload.driverId) {
         updateData.driverAssignedAt = Timestamp.now();
-      } else if (updateData.status === 'completed' && !updateData.completedAt) {
+      } else if (updateData.status === 'completed' && !updateData.completedAt) { // Ensure completedAt is set if status is completed
         updateData.completedAt = Timestamp.now();
-      } else if (updateData.status === 'cancelled' && !updateData.cancelledAt) {
+      } else if (updateData.status === 'cancelled' && !updateData.cancelledAt) { // Ensure cancelledAt is set
         updateData.cancelledAt = Timestamp.now();
-        updateData.cancelledBy = body.cancelledBy || 'operator';
+        updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'operator'; // Default canceller if not specified
       }
     }
     
-    if (Object.keys(updateData).length > 1) {
-        await updateDoc(bookingRef, updateData);
-    } else {
-        console.log(`No substantive data changes for booking ${bookingId}, only operatorUpdatedAt.`);
+    console.log(`API POST /api/operator/bookings/${bookingId} - Constructed updateData for Firestore:`, JSON.stringify(updateData, null, 2));
+
+    let updatedBookingDataResult: DocumentData | undefined;
+    try {
+        // Only update if there are actual changes beyond the operatorUpdatedAt timestamp
+        const substantiveKeys = Object.keys(updateData).filter(key => key !== 'operatorUpdatedAt');
+        if (substantiveKeys.length > 0) {
+            await updateDoc(bookingRef, updateData);
+            console.log(`API POST /api/operator/bookings/${bookingId} - Firestore updateDoc successful.`);
+        } else {
+            console.log(`API POST /api/operator/bookings/${bookingId} - No substantive data changes, only operatorUpdatedAt or no changes. Skipping updateDoc for main fields.`);
+        }
+        
+        const updatedBookingSnap = await getDoc(bookingRef);
+        updatedBookingDataResult = updatedBookingSnap.data();
+        console.log(`API POST /api/operator/bookings/${bookingId} - Firestore getDoc after update/check successful.`);
+
+        if (!updatedBookingDataResult) {
+            console.error(`API POST Error /api/operator/bookings/${bookingId}: Data missing after update/check.`);
+            throw new Error("Data inexplicably missing after Firestore operation.");
+        }
+    } catch (firestoreError: any) {
+        console.error(`API POST Error /api/operator/bookings/${bookingId} - Firestore operation error:`, firestoreError);
+        throw new Error(`Firestore operation failed: ${firestoreError.message || 'Unknown Firestore error'}`);
     }
     
-    const updatedBookingSnap = await getDoc(bookingRef);
-    const updatedBookingDataResult = updatedBookingSnap.data();
-
-    if (!updatedBookingDataResult) {
-        console.error(`API Error in /api/operator/bookings/${bookingId} POST: Data missing after update.`);
-        const errorPayload = { error: true, message: "Failed to retrieve booking data after update." };
-        return new Response(JSON.stringify(errorPayload), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
-    }
-
     const bookingResponseObject = {
-        id: updatedBookingSnap.id,
+        id: bookingId, // Use bookingId from context/path
         passengerName: updatedBookingDataResult.passengerName,
         pickupLocation: updatedBookingDataResult.pickupLocation,
         dropoffLocation: updatedBookingDataResult.dropoffLocation,
@@ -267,21 +259,19 @@ export async function POST(request: NextRequest, context: GetContext) {
         cancelledAt: serializeTimestamp(updatedBookingDataResult.cancelledAt as Timestamp | undefined | null),
         cancelledBy: updatedBookingDataResult.cancelledBy,
     };
-
+    console.log(`API POST /api/operator/bookings/${bookingId} - Successfully processed. Sending response.`);
     return NextResponse.json({ message: 'Booking updated successfully', booking: bookingResponseObject }, { status: 200 });
 
   } catch (error) {
     const bookingIdForError = String(bookingId || 'UNKNOWN_BOOKING_ID');
-    console.error(`GLOBAL CATCH in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingIdForError}):`, error);
+    console.error(`GLOBAL CATCH in API POST /api/operator/bookings/[bookingId]/route.ts for bookingId ${bookingIdForError}:`, error);
 
     let errorMsg = "An unexpected server error occurred during booking update.";
     let errType = "UnknownError";
-    let errStack = "";
 
     if (error instanceof Error) {
         errorMsg = String(error.message); 
         errType = String(error.name); 
-        errStack = String(error.stack || "").substring(0, 500); 
     } else if (typeof error === 'string') {
         errorMsg = error;
     } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
@@ -294,9 +284,8 @@ export async function POST(request: NextRequest, context: GetContext) {
         message: "An unexpected server error occurred. Please check server logs for more details.",
         bookingIdAttempted: bookingIdForError,
         errorType: errType,
-        errorMessageServerHint: errorMsg.substring(0, 250)
+        errorMessageServerHint: errorMsg.substring(0, 250) // Keep hint brief
     };
-    console.error("Full error stack for server log (POST):", errStack);
     
     // Use manual Response object for utmost safety in error reporting
     try {
@@ -317,3 +306,4 @@ export async function POST(request: NextRequest, context: GetContext) {
     }
   }
 }
+
