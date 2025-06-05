@@ -91,10 +91,10 @@ const bookingUpdateSchema = z.object({
   vehicleType: z.string().optional(),
   driverVehicleDetails: z.string().optional(),
   fareEstimate: z.number().optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(500).optional(),
   action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride', 'cancel_active']).optional(),
-  finalFare: z.number().optional(), // Added for complete_ride action
-  cancelledBy: z.string().optional(), // Added for cancel_active action
+  finalFare: z.number().optional(),
+  cancelledBy: z.string().optional(),
 }).min(1, { message: "At least one field or action must be provided for update." });
 
 
@@ -102,42 +102,44 @@ export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
   if (!context || !context.params || typeof context.params.bookingId !== 'string' || context.params.bookingId.trim() === '') {
-    console.error("API POST Error: Invalid or missing bookingId in context. Context:", context);
-    return NextResponse.json({ error: true, message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
+    console.error("API POST Error: Invalid or missing bookingId in context. Context:", JSON.stringify(context));
+    return new Response(JSON.stringify({ error: true, message: 'A valid Booking ID path parameter is required.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   const { bookingId } = context.params; 
 
   if (!db) {
     console.error(`API POST Error /api/operator/bookings/${bookingId}: Firestore (db) is not initialized.`);
-    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500 });
+    return new Response(JSON.stringify({ error: true, message: 'Server configuration error: Firestore (db) is not initialized.' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
+
+  console.log(`API POST /api/operator/bookings/${bookingId} - Request received.`);
 
   try {
     let body;
     try {
         body = await request.json();
-        console.log(`API POST /api/operator/bookings/${bookingId} - Received body:`, JSON.stringify(body, null, 2));
+        console.log(`API POST /api/operator/bookings/${bookingId} - Received raw body:`, JSON.stringify(body, null, 2).substring(0, 1000)); // Log first 1KB
     } catch (jsonParseError: any) {
         console.error(`API POST Error /api/operator/bookings/${bookingId}: Failed to parse JSON body:`, jsonParseError);
-        return NextResponse.json({ error: true, message: 'Invalid JSON request body.', details: String(jsonParseError.message || jsonParseError) }, { status: 400 });
+        return new Response(JSON.stringify({ error: true, message: 'Invalid JSON request body.', details: String(jsonParseError.message || jsonParseError) }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     const parsedPayload = bookingUpdateSchema.safeParse(body);
 
     if (!parsedPayload.success) {
-      console.log(`API POST /api/operator/bookings/${bookingId} - Payload validation failed:`, parsedPayload.error.format());
-      return NextResponse.json({ error: true, message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
+      console.log(`API POST /api/operator/bookings/${bookingId} - Payload validation failed:`, JSON.stringify(parsedPayload.error.format(), null, 2));
+      return new Response(JSON.stringify({ error: true, message: 'Invalid update payload.', errors: parsedPayload.error.format() }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const updateDataFromPayload = parsedPayload.data;
-    console.log(`API POST /api/operator/bookings/${bookingId} - Parsed payload:`, JSON.stringify(updateDataFromPayload, null, 2));
+    console.log(`API POST /api/operator/bookings/${bookingId} - Parsed Zod payload:`, JSON.stringify(updateDataFromPayload, null, 2));
 
     const bookingRef = doc(db, 'bookings', bookingId);
     const bookingSnap = await getDoc(bookingRef); // Initial fetch
 
     if (!bookingSnap.exists()) {
       console.log(`API POST /api/operator/bookings/${bookingId} - Booking not found.`);
-      return NextResponse.json({ error: true, message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
+      return new Response(JSON.stringify({ error: true, message: `Booking with ID ${bookingId} not found.` }), { status: 404, headers: { 'Content-Type': 'application/json' } });
     }
     const currentBookingData = bookingSnap.data();
     console.log(`API POST /api/operator/bookings/${bookingId} - Current booking status: ${currentBookingData.status}`);
@@ -145,7 +147,7 @@ export async function POST(request: NextRequest, context: GetContext) {
     if (updateDataFromPayload.action === 'cancel_active' && 
         !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress'].includes(currentBookingData.status)) {
         console.log(`API POST /api/operator/bookings/${bookingId} - Invalid status for cancellation: ${currentBookingData.status}`);
-        return NextResponse.json({ error: true, message: `Cannot cancel ride with status: ${currentBookingData.status}.`}, { status: 400 });
+        return new Response(JSON.stringify({ error: true, message: `Cannot cancel ride with status: ${currentBookingData.status}.`}), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     const updateData: { [key: string]: any } = { 
@@ -169,14 +171,14 @@ export async function POST(request: NextRequest, context: GetContext) {
             case 'complete_ride':
                 updateData.status = 'completed'; 
                 updateData.completedAt = Timestamp.now();
-                if (updateDataFromPayload.finalFare !== undefined) { // Use finalFare from Zod validated payload
+                if (updateDataFromPayload.finalFare !== undefined) {
                     updateData.fareEstimate = updateDataFromPayload.finalFare; 
                 }
                 break;
             case 'cancel_active':
                 updateData.status = 'cancelled';
                 updateData.cancelledAt = Timestamp.now();
-                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver'; // Use cancelledBy from Zod
+                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver';
                 break;
         }
     } else {
@@ -189,19 +191,20 @@ export async function POST(request: NextRequest, context: GetContext) {
       }
 
       const optionalFields: (keyof BookingUpdatePayload)[] = ['driverId', 'driverName', 'driverAvatar', 'vehicleType', 'driverVehicleDetails', 'fareEstimate', 'notes'];
-      optionalFields.forEach(field => {
-        if (updateDataFromPayload[field] !== undefined) {
-          updateData[field] = updateDataFromPayload[field];
+      for (const field of optionalFields) {
+        const value = updateDataFromPayload[field];
+        if (value !== undefined) {
+          updateData[field] = value;
         }
-      });
+      }
       
       if ((updateData.status === 'Assigned' || updateData.status === 'driver_assigned') && updateDataFromPayload.driverId) {
         updateData.driverAssignedAt = Timestamp.now();
-      } else if (updateData.status === 'completed' && !updateData.completedAt) { // Ensure completedAt is set if status is completed
+      } else if (updateData.status === 'completed' && !updateData.completedAt) {
         updateData.completedAt = Timestamp.now();
-      } else if (updateData.status === 'cancelled' && !updateData.cancelledAt) { // Ensure cancelledAt is set
+      } else if (updateData.status === 'cancelled' && !updateData.cancelledAt) {
         updateData.cancelledAt = Timestamp.now();
-        updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'operator'; // Default canceller if not specified
+        updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'operator';
       }
     }
     
@@ -209,7 +212,7 @@ export async function POST(request: NextRequest, context: GetContext) {
 
     let updatedBookingDataResult: DocumentData | undefined;
     try {
-        // Only update if there are actual changes beyond the operatorUpdatedAt timestamp
+        console.log(`API POST /api/operator/bookings/${bookingId} - Attempting Firestore updateDoc...`);
         const substantiveKeys = Object.keys(updateData).filter(key => key !== 'operatorUpdatedAt');
         if (substantiveKeys.length > 0) {
             await updateDoc(bookingRef, updateData);
@@ -228,11 +231,11 @@ export async function POST(request: NextRequest, context: GetContext) {
         }
     } catch (firestoreError: any) {
         console.error(`API POST Error /api/operator/bookings/${bookingId} - Firestore operation error:`, firestoreError);
-        throw new Error(`Firestore operation failed: ${firestoreError.message || 'Unknown Firestore error'}`);
+        throw new Error(`Firestore operation failed: ${firestoreError.message || String(firestoreError)}`);
     }
     
     const bookingResponseObject = {
-        id: bookingId, // Use bookingId from context/path
+        id: bookingId,
         passengerName: updatedBookingDataResult.passengerName,
         pickupLocation: updatedBookingDataResult.pickupLocation,
         dropoffLocation: updatedBookingDataResult.dropoffLocation,
@@ -266,44 +269,25 @@ export async function POST(request: NextRequest, context: GetContext) {
     const bookingIdForError = String(bookingId || 'UNKNOWN_BOOKING_ID');
     console.error(`GLOBAL CATCH in API POST /api/operator/bookings/[bookingId]/route.ts for bookingId ${bookingIdForError}:`, error);
 
-    let errorMsg = "An unexpected server error occurred during booking update.";
-    let errType = "UnknownError";
-
-    if (error instanceof Error) {
-        errorMsg = String(error.message); 
-        errType = String(error.name); 
-    } else if (typeof error === 'string') {
-        errorMsg = error;
-    } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-        errorMsg = String(error.message);
-        if ('name' in error && typeof error.name === 'string') errType = String(error.name);
-    }
-
-    const safeErrorPayload = {
+    const errorResponsePayload = {
         error: true,
-        message: "An unexpected server error occurred. Please check server logs for more details.",
-        bookingIdAttempted: bookingIdForError,
-        errorType: errType,
-        errorMessageServerHint: errorMsg.substring(0, 250) // Keep hint brief
+        message: "An unexpected server error occurred. Please check server logs.",
+        bookingIdAttempted: String(bookingIdForError),
+        errorName: error instanceof Error ? String(error.name) : "UnknownErrorType",
+        errorMessageBrief: error instanceof Error ? String(error.message).substring(0, 100) : "No specific error message."
     };
     
-    // Use manual Response object for utmost safety in error reporting
     try {
-        return new Response(JSON.stringify(safeErrorPayload), {
+        return new Response(JSON.stringify(errorResponsePayload), {
             status: 500,
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
         });
     } catch (responseError) {
         console.error("CRITICAL: Failed to construct manual JSON error response:", responseError);
         return new Response("Critical server error: Unable to formulate JSON error response.", {
             status: 500,
-            headers: {
-                'Content-Type': 'text/plain',
-            },
+            headers: { 'Content-Type': 'text/plain' },
         });
     }
   }
 }
-
