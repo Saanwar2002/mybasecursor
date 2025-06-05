@@ -125,12 +125,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
             errorMessage = error;
           }
           
-          // Check if error has network-related properties (like from a fetch response)
           if (error && typeof error === 'object') {
             if ('status' in error && 'statusText' in error) {
                  errorMessage += ` (Status: ${error.status} ${error.statusText})`;
             } else if ('message' in error && typeof error.message === 'string' && error.message.toLowerCase().includes('failed to fetch')) {
-                // This is already a "Failed to fetch", make it more specific
                 errorMessage = `Network error fetching AI tasks: ${error.message}`;
             }
           }
@@ -157,17 +155,38 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [user, loading, router, pathname]);
 
   useEffect(() => {
-    if (user) {
-      const navItems = getNavItemsForRole(user.role);
-      const newOpenSubMenus: Record<string, boolean> = {};
-      navItems.forEach(item => {
-        if (item.subItems && item.subItems.some(subItem => pathname.startsWith(subItem.href))) {
-          newOpenSubMenus[item.href] = true;
+    if (user && !loading) {
+      const currentNavItems = getNavItemsForRole(user.role);
+      let hasChanges = false;
+      const nextOpenSubMenusState = currentNavItems.reduce((acc, item) => {
+        if (item.subItems) {
+          const shouldBeOpen = item.subItems.some(subItem => pathname.startsWith(subItem.href));
+          acc[item.href] = shouldBeOpen;
+          if ((openSubMenus[item.href] || false) !== shouldBeOpen) { // Compare with current state, defaulting to false if key doesn't exist
+            hasChanges = true;
+          }
         }
-      });
-      setOpenSubMenus(newOpenSubMenus);
+        return acc;
+      }, {} as Record<string, boolean>);
+
+      // Check if any keys in the old state are not in the new state or have changed
+      // This ensures that menus that are no longer active (based on path) get closed.
+      for (const key in openSubMenus) {
+        if (openSubMenus[key] !== (nextOpenSubMenusState[key] || false)) {
+          hasChanges = true;
+          break;
+        }
+      }
+      // Also check if the number of keys changed (e.g. a new active menu appears)
+      if (Object.keys(openSubMenus).length !== Object.keys(nextOpenSubMenusState).length) {
+          hasChanges = true;
+      }
+      
+      if (hasChanges) {
+        setOpenSubMenus(nextOpenSubMenusState);
+      }
     }
-  }, [pathname, user, loading]);
+  }, [pathname, user, loading, openSubMenus]); // Added openSubMenus
 
 
   if (loading) {
