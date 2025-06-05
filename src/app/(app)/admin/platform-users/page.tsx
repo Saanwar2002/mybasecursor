@@ -34,7 +34,7 @@ const formatDateFromTimestamp = (timestamp?: { _seconds: number; _nanoseconds: n
   if (!timestamp || typeof timestamp._seconds !== 'number' || typeof timestamp._nanoseconds !== 'number') return 'N/A';
   try {
     const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
-    return format(date, "PPpp");
+    return format(date, "P"); // Changed format from "PPpp" to "P"
   } catch (e) {
     return 'Date Error';
   }
@@ -272,7 +272,7 @@ export default function PlatformUsersPage() {
                     <TableHead>Email / Custom ID</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Registered On</TableHead>
+                    <TableHead>Registered</TableHead> {/* Changed header text */}
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -342,3 +342,4 @@ export default function PlatformUsersPage() {
     </div>
   );
 }
+
