@@ -54,7 +54,7 @@ export const navItems: NavItem[] = [
     ]
   },
   { href: '/admin/analytics', label: 'System Analytics', icon: BarChart3, roles: ['admin'] },
-  // { href: '/admin/platform-settings', label: 'Platform Settings', icon: Settings, roles: ['admin'] },
+  { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
 
 
   // Common

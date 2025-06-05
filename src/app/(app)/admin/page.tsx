@@ -21,7 +21,7 @@ export default function AdminDashboardPage() {
         <CardContent>
           <p className="text-lg">
             This is the central hub for managing platform operators, all users, viewing system-wide analytics,
-            and configuring core platform settings (soon).
+            and configuring core platform settings.
           </p>
         </CardContent>
       </Card>
@@ -48,15 +48,15 @@ export default function AdminDashboardPage() {
           icon={BarChart3}
           link="/admin/analytics" 
           actionText="View Platform Analytics"
-          disabled={false} // Enabled
+          disabled={false}
         />
          <FeatureCard
-          title="Global Settings (Soon)"
+          title="Global Settings"
           description="Configure platform-wide settings, commission rates, and default policies."
           icon={Settings}
-          link="#" 
+          link="/admin/global-settings" 
           actionText="Configure Settings"
-          disabled
+          disabled={false} // Enabled
         />
       </div>
     </div>
