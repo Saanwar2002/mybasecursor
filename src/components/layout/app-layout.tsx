@@ -216,19 +216,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="mt-auto pt-4"> 
           <Card className="bg-sidebar-accent/10 border-sidebar-accent shadow-md">
             <CardHeader className="p-3">
-              <CardTitle className="text-base font-headline flex items-center gap-2 text-sidebar-accent-foreground/90">
+              <CardTitle className="text-base font-headline flex items-center gap-2 text-sidebar-foreground"> {/* Changed to sidebar-foreground */}
                 <ListChecks className="w-5 h-5" /> Admin To-Do
               </CardTitle>
-              <CardDescription className="text-xs text-sidebar-accent-foreground/70">Key administrative tasks.</CardDescription>
+              <CardDescription className="text-xs text-sidebar-foreground/80">Key administrative tasks.</CardDescription> {/* Changed to sidebar-foreground/80 */}
             </CardHeader>
-            <CardContent className="p-0 max-h-60 overflow-y-auto"> {/* Added max-h and overflow for long lists */}
+            <CardContent className="p-0 max-h-60 overflow-y-auto">
               <Accordion type="multiple" className="w-full text-xs">
                 {adminToDoList.map((category) => (
                   <AccordionItem value={category.id} key={category.id} className="border-sidebar-border last:border-b-0">
-                    <AccordionTrigger className="text-xs hover:no-underline font-semibold px-3 py-2 text-sidebar-foreground/80 hover:text-sidebar-accent-foreground">
+                    <AccordionTrigger className="text-xs hover:no-underline font-semibold px-3 py-2 text-sidebar-foreground hover:text-sidebar-primary"> {/* Changed to sidebar-foreground and primary on hover */}
                       {category.name}
                     </AccordionTrigger>
-                    <AccordionContent className="bg-sidebar-background/50"> {/* Slightly different background for content */}
+                    <AccordionContent className="bg-sidebar-background/50"> 
                       {category.tasks && category.tasks.length > 0 && (
                         <ul className="space-y-1.5 p-3">
                           {category.tasks.map(task => (
@@ -241,7 +241,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                               />
                               <Label
                                 htmlFor={`sidebar-task-${task.id}`}
-                                className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/70'}`}
+                                className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`} /* Ensured darker text */
                               >
                                 {task.label}
                               </Label>
@@ -253,7 +253,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                         <Accordion type="multiple" className="w-full pl-3">
                           {category.subCategories.map(subCat => (
                             <AccordionItem value={subCat.id} key={subCat.id} className="border-l-2 border-sidebar-primary/20 pl-2 my-0.5 rounded-r-md">
-                              <AccordionTrigger className="text-xs hover:no-underline py-1.5 font-medium text-sidebar-foreground/80 hover:text-sidebar-accent-foreground">
+                              <AccordionTrigger className="text-xs hover:no-underline py-1.5 font-medium text-sidebar-foreground hover:text-sidebar-primary"> {/* Changed to sidebar-foreground */}
                                 {subCat.name}
                               </AccordionTrigger>
                               <AccordionContent className="bg-sidebar-background/30">
@@ -268,7 +268,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                                       />
                                       <Label
                                         htmlFor={`sidebar-task-${task.id}`}
-                                        className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/70'}`}
+                                        className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`} /* Ensured darker text */
                                       >
                                         {task.label}
                                       </Label>
@@ -292,7 +292,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               )}
             </CardContent>
              <CardFooter className="p-2 border-t border-sidebar-border">
-                  <p className="text-xs text-sidebar-accent-foreground/60 flex items-center gap-1">
+                  <p className="text-xs text-sidebar-foreground/70 flex items-center gap-1"> {/* Changed to sidebar-foreground/70 */}
                       <CheckCircle className="w-3 h-3 text-green-400" />
                       Mock tasks for demo.
                   </p>
@@ -313,7 +313,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <span className="font-headline text-lg">Link Cabs</span>
           </Link>
         </div>
-        <ScrollArea className="flex-1 py-4 px-2"> {/* Added px-2 for sidebar content padding */}
+        <ScrollArea className="flex-1 py-4 px-2"> 
           <SidebarContent />
         </ScrollArea>
       </aside>
@@ -335,7 +335,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <span className="font-headline text-lg">Link Cabs</span>
                 </Link>
               </div>
-              <ScrollArea className="h-[calc(100vh-4rem)] py-4 px-2"> {/* Added px-2 */}
+              <ScrollArea className="h-[calc(100vh-4rem)] py-4 px-2"> 
                  <SidebarContent isMobile={true} />
               </ScrollArea>
             </SheetContent>
