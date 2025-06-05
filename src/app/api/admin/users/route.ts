@@ -48,7 +48,7 @@ const querySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   searchName: z.string().optional(),
   searchEmail: z.string().optional(),
-  searchId: z.string().optional(), // New: Search by document ID
+  searchId: z.string().optional(),
 });
 
 interface PlatformUser {
@@ -86,13 +86,13 @@ export async function GET(request: NextRequest) {
     sortOrder,
     searchName,
     searchEmail,
-    searchId, // New
+    searchId,
   } = parsedQuery.data;
 
   try {
     // If searchId is provided, perform a direct document lookup
-    if (searchId) {
-      const userDocRef = doc(db, 'users', searchId);
+    if (searchId && searchId.trim() !== "") {
+      const userDocRef = doc(db, 'users', searchId.trim());
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
         const data = userDocSnap.data();
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ users: [], nextCursor: null, message: `User with ID ${searchId} found, but does not match role filter '${role}'.` }, { status: 200 });
         }
       } else {
-        return NextResponse.json({ users: [], nextCursor: null, message: `User with ID ${searchId} not found.` }, { status: 200 }); // Return empty for not found ID
+        return NextResponse.json({ users: [], nextCursor: null, message: `User with ID ${searchId} not found.` }, { status: 200 });
       }
     }
 
@@ -137,19 +137,24 @@ export async function GET(request: NextRequest) {
       queryConstraints.push(where('name', '<=', searchName + '\uf8ff'));
     }
     if (searchEmail) {
-      queryConstraints.push(where('email', '>=', searchEmail));
-      queryConstraints.push(where('email', '<=', searchEmail + '\uf8ff'));
+      // Using equality for email search as it's more likely to be an exact match
+      queryConstraints.push(where('email', '==', searchEmail));
     }
     
+    // Firestore requires the first orderBy to match inequality fields if used.
+    // If searching by name, name is already an inequality, so it must be the first orderBy.
+    // If searching by email (equality), we can use the sortBy.
+    // If no search, use sortBy.
     if (searchName) {
       queryConstraints.push(orderBy('name', sortOrder));
-      if (sortBy !== 'name') queryConstraints.push(orderBy(sortBy, sortOrder));
+      if (sortBy !== 'name' && sortBy !== 'email') queryConstraints.push(orderBy(sortBy, sortOrder));
     } else if (searchEmail) {
-      queryConstraints.push(orderBy('email', sortOrder));
-      if (sortBy !== 'email') queryConstraints.push(orderBy(sortBy, sortOrder));
+      // Email equality filter does not restrict primary sort field choice
+      queryConstraints.push(orderBy(sortBy, sortOrder));
     } else if (sortBy) {
       queryConstraints.push(orderBy(sortBy, sortOrder));
     }
+
 
     if (startAfterDocId) {
       const startAfterDocRef = doc(db, 'users', startAfterDocId);
@@ -184,7 +189,7 @@ export async function GET(request: NextRequest) {
     });
 
     let nextCursor: string | null = null;
-    if (querySnapshot.docs.length === limit) {
+    if (querySnapshot.docs.length === limit && users.length > 0) { // Ensure users array is not empty before accessing last element
       const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
       nextCursor = lastVisible.id;
     }

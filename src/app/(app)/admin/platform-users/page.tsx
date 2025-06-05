@@ -52,7 +52,7 @@ function PlatformUsersContent() {
 
   const [searchName, setSearchName] = useState<string>("");
   const [searchEmail, setSearchEmail] = useState<string>("");
-  const [searchId, setSearchId] = useState<string>(""); // New state for ID search
+  const [searchId, setSearchId] = useState<string>("");
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>(roleFromUrl || "all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -85,7 +85,7 @@ function PlatformUsersContent() {
       if (searchEmail.trim() !== "") {
         params.append('searchEmail', searchEmail.trim());
       }
-      if (searchId.trim() !== "") { // Add searchId to params
+      if (searchId.trim() !== "") {
         params.append('searchId', searchId.trim());
       }
       
@@ -102,8 +102,8 @@ function PlatformUsersContent() {
       if (direction === 'filter') {
         setCurrentPage(1);
         setPrevCursors([]);
-      } else if (direction === 'next' && cursor) { // ensure cursor is present for next
-         if (users.length > 0) { // Check if users array has elements
+      } else if (direction === 'next' && cursor) {
+         if (users.length > 0) { 
             setPrevCursors(prev => [...prev, users[0]?.id || null]);
          }
       }
@@ -116,7 +116,7 @@ function PlatformUsersContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterRole, filterStatus, searchName, searchEmail, searchId, toast, users]); // searchId, users in deps
+  }, [filterRole, filterStatus, searchName, searchEmail, searchId, toast, users]);
 
   useEffect(() => {
     setFilterRole(roleFromUrl || "all");
