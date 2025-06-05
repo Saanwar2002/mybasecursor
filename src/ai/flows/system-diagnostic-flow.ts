@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to simulate system diagnostics.
@@ -10,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const DiagnosticFindingSchema = z.object({
+const DiagnosticFindingSchema = z.object({
   title: z.string().describe("A short title for the finding."),
   description: z.string().describe("A detailed description of the finding."),
   severity: z.enum(['critical', 'warning', 'info']).describe("The severity of the issue or importance of the recommendation."),
@@ -20,7 +21,7 @@ export const DiagnosticFindingSchema = z.object({
 });
 export type DiagnosticFinding = z.infer<typeof DiagnosticFindingSchema>;
 
-export const RecommendationSchema = z.object({
+const RecommendationSchema = z.object({
   title: z.string().describe("A short title for the recommendation."),
   description: z.string().describe("A detailed description of the recommendation."),
   priority: z.enum(['high', 'medium', 'low']).optional().describe("The priority of the recommendation."),
