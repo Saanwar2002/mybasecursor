@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/auth-context'; // To exclude current admin f
 
 // IMPORTANT: Replace this with the actual Firebase UID of your platform administrator user.
 // This UID is used to determine who can approve new operators.
-const PLATFORM_ADMIN_UID = "YOUR_FIREBASE_ADMIN_UID_HERE"; 
+const PLATFORM_ADMIN_UID = "qWDHrEVDBfWu3A2F5qY6N9tGgnI3"; 
 
 interface OperatorUser {
   id: string;
@@ -103,6 +103,7 @@ export default function OperatorManageOperatorsPage() {
     if (currentAdminUser) { 
       fetchOperators(null, 'filter');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterStatus, searchTerm, currentAdminUser]);
 
 
