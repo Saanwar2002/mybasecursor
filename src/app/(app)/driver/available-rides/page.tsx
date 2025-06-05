@@ -1,6 +1,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation'; // Added import
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer } from "lucide-react";
@@ -51,7 +52,7 @@ interface ActiveRide {
   passengerAvatar: string;
   pickupLocation: string;
   dropoffLocation: string;
-  estimatedTime: string; 
+  estimatedTime: string;
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver';
   pickupCoords?: { lat: number; lng: number };
@@ -60,8 +61,8 @@ interface ActiveRide {
   distanceMiles?: number;
   passengerCount: number;
   passengerPhone?: string;
-  passengerRating?: number; 
-  driverRatingForPassenger?: number | null; 
+  passengerRating?: number;
+  driverRatingForPassenger?: number | null;
   notes?: string;
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
@@ -69,6 +70,7 @@ interface ActiveRide {
   completedAt?: SerializedTimestamp | string | null;
   requiredOperatorId?: string;
   paymentMethod?: 'card' | 'cash';
+  passengerRatingOfDriver?: number; // Added for displaying passenger's rating of driver
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -83,7 +85,7 @@ const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;ba
 
 type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // 3 minutes
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
 
@@ -110,6 +112,7 @@ export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<ActiveRide[]>([]);
   const { toast } = useToast();
   const { user: driverUser } = useAuth();
+  const router = useRouter(); // Get router instance
   const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
@@ -160,31 +163,31 @@ export default function AvailableRidesPage() {
   }, [driverUser]);
 
 
-  useEffect(() => {
+ useEffect(() => {
     if (waitingTimerIntervalRef.current) {
       clearInterval(waitingTimerIntervalRef.current);
       waitingTimerIntervalRef.current = null;
     }
-  
+
     const notifiedTime = parseTimestampToDate(activeRide?.notifiedPassengerArrivalTimestamp);
     const ackTime = parseTimestampToDate(activeRide?.passengerAcknowledgedArrivalTimestamp);
-  
+
     if (activeRide?.status === 'arrived_at_pickup' && notifiedTime) {
       const updateTimers = () => {
         const now = new Date();
         const secondsSinceNotified = Math.floor((now.getTime() - notifiedTime.getTime()) / 1000);
-  
-        if (!ackTime) { // Passenger hasn't acknowledged
+
+        if (!ackTime) {
           if (secondsSinceNotified < ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER) {
             setAckWindowSecondsLeft(ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER - secondsSinceNotified);
             setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER);
             setExtraWaitingSeconds(null);
             setCurrentWaitingCharge(0);
-          } else { // Ack window expired, passenger didn't acknowledge
+          } else {
             setAckWindowSecondsLeft(0);
             const effectiveFreeWaitStartTime = new Date(notifiedTime.getTime() + ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER * 1000);
             const secondsSinceEffectiveFreeWaitStart = Math.floor((now.getTime() - effectiveFreeWaitStartTime.getTime()) / 1000);
-  
+
             if (secondsSinceEffectiveFreeWaitStart < FREE_WAITING_TIME_SECONDS_DRIVER) {
               setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceEffectiveFreeWaitStart);
               setExtraWaitingSeconds(null);
@@ -196,10 +199,10 @@ export default function AvailableRidesPage() {
               setCurrentWaitingCharge(Math.floor(currentExtra / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER);
             }
           }
-        } else { // Passenger has acknowledged
+        } else { 
           setAckWindowSecondsLeft(null);
           const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
-  
+
           if (secondsSinceAck < FREE_WAITING_TIME_SECONDS_DRIVER) {
             setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceAck);
             setExtraWaitingSeconds(null);
@@ -220,7 +223,7 @@ export default function AvailableRidesPage() {
       setExtraWaitingSeconds(null);
       setCurrentWaitingCharge(0);
     }
-  
+
     return () => {
       if (waitingTimerIntervalRef.current) {
         clearInterval(waitingTimerIntervalRef.current);
@@ -288,11 +291,12 @@ export default function AvailableRidesPage() {
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, rideStartedAt: new Date().toISOString() } : r));
             break;
         case 'complete_ride':
-            newStatus = 'completed'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed. Final fare £${(currentRide.fareEstimate + currentWaitingCharge).toFixed(2)}.`;
+            newStatus = 'completed'; 
+            const finalFare = currentRide.fareEstimate + currentWaitingCharge;
+            toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed. Final fare £${finalFare.toFixed(2)}.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             console.log(`Ride completed. Final waiting charge: £${currentWaitingCharge.toFixed(2)}`);
-            setDriverRatingForPassenger(0); 
-            setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString() } : r));
+            setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString(), fareEstimate: finalFare } : r));
             break;
         case 'cancel_active':
             newStatus = 'cancelled_by_driver'; toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
@@ -339,7 +343,7 @@ export default function AvailableRidesPage() {
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
     
-    const finalFare = activeRide.fareEstimate + currentWaitingCharge;
+    const finalFare = activeRide.fareEstimate; // Base fare, waiting charge already added in complete_ride action
 
     return (
       <div className="flex flex-col h-full">
@@ -356,10 +360,8 @@ export default function AvailableRidesPage() {
               <Avatar className="h-12 w-12"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/48x48.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar>
               <div className="flex-1"> <p className="font-semibold text-base">{activeRide.passengerName}</p> {activeRide.passengerRating && ( <div className="flex items-center"> {[...Array(5)].map((_, i) => <Star key={i} className={cn("w-3.5 h-3.5", i < Math.round(activeRide.passengerRating!) ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />)} <span className="ml-1 text-xs text-muted-foreground">({activeRide.passengerRating.toFixed(1)})</span> </div> )} </div>
               {(!showCompletedStatus && !showCancelledByDriverStatus) && ( <> <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => toast({title: "Call Passenger", description: `Calling ${activeRide.passengerPhone || activeRide.passengerName} (Mock)`})}> <Phone className="w-4 h-4" /> </Button> 
-              <Button variant="outline" size="icon" className="h-9 w-9" asChild>
-                <Link href="/driver/chat">
-                  <ChatIcon className="w-4 h-4" />
-                </Link>
+              <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => router.push('/driver/chat')}>
+                 <ChatIcon className="w-4 h-4" />
               </Button>
                </> )}
             </div>
@@ -393,8 +395,8 @@ export default function AvailableRidesPage() {
                  <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
                     <p className="flex items-center gap-1">
                       <DollarSignIcon className="w-4 h-4 text-muted-foreground" /> 
-                      <strong>Fare:</strong> {showCompletedStatus ? `£${finalFare.toFixed(2)}` : `~£${activeRide.fareEstimate.toFixed(2)}`}
-                      {showCompletedStatus && currentWaitingCharge > 0 && (
+                      <strong>Fare:</strong> £{finalFare.toFixed(2)}
+                       {showCompletedStatus && currentWaitingCharge > 0 && (
                         <span className="text-xs text-muted-foreground ml-1">(incl. £{currentWaitingCharge.toFixed(2)} waiting)</span>
                       )}
                     </p>
@@ -405,7 +407,7 @@ export default function AvailableRidesPage() {
             </div>
             {activeRide.notes && !['in_progress', 'In Progress', 'completed', 'cancelled_by_driver'].includes(activeRide.status.toLowerCase()) && ( <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1"> <p className="text-xs md:text-sm text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p> </div> )}
             
-            {showCompletedStatus && (
+             {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
                 <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName}:</p>
                 <div className="flex justify-center space-x-1 mb-2">
@@ -442,5 +444,3 @@ export default function AvailableRidesPage() {
 }
     
   
-
-
