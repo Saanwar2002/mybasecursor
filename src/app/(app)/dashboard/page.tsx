@@ -45,17 +45,17 @@ export default function PassengerDashboardPage() {
     const intervalId = setInterval(() => {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
-    }, 5000); // Cycle every 5 seconds
+    }, 5000); 
 
-    return () => clearInterval(intervalId); // Cleanup on component unmount
+    return () => clearInterval(intervalId); 
   }, []);
 
   const mapContainerClasses = cn(
-    "flex-shrink-0 w-full h-[200px] rounded-lg shadow-md overflow-hidden border border-muted transition-colors duration-500 ease-in-out",
+    "flex-shrink-0 w-full h-[200px] rounded-lg shadow-md overflow-hidden border-2 transition-colors duration-500 ease-in-out", // Applied border-2
     {
-      'bg-muted/10': mapBusynessLevel === 'idle',
-      'bg-yellow-400/10': mapBusynessLevel === 'moderate',
-      'bg-red-400/10': mapBusynessLevel === 'high',
+      'border-muted bg-muted/5': mapBusynessLevel === 'idle', // Kept subtle bg tint, changed border
+      'border-yellow-500 bg-yellow-500/5': mapBusynessLevel === 'moderate', // Yellow border, subtle bg tint
+      'border-red-500 bg-red-500/5': mapBusynessLevel === 'high', // Red border, subtle bg tint
     }
   );
 
