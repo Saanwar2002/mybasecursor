@@ -33,8 +33,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
+import { useSearchParams } from 'next/navigation';
+
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -209,9 +211,13 @@ export default function BookRidePage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
-  // New state for simulated availability
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
   const [availabilityStatusMessage, setAvailabilityStatusMessage] = useState("Checking availability in your area...");
+  const [mapBusynessLevel, setMapBusynessLevel] = useState<'idle' | 'moderate' | 'high'>('idle');
+  
+  const searchParams = useSearchParams();
+  const operatorPreference = searchParams.get('operator_preference');
+
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -256,7 +262,6 @@ export default function BookRidePage() {
 
 
   useEffect(() => {
-    // Simulate fetching availability
     setIsCheckingAvailability(true);
     setAvailabilityStatusMessage("Checking availability in your area...");
     const timer = setTimeout(() => {
@@ -273,6 +278,17 @@ export default function BookRidePage() {
       setIsCheckingAvailability(false);
     }, 1500);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const busynessLevels: Array<'idle' | 'moderate' | 'high'> = ['idle', 'moderate', 'high'];
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      currentIndex = (currentIndex + 1) % busynessLevels.length;
+      setMapBusynessLevel(busynessLevels[currentIndex]);
+    }, 4000); // Change busyness state every 4 seconds
+  
+    return () => clearInterval(intervalId);
   }, []);
 
 
@@ -1469,6 +1485,15 @@ const handleProceedToConfirmation = async () => {
     setShowConfirmationDialog(true);
   };
 
+  const mapContainerClasses = cn(
+    "w-full h-[35vh] rounded-lg overflow-hidden shadow-md bg-muted/30 mb-3 border-2",
+    {
+      'border-border': mapBusynessLevel === 'idle', // Default border
+      'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
+      'animate-flash-red-border': mapBusynessLevel === 'high',
+    }
+  );
+
 
   return (
     <div className="space-y-6">
@@ -1480,10 +1505,22 @@ const handleProceedToConfirmation = async () => {
               <CardDescription>Enter details, load a saved route, or use voice input (Beta). Add stops and schedule.</CardDescription>
             </div>
           </div>
+          {operatorPreference && (
+            <Alert variant="default" className="mt-3 bg-primary/10 border-primary/30">
+              <Building className="h-5 w-5 text-primary" />
+              <ShadAlertTitle className="text-primary font-semibold">Booking with: {operatorPreference}</ShadAlertTitle>
+              <AlertDescription className="text-primary/90">
+                Your ride will be preferentially offered to drivers from {operatorPreference}.
+                <Button variant="link" size="sm" className="p-0 h-auto ml-2 text-primary/80 hover:text-primary" onClick={() => router.push('/dashboard')}>
+                  (Change Preference)
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
         </CardHeader>
         <CardContent>
           <div className="flex flex-col">
-            <div className="w-full h-[35vh] rounded-lg overflow-hidden border shadow-md bg-muted/30 mb-3">
+            <div className={mapContainerClasses}>
                 <GoogleMapDisplay
                     key="book-ride-map"
                     center={currentMapCenter}
@@ -1555,7 +1592,7 @@ const handleProceedToConfirmation = async () => {
                 {showGpsSuggestionAlert && suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20 && (
                   <Alert variant="default" className="bg-green-50 border-green-300">
                     <LocateFixed className="h-5 w-5 text-green-600" />
-                    <AlertTitle className="text-green-700">Use Current Location for Pickup?</AlertTitle>
+                    <ShadAlertTitle className="text-green-700">Use Current Location for Pickup?</ShadAlertTitle>
                     <AlertDescription className="text-green-600">
                       {suggestedGpsPickup.address} (Accuracy: {suggestedGpsPickup.accuracy.toFixed(0)}m)
                       <div className="mt-2 space-x-2">
@@ -2085,3 +2122,4 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
+

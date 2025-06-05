@@ -113,3 +113,22 @@ body {
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* Flash Animations for Map Borders */
+@keyframes flash-yellow-border {
+  from { border-color: hsl(var(--border)); }
+  to { border-color: hsl(48 96% 50%); }   /* Tailwind yellow-500 */
+}
+
+@keyframes flash-red-border {
+  from { border-color: hsl(var(--border)); }
+  to { border-color: hsl(0 84.2% 60.2%); }   /* Tailwind red-500 / destructive */
+}
+
+.animate-flash-yellow-border {
+  animation: flash-yellow-border 1.2s infinite alternate;
+}
+
+.animate-flash-red-border {
+  animation: flash-red-border 1.2s infinite alternate;
+}
