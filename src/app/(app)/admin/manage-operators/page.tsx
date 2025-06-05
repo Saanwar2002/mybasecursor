@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserPlus, Edit, Filter, Search, Loader2, AlertTriangle, CheckCircle, XCircle, ShieldAlert, Briefcase, Shield } from "lucide-react"; // Added Shield
+import { Users, UserPlus, Edit, Filter, Search, Loader2, AlertTriangle, CheckCircle, XCircle, ShieldAlert, Briefcase, Building as BuildingIcon } from "lucide-react"; // Renamed Building
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from '@/contexts/auth-context';
 import { useAuth } from '@/contexts/auth-context'; 
+import Link from 'next/link';
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
 
 // IMPORTANT: This UID is used to determine who can approve new operators.
 // This should be the Firebase UID of THE platform administrator.
@@ -28,9 +34,19 @@ interface OperatorUser {
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
   lastLogin?: { _seconds: number; _nanoseconds: number } | null;
   operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
+  customId?: string; // Operator code
 }
 
-export default function ManagePlatformOperatorsPage() { // Renamed component
+const addOperatorFormSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  email: z.string().email({ message: "Invalid email address." }),
+  phone: z.string().optional(),
+  operatorCode: z.string().min(3, {message: "Operator Code must be at least 3 characters (e.g., OP002)."}).regex(/^OP\d{3,}$/, {message: "Operator Code must be in format OPXXX (e.g. OP001)"}),
+});
+type AddOperatorFormValues = z.infer<typeof addOperatorFormSchema>;
+
+
+export default function ManagePlatformOperatorsPage() {
   const { user: currentAdminUser } = useAuth(); 
   const [operators, setOperators] = useState<OperatorUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +56,7 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [isAddOperatorDialogOpen, setIsAddOperatorDialogOpen] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -47,6 +64,16 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
   const OPERATORS_PER_PAGE = 10;
 
   const isPlatformAdminUser = currentAdminUser?.id === PLATFORM_ADMIN_UID && currentAdminUser?.role === 'admin';
+
+  const addOperatorForm = useForm<AddOperatorFormValues>({
+    resolver: zodResolver(addOperatorFormSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      operatorCode: "",
+    },
+  });
 
   const fetchOperators = useCallback(async (cursor?: string | null, direction: 'next' | 'prev' | 'filter' = 'filter') => {
     setIsLoading(true);
@@ -72,7 +99,6 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
       const data = await response.json();
       
       const fetchedOperators = (data.operators || [])
-        // No longer filter out self here, as an admin might want to see their own operator entry if they have one (though PLATFORM_ADMIN_UID is key for approval)
         .map((op: any) => ({
           ...op,
           status: op.status || 'Inactive'
@@ -97,7 +123,7 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
     } finally {
       setIsLoading(false);
     }
-  }, [filterStatus, searchTerm, toast, operators]); // Removed currentAdminUser from deps as it's used for isPlatformAdminUser, not directly in fetch
+  }, [filterStatus, searchTerm, toast, operators]);
 
   useEffect(() => {
     if (currentAdminUser) { 
@@ -146,9 +172,7 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
             payload.statusReason = reason;
         }
         
-        // This API endpoint is actually /api/operator/drivers/[driverId] but is used for generic user updates.
-        // Ideally, there'd be a specific /api/admin/users/[userId]/status endpoint.
-        const response = await fetch(`/api/operator/drivers/${operatorId}`, {
+        const response = await fetch(`/api/operator/drivers/${operatorId}`, { // Uses generic user update endpoint
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -168,6 +192,30 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
         setActionLoading(prev => ({ ...prev, [operatorId]: false }));
     }
   };
+
+  async function onAddOperatorSubmit(values: AddOperatorFormValues) {
+    setActionLoading(prev => ({...prev, addNewOperator: true}));
+    console.log("Submitting new operator (mock):", values);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // In a real app:
+    // 1. Call an API endpoint like /api/admin/operators/create
+    // 2. That API would create Firebase Auth user & Firestore user document with 'operator' role and 'Pending Approval' status.
+    // 3. It would ensure operatorCode is unique.
+
+    toast({
+        title: "Operator Submitted (Mock)",
+        description: `${values.name} with code ${values.operatorCode} would be created and set to 'Pending Approval'. Refresh list to see.`,
+        duration: 7000,
+    });
+    setIsAddOperatorDialogOpen(false);
+    addOperatorForm.reset();
+    // Optionally, re-fetch operators list if API call was real
+    // fetchOperators(null, 'filter'); 
+    setActionLoading(prev => ({...prev, addNewOperator: false}));
+  }
+
 
   if (currentAdminUser?.role !== 'admin') {
     return (
@@ -189,16 +237,56 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div>
             <CardTitle className="text-3xl font-headline flex items-center gap-2">
-              <Building className="w-8 h-8 text-primary" /> Manage Operators
+              <BuildingIcon className="w-8 h-8 text-primary" /> Manage Operators
             </CardTitle>
             <CardDescription>
               View, approve, and manage platform operators.
               {isPlatformAdminUser ? " As platform admin, you can approve new operators." : " (Approval rights restricted)"}
             </CardDescription>
           </div>
-           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0" disabled>
-            <UserPlus className="mr-2 h-4 w-4" /> Add New Operator (Soon)
-          </Button>
+          <Dialog open={isAddOperatorDialogOpen} onOpenChange={setIsAddOperatorDialogOpen}>
+            <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0">
+                    <UserPlus className="mr-2 h-4 w-4" /> Add New Operator
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Platform Operator</DialogTitle>
+                <DialogDescription>
+                  Enter the details for the new taxi base operator. They will be created with 'Pending Approval' status.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...addOperatorForm}>
+                <form onSubmit={addOperatorForm.handleSubmit(onAddOperatorSubmit)} className="space-y-4 py-2">
+                  <FormField control={addOperatorForm.control} name="name" render={({ field }) => (
+                      <FormItem><FormLabel>Operator/Company Name</FormLabel><FormControl><Input placeholder="e.g., City Taxis Ltd" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={addOperatorForm.control} name="email" render={({ field }) => (
+                      <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input type="email" placeholder="contact@citytaxis.com" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={addOperatorForm.control} name="phone" render={({ field }) => (
+                      <FormItem><FormLabel>Contact Phone (Optional)</FormLabel><FormControl><Input type="tel" placeholder="01234 567890" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                   <FormField control={addOperatorForm.control} name="operatorCode" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Unique Operator Code</FormLabel>
+                        <FormControl><Input placeholder="e.g., OP002" {...field} disabled={actionLoading['addNewOperator']} /></FormControl>
+                        <FormDescription>Assign a unique code (e.g., OP002). This must not be in use.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                  )} />
+                  <DialogFooter className="pt-4">
+                    <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addNewOperator']}>Cancel</Button></DialogClose>
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addNewOperator']}>
+                      {actionLoading['addNewOperator'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Add Operator
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
       </Card>
 
@@ -253,6 +341,7 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Operator Code</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
@@ -262,6 +351,7 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
                     <TableRow key={operator.id}>
                       <TableCell className="font-medium">{operator.name}</TableCell>
                       <TableCell>{operator.email}</TableCell>
+                      <TableCell>{operator.customId || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant={
                           operator.status === 'Active' ? 'default' :
@@ -302,8 +392,7 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
                                         <UserPlus className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Activate</span>
                                     </Button>
                                 )}
-                                 {/* Placeholder for non-admins or other actions */}
-                                {!isPlatformAdminUser && operator.status !== 'Active' && (
+                                 {!isPlatformAdminUser && operator.status !== 'Active' && (
                                     <span className="text-xs text-muted-foreground italic">Awaiting Platform Admin action</span>
                                 )}
                             </>
@@ -339,3 +428,6 @@ export default function ManagePlatformOperatorsPage() { // Renamed component
     </div>
   );
 }
+
+
+    
