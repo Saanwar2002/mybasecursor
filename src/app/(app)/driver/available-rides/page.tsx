@@ -49,8 +49,8 @@ interface RideRequest {
   distanceMiles?: number;
   passengerCount: number;
   passengerPhone?: string;
-  passengerRating?: number; // Passenger's overall rating
-  passengerRatingOfDriver?: number | null; // Passenger's rating FOR THIS specific ride/driver
+  passengerRating?: number; 
+  driverRatingForPassenger?: number | null; 
   notes?: string;
   notifiedPassengerArrivalTimestamp?: string | null;
   passengerAcknowledgedArrivalTimestamp?: string | null;
@@ -89,8 +89,9 @@ export default function AvailableRidesPage() {
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
   
   const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string | null>(null);
-
   const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
+  const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
+
 
   const activeRide = useMemo(() => rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress', 'completed', 'cancelled_by_driver'].includes(r.status)), [rideRequests]);
 
@@ -257,7 +258,6 @@ export default function AvailableRidesPage() {
     let newStatus: RideRequest['status'] | undefined = undefined;
     let toastMessage = "";
     let toastTitle = "";
-    let passengerRatingOfDriverForMock: number | null = null;
 
 
     const currentRide = rideRequests.find(r => r.id === rideId);
@@ -287,9 +287,8 @@ export default function AvailableRidesPage() {
             break;
         case 'complete_ride':
             newStatus = 'completed'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed.`;
-            // Mock passenger rating for this completed ride
-            passengerRatingOfDriverForMock = Math.floor(Math.random() * 3) + 3; // Random rating between 3 and 5
-            setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString(), passengerRatingOfDriver: passengerRatingOfDriverForMock } : r));
+            setDriverRatingForPassenger(0); // Reset rating input for next ride
+            setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString(), driverRatingForPassenger: driverRatingForPassenger } : r));
             break;
         case 'cancel_active':
             newStatus = 'cancelled_by_driver'; toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
@@ -536,29 +535,21 @@ export default function AvailableRidesPage() {
                  </Alert>
             )}
 
-            {showCompletedStatus && (
+           {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
-                {activeRide.passengerRatingOfDriver !== null && activeRide.passengerRatingOfDriver !== undefined ? (
-                  <>
-                    <p className="text-sm font-medium mb-1">Passenger rated this ride:</p>
-                    <div className="flex justify-center space-x-1 mb-2">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            "w-6 h-6",
-                            i < activeRide.passengerRatingOfDriver! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
-                          )}
-                        />
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground mb-2">Passenger has not rated this ride yet.</p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Encourage passengers to rate their experience on their app!
-                </p>
+                <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName}:</p>
+                <div className="flex justify-center space-x-1 mb-2">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={cn(
+                        "w-7 h-7 cursor-pointer",
+                        i < driverRatingForPassenger ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"
+                      )}
+                      onClick={() => setDriverRatingForPassenger(i + 1)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -614,8 +605,14 @@ export default function AvailableRidesPage() {
                 <Button
                     className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto"
                     onClick={() => {
+                        if(showCompletedStatus && driverRatingForPassenger > 0) {
+                            // Mock saving the rating
+                            console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`);
+                            toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`});
+                        }
                         setRideRequests([]); 
                         setIsCancelSwitchOn(false); 
+                        setDriverRatingForPassenger(0);
                     }} 
                     disabled={activeRide ? actionLoading[activeRide.id] : false}
                 >
