@@ -1,5 +1,6 @@
 
-"use client";
+"use client"; 
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,24 +59,6 @@ export default function PassengerDashboardPage() {
       'border-red-500 bg-red-500/5': mapBusynessLevel === 'high',
     }
   );
-
-  const getBusynessStatusText = () => {
-    switch (mapBusynessLevel) {
-      case 'idle': return "Ready for Bookings";
-      case 'moderate': return "Moderately Busy";
-      case 'high': return "Currently Very Busy";
-      default: return "";
-    }
-  };
-
-  const getBusynessStatusTextColor = () => {
-    switch (mapBusynessLevel) {
-      case 'idle': return "text-foreground";
-      case 'moderate': return "text-yellow-600 dark:text-yellow-400";
-      case 'high': return "text-red-600 dark:text-red-400";
-      default: return "text-foreground";
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -151,11 +134,6 @@ export default function PassengerDashboardPage() {
               className="w-full h-full"
               disableDefaultUI={true}
             />
-             <div className={cn("absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/95 dark:bg-background/95 border border-border/50 backdrop-blur-sm p-2 sm:p-3 rounded-md shadow-lg pointer-events-none z-10")}>
-                <p className={cn("text-xs sm:text-sm font-semibold text-center", getBusynessStatusTextColor())}>
-                    {getBusynessStatusText()}
-                </p>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -218,4 +196,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
-

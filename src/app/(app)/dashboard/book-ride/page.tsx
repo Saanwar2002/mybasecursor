@@ -1495,25 +1495,6 @@ const handleProceedToConfirmation = async () => {
     }
   );
 
-  const getBusynessStatusText = () => {
-    switch (mapBusynessLevel) {
-      case 'idle': return "Ready for Bookings";
-      case 'moderate': return "Moderately Busy";
-      case 'high': return "Currently Very Busy";
-      default: return "";
-    }
-  };
-
-  const getBusynessStatusTextColor = () => {
-    switch (mapBusynessLevel) {
-      case 'idle': return "text-foreground"; // Black/Default text
-      case 'moderate': return "text-yellow-500";
-      case 'high': return "text-red-500";
-      default: return "text-foreground";
-    }
-  };
-
-
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -1548,11 +1529,6 @@ const handleProceedToConfirmation = async () => {
                     className="w-full h-full"
                     disableDefaultUI={true}
                  />
-                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm p-3 rounded-md shadow-lg pointer-events-none z-10">
-                    <p className={cn("text-sm font-semibold text-center", getBusynessStatusTextColor())}>
-                        {getBusynessStatusText()}
-                    </p>
-                 </div>
               </div>
 
             <Card className="mb-4 bg-primary/5 border-primary/20 shadow-sm">
@@ -2146,4 +2122,3 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
-
