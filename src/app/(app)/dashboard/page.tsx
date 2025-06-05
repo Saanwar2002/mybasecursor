@@ -70,7 +70,7 @@ export default function PassengerDashboardPage() {
 
   const getBusynessStatusTextColor = () => {
     switch (mapBusynessLevel) {
-      case 'idle': return "text-foreground"; // Black/Default text
+      case 'idle': return "text-foreground";
       case 'moderate': return "text-yellow-600 dark:text-yellow-400";
       case 'high': return "text-red-600 dark:text-red-400";
       default: return "text-foreground";
@@ -151,7 +151,7 @@ export default function PassengerDashboardPage() {
               className="w-full h-full"
               disableDefaultUI={true}
             />
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/95 dark:bg-slate-800/90 border border-border/70 dark:border-slate-700/70 backdrop-blur-sm p-2 sm:p-3 rounded-md shadow-lg pointer-events-none z-10">
+             <div className={cn("absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/95 dark:bg-background/95 border border-border/50 backdrop-blur-sm p-2 sm:p-3 rounded-md shadow-lg pointer-events-none z-10")}>
                 <p className={cn("text-xs sm:text-sm font-semibold text-center", getBusynessStatusTextColor())}>
                     {getBusynessStatusText()}
                 </p>
