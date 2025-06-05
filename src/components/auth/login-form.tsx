@@ -64,16 +64,15 @@ export function LoginForm() {
   });
 
   useEffect(() => {
-    // Check if a PIN is stored for any user to enable the PIN login button
     if (typeof window !== "undefined") {
       const storedUserData = localStorage.getItem('linkCabsUserWithPin');
       if (storedUserData) {
         try {
           const parsedData: StoredPinUser = JSON.parse(storedUserData);
-          setPinUserEmail(parsedData.email); // Store email to prefill or identify
+          setPinUserEmail(parsedData.email); 
         } catch (e) {
           console.error("Error parsing stored PIN user data from localStorage:", e);
-          localStorage.removeItem('linkCabsUserWithPin'); // Clear potentially corrupted data
+          localStorage.removeItem('linkCabsUserWithPin');
         }
       }
     }
@@ -193,13 +192,12 @@ export function LoginForm() {
     if (!storedUserData) {
       toast({ title: "PIN Login Failed", description: "No PIN found for this device. Please login with password to set up a PIN.", variant: "destructive" });
       setIsLoading(false);
-      setShowPinLogin(false); // Revert to password login
+      setShowPinLogin(false); 
       return;
     }
     try {
       const storedUser: StoredPinUser = JSON.parse(storedUserData);
       if (storedUser.pin === values.pin) {
-        // Directly use stored user data. This is a mock and not fully secure.
         contextLogin(
           storedUser.id,
           storedUser.email,
@@ -364,17 +362,25 @@ export function LoginForm() {
             <FormField
               control={pinForm.control}
               name="pin"
-              render={({ field }) => (
+              render={({ field: { onChange, ...fieldProps } }) => ( // Destructure onChange to intercept it
                 <FormItem>
                   <FormLabel>Enter 4-Digit PIN</FormLabel>
                   <FormControl>
                     <Input
                       type="tel" 
                       placeholder="••••"
-                      {...field}
+                      {...fieldProps}
+                      onChange={(e) => {
+                        console.log("PIN Input onChange event:", e.target.value);
+                        onChange(e); // Call original RHF onChange
+                      }}
+                      onKeyDown={(e) => {
+                        console.log("PIN Input onKeyDown event:", e.key);
+                      }}
                       disabled={isLoading}
                       className="text-center text-2xl tracking-[0.5em]"
                       inputMode="numeric"
+                      // Removed maxLength and pattern for this debugging step
                     />
                   </FormControl>
                   <FormMessage />
