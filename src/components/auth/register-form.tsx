@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Car, Loader2, PhoneOutcome, Briefcase, ShieldCheck } from "lucide-react"; // Added Briefcase, ShieldCheck
+import { Car, Loader2, PhoneOutcome, Briefcase, ShieldCheck } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { 
   createUserWithEmailAndPassword, 
@@ -39,7 +39,6 @@ const phoneRegex = new RegExp(
 );
 
 const operatorCodeRegex = /^OP\d{3,}$/; // e.g., OP001, OP123
-const driverIdentifierRegex = /^[a-zA-Z0-9]{3,10}$/; // Alphanumeric, 3-10 chars
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -48,7 +47,6 @@ const formSchema = z.object({
   role: z.enum(["passenger", "driver", "operator"], { required_error: "You must select a role." }),
   vehicleCategory: z.string().optional(),
   operatorCode: z.string().optional(), // For drivers: e.g., OP001
-  driverIdentifier: z.string().optional(), // For drivers: e.g., DR123 or JohnD01
   phoneNumber: z.string().optional(),
   verificationCode: z.string().optional().refine(value => !value || /^\d{6}$/.test(value), {
     message: "Verification code must be 6 digits."
@@ -69,14 +67,6 @@ const formSchema = z.object({
 }, {
   message: "Valid Operator Code (e.g., OP001) is required for drivers.",
   path: ["operatorCode"],
-}).refine(data => {
-  if (data.role === 'driver') {
-    return !!data.driverIdentifier && driverIdentifierRegex.test(data.driverIdentifier);
-  }
-  return true;
-}, {
-  message: "Driver ID (3-10 alphanumeric chars) is required for drivers.",
-  path: ["driverIdentifier"],
 }).refine(data => {
   if (data.role === 'passenger') {
     return !!data.phoneNumber && data.phoneNumber.trim() !== "" && phoneRegex.test(data.phoneNumber);
@@ -128,7 +118,6 @@ export function RegisterForm() {
       role: "passenger",
       vehicleCategory: undefined,
       operatorCode: "",
-      driverIdentifier: "",
       phoneNumber: "",
       verificationCode: "",
     },
@@ -200,18 +189,21 @@ export function RegisterForm() {
           status: (values.role === 'driver' || values.role === 'operator') ? 'Pending Approval' : 'Active',
         };
         
-        // Assign custom IDs conceptually (actual generation is backend)
         if (values.role === 'passenger') userProfile.customId = `CU-mock-${firebaseUser.uid.slice(0,4)}`;
         if (values.role === 'operator') userProfile.customId = `OP-mock-${firebaseUser.uid.slice(0,4)}`;
         
         if (values.role === 'driver') {
           if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
           if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
-          if (values.driverIdentifier) userProfile.driverIdentifier = values.driverIdentifier;
+          // Mock driverIdentifier generation
+          // IMPORTANT: For production, this MUST be done on the backend to ensure uniqueness and proper sequencing per operator.
+          // This is a client-side placeholder for demonstration.
+          userProfile.driverIdentifier = `DR-mock-${firebaseUser.uid.slice(0,4)}`;
+          console.log(`Mock driverIdentifier generated: ${userProfile.driverIdentifier} for operator ${userProfile.operatorCode}`);
         }
         
         if (values.phoneNumber && values.phoneNumber.trim() !== "") {
-            userProfile.phoneNumberInput = values.phoneNumber.trim(); // Store raw input temporarily
+            userProfile.phoneNumberInput = values.phoneNumber.trim(); 
         }
 
         if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") {
@@ -223,7 +215,6 @@ export function RegisterForm() {
 
         await setDoc(doc(db, "users", firebaseUser.uid), userProfile);
 
-        // Phone verification step for passengers, or if driver/operator provided phone
         const shouldVerifyPhone = (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") ||
                                   ((values.role === 'driver' || values.role === 'operator') && values.phoneNumber && values.phoneNumber.trim() !== "");
 
@@ -257,14 +248,14 @@ export function RegisterForm() {
             values.role as UserRole, 
             userProfile.vehicleCategory,
             userProfile.phoneNumberInput, 
-            false, // Phone not verified if this path is taken
+            false, 
             userProfile.status,
             userProfile.phoneVerificationDeadline,
             userProfile.customId,
             userProfile.operatorCode,
             userProfile.driverIdentifier
           );
-          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your account has been created.` });
+          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''}` });
           setIsSubmitting(false);
         }
 
@@ -310,7 +301,7 @@ export function RegisterForm() {
             firebaseUserForLinking.phoneNumber,
             true, 
             finalProfile?.status,
-            null, // No deadline
+            null, 
             finalProfile?.customId,
             finalProfile?.operatorCode,
             finalProfile?.driverIdentifier
@@ -373,14 +364,12 @@ export function RegisterForm() {
                         form.clearErrors('vehicleCategory');
                         form.setValue('operatorCode', undefined);
                         form.clearErrors('operatorCode');
-                        form.setValue('driverIdentifier', undefined);
-                        form.clearErrors('driverIdentifier');
                     } else { 
                         form.setValue('vehicleCategory', 'car');
                     }
                     if (value !== 'passenger') {
-                        form.setValue('phoneNumber', ""); // Clear phone for non-passengers if previously set
-                        form.clearErrors('phoneNumber'); // Clear phone errors
+                        form.setValue('phoneNumber', ""); 
+                        form.clearErrors('phoneNumber'); 
                     }
                  }} defaultValue={field.value} className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4" disabled={isSubmitting}>
                     <FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="passenger" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Passenger</FormLabel></FormItem>
@@ -391,11 +380,9 @@ export function RegisterForm() {
             {watchedRole === "driver" && (
               <>
                 <FormField control={form.control} name="operatorCode" render={({ field }) => (
-                    <FormItem><FormLabel className="flex items-center gap-1"><Briefcase className="w-4 h-4 text-muted-foreground" /> Operator Code <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., OP001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="flex items-center gap-1"><Briefcase className="w-4 h-4 text-muted-foreground" /> Your Affiliated Operator Code <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., OP001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                 )} />
-                <FormField control={form.control} name="driverIdentifier" render={({ field }) => (
-                    <FormItem><FormLabel className="flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-muted-foreground" /> Your Driver ID Suffix <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., DR123 or JD001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
-                )} />
+                {/* Driver Identifier Suffix field removed as per request */}
                 <FormField control={form.control} name="vehicleCategory" render={({ field }) => (
                     <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4 text-muted-foreground" /> Vehicle Category <span className="text-destructive font-bold">*</span></FormLabel><Select onValueChange={field.onChange} defaultValue={field.value || "car"} disabled={isSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle category" /></SelectTrigger></FormControl><SelectContent>
                         <SelectItem value="car">Car (Standard)</SelectItem><SelectItem value="estate">Estate Car</SelectItem><SelectItem value="minibus_6">Minibus (6 people)</SelectItem><SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
@@ -442,3 +429,4 @@ export function RegisterForm() {
     </Form>
   );
 }
+
