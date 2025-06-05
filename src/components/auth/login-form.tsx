@@ -380,7 +380,7 @@ export function LoginForm() {
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertTitle className="text-blue-700">No PIN Configured</AlertTitle>
                 <AlertDescription className="text-blue-600">
-                  No PIN is set up for quick login on this device. Please log in with your email and password, then set up a PIN in your profile if you wish.
+                  No PIN is set up for quick login on this device. Please log in with your email and password, then set up a PIN in your Profile section if you wish.
                 </AlertDescription>
               </Alert>
             )}
