@@ -83,10 +83,11 @@ const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;ba
 
 type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
-const FREE_WAITING_TIME_SECONDS = 3 * 60; // 3 minutes
-const WAITING_CHARGE_PER_MINUTE = 0.20;
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // 3 minutes
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
+const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
 
-// Helper to convert serialized timestamp or ISO string to Date object
+
 const parseTimestampToDate = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
   if (!timestamp) return null;
   if (typeof timestamp === 'string') {
@@ -125,7 +126,7 @@ export default function AvailableRidesPage() {
   const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
   const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
 
-  // Waiting Timer State
+  const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
   const [freeWaitingSecondsLeft, setFreeWaitingSecondsLeft] = useState<number | null>(null);
   const [extraWaitingSeconds, setExtraWaitingSeconds] = useState<number | null>(null);
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
@@ -164,42 +165,68 @@ export default function AvailableRidesPage() {
       clearInterval(waitingTimerIntervalRef.current);
       waitingTimerIntervalRef.current = null;
     }
-
-    if (activeRide?.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp) {
-      const ackTime = parseTimestampToDate(activeRide.passengerAcknowledgedArrivalTimestamp);
-      if (!ackTime) return;
-
+  
+    const notifiedTime = parseTimestampToDate(activeRide?.notifiedPassengerArrivalTimestamp);
+    const ackTime = parseTimestampToDate(activeRide?.passengerAcknowledgedArrivalTimestamp);
+  
+    if (activeRide?.status === 'arrived_at_pickup' && notifiedTime) {
       const updateTimers = () => {
-        const now = Date.now();
-        const elapsedSecondsSinceAck = Math.floor((now - ackTime.getTime()) / 1000);
-
-        if (elapsedSecondsSinceAck < FREE_WAITING_TIME_SECONDS) {
-          setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS - elapsedSecondsSinceAck);
-          setExtraWaitingSeconds(null);
-          setCurrentWaitingCharge(0);
-        } else {
-          setFreeWaitingSecondsLeft(0);
-          const currentExtraSeconds = elapsedSecondsSinceAck - FREE_WAITING_TIME_SECONDS;
-          setExtraWaitingSeconds(currentExtraSeconds);
-          setCurrentWaitingCharge(Math.floor(currentExtraSeconds / 60) * WAITING_CHARGE_PER_MINUTE);
+        const now = new Date();
+        const secondsSinceNotified = Math.floor((now.getTime() - notifiedTime.getTime()) / 1000);
+  
+        if (!ackTime) { // Passenger hasn't acknowledged
+          if (secondsSinceNotified < ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER) {
+            setAckWindowSecondsLeft(ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER - secondsSinceNotified);
+            setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER);
+            setExtraWaitingSeconds(null);
+            setCurrentWaitingCharge(0);
+          } else { // Ack window expired, passenger didn't acknowledge
+            setAckWindowSecondsLeft(0);
+            const effectiveFreeWaitStartTime = new Date(notifiedTime.getTime() + ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER * 1000);
+            const secondsSinceEffectiveFreeWaitStart = Math.floor((now.getTime() - effectiveFreeWaitStartTime.getTime()) / 1000);
+  
+            if (secondsSinceEffectiveFreeWaitStart < FREE_WAITING_TIME_SECONDS_DRIVER) {
+              setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceEffectiveFreeWaitStart);
+              setExtraWaitingSeconds(null);
+              setCurrentWaitingCharge(0);
+            } else {
+              setFreeWaitingSecondsLeft(0);
+              const currentExtra = secondsSinceEffectiveFreeWaitStart - FREE_WAITING_TIME_SECONDS_DRIVER;
+              setExtraWaitingSeconds(currentExtra);
+              setCurrentWaitingCharge(Math.floor(currentExtra / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER);
+            }
+          }
+        } else { // Passenger has acknowledged
+          setAckWindowSecondsLeft(null);
+          const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
+  
+          if (secondsSinceAck < FREE_WAITING_TIME_SECONDS_DRIVER) {
+            setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceAck);
+            setExtraWaitingSeconds(null);
+            setCurrentWaitingCharge(0);
+          } else {
+            setFreeWaitingSecondsLeft(0);
+            const currentExtra = secondsSinceAck - FREE_WAITING_TIME_SECONDS_DRIVER;
+            setExtraWaitingSeconds(currentExtra);
+            setCurrentWaitingCharge(Math.floor(currentExtra / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER);
+          }
         }
       };
-
-      updateTimers(); // Initial update
+      updateTimers();
       waitingTimerIntervalRef.current = setInterval(updateTimers, 1000);
-    } else {
-      // Reset timers if ride status is not arrived_at_pickup or passenger hasn't acknowledged
+    } else if (activeRide?.status !== 'arrived_at_pickup') {
+      setAckWindowSecondsLeft(null);
       setFreeWaitingSecondsLeft(null);
       setExtraWaitingSeconds(null);
       setCurrentWaitingCharge(0);
     }
-
+  
     return () => {
       if (waitingTimerIntervalRef.current) {
         clearInterval(waitingTimerIntervalRef.current);
       }
     };
-  }, [activeRide?.status, activeRide?.passengerAcknowledgedArrivalTimestamp]);
+  }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
 
 
   const handleSimulateOffer = () => {
@@ -252,18 +279,17 @@ export default function AvailableRidesPage() {
         case 'notify_arrival':
             newStatus = 'arrived_at_pickup'; toastTitle = "Passenger Notified"; toastMessage = `Passenger ${rideDisplayName} has been notified of your arrival.`;
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, notifiedPassengerArrivalTimestamp: new Date().toISOString() } : r));
-            // Passenger acknowledgment will be simulated by the passenger app in a real scenario
             break;
         case 'start_ride':
             newStatus = 'in_progress'; toastTitle = "Ride Started"; toastMessage = `Ride with ${rideDisplayName} is now in progress.`;
-            if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); // Stop waiting timer
-            setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); // Reset timer display
+            if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); 
+            setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); 
+            setAckWindowSecondsLeft(null);
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, rideStartedAt: new Date().toISOString() } : r));
             break;
         case 'complete_ride':
             newStatus = 'completed'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
-            // Final waiting charge might be added to fare here in a real app
             console.log(`Ride completed. Final waiting charge: £${currentWaitingCharge.toFixed(2)}`);
             setDriverRatingForPassenger(0); 
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, completedAt: new Date().toISOString() } : r));
@@ -271,6 +297,7 @@ export default function AvailableRidesPage() {
         case 'cancel_active':
             newStatus = 'cancelled_by_driver'; toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${rideDisplayName} cancelled.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
+            setAckWindowSecondsLeft(null);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus! } : r));
             break;
@@ -337,6 +364,27 @@ export default function AvailableRidesPage() {
             </div>
             {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center mt-1"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
 
+            {showArrivedAtPickupStatus && (
+              <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 my-1">
+                <Timer className="h-5 w-5 text-current" />
+                <ShadAlertTitle className="font-semibold text-current">Passenger Waiting Status</ShadAlertTitle>
+                <ShadAlertDescription className="text-current text-xs">
+                  {ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                    `Waiting for passenger acknowledgment: ${formatTimer(ackWindowSecondsLeft)} left.`
+                  )}
+                  {ackWindowSecondsLeft === 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && (
+                    `Passenger did not ack. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`
+                  )}
+                  {activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
+                    `Passenger acknowledged. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`
+                  )}
+                  {extraWaitingSeconds !== null && extraWaitingSeconds >= 0 && freeWaitingSecondsLeft === 0 && (
+                    `Extra waiting: ${formatTimer(extraWaitingSeconds)}. Charge: £${currentWaitingCharge.toFixed(2)}`
+                  )}
+                </ShadAlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-1 text-sm py-1">
                  <p className={cn("flex items-start gap-1.5", (showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus) ? "text-muted-foreground" : "text-green-500")} /> <span><strong>Pickup:</strong> {activeRide.pickupLocation}</span> </p>
                  <p className={cn("flex items-start gap-1.5", (showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus)) ? "text-muted-foreground" : "text-orange-500")} /> <span className={cn((showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground")}> <strong>Dropoff:</strong> {activeRide.dropoffLocation} </span> </p>
@@ -349,24 +397,8 @@ export default function AvailableRidesPage() {
                  </div>
             </div>
             {showNotes && ( <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1"> <p className="text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p> </div> )}
-
-            {showArrivedAtPickupStatus && activeRide.passengerAcknowledgedArrivalTimestamp && (
-              <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 my-1">
-                  <Timer className="h-5 w-5 text-current" />
-                  <ShadAlertTitle className="font-semibold text-current">Passenger Waiting</ShadAlertTitle>
-                  <ShadAlertDescription className="text-current text-xs">
-                      {freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
-                          `Free waiting time: ${formatTimer(freeWaitingSecondsLeft)}. Charges apply after.`
-                      )}
-                      {extraWaitingSeconds !== null && extraWaitingSeconds >= 0 && freeWaitingSecondsLeft === 0 && (
-                          `Extra waiting: ${formatTimer(extraWaitingSeconds)}. Charge: £${currentWaitingCharge.toFixed(2)}`
-                      )}
-                  </ShadAlertDescription>
-              </Alert>
-            )}
-            {showArrivedAtPickupStatus && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Alert variant="default" className="bg-blue-100 dark:bg-blue-700/30 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-100 my-1"> <BellRing className="h-5 w-5 text-current" /> <ShadAlertTitle className="font-semibold text-current">Waiting for Passenger Acknowledgement</ShadAlertTitle> <ShadAlertDescription className="text-current"> Passenger has been notified. Waiting for them to acknowledge arrival. </ShadAlertDescription> </Alert> )}
-            {showArrivedAtPickupStatus && activeRide.passengerAcknowledgedArrivalTimestamp && ( <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-100 my-1"> <CheckCheck className="h-5 w-5 text-current" /> <ShadAlertTitle className="font-semibold text-current">Passenger Acknowledged</ShadAlertTitle> <ShadAlertDescription className="text-current">Passenger has confirmed your arrival and is on their way.</ShadAlertDescription> </Alert> )}
-             {showCompletedStatus && (
+            
+            {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
                 <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName}:</p>
                 <div className="flex justify-center space-x-1 mb-2">
