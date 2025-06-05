@@ -101,11 +101,7 @@ export default function AvailableRidesPage() {
         setCurrentDriverOperatorPrefix(parts[0]);
       }
     } else if (driverUser?.id) {
-      // If no '/' and no operatorCode, it might be a guest or differently structured ID
-      // For simulation, we might assign a default or indicate it's a general driver.
-      // For now, let's assume if no prefix, they might be a general platform driver.
-      // You might want a specific "platform" operator code like "PLATFORM_OP"
-      setCurrentDriverOperatorPrefix('OP_DefaultGuest'); // Or null or a specific platform operator ID
+      setCurrentDriverOperatorPrefix('OP_DefaultGuest'); 
       console.warn("Driver ID does not have a standard operator prefix or operatorCode field:", driverUser.id);
     }
   }, [driverUser]);
@@ -115,6 +111,7 @@ export default function AvailableRidesPage() {
     const randomScenario = Math.random();
     let mockOffer: RideOffer;
     let offerTypeDescription = "";
+    const distance = parseFloat((Math.random() * 10 + 2).toFixed(1)); // Random distance between 2 and 12 miles
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) { 
       const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001"; 
@@ -129,6 +126,7 @@ export default function AvailableRidesPage() {
         passengerName: "Mike Misken",
         notes: "Waiting by the main entrance, blue jacket.",
         requiredOperatorId: mismatchedOperatorId,
+        distanceMiles: distance,
       };
       offerTypeDescription = `restricted to ${mismatchedOperatorId}`;
     } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) { 
@@ -143,6 +141,7 @@ export default function AvailableRidesPage() {
         passengerName: "Alice Matching",
         notes: "2 small bags.",
         requiredOperatorId: currentDriverOperatorPrefix,
+        distanceMiles: distance,
       };
       offerTypeDescription = `restricted to your operator (${currentDriverOperatorPrefix})`;
     } else { 
@@ -156,6 +155,7 @@ export default function AvailableRidesPage() {
         passengerCount: 1,
         passengerName: "Gary General",
         notes: "Please call on arrival.",
+        distanceMiles: distance,
       };
       offerTypeDescription = "a general platform offer";
     }
@@ -182,7 +182,6 @@ export default function AvailableRidesPage() {
         return;
     }
 
-
     setCurrentOfferDetails(mockOffer);
     setIsOfferModalOpen(true);
   };
@@ -204,7 +203,7 @@ export default function AvailableRidesPage() {
         status: 'driver_assigned', 
         pickupCoords: offerToAccept.pickupCoords, 
         dropoffCoords: offerToAccept.dropoffCoords,
-        distanceMiles: Math.random() * 5 + 1, 
+        distanceMiles: offerToAccept.distanceMiles || Math.random() * 5 + 1, 
         passengerCount: offerToAccept.passengerCount, 
         notes: offerToAccept.notes, 
         passengerPhone: "07123456789", 
@@ -218,7 +217,6 @@ export default function AvailableRidesPage() {
     }
   };
 
-
   const handleDeclineOffer = (rideId: string) => {
     const declinedOffer = currentOfferDetails; 
     setIsOfferModalOpen(false);
@@ -230,7 +228,6 @@ export default function AvailableRidesPage() {
       toast({title: "Offer Declined", description: `Offer with ID ${rideId} declined (details not found).`});
     }
   };
-
 
  const handleRideAction = async (rideId: string, actionType: 'accept' | 'decline' | 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active') => {
     if (!driverUser && actionType !== 'decline') {
@@ -255,7 +252,6 @@ export default function AvailableRidesPage() {
         case 'notify_arrival':
             newStatus = 'arrived_at_pickup'; toastTitle = "Passenger Notified"; toastMessage = `Passenger ${rideDisplayName} has been notified of your arrival.`;
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, notifiedPassengerArrivalTimestamp: new Date().toISOString() } : r));
-            // Simulate passenger acknowledgment after 3 seconds for demo
             setTimeout(() => {
                 setRideRequests(prev => prev.map(r => {
                 if (r.id === rideId && r.status === 'arrived_at_pickup') {
@@ -284,7 +280,6 @@ export default function AvailableRidesPage() {
     }
     setActionLoading(prev => ({ ...prev, [rideId]: false }));
   };
-
 
   const getMapMarkersForActiveRide = (): Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> => {
     if (!activeRide) return [];
@@ -350,7 +345,6 @@ export default function AvailableRidesPage() {
       />
     </div>
   );
-
 
   if (activeRide) {
     const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
@@ -447,7 +441,6 @@ export default function AvailableRidesPage() {
               </div>
             )}
 
-
             <div className="space-y-1 text-sm py-1">
                  <p className={cn(
                     "flex items-start gap-1.5",
@@ -477,9 +470,14 @@ export default function AvailableRidesPage() {
                   <strong>Stop {index + 1}:</strong> {stop.address}
                 </p>
               ))}
-              <div className="grid grid-cols-2 gap-1 pt-1">
-                  <p className="flex items-center gap-1"><DollarSignIcon className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{activeRide.fareEstimate.toFixed(2)}</p>
-                  <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Pax:</strong> {activeRide.passengerCount}</p>
+              <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
+                <p className="flex items-center gap-1"><DollarSignIcon className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{activeRide.fareEstimate.toFixed(2)}</p>
+                <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Pax:</strong> {activeRide.passengerCount}</p>
+                {activeRide.distanceMiles && (
+                  <p className="flex items-center gap-1 col-span-2 mt-1"> 
+                    <Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi
+                  </p>
+                )}
               </div>
             </div>
 
@@ -628,7 +626,7 @@ export default function AvailableRidesPage() {
 
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => {
             setShowCancelConfirmationDialog(isOpen);
-            if (!isOpen && isCancelSwitchOn) {
+            if (!isOpen && activeRide && isCancelSwitchOn) {
                 setIsCancelSwitchOn(false);
             }
         }}>

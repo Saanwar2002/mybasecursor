@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase } from "lucide-react"; // Added Briefcase
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route } from "lucide-react"; // Added Route
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,7 +27,8 @@ export interface RideOffer {
   passengerCount: number;
   passengerName?: string;
   notes?: string;
-  requiredOperatorId?: string; // New field for operator-specific offers
+  requiredOperatorId?: string;
+  distanceMiles?: number; // Added distanceMiles
 }
 
 interface RideOfferModalProps {
@@ -193,9 +194,14 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-base md:text-lg font-semibold">
-                <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
-                <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
+              <div className="space-y-1 text-base md:text-lg font-semibold">
+                <div className="flex justify-between items-center">
+                  <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
+                  <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
+                </div>
+                {rideDetails.distanceMiles && (
+                  <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Distance:</strong> ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
+                )}
               </div>
 
               {rideDetails.passengerName && (
@@ -226,4 +232,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
