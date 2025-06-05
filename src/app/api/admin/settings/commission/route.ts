@@ -6,27 +6,48 @@ import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
 
 interface CommissionSettings {
-  defaultRate: number; // Stored as a decimal, e.g., 0.15 for 15%
-  lastUpdated: Timestamp;
+  directDriverRate?: number; // Stored as a decimal, e.g., 0.15 for 15%
+  operatorAffiliatedDriverRate?: number; // Stored as a decimal
+  lastUpdated?: Timestamp;
 }
 
 const commissionSettingsDocRef = doc(db, 'platformSettings', 'commission');
 
-const postBodySchema = z.object({
-  defaultRate: z.number().min(0, "Commission rate must be non-negative.").max(1, "Commission rate cannot exceed 100%.")
+// Schema for GET response and current stored data
+const commissionSettingsSchema = z.object({
+  directDriverRate: z.number().optional().default(0),
+  operatorAffiliatedDriverRate: z.number().optional().default(0.15), // Example default
+  lastUpdated: z.string().optional(), // ISO string for client
 });
 
-// GET handler to fetch current commission rate
+// Schema for POST request body, allowing partial updates
+const postBodySchema = z.object({
+  directDriverRate: z.number().min(0, "Rate must be non-negative.").max(1, "Rate cannot exceed 100%.").optional(),
+  operatorAffiliatedDriverRate: z.number().min(0, "Rate must be non-negative.").max(1, "Rate cannot exceed 100%.").optional()
+}).refine(data => Object.keys(data).length > 0, {
+  message: "At least one commission rate must be provided for update.",
+});
+
+
+// GET handler to fetch current commission rates
 export async function GET(request: NextRequest) {
-  // TODO: Add robust admin authentication/authorization check
   try {
     const docSnap = await getDoc(commissionSettingsDocRef);
     if (docSnap.exists()) {
       const data = docSnap.data() as CommissionSettings;
-      return NextResponse.json({ defaultRate: data.defaultRate, lastUpdated: data.lastUpdated?.toDate().toISOString() }, { status: 200 });
+      const responsePayload: z.infer<typeof commissionSettingsSchema> = {
+        directDriverRate: data.directDriverRate ?? 0,
+        operatorAffiliatedDriverRate: data.operatorAffiliatedDriverRate ?? 0.15, // Default if not set
+        lastUpdated: data.lastUpdated?.toDate().toISOString(),
+      };
+      return NextResponse.json(responsePayload, { status: 200 });
     } else {
-      // Default to a sensible value if settings not found, e.g., 0% or prompt admin to set it.
-      return NextResponse.json({ defaultRate: 0, message: "Commission rate not yet set." }, { status: 200 });
+      // Default values if settings not found
+      return NextResponse.json({
+        directDriverRate: 0,
+        operatorAffiliatedDriverRate: 0.15, // Default if not set
+        message: "Commission rates not yet set. Displaying defaults."
+      }, { status: 200 });
     }
   } catch (error) {
     console.error('Error fetching commission settings:', error);
@@ -35,9 +56,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST handler to update commission rate
+// POST handler to update one or both commission rates
 export async function POST(request: NextRequest) {
-  // TODO: Add robust admin authentication/authorization check
   try {
     const body = await request.json();
     const parsedBody = postBodySchema.safeParse(body);
@@ -46,16 +66,30 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'Invalid payload.', errors: parsedBody.error.format() }, { status: 400 });
     }
 
-    const { defaultRate } = parsedBody.data;
-
-    const settingsUpdate: CommissionSettings = {
-      defaultRate,
+    const updatePayload: CommissionSettings = {
       lastUpdated: Timestamp.now(),
     };
 
-    await setDoc(commissionSettingsDocRef, settingsUpdate, { merge: true });
+    if (parsedBody.data.directDriverRate !== undefined) {
+      updatePayload.directDriverRate = parsedBody.data.directDriverRate;
+    }
+    if (parsedBody.data.operatorAffiliatedDriverRate !== undefined) {
+      updatePayload.operatorAffiliatedDriverRate = parsedBody.data.operatorAffiliatedDriverRate;
+    }
+    
+    await setDoc(commissionSettingsDocRef, updatePayload, { merge: true });
 
-    return NextResponse.json({ message: 'Default commission rate updated successfully', settings: { defaultRate, lastUpdated: settingsUpdate.lastUpdated.toDate().toISOString() } }, { status: 200 });
+    const docSnap = await getDoc(commissionSettingsDocRef);
+    const savedSettings = docSnap.data() as CommissionSettings;
+
+    return NextResponse.json({
+      message: 'Commission rates updated successfully',
+      settings: {
+        directDriverRate: savedSettings.directDriverRate,
+        operatorAffiliatedDriverRate: savedSettings.operatorAffiliatedDriverRate,
+        lastUpdated: savedSettings.lastUpdated?.toDate().toISOString()
+      }
+    }, { status: 200 });
 
   } catch (error) {
     console.error('Error updating commission settings:', error);

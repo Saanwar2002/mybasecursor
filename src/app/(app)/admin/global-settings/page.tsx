@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, AlertTriangle, DollarSign, Loader2, Save } from "lucide-react";
+import { Settings, AlertTriangle, DollarSign, Loader2, Save, Users, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,81 +13,134 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
-const commissionFormSchema = z.object({
-  commissionRatePercentage: z.coerce // Use coerce to ensure it's treated as a number from input
-    .number({ invalid_type_error: "Must be a number" })
-    .min(0, "Rate must be 0 or greater.")
-    .max(100, "Rate cannot exceed 100%.")
-});
+const commissionRateSchema = z.coerce
+  .number({ invalid_type_error: "Must be a number" })
+  .min(0, "Rate must be 0 or greater.")
+  .max(100, "Rate cannot exceed 100%.");
 
-type CommissionFormValues = z.infer<typeof commissionFormSchema>;
+const directDriversFormSchema = z.object({
+  directDriverRatePercentage: commissionRateSchema,
+});
+type DirectDriversFormValues = z.infer<typeof directDriversFormSchema>;
+
+const operatorAffiliatedFormSchema = z.object({
+  operatorAffiliatedRatePercentage: commissionRateSchema,
+});
+type OperatorAffiliatedFormValues = z.infer<typeof operatorAffiliatedFormSchema>;
+
+interface CommissionData {
+    directDriverRate?: number | null;
+    operatorAffiliatedDriverRate?: number | null;
+    lastUpdated?: string | null;
+}
 
 export default function AdminGlobalSettingsPage() {
   const { toast } = useToast();
-  const [currentCommissionRate, setCurrentCommissionRate] = useState<number | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [commissionData, setCommissionData] = useState<CommissionData>({});
+  const [isLoadingCommission, setIsLoadingCommission] = useState(true);
+  const [isSavingDirect, setIsSavingDirect] = useState(false);
+  const [isSavingOperator, setIsSavingOperator] = useState(false);
+  const [errorCommission, setErrorCommission] = useState<string | null>(null);
 
-  const commissionForm = useForm<CommissionFormValues>({
-    resolver: zodResolver(commissionFormSchema),
-    defaultValues: {
-      commissionRatePercentage: 0,
-    },
+  const directDriversForm = useForm<DirectDriversFormValues>({
+    resolver: zodResolver(directDriversFormSchema),
+    defaultValues: { directDriverRatePercentage: 0 },
   });
 
-  const fetchCommissionRate = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const operatorAffiliatedForm = useForm<OperatorAffiliatedFormValues>({
+    resolver: zodResolver(operatorAffiliatedFormSchema),
+    defaultValues: { operatorAffiliatedRatePercentage: 0 },
+  });
+
+  const fetchCommissionRates = useCallback(async () => {
+    setIsLoadingCommission(true);
+    setErrorCommission(null);
     try {
       const response = await fetch('/api/admin/settings/commission');
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ message: 'Failed to load commission rate.' }));
+        const errData = await response.json().catch(() => ({ message: 'Failed to load commission rates.' }));
         throw new Error(errData.message);
       }
       const data = await response.json();
-      setCurrentCommissionRate(data.defaultRate);
-      setLastUpdated(data.lastUpdated ? new Date(data.lastUpdated).toLocaleString() : "Not set");
-      commissionForm.reset({ commissionRatePercentage: data.defaultRate !== null ? data.defaultRate * 100 : 0 });
+      setCommissionData({
+        directDriverRate: data.directDriverRate,
+        operatorAffiliatedDriverRate: data.operatorAffiliatedDriverRate,
+        lastUpdated: data.lastUpdated ? new Date(data.lastUpdated).toLocaleString() : "Not set",
+      });
+      directDriversForm.reset({ directDriverRatePercentage: data.directDriverRate !== null && data.directDriverRate !== undefined ? data.directDriverRate * 100 : 0 });
+      operatorAffiliatedForm.reset({ operatorAffiliatedRatePercentage: data.operatorAffiliatedDriverRate !== null && data.operatorAffiliatedDriverRate !== undefined ? data.operatorAffiliatedDriverRate * 100 : 0 });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not load commission rate.";
-      setError(message);
-      toast({ title: "Error Loading Commission Rate", description: message, variant: "destructive" });
+      const message = err instanceof Error ? err.message : "Could not load commission rates.";
+      setErrorCommission(message);
+      toast({ title: "Error Loading Commission Rates", description: message, variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsLoadingCommission(false);
     }
-  }, [toast, commissionForm]);
+  }, [toast, directDriversForm, operatorAffiliatedForm]);
 
   useEffect(() => {
-    fetchCommissionRate();
-  }, [fetchCommissionRate]);
+    fetchCommissionRates();
+  }, [fetchCommissionRates]);
 
-  async function onSubmitCommission(values: CommissionFormValues) {
-    setIsSaving(true);
-    setError(null);
+  async function onSubmitDirectRate(values: DirectDriversFormValues) {
+    setIsSavingDirect(true);
+    setErrorCommission(null);
     try {
-      const rateAsDecimal = values.commissionRatePercentage / 100;
+      const rateAsDecimal = values.directDriverRatePercentage / 100;
       const response = await fetch('/api/admin/settings/commission', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultRate: rateAsDecimal }),
+        body: JSON.stringify({ directDriverRate: rateAsDecimal }),
       });
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ message: 'Failed to save commission rate.' }));
+        const errData = await response.json().catch(() => ({ message: 'Failed to save direct driver commission rate.' }));
         throw new Error(errData.message);
       }
       const data = await response.json();
-      setCurrentCommissionRate(data.settings.defaultRate);
-      setLastUpdated(new Date(data.settings.lastUpdated).toLocaleString());
-      commissionForm.reset({ commissionRatePercentage: data.settings.defaultRate * 100 });
-      toast({ title: "Commission Rate Saved", description: `Default commission rate set to ${data.settings.defaultRate * 100}%.` });
+      setCommissionData(prev => ({
+        ...prev,
+        directDriverRate: data.settings.directDriverRate,
+        lastUpdated: new Date(data.settings.lastUpdated).toLocaleString(),
+      }));
+      directDriversForm.reset({ directDriverRatePercentage: data.settings.directDriverRate * 100 });
+      toast({ title: "Direct Driver Commission Saved", description: `Rate set to ${data.settings.directDriverRate * 100}%.` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save commission rate.";
-      setError(message);
-      toast({ title: "Error Saving Commission Rate", description: message, variant: "destructive" });
+      const message = err instanceof Error ? err.message : "Could not save direct driver commission rate.";
+      setErrorCommission(message);
+      toast({ title: "Error Saving Rate", description: message, variant: "destructive" });
     } finally {
-      setIsSaving(false);
+      setIsSavingDirect(false);
+    }
+  }
+
+  async function onSubmitOperatorAffiliatedRate(values: OperatorAffiliatedFormValues) {
+    setIsSavingOperator(true);
+    setErrorCommission(null);
+    try {
+      const rateAsDecimal = values.operatorAffiliatedRatePercentage / 100;
+      const response = await fetch('/api/admin/settings/commission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operatorAffiliatedDriverRate: rateAsDecimal }),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: 'Failed to save operator-affiliated commission rate.' }));
+        throw new Error(errData.message);
+      }
+      const data = await response.json();
+      setCommissionData(prev => ({
+          ...prev,
+          operatorAffiliatedDriverRate: data.settings.operatorAffiliatedDriverRate,
+          lastUpdated: new Date(data.settings.lastUpdated).toLocaleString(),
+      }));
+      operatorAffiliatedForm.reset({ operatorAffiliatedRatePercentage: data.settings.operatorAffiliatedDriverRate * 100 });
+      toast({ title: "Operator-Affiliated Commission Saved", description: `Default rate set to ${data.settings.operatorAffiliatedDriverRate * 100}%.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save operator-affiliated commission rate.";
+      setErrorCommission(message);
+      toast({ title: "Error Saving Rate", description: message, variant: "destructive" });
+    } finally {
+      setIsSavingOperator(false);
     }
   }
 
@@ -104,73 +157,119 @@ export default function AdminGlobalSettingsPage() {
         </CardHeader>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-headline flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-accent" /> Default Commission Rate
-          </CardTitle>
-          <CardDescription>
-            Set the default percentage the platform takes from each completed ride fare.
-            This can potentially be overridden by specific operator agreements.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading && (
-            <div className="flex items-center justify-center p-6">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2">Loading commission rate...</p>
-            </div>
-          )}
-          {!isLoading && error && (
+      {isLoadingCommission && (
+        <Card>
+            <CardContent className="flex items-center justify-center p-10">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="ml-3 text-lg">Loading commission settings...</p>
+            </CardContent>
+        </Card>
+      )}
+
+      {!isLoadingCommission && errorCommission && (
+        <Card>
+            <CardContent className="p-6">
             <div className="text-red-600 flex items-center gap-2 p-3 bg-red-50 rounded-md">
               <AlertTriangle className="w-5 h-5" />
-              <p>Error: {error}</p>
-              <Button onClick={fetchCommissionRate} variant="outline" size="sm">Retry</Button>
+              <p>Error: {errorCommission}</p>
+              <Button onClick={fetchCommissionRates} variant="outline" size="sm">Retry</Button>
             </div>
-          )}
-          {!isLoading && !error && (
-            <Form {...commissionForm}>
-              <form onSubmit={commissionForm.handleSubmit(onSubmitCommission)} className="space-y-4">
-                <div className="mb-4">
-                  <Label className="text-sm font-medium text-muted-foreground">Current Default Rate</Label>
-                  <p className="text-2xl font-bold">
-                    {currentCommissionRate !== null ? `${(currentCommissionRate * 100).toFixed(2)}%` : "Not set"}
-                  </p>
-                  {lastUpdated && <p className="text-xs text-muted-foreground">Last updated: {lastUpdated}</p>}
-                </div>
-                <FormField
-                  control={commissionForm.control}
-                  name="commissionRatePercentage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor="commissionRatePercentage">Set New Rate (%)</FormLabel>
-                      <div className="flex items-center gap-2">
-                        <FormControl>
-                          <Input
-                            id="commissionRatePercentage"
-                            type="number"
-                            step="0.01"
-                            placeholder="e.g., 15"
-                            {...field}
-                            className="max-w-xs"
-                            disabled={isSaving}
-                          />
-                        </FormControl>
-                        <FormDescription>%</FormDescription>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={isSaving} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Save Commission Rate
-                </Button>
-              </form>
-            </Form>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+        </Card>
+      )}
+
+      {!isLoadingCommission && !errorCommission && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary-foreground bg-primary p-0.5 rounded-sm" /> Commission for Direct Platform Drivers
+              </CardTitle>
+              <CardDescription>
+                Set the commission rate for drivers working directly under the platform (e.g., drivers with operator code OP001).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...directDriversForm}>
+                <form onSubmit={directDriversForm.handleSubmit(onSubmitDirectRate)} className="space-y-4">
+                  <div className="mb-4">
+                    <Label className="text-sm font-medium text-muted-foreground">Current Rate for Direct Drivers</Label>
+                    <p className="text-2xl font-bold">
+                      {commissionData.directDriverRate !== null && commissionData.directDriverRate !== undefined ? `${(commissionData.directDriverRate * 100).toFixed(2)}%` : "Not set"}
+                    </p>
+                    {commissionData.lastUpdated && <p className="text-xs text-muted-foreground">Last global update: {commissionData.lastUpdated}</p>}
+                  </div>
+                  <FormField
+                    control={directDriversForm.control}
+                    name="directDriverRatePercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="directDriverRatePercentage">Set New Rate (%)</FormLabel>
+                        <div className="flex items-center gap-2">
+                          <FormControl>
+                            <Input id="directDriverRatePercentage" type="number" step="0.01" placeholder="e.g., 10" {...field} className="max-w-xs" disabled={isSavingDirect} />
+                          </FormControl>
+                          <FormDescription>%</FormDescription>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={isSavingDirect} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    {isSavingDirect ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Direct Driver Rate
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-accent-foreground bg-accent p-0.5 rounded-sm" /> Default Commission for Operator-Affiliated Drivers
+              </CardTitle>
+              <CardDescription>
+                Set the default commission rate for drivers managed by external taxi base operators.
+                This can be overridden by specific operator agreements (feature not yet implemented).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...operatorAffiliatedForm}>
+                <form onSubmit={operatorAffiliatedForm.handleSubmit(onSubmitOperatorAffiliatedRate)} className="space-y-4">
+                  <div className="mb-4">
+                    <Label className="text-sm font-medium text-muted-foreground">Current Default Rate for Operator-Affiliated Drivers</Label>
+                    <p className="text-2xl font-bold">
+                      {commissionData.operatorAffiliatedDriverRate !== null && commissionData.operatorAffiliatedDriverRate !== undefined ? `${(commissionData.operatorAffiliatedDriverRate * 100).toFixed(2)}%` : "Not set"}
+                    </p>
+                     {commissionData.lastUpdated && <p className="text-xs text-muted-foreground">Last global update: {commissionData.lastUpdated}</p>}
+                  </div>
+                  <FormField
+                    control={operatorAffiliatedForm.control}
+                    name="operatorAffiliatedRatePercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="operatorAffiliatedRatePercentage">Set New Default Rate (%)</FormLabel>
+                        <div className="flex items-center gap-2">
+                          <FormControl>
+                            <Input id="operatorAffiliatedRatePercentage" type="number" step="0.01" placeholder="e.g., 20" {...field} className="max-w-xs" disabled={isSavingOperator}/>
+                          </FormControl>
+                           <FormDescription>%</FormDescription>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={isSavingOperator} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                    {isSavingOperator ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Operator-Affiliated Rate
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <Card>
         <CardHeader>
