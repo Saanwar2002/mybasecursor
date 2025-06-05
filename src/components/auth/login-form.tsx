@@ -46,6 +46,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPinLogin, setShowPinLogin] = useState(false);
   const [pinUserEmail, setPinUserEmail] = useState<string | null>(null);
+  const [pinInputValue, setPinInputValue] = useState(""); // Local state for PIN input
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,7 +70,7 @@ export function LoginForm() {
       if (storedUserData) {
         try {
           const parsedData: StoredPinUser = JSON.parse(storedUserData);
-          setPinUserEmail(parsedData.email); 
+          setPinUserEmail(parsedData.email);
         } catch (e) {
           console.error("Error parsing stored PIN user data from localStorage:", e);
           localStorage.removeItem('linkCabsUserWithPin');
@@ -155,6 +156,7 @@ export function LoginForm() {
         title: "Login Successful",
         description: `Welcome back, ${userProfile.name || firebaseUser.displayName}!`,
       });
+      setPinInputValue(""); // Clear PIN input on successful email/pass login
 
     } catch (error: any) {
       console.error("Login error:", error);
@@ -192,12 +194,13 @@ export function LoginForm() {
     if (!storedUserData) {
       toast({ title: "PIN Login Failed", description: "No PIN found for this device. Please login with password to set up a PIN.", variant: "destructive" });
       setIsLoading(false);
-      setShowPinLogin(false); 
+      setShowPinLogin(false);
+      setPinInputValue("");
       return;
     }
     try {
       const storedUser: StoredPinUser = JSON.parse(storedUserData);
-      if (storedUser.pin === values.pin) {
+      if (storedUser.pin === values.pin) { // values.pin is from RHF, which got it from pinInputValue
         contextLogin(
           storedUser.id,
           storedUser.email,
@@ -213,12 +216,15 @@ export function LoginForm() {
           storedUser.driverIdentifier
         );
         toast({ title: "PIN Login Successful", description: `Welcome back, ${storedUser.name}!` });
+        setPinInputValue(""); // Clear PIN input on successful PIN login
       } else {
         toast({ title: "PIN Login Failed", description: "Incorrect PIN.", variant: "destructive" });
         pinForm.resetField("pin");
+        setPinInputValue("");
       }
     } catch (e) {
         toast({ title: "PIN Login Error", description: "Could not process stored PIN data.", variant: "destructive"});
+        setPinInputValue("");
     } finally {
         setIsLoading(false);
     }
@@ -252,6 +258,7 @@ export function LoginForm() {
       title: "Guest Login Successful",
       description: `Logged in as ${name}.`,
     });
+    setPinInputValue(""); // Clear PIN input on guest login
   };
 
   return (
@@ -341,7 +348,7 @@ export function LoginForm() {
               Login with Email/Password
             </Button>
              {pinUserEmail && (
-              <Button type="button" variant="outline" className="w-full" onClick={() => setShowPinLogin(true)} disabled={isLoading}>
+              <Button type="button" variant="outline" className="w-full" onClick={() => { setShowPinLogin(true); setPinInputValue(""); pinForm.reset(); }} disabled={isLoading}>
                 <KeyRound className="mr-2 h-4 w-4" /> Quick Login with PIN (for {pinUserEmail.length > 15 ? pinUserEmail.substring(0,12) + "..." : pinUserEmail})
               </Button>
             )}
@@ -362,25 +369,27 @@ export function LoginForm() {
             <FormField
               control={pinForm.control}
               name="pin"
-              render={({ field: { onChange, ...fieldProps } }) => ( // Destructure onChange to intercept it
+              render={({ field }) => ( 
                 <FormItem>
                   <FormLabel>Enter 4-Digit PIN</FormLabel>
                   <FormControl>
                     <Input
-                      type="tel" 
+                      type="tel"
                       placeholder="••••"
-                      {...fieldProps}
+                      value={pinInputValue} 
                       onChange={(e) => {
-                        console.log("PIN Input onChange event:", e.target.value);
-                        onChange(e); // Call original RHF onChange
+                        const newRawValue = e.target.value;
+                        const newNumericValue = newRawValue.replace(/\D/g, "").slice(0, 4);
+                        setPinInputValue(newNumericValue); 
+                        field.onChange(newNumericValue);   
+                        // console.log("PIN Input onChange - raw:", newRawValue, "numeric:", newNumericValue);
                       }}
                       onKeyDown={(e) => {
-                        console.log("PIN Input onKeyDown event:", e.key);
+                        // console.log("PIN Input onKeyDown event:", e.key);
                       }}
                       disabled={isLoading}
                       className="text-center text-2xl tracking-[0.5em]"
                       inputMode="numeric"
-                      // Removed maxLength and pattern for this debugging step
                     />
                   </FormControl>
                   <FormMessage />
@@ -391,7 +400,7 @@ export function LoginForm() {
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
               Login with PIN
             </Button>
-            <Button type="button" variant="link" className="w-full" onClick={() => setShowPinLogin(false)} disabled={isLoading}>
+            <Button type="button" variant="link" className="w-full" onClick={() => { setShowPinLogin(false); setPinInputValue(""); }} disabled={isLoading}>
               Login with Email/Password instead
             </Button>
           </form>
