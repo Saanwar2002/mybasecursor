@@ -369,14 +369,12 @@ export function LoginForm() {
                   <FormLabel>Enter 4-Digit PIN</FormLabel>
                   <FormControl>
                     <Input
-                      type="tel" // Changed from "password" to "tel"
-                      maxLength={4}
+                      type="tel" 
                       placeholder="••••"
                       {...field}
                       disabled={isLoading}
                       className="text-center text-2xl tracking-[0.5em]"
                       inputMode="numeric"
-                      pattern="[0-9]*"
                     />
                   </FormControl>
                   <FormMessage />
