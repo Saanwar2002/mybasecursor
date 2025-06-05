@@ -33,7 +33,6 @@ export const navItems: NavItem[] = [
   { href: '/operator/manage-rides', label: 'Manage Rides', icon: Car, roles: ['operator'] },
   { href: '/operator/manage-drivers', label: 'Manage Drivers', icon: Users, roles: ['operator'] },
   { href: '/operator/manage-passengers', label: 'Manage Passengers', icon: Contact, roles: ['operator'] },
-  // "Manage Operators" is removed from here, moved to Admin
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
   { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
@@ -41,8 +40,7 @@ export const navItems: NavItem[] = [
   // Admin
   { href: '/admin', label: 'Admin Dashboard', icon: Shield, roles: ['admin'] },
   { href: '/admin/manage-operators', label: 'Manage Operators', icon: Building, roles: ['admin'] },
-  // Add other admin-specific pages here, e.g., platform-wide settings, user search, logs etc.
-  // For now, Manage Operators is the primary admin function.
+  { href: '/admin/platform-users', label: 'Platform Users', icon: Users, roles: ['admin'] },
   // { href: '/admin/platform-settings', label: 'Platform Settings', icon: Settings, roles: ['admin'] },
 
 

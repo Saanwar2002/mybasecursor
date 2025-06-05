@@ -20,7 +20,7 @@ export default function AdminDashboardPage() {
         </CardHeader>
         <CardContent>
           <p className="text-lg">
-            This is the central hub for managing platform operators, viewing system-wide analytics (soon),
+            This is the central hub for managing platform operators, all users, viewing system-wide analytics (soon),
             and configuring core platform settings (soon).
           </p>
         </CardContent>
@@ -35,12 +35,12 @@ export default function AdminDashboardPage() {
           actionText="Go to Operator Management"
         />
         <FeatureCard
-          title="Platform Users (Soon)"
-          description="Search and manage all user accounts across roles (passengers, drivers, operators)."
+          title="Platform Users"
+          description="Search and manage all user accounts across roles (passengers, drivers, operators, admins)."
           icon={Users}
-          link="#" // Placeholder
+          link="/admin/platform-users" 
           actionText="View All Users"
-          disabled
+          disabled={false} // Enabled this feature
         />
         <FeatureCard
           title="System Analytics (Soon)"
