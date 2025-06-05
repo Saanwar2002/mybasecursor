@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 // Use the new GoogleMapDisplay component
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -28,6 +29,8 @@ const mockFleetMarkersData = [
 interface Ride { id: string; status: string; }
 interface Driver { id: string; status: string; }
 
+type MapBusynessLevel = 'idle' | 'moderate' | 'high';
+
 export default function OperatorDashboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -36,9 +39,21 @@ export default function OperatorDashboardPage() {
   const [availableDriversCount, setAvailableDriversCount] = useState<number | string>("...");
   const [totalDriversCount, setTotalDriversCount] = useState<number | string>("...");
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
 
   // Mocked: In a real app, fetch actual issues
   const issuesReported = 3;
+
+   useEffect(() => {
+    const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      currentIndex = (currentIndex + 1) % busynessLevels.length;
+      setMapBusynessLevel(busynessLevels[currentIndex]);
+    }, 4000); // Cycle every 4 seconds
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -126,6 +141,15 @@ export default function OperatorDashboardPage() {
     }
   }, [user, toast]);
 
+  const mapContainerClasses = cn(
+    "h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border-4", // Changed to border-4
+    {
+      'border-border': mapBusynessLevel === 'idle',
+      'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
+      'animate-flash-red-border': mapBusynessLevel === 'high',
+    }
+  );
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -161,7 +185,7 @@ export default function OperatorDashboardPage() {
                 <Map className="w-6 h-6 text-primary" /> Live Fleet Overview
             </CardTitle>
         </CardHeader>
-        <CardContent className="h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border">
+        <CardContent className={mapContainerClasses}>
              <GoogleMapDisplay
                 center={huddersfieldCenterGoogle}
                 zoom={13}

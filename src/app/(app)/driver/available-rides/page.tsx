@@ -68,6 +68,7 @@ const blueDotSvg = `
 `;
 const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
 
+type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideRequest[]>([]);
@@ -89,7 +90,20 @@ export default function AvailableRidesPage() {
   const [isPassengerRatingSubmitted, setIsPassengerRatingSubmitted] = useState(false);
   const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string | null>(null);
 
+  const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
+
   const activeRide = useMemo(() => rideRequests.find(r => ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress', 'completed', 'cancelled_by_driver'].includes(r.status)), [rideRequests]);
+
+  useEffect(() => {
+    const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      currentIndex = (currentIndex + 1) % busynessLevels.length;
+      setMapBusynessLevel(busynessLevels[currentIndex]);
+    }, 4000); // Cycle every 4 seconds
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     // Use driverUser.operatorCode if available, otherwise parse from ID as fallback
@@ -659,9 +673,18 @@ export default function AvailableRidesPage() {
     );
   }
 
+  const mapContainerClasses = cn(
+    "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", // Changed to border-4
+    {
+      'border-border': mapBusynessLevel === 'idle',
+      'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
+      'animate-flash-red-border': mapBusynessLevel === 'high',
+    }
+  );
+
   return (
     <div className="flex flex-col h-full space-y-2">
-        <div className="h-[400px] w-full rounded-xl overflow-hidden shadow-lg border">
+        <div className={mapContainerClasses}>
           <GoogleMapDisplay
               center={driverLocation}
               zoom={14}
