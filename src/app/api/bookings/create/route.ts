@@ -29,7 +29,8 @@ interface BookingPayload {
   bookedByOperatorId?: string;
   driverNotes?: string;
   promoCode?: string;
-  paymentMethod: "card" | "cash"; // Added paymentMethod
+  paymentMethod: "card" | "cash";
+  preferredOperatorId?: string; // Added preferredOperatorId
 }
 
 export async function POST(request: NextRequest) {
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
       stopSurchargeTotal: bookingData.stopSurchargeTotal,
       status: 'pending_assignment',
       bookingTimestamp: serverTimestamp(),
-      paymentMethod: bookingData.paymentMethod, // Store the payment method
+      paymentMethod: bookingData.paymentMethod,
     };
 
     if (bookingData.scheduledPickupAt) {
@@ -102,6 +103,9 @@ export async function POST(request: NextRequest) {
     }
     if (bookingData.promoCode && bookingData.promoCode.trim() !== "") {
         newBooking.promoCode = bookingData.promoCode.trim();
+    }
+    if (bookingData.preferredOperatorId) { // Store preferredOperatorId
+        newBooking.preferredOperatorId = bookingData.preferredOperatorId;
     }
 
 

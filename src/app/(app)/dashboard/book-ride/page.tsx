@@ -917,7 +917,7 @@ export default function BookRidePage() {
 
     setIsBooking(true);
 
-    const bookingPayload = {
+    const bookingPayload: any = { // Using 'any' temporarily for the new field
       passengerId: user.id,
       passengerName: user.name || "Passenger",
       pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
@@ -934,6 +934,10 @@ export default function BookRidePage() {
       promoCode: values.promoCode,
       paymentMethod: values.paymentMethod,
     };
+
+    if (operatorPreference) {
+        bookingPayload.preferredOperatorId = operatorPreference;
+    }
 
     try {
       const response = await fetch('/api/bookings/create', {
@@ -1981,8 +1985,8 @@ const handleProceedToConfirmation = async () => {
                           Please review your ride details and confirm payment.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="py-4 overflow-y-auto"> {/* Removed ScrollArea from here */}
-                        <Card className="w-full text-center shadow-md mb-4"> {/* Added mb-4 */}
+                      <div className="py-4 overflow-y-auto"> 
+                        <Card className="w-full text-center shadow-md mb-4"> 
                           <CardHeader className="p-3">
                             <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
                               <DollarSign className="w-5 h-5 text-accent" /> Fare Estimate
