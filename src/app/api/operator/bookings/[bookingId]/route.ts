@@ -14,7 +14,6 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
       _nanoseconds: timestamp.nanoseconds,
     };
   }
-  // Handle cases where it might already be an object { seconds: ..., nanoseconds: ... }
   if (typeof timestamp === 'object' && timestamp !== null && ('_seconds'in timestamp || 'seconds' in timestamp)) {
      return {
       _seconds: (timestamp as any)._seconds ?? (timestamp as any).seconds,
@@ -62,6 +61,7 @@ export async function GET(request: NextRequest, context: GetContext) {
       driverAssignedAt: serializeTimestamp(bookingData.driverAssignedAt as Timestamp | undefined | null),
       notifiedPassengerArrivalTimestamp: serializeTimestamp(bookingData.notifiedPassengerArrivalTimestamp as Timestamp | undefined | null),
       passengerAcknowledgedArrivalTimestamp: serializeTimestamp(bookingData.passengerAcknowledgedArrivalTimestamp as Timestamp | undefined | null),
+      rideStartedAt: serializeTimestamp(bookingData.rideStartedAt as Timestamp | undefined | null),
       completedAt: serializeTimestamp(bookingData.completedAt as Timestamp | undefined | null),
     };
     
@@ -92,13 +92,13 @@ const bookingUpdateSchema = z.object({
   driverVehicleDetails: z.string().optional(),
   fareEstimate: z.number().optional(),
   notes: z.string().optional(),
-  action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride']).optional(),
+  action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride', 'cancel_active']).optional(),
 }).min(1, { message: "At least one field or action must be provided for update." });
+
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
-  // Strict check for bookingId at the very beginning
   if (!context || !context.params || typeof context.params.bookingId !== 'string' || context.params.bookingId.trim() === '') {
     console.error("API Error in /api/operator/bookings/[bookingId] POST: Invalid or missing bookingId in context. Context:", context);
     return NextResponse.json({ message: 'A valid Booking ID path parameter is required and was not found in context.' }, { status: 400 });
@@ -152,7 +152,12 @@ export async function POST(request: NextRequest, context: GetContext) {
        if (body.finalFare !== undefined && typeof body.finalFare === 'number') {
            updateData.fareEstimate = body.finalFare;
        }
+    } else if (updateDataFromPayload.action === 'cancel_active') {
+        updateData.status = 'cancelled';
+        updateData.cancelledAt = Timestamp.now();
+        updateData.cancelledBy = body.cancelledBy || 'driver'; // Or 'operator' if applicable
     } else {
+      // Handle direct field updates if no action is specified
       if (updateDataFromPayload.status) {
         const statusLower = updateDataFromPayload.status.toLowerCase();
         if (statusLower === 'completed') updateData.status = 'completed';
@@ -182,22 +187,40 @@ export async function POST(request: NextRequest, context: GetContext) {
     const updatedBookingSnap = await getDoc(bookingRef);
     const updatedBookingDataResult = updatedBookingSnap.data();
 
-    const serializedUpdatedBooking = {
+    if (!updatedBookingDataResult) {
+        console.error(`API Error in /api/operator/bookings/${bookingId} POST: Data missing after update.`);
+        return NextResponse.json({ message: "Failed to retrieve booking data after update." }, { status: 500 });
+    }
+
+    const explicitSerializedBooking = {
         id: updatedBookingSnap.id,
-        ...updatedBookingDataResult,
-        bookingTimestamp: serializeTimestamp(updatedBookingDataResult?.bookingTimestamp as Timestamp | undefined | null),
-        scheduledPickupAt: updatedBookingDataResult?.scheduledPickupAt ? updatedBookingDataResult.scheduledPickupAt : null,
-        updatedAt: serializeTimestamp(updatedBookingDataResult?.updatedAt as Timestamp | undefined | null),
-        operatorUpdatedAt: serializeTimestamp(updatedBookingDataResult?.operatorUpdatedAt as Timestamp | undefined | null),
-        driverAssignedAt: serializeTimestamp(updatedBookingDataResult?.driverAssignedAt as Timestamp | undefined | null),
-        notifiedPassengerArrivalTimestamp: serializeTimestamp(updatedBookingDataResult?.notifiedPassengerArrivalTimestamp as Timestamp | undefined | null),
-        passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedBookingDataResult?.passengerAcknowledgedArrivalTimestamp as Timestamp | undefined | null),
-        rideStartedAt: serializeTimestamp(updatedBookingDataResult?.rideStartedAt as Timestamp | undefined | null),
-        completedAt: serializeTimestamp(updatedBookingDataResult?.completedAt as Timestamp | undefined | null),
-        cancelledAt: serializeTimestamp(updatedBookingDataResult?.cancelledAt as Timestamp | undefined | null),
+        passengerName: updatedBookingDataResult.passengerName,
+        pickupLocation: updatedBookingDataResult.pickupLocation,
+        dropoffLocation: updatedBookingDataResult.dropoffLocation,
+        stops: updatedBookingDataResult.stops,
+        vehicleType: updatedBookingDataResult.vehicleType,
+        fareEstimate: updatedBookingDataResult.fareEstimate,
+        status: updatedBookingDataResult.status,
+        driverId: updatedBookingDataResult.driverId,
+        driverName: updatedBookingDataResult.driverName,
+        driverAvatar: updatedBookingDataResult.driverAvatar,
+        driverVehicleDetails: updatedBookingDataResult.driverVehicleDetails,
+        paymentMethod: updatedBookingDataResult.paymentMethod,
+        isSurgeApplied: updatedBookingDataResult.isSurgeApplied,
+        notes: updatedBookingDataResult.notes,
+        passengers: updatedBookingDataResult.passengers,
+        bookingTimestamp: serializeTimestamp(updatedBookingDataResult.bookingTimestamp as Timestamp | undefined | null),
+        scheduledPickupAt: updatedBookingDataResult.scheduledPickupAt || null,
+        operatorUpdatedAt: serializeTimestamp(updatedBookingDataResult.operatorUpdatedAt as Timestamp | undefined | null),
+        driverAssignedAt: serializeTimestamp(updatedBookingDataResult.driverAssignedAt as Timestamp | undefined | null),
+        notifiedPassengerArrivalTimestamp: serializeTimestamp(updatedBookingDataResult.notifiedPassengerArrivalTimestamp as Timestamp | undefined | null),
+        passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedBookingDataResult.passengerAcknowledgedArrivalTimestamp as Timestamp | undefined | null),
+        rideStartedAt: serializeTimestamp(updatedBookingDataResult.rideStartedAt as Timestamp | undefined | null),
+        completedAt: serializeTimestamp(updatedBookingDataResult.completedAt as Timestamp | undefined | null),
+        cancelledAt: serializeTimestamp(updatedBookingDataResult.cancelledAt as Timestamp | undefined | null),
     };
 
-    return NextResponse.json({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }, { status: 200 });
+    return NextResponse.json({ message: 'Booking updated successfully', booking: explicitSerializedBooking }, { status: 200 });
 
   } catch (error: any) {
     const bookingIdForError = (typeof bookingId === 'string' && bookingId) ? bookingId : 'UNKNOWN_BOOKING_ID';
