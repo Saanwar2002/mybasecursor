@@ -1,6 +1,5 @@
-
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch } from 'lucide-react'; // Added more user icons
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity } from 'lucide-react'; // Added BrainCircuit, Activity
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -55,6 +54,7 @@ export const navItems: NavItem[] = [
   },
   { href: '/admin/analytics', label: 'System Analytics', icon: BarChart3, roles: ['admin'] },
   { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
+  { href: '/admin/ai-system-health', label: 'AI System Health', icon: BrainCircuit, roles: ['admin'] },
 
 
   // Common
@@ -78,5 +78,3 @@ export const getNavItemsForRole = (role: UserRole | undefined): NavItem[] => {
   });
   return filteredNavItems;
 };
-
-    

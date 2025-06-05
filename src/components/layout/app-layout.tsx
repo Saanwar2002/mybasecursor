@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -8,7 +7,7 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, Server, Lock, Mail, PhoneCall, CreditCard, LineChart, FileText, MessageSquare, Construction, Route, Bell } from 'lucide-react';
+import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -43,12 +42,21 @@ interface TaskCategory {
 
 const initialAdminToDoData: TaskCategory[] = [
   {
+    id: 'ai_systems',
+    name: 'AI & Automation',
+    icon: BrainCircuit,
+    tasks: [
+        { id: 'ai_sys_diag_backend', label: 'Develop & Implement AI System Health & Diagnostics Backend (real data, not simulated)', completed: false },
+        { id: 'ai_todo_integration', label: 'Integrate AI diagnostic recommendations directly into Admin To-Do (make To-Do dynamic)', completed: false },
+    ]
+  },
+  {
     id: 'security_auth',
     name: 'Security & Authentication',
-    icon: Lock,
+    icon: ShieldAlert,
     tasks: [
       { id: 'sec_admin_api', label: 'Secure all Admin API endpoints (RBAC)', completed: false },
-      { id: 'sec_operator_api', label: 'Secure Operator-specific API endpoints', completed: false },
+      { id: 'sec_operator_api', label: 'Secure Operator-specific API endpoints (RBAC)', completed: false },
       { id: 'sec_op_pwd_flow', label: 'Implement robust new operator password setup/reset flow', completed: false },
       { id: 'sec_email_verify', label: 'Add Email Verification for new accounts (all roles)', completed: false },
       { id: 'sec_pin_login', label: 'Secure PIN Login feature (replace localStorage mock)', completed: false },
@@ -59,7 +67,7 @@ const initialAdminToDoData: TaskCategory[] = [
   {
     id: 'backend_core',
     name: 'Core Backend Systems',
-    icon: Server,
+    icon: DatabaseZap,
     subCategories: [
       {
         id: 'be_db_api',
@@ -507,5 +515,3 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-    
