@@ -7,10 +7,11 @@ import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2 } from 'luci
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -26,14 +27,37 @@ const MOCK_OPERATORS = [
   { id: 'op4', name: 'Alpha Cars' },
 ];
 
+type MapBusynessLevel = 'idle' | 'moderate' | 'high';
+
 export default function PassengerDashboardPage() {
   const { user } = useAuth();
   const [bookingPreference, setBookingPreference] = useState<'app_chooses' | 'specific_operator'>('app_chooses');
   const [selectedOperator, setSelectedOperator] = useState<string>('');
+  const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
 
   const bookRideHref = bookingPreference === 'specific_operator' && selectedOperator
     ? `/dashboard/book-ride?operator_preference=${encodeURIComponent(selectedOperator)}`
     : '/dashboard/book-ride';
+
+  useEffect(() => {
+    const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high'];
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      currentIndex = (currentIndex + 1) % busynessLevels.length;
+      setMapBusynessLevel(busynessLevels[currentIndex]);
+    }, 5000); // Cycle every 5 seconds
+
+    return () => clearInterval(intervalId); // Cleanup on component unmount
+  }, []);
+
+  const mapContainerClasses = cn(
+    "flex-shrink-0 w-full h-[200px] rounded-lg shadow-md overflow-hidden border border-muted transition-colors duration-500 ease-in-out",
+    {
+      'bg-muted/10': mapBusynessLevel === 'idle',
+      'bg-yellow-400/10': mapBusynessLevel === 'moderate',
+      'bg-red-400/10': mapBusynessLevel === 'high',
+    }
+  );
 
   return (
     <div className="space-y-6">
@@ -48,7 +72,6 @@ export default function PassengerDashboardPage() {
               Ready for your next journey? Choose your preference below.
             </p>
 
-            {/* Booking Preference Radio Group */}
             <div className="space-y-3 p-4 border bg-muted/30 rounded-lg">
               <Label className="text-base font-semibold">Booking Preference</Label>
               <RadioGroup
@@ -56,7 +79,7 @@ export default function PassengerDashboardPage() {
                 onValueChange={(value: 'app_chooses' | 'specific_operator') => {
                   setBookingPreference(value);
                   if (value === 'app_chooses') {
-                    setSelectedOperator(''); // Clear selected operator if app chooses
+                    setSelectedOperator('');
                   }
                 }}
                 className="flex flex-col sm:flex-row gap-4"
@@ -103,7 +126,7 @@ export default function PassengerDashboardPage() {
               </Link>
             </Button>
           </div>
-          <div className="flex-shrink-0 w-full h-[200px] rounded-lg shadow-md overflow-hidden border border-muted">
+          <div className={mapContainerClasses}>
             <GoogleMapDisplay
               center={huddersfieldCenter}
               zoom={13}
