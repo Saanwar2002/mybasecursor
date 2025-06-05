@@ -91,10 +91,10 @@ const bookingUpdateSchema = z.object({
   vehicleType: z.string().optional(),
   driverVehicleDetails: z.string().optional(),
   fareEstimate: z.number().optional(),
-  finalFare: z.number().optional(), // Added for completing ride
+  finalFare: z.number().optional(),
   notes: z.string().max(500).optional(),
   action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride', 'cancel_active']).optional(),
-  cancelledBy: z.string().optional(), // Added for cancellation context
+  cancelledBy: z.string().optional(),
 }).min(1, { message: "At least one field or action must be provided for update." });
 
 
@@ -102,16 +102,23 @@ export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
   console.log("!!!! API POST /api/operator/bookings/[bookingId] - HANDLER ENTERED !!!!");
-  let bookingIdParam: string | undefined = undefined;
-  try {
-    bookingIdParam = context?.params?.bookingId;
-    console.log(`API POST /api/operator/bookings/[bookingId] - Received bookingId from context: ${bookingIdParam}`);
+  console.log("Raw context received:", JSON.stringify(context, null, 2));
 
-    if (!bookingIdParam || typeof bookingIdParam !== 'string' || bookingIdParam.trim() === '') {
-      console.error("API POST Error: Invalid or missing bookingId in context. Context:", JSON.stringify(context));
-      return new Response(JSON.stringify({ error: true, message: 'A valid Booking ID path parameter is required.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-    }
-    const bookingId = bookingIdParam; 
+  let bookingIdParam: string | undefined = undefined;
+
+  if (!context || !context.params || typeof context.params.bookingId !== 'string' || context.params.bookingId.trim() === '') {
+    const contextErrorMsg = "Critical error: Booking ID missing, invalid, or context.params is not structured as expected in request path.";
+    console.error("API POST Error:", contextErrorMsg, "Full context:", JSON.stringify(context, null, 2));
+    return new Response(JSON.stringify({ error: true, message: contextErrorMsg }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  bookingIdParam = context.params.bookingId;
+  console.log(`API POST /api/operator/bookings/[bookingId] - Successfully extracted bookingId from context.params: ${bookingIdParam}`);
+
+  try {
+    const bookingId = bookingIdParam; // Use the validated bookingIdParam
 
     if (!db) {
       console.error(`API POST Error /api/operator/bookings/${bookingId}: Firestore (db) is not initialized. This is a critical server configuration issue.`);
@@ -165,7 +172,7 @@ export async function POST(request: NextRequest, context: GetContext) {
                 updateData.status = 'arrived_at_pickup';
                 updateData.notifiedPassengerArrivalTimestamp = Timestamp.now();
                 break;
-            case 'acknowledge_arrival': // Usually done by passenger, but can be triggered by operator system
+            case 'acknowledge_arrival':
                 updateData.passengerAcknowledgedArrivalTimestamp = Timestamp.now();
                 break;
             case 'start_ride':
@@ -182,7 +189,7 @@ export async function POST(request: NextRequest, context: GetContext) {
             case 'cancel_active':
                 updateData.status = 'cancelled';
                 updateData.cancelledAt = Timestamp.now();
-                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver'; // Default to driver if not specified
+                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver';
                 break;
         }
     } else {
@@ -197,7 +204,7 @@ export async function POST(request: NextRequest, context: GetContext) {
       const optionalFields: (keyof BookingUpdatePayload)[] = ['driverId', 'driverName', 'driverAvatar', 'vehicleType', 'driverVehicleDetails', 'fareEstimate', 'notes'];
       for (const field of optionalFields) {
         const value = updateDataFromPayload[field];
-        if (value !== undefined) { // Check for undefined specifically
+        if (value !== undefined) {
           updateData[field] = value;
         }
       }
@@ -276,10 +283,9 @@ export async function POST(request: NextRequest, context: GetContext) {
       console.error("Full Error Object (raw, could not serialize):", error);
     }
     
-    // Return a VERY simple JSON response to maximize chance of it being sent
     return new Response(JSON.stringify({
         error: true,
-        message: "A critical server error occurred. Please check server logs.",
+        message: "A critical server error occurred. Please check server logs for more details.",
         errorCode: "API_POST_CRITICAL_FAILURE",
         bookingIdAttempted: bookingIdForError,
     }), {
@@ -288,4 +294,3 @@ export async function POST(request: NextRequest, context: GetContext) {
     });
   }
 }
-
