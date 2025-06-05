@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 
 
 // IMPORTANT: This UID is used to determine who can approve new operators.
@@ -195,25 +195,33 @@ export default function ManagePlatformOperatorsPage() {
 
   async function onAddOperatorSubmit(values: AddOperatorFormValues) {
     setActionLoading(prev => ({...prev, addNewOperator: true}));
-    console.log("Submitting new operator (mock):", values);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const response = await fetch('/api/admin/operators/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
 
-    // In a real app:
-    // 1. Call an API endpoint like /api/admin/operators/create
-    // 2. That API would create Firebase Auth user & Firestore user document with 'operator' role and 'Pending Approval' status.
-    // 3. It would ensure operatorCode is unique.
+      const responseData = await response.json();
 
-    toast({
-        title: "Operator Submitted (Mock)",
-        description: `${values.name} with code ${values.operatorCode} would be created and set to 'Pending Approval'. Refresh list to see.`,
+      if (!response.ok) {
+        throw new Error(responseData.message || `Failed to add operator: ${response.status}`);
+      }
+      
+      toast({
+        title: "Operator Submitted",
+        description: responseData.message || `${values.name} with code ${values.operatorCode} created and set to 'Pending Approval'.`,
         duration: 7000,
-    });
-    setIsAddOperatorDialogOpen(false);
-    addOperatorForm.reset();
-    // Optionally, re-fetch operators list if API call was real
-    // fetchOperators(null, 'filter'); 
-    setActionLoading(prev => ({...prev, addNewOperator: false}));
+      });
+      setIsAddOperatorDialogOpen(false);
+      addOperatorForm.reset();
+      fetchOperators(null, 'filter'); // Refresh the list
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred while adding operator.";
+      toast({ title: "Add Operator Failed", description: message, variant: "destructive" });
+    } finally {
+      setActionLoading(prev => ({...prev, addNewOperator: false}));
+    }
   }
 
 
