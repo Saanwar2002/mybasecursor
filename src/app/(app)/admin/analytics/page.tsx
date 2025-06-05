@@ -1,0 +1,236 @@
+
+"use client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, TrendingUp, Users, Car as CarIcon, DollarSign, AlertTriangle, Loader2, Users2, Building, Shield } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
+import { useState, useEffect, useCallback } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { format, subDays, subMonths } from 'date-fns';
+
+interface PlatformSummaryStats {
+  totalUsers: number;
+  totalPassengers: number;
+  totalDrivers: number;
+  totalOperators: number;
+  totalAdmins: number;
+  totalRidesLast30Days: number;
+  totalRevenueLast30Days: number; // Mocked
+}
+
+interface DailyRideData {
+  date: string; // YYYY-MM-DD
+  name: string; // Short day name e.g., "Mon"
+  rides: number;
+}
+
+interface MonthlyUserRegistrationData {
+  month: string; // "MMM yyyy"
+  passengers: number;
+  drivers: number;
+  operators: number;
+}
+
+export default function AdminAnalyticsPage() {
+  const { toast } = useToast();
+
+  const [summaryStats, setSummaryStats] = useState<PlatformSummaryStats | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  const [errorSummary, setErrorSummary] = useState<string | null>(null);
+
+  const [dailyRidesData, setDailyRidesData] = useState<DailyRideData[]>([]);
+  const [isLoadingDailyRides, setIsLoadingDailyRides] = useState(true);
+  const [errorDailyRides, setErrorDailyRides] = useState<string | null>(null);
+
+  const [userRegistrationsData, setUserRegistrationsData] = useState<MonthlyUserRegistrationData[]>([]);
+  const [isLoadingUserRegistrations, setIsLoadingUserRegistrations] = useState(true);
+  const [errorUserRegistrations, setErrorUserRegistrations] = useState<string | null>(null);
+
+  const fetchSummaryStats = useCallback(async () => {
+    setIsLoadingSummary(true); setErrorSummary(null);
+    try {
+      const response = await fetch('/api/admin/analytics/platform-summary');
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      setSummaryStats(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load summary stats.";
+      setErrorSummary(msg);
+      toast({ title: "Error Loading Summary Stats", description: msg, variant: "destructive" });
+    } finally { setIsLoadingSummary(false); }
+  }, [toast]);
+
+  const fetchDailyRides = useCallback(async () => {
+    setIsLoadingDailyRides(true); setErrorDailyRides(null);
+    try {
+      const response = await fetch('/api/admin/analytics/platform-rides-daily?days=30');
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      setDailyRidesData(data.dailyPlatformRides);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load daily rides data.";
+      setErrorDailyRides(msg);
+      toast({ title: "Error Loading Daily Rides", description: msg, variant: "destructive" });
+    } finally { setIsLoadingDailyRides(false); }
+  }, [toast]);
+
+  const fetchUserRegistrations = useCallback(async () => {
+    setIsLoadingUserRegistrations(true); setErrorUserRegistrations(null);
+    try {
+      const response = await fetch('/api/admin/analytics/platform-user-registrations?months=6');
+      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      setUserRegistrationsData(data.monthlyRegistrations);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load user registration data.";
+      setErrorUserRegistrations(msg);
+      toast({ title: "Error Loading User Registrations", description: msg, variant: "destructive" });
+    } finally { setIsLoadingUserRegistrations(false); }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchSummaryStats();
+    fetchDailyRides();
+    fetchUserRegistrations();
+  }, [fetchSummaryStats, fetchDailyRides, fetchUserRegistrations]);
+
+
+  return (
+    <div className="space-y-6">
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-3xl font-headline flex items-center gap-2">
+            <BarChart3 className="w-8 h-8 text-primary" /> Platform System Analytics
+          </CardTitle>
+          <CardDescription>Global insights into the TaxiNow platform's performance and user base.</CardDescription>
+        </CardHeader>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <StatCard title="Total Users" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalUsers ?? 'N/A'} icon={Users2} />
+        <StatCard title="Total Passengers" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalPassengers ?? 'N/A'} icon={Users} />
+        <StatCard title="Total Drivers" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalDrivers ?? 'N/A'} icon={CarIcon} />
+        <StatCard title="Total Operators" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalOperators ?? 'N/A'} icon={Building} />
+        <StatCard title="Total Admins" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalAdmins ?? 'N/A'} icon={Shield} />
+        <StatCard title="Rides (Last 30d)" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalRidesLast30Days ?? 'N/A'} icon={TrendingUp} color="text-green-500"/>
+        <StatCard title="Revenue (Last 30d)" value={isLoadingSummary ? <Loader2Icon /> : `£${(summaryStats?.totalRevenueLast30Days ?? 0).toLocaleString()}`} icon={DollarSign} color="text-green-500" description="(Mock Data)"/>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChartCard title="Daily Rides (Platform-Wide, Last 30 Days)" description="Number of completed rides across the entire platform.">
+          {isLoadingDailyRides && <LoadingSpinner />}
+          {errorDailyRides && !isLoadingDailyRides && <ErrorDisplay message={errorDailyRides} onRetry={fetchDailyRides}/>}
+          {!isLoadingDailyRides && !errorDailyRides && dailyRidesData.length > 0 && (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dailyRidesData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="rides" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Completed Rides" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+           {!isLoadingDailyRides && !errorDailyRides && dailyRidesData.length === 0 && <NoDataDisplay />}
+        </ChartCard>
+        
+        <ChartCard title="New User Registrations (Platform-Wide, Last 6 Months)" description="Monthly count of new passenger, driver, and operator sign-ups.">
+          {isLoadingUserRegistrations && <LoadingSpinner />}
+          {errorUserRegistrations && !isLoadingUserRegistrations && <ErrorDisplay message={errorUserRegistrations} onRetry={fetchUserRegistrations}/>}
+          {!isLoadingUserRegistrations && !errorUserRegistrations && userRegistrationsData.length > 0 && (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={userRegistrationsData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis allowDecimals={false}/>
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="passengers" stroke="hsl(var(--chart-1))" name="Passengers" strokeWidth={2} dot={{ r:3 }} activeDot={{ r: 5 }}/>
+                <Line type="monotone" dataKey="drivers" stroke="hsl(var(--chart-2))" name="Drivers" strokeWidth={2} dot={{ r:3 }} activeDot={{ r: 5 }}/>
+                <Line type="monotone" dataKey="operators" stroke="hsl(var(--chart-3))" name="Operators" strokeWidth={2} dot={{ r:3 }} activeDot={{ r: 5 }}/>
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+           {!isLoadingUserRegistrations && !errorUserRegistrations && userRegistrationsData.length === 0 && <NoDataDisplay />}
+        </ChartCard>
+      </div>
+
+      <Card>
+        <CardHeader>
+            <CardTitle>More Platform Analytics Coming Soon!</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <p className="text-muted-foreground">
+                Future insights could include platform-wide active users, churn rates, popular routes, average ride ratings, and financial performance metrics.
+            </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+const Loader2Icon = () => <Loader2 className="h-5 w-5 animate-spin" />;
+
+interface StatCardProps {
+    title: string;
+    value: string | number | React.ReactNode;
+    icon: React.ElementType;
+    color?: string;
+    description?: string;
+}
+
+function StatCard({ title, value, icon: Icon, color = "text-muted-foreground", description }: StatCardProps) {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{title}</CardTitle>
+                <Icon className={`h-5 w-5 ${color}`} />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{value}</div>
+                {description && <p className="text-xs text-muted-foreground">{description}</p>}
+            </CardContent>
+        </Card>
+    );
+}
+
+interface ChartCardProps {
+    title: string;
+    description: string;
+    children: React.ReactNode;
+}
+
+function ChartCard({ title, description, children }: ChartCardProps) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {children}
+            </CardContent>
+        </Card>
+    );
+}
+
+function LoadingSpinner() {
+  return <div className="h-[300px] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary"/></div>;
+}
+
+function ErrorDisplay({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="h-[300px] flex flex-col items-center justify-center text-destructive text-center p-4">
+      <AlertTriangle className="w-10 h-10 mb-3"/>
+      <p className="font-semibold">Error loading data:</p>
+      <p className="text-sm mb-3">{message}</p>
+      {onRetry && <Button onClick={onRetry} variant="outline" size="sm">Try Again</Button>}
+    </div>
+  );
+}
+
+function NoDataDisplay() {
+  return <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No data available for this period.</p></div>;
+}
+
+    

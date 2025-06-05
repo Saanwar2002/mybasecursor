@@ -20,7 +20,7 @@ export default function AdminDashboardPage() {
         </CardHeader>
         <CardContent>
           <p className="text-lg">
-            This is the central hub for managing platform operators, all users, viewing system-wide analytics (soon),
+            This is the central hub for managing platform operators, all users, viewing system-wide analytics,
             and configuring core platform settings (soon).
           </p>
         </CardContent>
@@ -43,12 +43,12 @@ export default function AdminDashboardPage() {
           disabled={false} 
         />
         <FeatureCard
-          title="System Analytics (Soon)"
+          title="System Analytics"
           description="Access comprehensive analytics for the entire platform, including overall ride volume, revenue, and growth trends."
           icon={BarChart3}
-          link="#" 
+          link="/admin/analytics" 
           actionText="View Platform Analytics"
-          disabled
+          disabled={false} // Enabled
         />
          <FeatureCard
           title="Global Settings (Soon)"
@@ -88,3 +88,5 @@ function FeatureCard({ title, description, icon: Icon, link, actionText, disable
     </Card>
   );
 }
+
+    

@@ -53,6 +53,7 @@ export const navItems: NavItem[] = [
       { href: '/admin/platform-users?role=admin', label: 'Administrators', icon: UserCog, roles: ['admin']},
     ]
   },
+  { href: '/admin/analytics', label: 'System Analytics', icon: BarChart3, roles: ['admin'] },
   // { href: '/admin/platform-settings', label: 'Platform Settings', icon: Settings, roles: ['admin'] },
 
 
@@ -77,3 +78,5 @@ export const getNavItemsForRole = (role: UserRole | undefined): NavItem[] => {
   });
   return filteredNavItems;
 };
+
+    
