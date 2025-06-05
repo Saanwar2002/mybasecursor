@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins } from "lucide-react"; // Added CreditCard, Coins
 import { useEffect, useState, useMemo } from "react";
@@ -158,6 +158,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           <DialogTitle className="text-xl md:text-xl font-headline text-primary flex items-center gap-2">
             <Car className="w-6 h-6" /> New Ride Offer!
           </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground pt-1">
+            Review the details below and respond quickly before the timer runs out.
+          </DialogDescription>
         </DialogHeader>
         
         <ScrollArea className="flex-1"> 
