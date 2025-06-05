@@ -13,7 +13,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const ActionItemSchema = z.object({
+const ActionItemSchema = z.object({
   id: z.string().describe("A unique identifier for the action item, e.g., 'review-op-apps'."),
   category: z.string().describe("The general category of the task, e.g., 'User Management', 'System Health', 'Feature Review'."),
   label: z.string().describe("A concise description of the task to be done."),
@@ -22,7 +22,7 @@ export const ActionItemSchema = z.object({
 });
 export type ActionItem = z.infer<typeof ActionItemSchema>;
 
-export const AdminActionItemsInputSchema = z.object({
+const AdminActionItemsInputSchema = z.object({
   pendingOperatorApprovals: z.number().int().min(0).describe("Number of taxi base operator accounts awaiting admin approval."),
   activeSystemAlerts: z.number().int().min(0).describe("Number of active critical or high-priority system alerts (e.g., from AI System Health)."),
   unresolvedSupportTickets: z.number().int().min(0).describe("Number of unresolved high-priority support tickets."),
@@ -31,7 +31,7 @@ export const AdminActionItemsInputSchema = z.object({
 });
 export type AdminActionItemsInput = z.infer<typeof AdminActionItemsInputSchema>;
 
-export const AdminActionItemsOutputSchema = z.object({
+const AdminActionItemsOutputSchema = z.object({
   actionItems: z.array(ActionItemSchema).describe("A list of suggested action items for the administrator."),
 });
 export type AdminActionItemsOutput = z.infer<typeof AdminActionItemsOutputSchema>;
