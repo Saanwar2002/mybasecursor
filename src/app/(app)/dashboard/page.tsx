@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2 } from 'lucide-react';
+import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2, CheckCircle2, Smile, DollarSign as DollarSignIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,12 +41,12 @@ export default function PassengerDashboardPage() {
     : '/dashboard/book-ride';
 
   useEffect(() => {
-    const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high'];
+    const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
     let currentIndex = 0;
     const intervalId = setInterval(() => {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
-    }, 5000); 
+    }, 4000); 
 
     return () => clearInterval(intervalId); 
   }, []);
@@ -147,7 +147,14 @@ export default function PassengerDashboardPage() {
           actionText="Try AI Search"
         />
         <FeatureCard
-          title="My Rides"
+          title="My Active Ride"
+          description="Track your taxi's location live on the map."
+          icon={MapPin}
+          link="/dashboard/track-ride" 
+          actionText="Track My Ride"
+        />
+        <FeatureCard
+          title="Rides History"
           description="View your past rides and rate your experiences."
           icon={History}
           link="/dashboard/my-rides"
@@ -159,13 +166,6 @@ export default function PassengerDashboardPage() {
           icon={MessageCircle}
           link="/dashboard/chat"
           actionText="Open Chat"
-        />
-         <FeatureCard
-          title="Real-Time Tracking"
-          description="Track your taxi's location live on the map."
-          icon={MapPin}
-          link="/dashboard/track-ride" 
-          actionText="Track a Ride"
         />
       </div>
     </div>

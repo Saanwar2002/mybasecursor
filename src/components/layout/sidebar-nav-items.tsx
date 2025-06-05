@@ -1,3 +1,4 @@
+
 import type { UserRole } from '@/contexts/auth-context';
 import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity } from 'lucide-react'; // Added BrainCircuit, Activity
 import type { LucideIcon } from 'lucide-react';
@@ -15,8 +16,8 @@ export const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['passenger'] },
   { href: '/dashboard/book-ride', label: 'Book a Ride', icon: Car, roles: ['passenger'] },
   { href: '/dashboard/ai-search', label: 'AI Taxi Search', icon: Sparkles, roles: ['passenger'] },
-  { href: '/dashboard/my-rides', label: 'My Rides', icon: History, roles: ['passenger'] },
-  { href: '/dashboard/track-ride', label: 'Track Ride', icon: MapPin, roles: ['passenger'] },
+  { href: '/dashboard/track-ride', label: 'My Active Ride', icon: MapPin, roles: ['passenger'] },
+  { href: '/dashboard/my-rides', label: 'Rides History', icon: History, roles: ['passenger'] },
   { href: '/dashboard/favorites', label: 'Favorites', icon: Star, roles: ['passenger'] },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle, roles: ['passenger'] },
   
