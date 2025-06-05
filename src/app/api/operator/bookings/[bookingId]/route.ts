@@ -68,14 +68,18 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json(serializedBooking, { status: 200 });
 
   } catch (error: any) {
-    console.error(`Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (GET handler for bookingId ${bookingId}):`, error);
-    const errorPayload = {
-      message: 'An unexpected server error occurred while fetching booking.',
-      errorType: error.name || 'UnknownError',
-      errorMessage: error.message || 'No error message available.',
-      errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    const bookingIdForError = (typeof bookingId === 'string' && bookingId) ? bookingId : 'UNKNOWN_BOOKING_ID';
+    console.error(`Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (GET handler for bookingId ${bookingIdForError}):`, String(error));
+    
+    const safeErrorPayload = {
+        error: true,
+        message: "An unexpected server error occurred while fetching the booking.",
+        bookingId: bookingIdForError,
+        errorType: error && typeof error.name === 'string' ? error.name : 'UnknownError',
+        errorMessageHint: error && typeof error.message === 'string' && error.message.length < 200 ? error.message : 'Details logged on server.'
     };
-    return NextResponse.json(errorPayload, { status: 500 });
+    console.error("Full error details for server log (GET):", error);
+    return NextResponse.json(safeErrorPayload, { status: 500 });
   }
 }
 
@@ -84,8 +88,8 @@ const bookingUpdateSchema = z.object({
   driverName: z.string().optional(),
   driverAvatar: z.string().url().optional(),
   status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'completed', 'Cancelled', 'cancelled', 'pending_assignment', 'arrived_at_pickup', 'driver_assigned']).optional(),
-  vehicleType: z.string().optional(), // Added from client payload
-  driverVehicleDetails: z.string().optional(), // Added from client payload
+  vehicleType: z.string().optional(),
+  driverVehicleDetails: z.string().optional(),
   fareEstimate: z.number().optional(),
   notes: z.string().optional(),
   action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride']).optional(),
@@ -94,13 +98,14 @@ const bookingUpdateSchema = z.object({
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
+  // Strict check for bookingId at the very beginning
+  if (!context || !context.params || typeof context.params.bookingId !== 'string' || context.params.bookingId.trim() === '') {
+    console.error("API Error in /api/operator/bookings/[bookingId] POST: Invalid or missing bookingId in context. Context:", context);
+    return NextResponse.json({ message: 'A valid Booking ID path parameter is required and was not found in context.' }, { status: 400 });
+  }
   const { bookingId } = context.params; 
 
   try {
-    if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
-      return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
-    }
-
     if (!db) {
       console.error(`API Error in /api/operator/bookings/${bookingId} POST: Firestore (db) is not initialized.`);
       return NextResponse.json({ message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500 });
@@ -139,40 +144,37 @@ export async function POST(request: NextRequest, context: GetContext) {
     } else if (updateDataFromPayload.action === 'acknowledge_arrival') {
       updateData.passengerAcknowledgedArrivalTimestamp = Timestamp.now();
     } else if (updateDataFromPayload.action === 'start_ride') {
-      updateData.status = 'in_progress'; // Standardized to lowercase
+      updateData.status = 'in_progress'; 
       updateData.rideStartedAt = Timestamp.now();
     } else if (updateDataFromPayload.action === 'complete_ride') {
-       updateData.status = 'completed'; // Standardized to lowercase
+       updateData.status = 'completed'; 
        updateData.completedAt = Timestamp.now();
        if (body.finalFare !== undefined && typeof body.finalFare === 'number') {
-           updateData.fareEstimate = body.finalFare; // Update fareEstimate to finalFare on completion
+           updateData.fareEstimate = body.finalFare;
        }
     } else {
-      // Handle direct status updates or other field updates
       if (updateDataFromPayload.status) {
-        // Normalize common statuses to lowercase
         const statusLower = updateDataFromPayload.status.toLowerCase();
         if (statusLower === 'completed') updateData.status = 'completed';
         else if (statusLower === 'cancelled') updateData.status = 'cancelled';
-        else updateData.status = updateDataFromPayload.status; // Keep as is for others like 'Assigned', 'pending_assignment' etc.
+        else updateData.status = updateDataFromPayload.status; 
       }
 
       if (updateDataFromPayload.driverId) updateData.driverId = updateDataFromPayload.driverId;
       if (updateDataFromPayload.driverName) updateData.driverName = updateDataFromPayload.driverName;
       if (updateDataFromPayload.driverAvatar) updateData.driverAvatar = updateDataFromPayload.driverAvatar;
       if (updateDataFromPayload.vehicleType) updateData.vehicleType = updateDataFromPayload.vehicleType;
-      if (updateDataFromPayload.driverVehicleDetails) updateData.driverVehicleDetails = updateDataFromPayload.driverVehicleDetails; // Store this field
+      if (updateDataFromPayload.driverVehicleDetails) updateData.driverVehicleDetails = updateDataFromPayload.driverVehicleDetails;
       if (updateDataFromPayload.fareEstimate !== undefined) updateData.fareEstimate = updateDataFromPayload.fareEstimate;
       if (updateDataFromPayload.notes) updateData.notes = updateDataFromPayload.notes;
 
-      // Specific timestamp logic for certain status transitions
       if ((updateData.status === 'Assigned' || updateData.status === 'driver_assigned') && updateDataFromPayload.driverId) {
         updateData.driverAssignedAt = Timestamp.now();
-      } else if (updateData.status === 'completed') { // lowercase
+      } else if (updateData.status === 'completed') { 
         updateData.completedAt = Timestamp.now();
-      } else if (updateData.status === 'cancelled') { // lowercase
+      } else if (updateData.status === 'cancelled') { 
         updateData.cancelledAt = Timestamp.now();
-        updateData.cancelledBy = body.cancelledBy || 'operator'; // Store who cancelled if provided
+        updateData.cancelledBy = body.cancelledBy || 'operator'; 
       }
     }
     
@@ -198,22 +200,17 @@ export async function POST(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }, { status: 200 });
 
   } catch (error: any) {
-    console.error(`Critical Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingId}):`, error);
-    // Ensure absolutely nothing complex is done here that could fail serialization
-    let errName = "UnknownError";
-    let errMsg = "An unspecified error occurred on the server.";
-    if (error && typeof error === 'object') {
-        if (error.name && typeof error.name === 'string') errName = error.name;
-        if (error.message && typeof error.message === 'string') errMsg = error.message;
-    } else if (typeof error === 'string') {
-        errMsg = error;
-    }
-
-    const minimalErrorPayload = {
+    const bookingIdForError = (typeof bookingId === 'string' && bookingId) ? bookingId : 'UNKNOWN_BOOKING_ID';
+    console.error(`Critical Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingIdForError}):`, String(error));
+    
+    const safeErrorPayload = {
         error: true,
-        message: "Failed to process booking update.",
-        details: `Error processing booking ${bookingId}. Type: ${errName}. Message: ${errMsg.substring(0,150)}`, // Keep details brief
+        message: "An unexpected server error occurred while updating the booking.",
+        bookingId: bookingIdForError,
+        errorType: error && typeof error.name === 'string' ? error.name : 'UnknownError',
+        errorMessageHint: error && typeof error.message === 'string' && error.message.length < 200 ? error.message : 'Details logged on server.'
     };
-    return NextResponse.json(minimalErrorPayload, { status: 500 });
+    console.error("Full error details for server log (POST):", error);
+    return NextResponse.json(safeErrorPayload, { status: 500 });
   }
 }
