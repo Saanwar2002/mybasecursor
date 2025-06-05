@@ -15,8 +15,8 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
     };
   }
   // Handle cases where it might already be an object { seconds: ..., nanoseconds: ... }
-  if (typeof timestamp === 'object' && timestamp !== null && ('_seconds' in timestamp || 'seconds' in timestamp)) {
-    return {
+  if (typeof timestamp === 'object' && timestamp !== null && ('_seconds'in timestamp || 'seconds' in timestamp)) {
+     return {
       _seconds: (timestamp as any)._seconds ?? (timestamp as any).seconds,
       _nanoseconds: (timestamp as any)._nanoseconds ?? (timestamp as any).nanoseconds ?? 0,
     };
@@ -31,25 +31,23 @@ interface GetContext {
   };
 }
 
-const jsonHeaders = { 'Content-Type': 'application/json' };
-
 export async function GET(request: NextRequest, context: GetContext) {
   const { bookingId } = context.params;
   try {
     if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
-      return new NextResponse(JSON.stringify({ message: 'A valid Booking ID path parameter is required.' }), { status: 400, headers: jsonHeaders });
+      return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
     }
 
     if (!db) {
       console.error("API Error in /api/operator/bookings/[bookingId] GET: Firestore (db) is not initialized.");
-      return new NextResponse(JSON.stringify({ message: 'Server configuration error: Firestore (db) is not initialized.' }), { status: 500, headers: jsonHeaders });
+      return NextResponse.json({ message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500 });
     }
 
     const bookingRef = doc(db, 'bookings', bookingId);
     const bookingSnap = await getDoc(bookingRef);
 
     if (!bookingSnap.exists()) {
-      return new NextResponse(JSON.stringify({ message: `Booking with ID ${bookingId} not found.` }), { status: 404, headers: jsonHeaders });
+      return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
     }
 
     const bookingData = bookingSnap.data();
@@ -67,7 +65,7 @@ export async function GET(request: NextRequest, context: GetContext) {
       completedAt: serializeTimestamp(bookingData.completedAt as Timestamp | undefined | null),
     };
     
-    return new NextResponse(JSON.stringify(serializedBooking), { status: 200, headers: jsonHeaders });
+    return NextResponse.json(serializedBooking, { status: 200 });
 
   } catch (error: any) {
     console.error(`Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (GET handler for bookingId ${bookingId}):`, error);
@@ -77,7 +75,7 @@ export async function GET(request: NextRequest, context: GetContext) {
       errorMessage: error.message || 'No error message available.',
       errorStack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     };
-    return new NextResponse(JSON.stringify(errorPayload), { status: 500, headers: jsonHeaders });
+    return NextResponse.json(errorPayload, { status: 500 });
   }
 }
 
@@ -99,12 +97,12 @@ export async function POST(request: NextRequest, context: GetContext) {
 
   try {
     if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
-      return new NextResponse(JSON.stringify({ message: 'A valid Booking ID path parameter is required.' }), { status: 400, headers: jsonHeaders });
+      return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
     }
 
     if (!db) {
       console.error(`API Error in /api/operator/bookings/${bookingId} POST: Firestore (db) is not initialized.`);
-      return new NextResponse(JSON.stringify({ message: 'Server configuration error: Firestore (db) is not initialized.' }), { status: 500, headers: jsonHeaders });
+      return NextResponse.json({ message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500 });
     }
 
     let body;
@@ -112,13 +110,13 @@ export async function POST(request: NextRequest, context: GetContext) {
         body = await request.json();
     } catch (jsonParseError: any) {
         console.error(`API Error in /api/operator/bookings/${bookingId} POST: Failed to parse JSON body:`, jsonParseError);
-        return new NextResponse(JSON.stringify({ message: 'Invalid JSON request body.', details: jsonParseError.message || String(jsonParseError) }), { status: 400, headers: jsonHeaders });
+        return NextResponse.json({ message: 'Invalid JSON request body.', details: jsonParseError.message || String(jsonParseError) }, { status: 400 });
     }
     
     const parsedPayload = bookingUpdateSchema.safeParse(body);
 
     if (!parsedPayload.success) {
-      return new NextResponse(JSON.stringify({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }), { status: 400, headers: jsonHeaders });
+      return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
     }
 
     const updateDataFromPayload = parsedPayload.data;
@@ -127,7 +125,7 @@ export async function POST(request: NextRequest, context: GetContext) {
     const bookingSnap = await getDoc(bookingRef);
 
     if (!bookingSnap.exists()) {
-      return new NextResponse(JSON.stringify({ message: `Booking with ID ${bookingId} not found.` }), { status: 404, headers: jsonHeaders });
+      return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
     }
 
     const updateData: any = { 
@@ -145,6 +143,9 @@ export async function POST(request: NextRequest, context: GetContext) {
     } else if (updateDataFromPayload.action === 'complete_ride') {
        updateData.status = 'completed'; // Standardized to lowercase
        updateData.completedAt = Timestamp.now();
+       if (body.finalFare !== undefined && typeof body.finalFare === 'number') {
+           updateData.fareEstimate = body.finalFare; // Update fareEstimate to finalFare on completion
+       }
     } else {
       // Handle direct status updates or other field updates
       if (updateDataFromPayload.status) {
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest, context: GetContext) {
         updateData.completedAt = Timestamp.now();
       } else if (updateData.status === 'cancelled') { // lowercase
         updateData.cancelledAt = Timestamp.now();
-        updateData.cancelledBy = 'operator'; 
+        updateData.cancelledBy = body.cancelledBy || 'operator'; // Store who cancelled if provided
       }
     }
     
@@ -192,11 +193,10 @@ export async function POST(request: NextRequest, context: GetContext) {
         cancelledAt: serializeTimestamp(updatedBookingDataResult?.cancelledAt as Timestamp | undefined | null),
     };
 
-    return new NextResponse(JSON.stringify({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }), { status: 200, headers: jsonHeaders });
+    return NextResponse.json({ message: 'Booking updated successfully', booking: serializedUpdatedBooking }, { status: 200 });
 
   } catch (error: any) {
     console.error(`Critical Unhandled error in API /api/operator/bookings/[bookingId]/route.ts (POST handler for bookingId ${bookingId}):`, error);
-    // Simple, guaranteed valid JSON response
     const errorResponsePayload = {
         message: "API_ERROR: An internal server error occurred.",
         details: "The server encountered an issue processing the update. Please check server logs.",
@@ -204,6 +204,6 @@ export async function POST(request: NextRequest, context: GetContext) {
         errorName: error?.name || "UnknownError",
         errorMessageStr: String(error?.message || "No specific message available.")
     };
-    return new NextResponse(JSON.stringify(errorResponsePayload), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return NextResponse.json(errorResponsePayload, { status: 500 });
   }
 }
