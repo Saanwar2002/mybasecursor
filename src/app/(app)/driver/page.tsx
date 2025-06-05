@@ -2,7 +2,7 @@
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { Car, DollarSign, History, MessageCircle, Navigation, Bell, Users, ListChecks, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Switch } from "@/components/ui/switch";
@@ -296,3 +296,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+
