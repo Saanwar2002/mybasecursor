@@ -117,8 +117,30 @@ export function AppLayout({ children }: { children: ReactNode }) {
           
           setAdminToDoList(Object.values(aiTasksByCategory));
         } catch (error) {
-          console.error("Failed to fetch admin action items:", error);
-          setAdminToDoList([{ id: 'error', name: "Error Loading Tasks", icon: ShieldAlert, tasks: [{id: 'err-1', label: "Could not load AI suggestions.", completed: false}] }]);
+          console.error("AppLayout: Failed to fetch or process admin action items. Full error object:", error);
+          let errorMessage = "Could not load AI-suggested admin tasks.";
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          } else if (typeof error === 'string') {
+            errorMessage = error;
+          }
+          
+          // Check if error has network-related properties (like from a fetch response)
+          if (error && typeof error === 'object') {
+            if ('status' in error && 'statusText' in error) {
+                 errorMessage += ` (Status: ${error.status} ${error.statusText})`;
+            } else if ('message' in error && typeof error.message === 'string' && error.message.toLowerCase().includes('failed to fetch')) {
+                // This is already a "Failed to fetch", make it more specific
+                errorMessage = `Network error fetching AI tasks: ${error.message}`;
+            }
+          }
+          
+          setAdminToDoList([{ 
+            id: 'ai-task-error', 
+            name: "Task Loading Error", 
+            icon: ShieldAlert, 
+            tasks: [{id: 'err-detail', label: errorMessage, completed: false, priority: 'high'}] 
+          }]);
         } finally {
           setIsLoadingAdminTasks(false);
         }
