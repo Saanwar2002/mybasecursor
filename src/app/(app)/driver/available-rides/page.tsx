@@ -51,9 +51,9 @@ interface ActiveRide {
   id: string;
   passengerName: string;
   passengerAvatar?: string;
-  pickupLocation: LocationPoint; // Changed from string to LocationPoint
-  dropoffLocation: LocationPoint; // Changed from string to LocationPoint
-  stops?: Array<LocationPoint>; // Array of LocationPoint
+  pickupLocation: LocationPoint; 
+  dropoffLocation: LocationPoint; 
+  stops?: Array<LocationPoint>; 
   estimatedTime?: string;
   fareEstimate: number;
   status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver';
@@ -118,8 +118,8 @@ const formatTimer = (totalSeconds: number): string => {
 };
 
 export default function AvailableRidesPage() {
-  const [rideRequests, setRideRequests] = useState<RideOffer[]>([]); // For incoming offers
-  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null); // For the current active ride
+  const [rideRequests, setRideRequests] = useState<RideOffer[]>([]); 
+  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null); 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -409,19 +409,24 @@ export default function AvailableRidesPage() {
       });
 
       if (!response.ok) {
-        let errorData;
-        let errorMessageFromServer = `Failed to ${actionType.replace('_', ' ')}. Status: ${response.status}`;
+        let errorMessageFromServer = `Action failed with status: ${response.status}`;
+        let errorDetailsText = "";
         try {
-          errorData = await response.json();
-          errorMessageFromServer = errorData.message || errorData.details || errorMessageFromServer;
-        } catch (jsonError) {
-          const errorText = await response.text();
-          console.error("Non-JSON error response from server:", errorText);
-          if (errorText.trim().startsWith("<!DOCTYPE html") || errorText.trim().startsWith("<html")) {
-             errorMessageFromServer = `Server returned an HTML error page (Status: ${response.status}). Check server logs for details.`;
-          } else {
-             errorMessageFromServer = `Server error (Status: ${response.status}): ${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}`;
+          errorDetailsText = await response.text(); // Read the body as text first
+          try {
+            const errorDataJson = JSON.parse(errorDetailsText); // Try to parse the text as JSON
+            errorMessageFromServer = errorDataJson.message || errorDataJson.details || JSON.stringify(errorDataJson);
+          } catch (jsonParseError) {
+            // If JSON.parse fails, it means the body was not JSON. Use the text.
+            console.error("Server returned non-JSON error response. Body:", errorDetailsText.substring(0, 500));
+            if (errorDetailsText.toLowerCase().includes("<!doctype html")) {
+              errorMessageFromServer = `Server returned an HTML error page (Status: ${response.status}). Check server logs for more details.`;
+            } else {
+              errorMessageFromServer = `Server error (Status: ${response.status}): ${errorDetailsText.substring(0, 100)}${errorDetailsText.length > 100 ? '...' : ''}`;
+            }
           }
+        } catch (e) { 
+          console.error("Could not read error response body as text:", e);
         }
         throw new Error(errorMessageFromServer);
       }
@@ -475,10 +480,10 @@ export default function AvailableRidesPage() {
 
   const handleCancelSwitchChange = (checked: boolean) => { setIsCancelSwitchOn(checked); if (checked) { setShowCancelConfirmationDialog(true); } };
 
-  const CancelRideInteraction = ({ ride, isLoading }: { ride: ActiveRide, isLoading: boolean }) => (
+  const CancelRideInteraction = ({ ride, isLoading: actionIsLoading }: { ride: ActiveRide, isLoading: boolean }) => (
     <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
       <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm"> Initiate Cancellation </Label>
-      <Switch id={`cancel-ride-switch-${ride.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={isLoading} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
+      <Switch id={`cancel-ride-switch-${ride.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoading} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
     </div>
   );
 
@@ -518,11 +523,13 @@ export default function AvailableRidesPage() {
             <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border">
               <Avatar className="h-12 w-12"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/48x48.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar>
               <div className="flex-1"> <p className="font-semibold text-base">{activeRide.passengerName}</p> {activeRide.passengerRating && ( <div className="flex items-center"> {[...Array(5)].map((_, i) => <Star key={i} className={cn("w-3.5 h-3.5", i < Math.round(activeRide.passengerRating!) ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />)} <span className="ml-1 text-xs text-muted-foreground">({activeRide.passengerRating.toFixed(1)})</span> </div> )} </div>
-              {(!showCompletedStatus && !showCancelledByDriverStatus) && ( <> 
-               <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => router.push('/driver/chat')}> 
-                  <ChatIcon className="w-4 h-4" />
+              {(!showCompletedStatus && !showCancelledByDriverStatus) && (  
+                <Button variant="outline" size="icon" className="h-9 w-9" asChild>
+                  <Link href="/driver/chat">
+                    <ChatIcon className="w-4 h-4" />
+                  </Link>
                 </Button>
-               </> )}
+               )}
             </div>
             {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center mt-1"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
 
@@ -603,5 +610,4 @@ export default function AvailableRidesPage() {
 }
     
   
-
 
