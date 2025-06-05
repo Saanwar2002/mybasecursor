@@ -84,6 +84,7 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    setPinInputValue(""); // Reset PIN input value if user switches back and forth or on new email submit
     if (!auth || !db) {
       toast({
         title: "Login Error",
@@ -159,7 +160,7 @@ export function LoginForm() {
         title: "Login Successful",
         description: `Welcome back, ${userProfile.name || firebaseUser.displayName}!`,
       });
-      setPinInputValue(""); 
+      // setPinInputValue(""); // Already done at the start
 
     } catch (error: any) {
       console.error("Login error:", error);
@@ -234,6 +235,7 @@ export function LoginForm() {
     let email = "";
     let name = "";
     const guestId = `guest-${Date.now()}`;
+    let operatorCodeForGuest: string | undefined = undefined;
     switch (role) {
       case "passenger":
         email = "guest-passenger@taxinow.com";
@@ -242,17 +244,19 @@ export function LoginForm() {
       case "driver":
         email = "guest-driver@taxinow.com";
         name = "Guest Driver";
+        operatorCodeForGuest = "OP001";
         break;
       case "operator":
         email = "guest-operator@taxinow.com";
         name = "Guest Operator";
+        operatorCodeForGuest = "OP001";
         break;
       case "admin":
         email = "guest-admin@taxinow.com";
         name = "Guest Platform Admin";
         break;
     }
-    contextLogin(guestId, email, name, role, undefined, undefined, true, 'Active', null);
+    contextLogin(guestId, email, name, role, undefined, undefined, true, 'Active', null, undefined, operatorCodeForGuest);
     toast({
       title: "Guest Login Successful",
       description: `Logged in as ${name}.`,
@@ -268,7 +272,7 @@ export function LoginForm() {
 
   const switchToEmailLogin = () => {
     setLoginMode('email');
-    form.reset(); // Reset email/password form
+    form.reset(); 
   };
 
   return (
@@ -368,7 +372,7 @@ export function LoginForm() {
             </p>
           </form>
         </Form>
-      ) : ( // PIN Login Mode
+      ) : ( 
         <Form {...pinForm}>
           <form onSubmit={pinForm.handleSubmit(onPinSubmit)} className="space-y-6">
             {storedPinUser ? (
