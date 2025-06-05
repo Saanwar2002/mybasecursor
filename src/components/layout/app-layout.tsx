@@ -8,7 +8,7 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle } from 'lucide-react';
+import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldExclamation, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -36,50 +36,100 @@ interface TaskSubCategory {
 interface TaskCategory {
   id: string;
   name: string;
+  icon?: React.ElementType; // Optional icon for category
   subCategories?: TaskSubCategory[];
   tasks?: TaskItem[];
 }
 
-// Moved from admin/page.tsx
 const initialAdminToDoData: TaskCategory[] = [
   {
-    id: 'admin_cat1',
-    name: 'Platform Configuration',
+    id: 'admin_security',
+    name: 'Security & Authentication',
+    icon: ShieldExclamation,
     tasks: [
-      { id: 'admin_t1', label: 'Review & Approve new Operator Applications (3)', completed: false },
-      { id: 'admin_t2', label: 'Set global commission rates for Q3', completed: true },
-      { id: 'admin_t2a', label: 'Update Terms of Service link', completed: false },
+      { id: 'admin_sec_1', label: 'Secure all Admin API endpoints (RBAC)', completed: false },
+      { id: 'admin_sec_2', label: 'Implement robust new operator password setup flow', completed: false },
+      { id: 'admin_sec_3', label: 'Add Email Verification for new accounts (Operator/Driver)', completed: false },
+      { id: 'admin_sec_4', label: 'Secure PIN Login feature (currently mock)', completed: false },
+      { id: 'admin_sec_5', label: 'Review and implement CSRF, XSS protections', completed: false },
     ]
   },
   {
-    id: 'admin_cat2',
-    name: 'User Management',
+    id: 'admin_core_backend',
+    name: 'Core Backend & Data',
+    icon: DatabaseZap,
     subCategories: [
       {
-        id: 'admin_sc1',
-        name: 'High-Priority Flags',
+        id: 'admin_core_api',
+        name: 'APIs & Database',
         tasks: [
-          { id: 'admin_t3', label: 'Investigate user report #1023 (Driver related)', completed: false },
-          { id: 'admin_t4', label: 'Verify ID for Admin candidate (John K.)', completed: false },
+          { id: 'admin_be_1', label: 'Replace mock data in Analytics APIs with Firestore queries', completed: false },
+          { id: 'admin_be_2', label: 'Create/Verify all necessary Firestore indexes for queries', completed: false },
+          { id: 'admin_be_3', label: 'Implement backend for real-time Chat functionality', completed: false },
+          { id: 'admin_be_4', label: 'Implement actual Payment Processing (e.g., Stripe)', completed: false },
         ]
       },
       {
-        id: 'admin_sc2',
-        name: 'Account Reviews',
+        id: 'admin_core_rideflow',
+        name: 'Ride & Booking System',
         tasks: [
-          { id: 'admin_t5', label: 'Audit suspicious login attempts (Last 7 days)', completed: false },
-          { id: 'admin_t5a', label: 'Process data deletion request (User ID: xyz789)', completed: false },
+          { id: 'admin_be_5', label: 'Implement real-time driver location updates', completed: false },
+          { id: 'admin_be_6', label: 'Develop real-time ride offer dispatch system', completed: false },
+          { id: 'admin_be_7', label: 'Implement backend for ride rating system (Passenger & Driver)', completed: false },
         ]
       }
     ]
   },
   {
-    id: 'admin_cat3',
-    name: 'System Health & Marketing',
+    id: 'admin_panel_features',
+    name: 'Admin Panel Features',
+    icon: UserCogIcon,
+    subCategories: [
+        {
+            id: 'admin_panel_ops',
+            name: 'Operator Management',
+            tasks: [
+                { id: 'admin_pf_1', label: 'Add "Edit Operator" functionality', completed: false },
+                { id: 'admin_pf_2', label: 'Implement "Suspend/Activate Operator" actions with reasons', completed: false },
+            ]
+        },
+        {
+            id: 'admin_panel_users',
+            name: 'Platform User Management',
+            tasks: [
+                { id: 'admin_pf_3', label: 'Enable "Edit User Details" for all roles', completed: false },
+                { id: 'admin_pf_4', label: 'Implement "View Detailed User Activity/History"', completed: false },
+            ]
+        },
+        {
+            id: 'admin_panel_settings',
+            name: 'Global Settings',
+            tasks: [
+                { id: 'admin_pf_5', label: 'Add UI for more global settings (API Keys, Feature Toggles)', completed: false },
+                { id: 'admin_pf_6', label: 'Allow operator-specific commission rate overrides', completed: false },
+            ]
+        }
+    ]
+  },
+   {
+    id: 'operator_panel_dev',
+    name: 'Operator Panel Development',
+    icon: Layers,
     tasks: [
-        { id: 'admin_t6', label: 'Check server performance logs', completed: true },
-        { id: 'admin_t7', label: 'Plan next promotional campaign', completed: false },
-        { id: 'admin_t8', label: 'Review API integration for payment gateway', completed: false },
+      { id: 'op_dev_1', label: 'Connect "Add New Driver" (by Operator) to a real API', completed: false },
+      { id: 'op_dev_2', label: 'Implement "Edit Driver" details for Operators', completed: false },
+      { id: 'op_dev_3', label: 'Enable ride cancellation for Operators with reasons', completed: false },
+    ]
+  },
+  {
+    id: 'general_enhancements',
+    name: 'General & UI/UX',
+    icon: Wrench,
+    tasks: [
+        {id: 'enh_1', label: 'Implement phone number verification flow for users', completed: false},
+        {id: 'enh_2', label: 'Conduct comprehensive UI testing & bug fixing', completed: false},
+        {id: 'enh_3', label: 'Accessibility (ARIA attributes) review & improvements', completed: false},
+        {id: 'enh_4', label: 'Cross-browser compatibility testing', completed: false},
     ]
   }
 ];
@@ -216,17 +266,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="mt-auto pt-4"> 
           <Card className="bg-sidebar-accent/10 border-sidebar-accent shadow-md">
             <CardHeader className="p-3">
-              <CardTitle className="text-base font-headline flex items-center gap-2 text-sidebar-foreground"> {/* Changed to sidebar-foreground */}
+              <CardTitle className="text-base font-headline flex items-center gap-2 text-sidebar-foreground">
                 <ListChecks className="w-5 h-5" /> Admin To-Do
               </CardTitle>
-              <CardDescription className="text-xs text-sidebar-foreground/80">Key administrative tasks.</CardDescription> {/* Changed to sidebar-foreground/80 */}
+              <CardDescription className="text-xs text-sidebar-foreground/80">Key platform development tasks.</CardDescription>
             </CardHeader>
             <CardContent className="p-0 max-h-60 overflow-y-auto">
               <Accordion type="multiple" className="w-full text-xs">
                 {adminToDoList.map((category) => (
                   <AccordionItem value={category.id} key={category.id} className="border-sidebar-border last:border-b-0">
-                    <AccordionTrigger className="text-xs hover:no-underline font-semibold px-3 py-2 text-sidebar-foreground hover:text-sidebar-primary"> {/* Changed to sidebar-foreground and primary on hover */}
-                      {category.name}
+                    <AccordionTrigger className="text-xs hover:no-underline font-semibold px-3 py-2 text-sidebar-foreground hover:text-sidebar-primary">
+                      <div className="flex items-center gap-1.5">
+                        {category.icon && <category.icon className="w-3.5 h-3.5" />}
+                        {category.name}
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent className="bg-sidebar-background/50"> 
                       {category.tasks && category.tasks.length > 0 && (
@@ -241,7 +294,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                               />
                               <Label
                                 htmlFor={`sidebar-task-${task.id}`}
-                                className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`} /* Ensured darker text */
+                                className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`}
                               >
                                 {task.label}
                               </Label>
@@ -253,7 +306,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                         <Accordion type="multiple" className="w-full pl-3">
                           {category.subCategories.map(subCat => (
                             <AccordionItem value={subCat.id} key={subCat.id} className="border-l-2 border-sidebar-primary/20 pl-2 my-0.5 rounded-r-md">
-                              <AccordionTrigger className="text-xs hover:no-underline py-1.5 font-medium text-sidebar-foreground hover:text-sidebar-primary"> {/* Changed to sidebar-foreground */}
+                              <AccordionTrigger className="text-xs hover:no-underline py-1.5 font-medium text-sidebar-foreground hover:text-sidebar-primary">
                                 {subCat.name}
                               </AccordionTrigger>
                               <AccordionContent className="bg-sidebar-background/30">
@@ -268,7 +321,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                                       />
                                       <Label
                                         htmlFor={`sidebar-task-${task.id}`}
-                                        className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`} /* Ensured darker text */
+                                        className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`}
                                       >
                                         {task.label}
                                       </Label>
@@ -292,9 +345,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               )}
             </CardContent>
              <CardFooter className="p-2 border-t border-sidebar-border">
-                  <p className="text-xs text-sidebar-foreground/70 flex items-center gap-1"> {/* Changed to sidebar-foreground/70 */}
+                  <p className="text-xs text-sidebar-foreground/70 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3 text-green-400" />
-                      Mock tasks for demo.
+                      Tasks reflect development priorities.
                   </p>
               </CardFooter>
           </Card>
