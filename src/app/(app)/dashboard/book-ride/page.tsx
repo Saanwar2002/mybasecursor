@@ -186,7 +186,6 @@ export default function BookRidePage() {
 
   const [stopAutocompleteData, setStopAutocompleteData] = useState<AutocompleteData[]>([]);
   const [isBooking, setIsBooking] = useState(false);
-  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
 
 
   const [favoriteLocations, setFavoriteLocations] = useState<FavoriteLocation[]>([]);
@@ -919,12 +918,6 @@ export default function BookRidePage() {
     }
 
     setIsBooking(true);
-    if (values.paymentMethod === 'card') {
-        setIsSimulatingPayment(true);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate payment processing
-        setIsSimulatingPayment(false);
-    }
-
 
     const bookingPayload: any = { 
       passengerId: user.id,
@@ -971,7 +964,7 @@ export default function BookRidePage() {
       if (values.paymentMethod === 'cash') {
           toastDescription += `Payment: Cash to driver.`;
       } else {
-          toastDescription += `Payment: Card (Mock Processed).`;
+          toastDescription += `Payment: Card (Pay driver directly).`;
       }
       
       toast({ 
@@ -1505,8 +1498,6 @@ const handleProceedToConfirmation = async () => {
     "relative w-full h-[35vh] rounded-lg overflow-hidden shadow-md bg-muted/30 mb-3 border-2",
     {
       'border-border': mapBusynessLevel === 'idle',
-      // 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', // Text box removed, flashing border might be too much without it
-      // 'animate-flash-red-border': mapBusynessLevel === 'high', // Text box removed
       'border-yellow-500': mapBusynessLevel === 'moderate',
       'border-red-500': mapBusynessLevel === 'high',
     }
@@ -2058,7 +2049,7 @@ const handleProceedToConfirmation = async () => {
                                         >
                                           <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
                                           Pay by Card
-                                          <span className="text-xs text-muted-foreground mt-1">(pay driver by card)</span>
+                                          <span className="text-xs text-muted-foreground mt-1">(pay driver directly with your card)</span>
                                         </Label>
                                       </FormItem>
                                       <FormItem className="flex-1">
@@ -2077,24 +2068,6 @@ const handleProceedToConfirmation = async () => {
                                     </RadioGroup>
                                   </FormControl>
                                   <FormMessage />
-                                  {watchedPaymentMethod === "card" && (
-                                    <div className="mt-3 pt-3 border-t border-muted/50">
-                                        <p className="text-sm font-medium text-muted-foreground mb-2">Card Options (Mock UI)</p>
-                                        <div className="p-3 bg-muted/30 rounded-md space-y-2">
-                                            <div className="flex items-center justify-between p-2 bg-background rounded-md border border-primary/50 shadow-sm">
-                                                <Label htmlFor="mock-saved-card" className="flex items-center gap-2">
-                                                    <input type="radio" id="mock-saved-card" name="card-option" defaultChecked className="form-radio text-primary focus:ring-primary" />
-                                                    <CreditCard className="w-5 h-5 text-primary" />
-                                                    <span>Visa ending in 1234</span>
-                                                </Label>
-                                                <span className="text-xs text-muted-foreground">Expires 12/25</span>
-                                            </div>
-                                            <Button variant="outline" size="sm" className="w-full" disabled>
-                                                <PlusCircle className="mr-2 h-4 w-4"/> Add New Card (Coming Soon)
-                                            </Button>
-                                        </div>
-                                    </div>
-                                  )}
                                 </FormItem>
                               )}
                             />
@@ -2103,16 +2076,16 @@ const handleProceedToConfirmation = async () => {
                       </div>
                       <DialogFooter>
                         <DialogClose asChild>
-                          <Button type="button" variant="outline" disabled={isBooking || isSimulatingPayment}>Back to Edit</Button>
+                          <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
                         </DialogClose>
                         <Button 
                           type="button"
                           onClick={() => form.handleSubmit(handleBookRide)()}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground" 
-                          disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking || isSimulatingPayment}
+                          disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
                         >
-                          {(isBooking || isSimulatingPayment) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                          {isSimulatingPayment ? 'Processing Payment...' : isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
+                          {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                          {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
