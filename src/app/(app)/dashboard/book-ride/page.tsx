@@ -1505,8 +1505,10 @@ const handleProceedToConfirmation = async () => {
     "relative w-full h-[35vh] rounded-lg overflow-hidden shadow-md bg-muted/30 mb-3 border-2",
     {
       'border-border': mapBusynessLevel === 'idle',
-      'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
-      'animate-flash-red-border': mapBusynessLevel === 'high',
+      // 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', // Text box removed, flashing border might be too much without it
+      // 'animate-flash-red-border': mapBusynessLevel === 'high', // Text box removed
+      'border-yellow-500': mapBusynessLevel === 'moderate',
+      'border-red-500': mapBusynessLevel === 'high',
     }
   );
 
@@ -2056,6 +2058,7 @@ const handleProceedToConfirmation = async () => {
                                         >
                                           <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
                                           Pay by Card
+                                          <span className="text-xs text-muted-foreground mt-1">(pay driver by card)</span>
                                         </Label>
                                       </FormItem>
                                       <FormItem className="flex-1">
@@ -2068,6 +2071,7 @@ const handleProceedToConfirmation = async () => {
                                         >
                                           <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
                                           Pay with Cash
+                                          <span className="text-xs text-muted-foreground mt-1">(pay cash to driver)</span>
                                         </Label>
                                       </FormItem>
                                     </RadioGroup>
@@ -2154,3 +2158,4 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
+
