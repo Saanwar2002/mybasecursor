@@ -1,14 +1,12 @@
+
 "use client";
-// This component can reuse the passenger chat UI. For simplicity, we'll copy it.
-// In a real app, you'd abstract this into a reusable chat component.
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MessageCircle, UserCircle } from "lucide-react";
+import { Send, MessageCircle } from "lucide-react";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import Image from 'next/image';
 
 interface ChatUser {
   id: string;
@@ -26,13 +24,13 @@ interface Message {
   timestamp: string;
 }
 
-const mockChatUsers: ChatUser[] = [
+const initialMockChatUsers: ChatUser[] = [
   { id: 'passenger1', name: 'Passenger Alice S.', avatar: 'https://placehold.co/40x40.png?text=AS', lastMessage: "I'm at the corner, wearing a red hat.", timestamp: "11:05 AM", unread: 2 },
   { id: 'passenger2', name: 'Passenger Bob J.', avatar: 'https://placehold.co/40x40.png?text=BJ', lastMessage: "Thanks for the ride!", timestamp: "Yesterday" },
   { id: 'operator', name: 'TaxiBase Dispatch', avatar: 'https://placehold.co/40x40.png?text=TB', lastMessage: "New high priority pickup available.", timestamp: "2 hrs ago" },
 ];
 
-const mockMessages: { [key: string]: Message[] } = {
+const initialMockMessages: { [key: string]: Message[] } = {
   passenger1: [
     { id: 'm1', sender: 'other', text: "Hello, I'm your passenger. I'm waiting at 123 Oak St.", timestamp: "11:00 AM" },
     { id: 'm2', sender: 'user', text: "On my way! Should be there in 5 minutes.", timestamp: "11:01 AM" },
@@ -48,32 +46,86 @@ const mockMessages: { [key: string]: Message[] } = {
 };
 
 export default function DriverChatPage() {
-  const [selectedChat, setSelectedChat] = useState<ChatUser | null>(mockChatUsers[0]);
-  const [messages, setMessages] = useState<Message[]>(mockMessages[mockChatUsers[0].id]);
+  const [chatUsersList, setChatUsersList] = useState<ChatUser[]>(initialMockChatUsers);
+  const [selectedChat, setSelectedChat] = useState<ChatUser | null>(initialMockChatUsers[0]);
+  const [messages, setMessages] = useState<Message[]>(initialMockMessages[initialMockChatUsers[0].id]);
+  const [messagesData, setMessagesData] = useState<{ [key: string]: Message[] }>(initialMockMessages);
   const [newMessage, setNewMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(scrollToBottom, [messages]);
 
   useEffect(() => {
     if (selectedChat) {
-      setMessages(mockMessages[selectedChat.id] || []);
+      setMessages(messagesData[selectedChat.id] || []);
     }
-  }, [selectedChat]);
+  }, [selectedChat, messagesData]);
 
   const handleSelectChat = (user: ChatUser) => {
     setSelectedChat(user);
-    const updatedUsers = mockChatUsers.map(u => u.id === user.id ? {...u, unread: 0} : u);
+    setChatUsersList(prevUsers => 
+      prevUsers.map(u => u.id === user.id ? {...u, unread: 0} : u)
+    );
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() === "" || !selectedChat) return;
-    const newMsg: Message = {
-      id: Date.now().toString(),
+
+    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMsg: Message = {
+      id: `user-${Date.now()}`,
       sender: 'user',
       text: newMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: currentTime,
     };
-    setMessages(prev => [...prev, newMsg]);
-    setNewMessage("");
+
+    setMessages(prev => [...prev, userMsg]);
+    
+    const updatedMessagesForSelectedChat = [...(messagesData[selectedChat.id] || []), userMsg];
+    setMessagesData(prevData => ({
+      ...prevData,
+      [selectedChat.id]: updatedMessagesForSelectedChat,
+    }));
+    
+    setChatUsersList(prevUsers => 
+      prevUsers.map(u => 
+        u.id === selectedChat.id ? { ...u, lastMessage: newMessage, timestamp: currentTime, unread: 0 } : u
+      )
+    );
+    setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: newMessage, timestamp: currentTime, unread: 0} : null);
+
+    const replyText = `Copy that: "${newMessage.substring(0, 20)}${newMessage.length > 20 ? '...' : ''}".`;
+    setNewMessage(""); // Clear input after capturing value
+
+    setTimeout(() => {
+      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const replyMsg: Message = {
+        id: `other-${Date.now()}`,
+        sender: 'other',
+        text: replyText,
+        timestamp: replyTime,
+      };
+      setMessages(prev => [...prev, replyMsg]);
+      
+      const finalMessagesForChat = [...updatedMessagesForSelectedChat, replyMsg];
+      setMessagesData(prevData => ({
+        ...prevData,
+        [selectedChat.id]: finalMessagesForChat,
+      }));
+      
+      setChatUsersList(prevUsers => 
+        prevUsers.map(u => 
+          u.id === selectedChat.id ? { ...u, lastMessage: replyText, timestamp: replyTime } : u
+        )
+      );
+      setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: replyText, timestamp: replyTime} : null);
+
+    }, 1200);
   };
 
   return (
@@ -86,7 +138,7 @@ export default function DriverChatPage() {
         </CardHeader>
         <ScrollArea className="h-[calc(100%-4.5rem)]">
           <CardContent className="p-0">
-            {mockChatUsers.map(user => (
+            {chatUsersList.map(user => (
               <div
                 key={user.id}
                 className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 ${selectedChat?.id === user.id ? 'bg-muted' : ''}`}
@@ -135,6 +187,7 @@ export default function DriverChatPage() {
                   </div>
                 </div>
               ))}
+              <div ref={messagesEndRef} />
             </ScrollArea>
             <CardContent className="p-4 border-t">
               <form onSubmit={handleSendMessage} className="flex items-center gap-2">
