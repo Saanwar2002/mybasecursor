@@ -51,12 +51,21 @@ export async function GET(request: NextRequest) {
 
   try {
     const bookingsRef = collection(db, 'bookings');
+    // Define the statuses that mean a ride is active or pending
+    const activeStatuses = [
+      'pending_assignment',
+      'driver_assigned', // Assuming this is a possible status
+      'Assigned', // Including this case variant if it's used
+      'arrived_at_pickup',
+      'in_progress', // Standard lowercase
+      'In Progress' // Including this case variant if it's used
+    ];
+
     const q = query(
       bookingsRef,
       where('passengerId', '==', passengerId),
-      where('status', 'not-in', ['completed', 'cancelled']), // Use lowercase
-      // orderBy('status'), // Removed this line to simplify the query
-      orderBy('bookingTimestamp', 'desc'), // Then by most recent
+      where('status', 'in', activeStatuses), // Changed to 'in' filter
+      orderBy('bookingTimestamp', 'desc'),
       limit(1)
     );
 
