@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase } from "lucide-react"; // Added Briefcase
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins } from "lucide-react"; // Added CreditCard, Coins
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -56,6 +56,7 @@ interface RideRequest {
   rideStartedAt?: string | null;
   completedAt?: string | null;
   requiredOperatorId?: string;
+  paymentMethod?: 'card' | 'cash'; // Added paymentMethod
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -126,6 +127,7 @@ export default function AvailableRidesPage() {
     let mockOffer: RideOffer;
     let offerTypeDescription = "";
     const distance = parseFloat((Math.random() * 10 + 2).toFixed(1)); // Random distance between 2 and 12 miles
+    const paymentMethod: 'card' | 'cash' = Math.random() < 0.5 ? 'card' : 'cash';
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) { 
       const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001"; 
@@ -141,6 +143,7 @@ export default function AvailableRidesPage() {
         notes: "Waiting by the main entrance, blue jacket.",
         requiredOperatorId: mismatchedOperatorId,
         distanceMiles: distance,
+        paymentMethod: paymentMethod,
       };
       offerTypeDescription = `restricted to ${mismatchedOperatorId}`;
     } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) { 
@@ -156,6 +159,7 @@ export default function AvailableRidesPage() {
         notes: "2 small bags.",
         requiredOperatorId: currentDriverOperatorPrefix,
         distanceMiles: distance,
+        paymentMethod: paymentMethod,
       };
       offerTypeDescription = `restricted to your operator (${currentDriverOperatorPrefix})`;
     } else { 
@@ -170,6 +174,7 @@ export default function AvailableRidesPage() {
         passengerName: "Gary General",
         notes: "Please call on arrival.",
         distanceMiles: distance,
+        paymentMethod: paymentMethod,
       };
       offerTypeDescription = "a general platform offer";
     }
@@ -223,9 +228,10 @@ export default function AvailableRidesPage() {
         passengerPhone: "07123456789", 
         passengerRating: Math.random() * 2 + 3, 
         requiredOperatorId: offerToAccept.requiredOperatorId,
+        paymentMethod: offerToAccept.paymentMethod, // Carry over payment method
       };
       setRideRequests([newActiveRideData]); 
-      toast({title: "Ride Accepted!", description: `En Route to Pickup for ${newActiveRideData.passengerName}. ${newActiveRideData.requiredOperatorId ? '(Operator: ' + newActiveRideData.requiredOperatorId + ')' : '(General Ride)'}`});
+      toast({title: "Ride Accepted!", description: `En Route to Pickup for ${newActiveRideData.passengerName}. ${newActiveRideData.requiredOperatorId ? '(Operator: ' + newActiveRideData.requiredOperatorId + ')' : '(General Ride)'} Payment: ${newActiveRideData.paymentMethod === 'card' ? 'Card' : 'Cash'}.`});
     } else {
         toast({title: "Error Accepting Ride", description: "No ride details found to accept.", variant: "destructive"});
     }
@@ -487,6 +493,12 @@ export default function AvailableRidesPage() {
               <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
                 <p className="flex items-center gap-1"><DollarSignIcon className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{activeRide.fareEstimate.toFixed(2)}</p>
                 <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Pax:</strong> {activeRide.passengerCount}</p>
+                 {activeRide.paymentMethod && (
+                    <p className="flex items-center gap-1 col-span-2 mt-1">
+                        {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
+                        <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card' : 'Cash'}
+                    </p>
+                )}
                 {activeRide.distanceMiles && (
                   <p className="flex items-center gap-1 col-span-2 mt-1"> 
                     <Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi
@@ -666,7 +678,7 @@ export default function AvailableRidesPage() {
                 {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Confirm Cancel
             </AlertDialogAction>
-            </AlertDialogFooter>
+          </AlertDialogFooter>
         </AlertDialogContent>
         </AlertDialog>
       </div>
@@ -791,7 +803,7 @@ export default function AvailableRidesPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+        </AlertDialog>
       </div>
   );
 }

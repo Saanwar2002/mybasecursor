@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route } from "lucide-react"; // Added Route
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins } from "lucide-react"; // Added CreditCard, Coins
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,7 +28,8 @@ export interface RideOffer {
   passengerName?: string;
   notes?: string;
   requiredOperatorId?: string;
-  distanceMiles?: number; // Added distanceMiles
+  distanceMiles?: number;
+  paymentMethod?: 'card' | 'cash'; // Added paymentMethod
 }
 
 interface RideOfferModalProps {
@@ -199,6 +200,15 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
                   <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
                 </div>
+                 {rideDetails.paymentMethod && (
+                    <div className="flex items-center gap-1.5">
+                      {rideDetails.paymentMethod === 'card' ? 
+                        <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" /> :
+                        <Coins className="w-4 h-4 text-muted-foreground shrink-0" />
+                      }
+                      <strong>Payment:</strong> {rideDetails.paymentMethod === 'card' ? 'Card' : 'Cash'}
+                    </div>
+                  )}
                 {rideDetails.distanceMiles && (
                   <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Distance:</strong> ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
                 )}
@@ -222,7 +232,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
         <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0">
           <Button variant="destructive" onClick={handleDecline} size="sm" className="py-1 h-8">
-            Decline
+            Decline ({countdown}s)
           </Button>
           <Button variant="default" onClick={handleAccept} size="sm" className="bg-green-600 hover:bg-green-700 text-white py-1 h-8">
             Accept Ride
