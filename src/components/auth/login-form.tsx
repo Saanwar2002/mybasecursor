@@ -68,8 +68,13 @@ export function LoginForm() {
     if (typeof window !== "undefined") {
       const storedUserData = localStorage.getItem('linkCabsUserWithPin');
       if (storedUserData) {
-        const parsedData: StoredPinUser = JSON.parse(storedUserData);
-        setPinUserEmail(parsedData.email); // Store email to prefill or identify
+        try {
+          const parsedData: StoredPinUser = JSON.parse(storedUserData);
+          setPinUserEmail(parsedData.email); // Store email to prefill or identify
+        } catch (e) {
+          console.error("Error parsing stored PIN user data from localStorage:", e);
+          localStorage.removeItem('linkCabsUserWithPin'); // Clear potentially corrupted data
+        }
       }
     }
   }, []);
@@ -363,13 +368,13 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Enter 4-Digit PIN</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="password" // Use password type to mask input
-                      maxLength={4} 
-                      placeholder="••••" 
-                      {...field} 
+                    <Input
+                      type="tel" // Changed from "password" to "tel"
+                      maxLength={4}
+                      placeholder="••••"
+                      {...field}
                       disabled={isLoading}
-                      className="text-center text-2xl tracking-[0.5em]" // Style for PIN input
+                      className="text-center text-2xl tracking-[0.5em]"
                       inputMode="numeric"
                       pattern="[0-9]*"
                     />
