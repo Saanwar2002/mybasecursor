@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -209,6 +209,10 @@ export default function BookRidePage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
+  // New state for simulated availability
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
+  const [availabilityStatusMessage, setAvailabilityStatusMessage] = useState("Checking availability in your area...");
+
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -249,6 +253,28 @@ export default function BookRidePage() {
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+
+
+  useEffect(() => {
+    // Simulate fetching availability
+    setIsCheckingAvailability(true);
+    setAvailabilityStatusMessage("Checking availability in your area...");
+    const timer = setTimeout(() => {
+      const waitTimes = ["3-5 min", "5-8 min", "7-12 min", "10-15 min"];
+      const vehicleTypes = [
+        "Standard Cars available.",
+        "Standard & Estate Cars available.",
+        "High demand. Standard Cars available.",
+        "Limited availability. Expect longer wait for Minibus."
+      ];
+      const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
+      const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
+      setAvailabilityStatusMessage(`Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`);
+      setIsCheckingAvailability(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
 
   useEffect(() => {
     const fetchSurgeSetting = async () => {
@@ -1468,6 +1494,21 @@ const handleProceedToConfirmation = async () => {
                  />
               </div>
 
+            <Card className="mb-4 bg-primary/5 border-primary/20 shadow-sm">
+                <CardContent className="p-3 text-center">
+                    {isCheckingAvailability ? (
+                        <div className="flex items-center justify-center text-sm text-primary">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {availabilityStatusMessage}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-primary font-medium flex items-center justify-center gap-1.5">
+                            <BadgeCheck className="w-4 h-4 text-green-500" /> {availabilityStatusMessage}
+                        </p>
+                    )}
+                </CardContent>
+            </Card>
+
             <div className="flex justify-center gap-4 mb-3">
               <Button variant="outline" onClick={handleSaveCurrentRoute} disabled={!pickupCoords || !dropoffCoords || saveRouteDialogOpen} className="w-1/2 sm:w-auto">
                 <Save className="mr-2 h-4 w-4" /> Save Route
@@ -2044,4 +2085,3 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
-
