@@ -178,8 +178,6 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
-    // Do not reset error here, let user see previous error if fetch fails again
-    // setError(null);
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
       if (!response.ok) {
@@ -188,19 +186,17 @@ export default function AvailableRidesPage() {
       }
       const data: ActiveRide | null = await response.json();
       setActiveRide(data);
-      if (data?.pickupLocation) { // Use actual pickup if ride exists
+      if (data?.pickupLocation) { 
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
-      setError(message); // Set error state to display to user
-      // Do not toast every time fetch fails on interval, could be annoying. Maybe only on initial load or explicit refresh.
-      // toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" });
+      setError(message); 
       console.error("Error in fetchActiveRide:", message);
     } finally {
       setIsLoading(false);
     }
-  }, [driverUser?.id]); // Removed toast from dependencies
+  }, [driverUser?.id]);
 
  useEffect(() => {
     if (waitingTimerIntervalRef.current) {
@@ -273,9 +269,9 @@ export default function AvailableRidesPage() {
 
   useEffect(() => {
     if (driverUser) {
-      setIsLoading(true); // Set loading true before initial fetch
+      setIsLoading(true); 
       fetchActiveRide();
-      const rideRefreshInterval = setInterval(fetchActiveRide, 30000); // Refresh every 30s
+      const rideRefreshInterval = setInterval(fetchActiveRide, 30000); 
       return () => clearInterval(rideRefreshInterval);
     } else {
       setIsLoading(false); 
@@ -331,20 +327,17 @@ export default function AvailableRidesPage() {
 
     setActionLoading(prev => ({ ...prev, [offerToAccept.id]: true }));
     try {
-      // This would be an API call to confirm the booking assignment in a real app
-      // POST /api/operator/bookings/[bookingId] with { driverId: driverUser.id, status: 'driver_assigned' }
-      // For now, we simulate by directly setting activeRide state
       console.log("Simulating API call to assign driver to booking:", offerToAccept.id);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
 
       const newActiveRideData: ActiveRide = {
-        id: offerToAccept.id, // Use offer ID as booking ID for mock
+        id: offerToAccept.id, 
         driverId: driverUser.id,
         passengerName: offerToAccept.passengerName || "Passenger",
         passengerAvatar: `https://placehold.co/48x48.png?text=${offerToAccept.passengerName ? offerToAccept.passengerName.charAt(0) : 'P'}`,
         pickupLocation: { address: offerToAccept.pickupLocation, latitude: offerToAccept.pickupCoords.lat, longitude: offerToAccept.pickupCoords.lng },
         dropoffLocation: { address: offerToAccept.dropoffLocation, latitude: offerToAccept.dropoffCoords.lat, longitude: offerToAccept.dropoffCoords.lng },
-        estimatedTime: "10-15 mins", // Mock
+        estimatedTime: "10-15 mins", 
         fareEstimate: offerToAccept.fareEstimate,
         status: 'driver_assigned',
         pickupCoords: offerToAccept.pickupCoords,
@@ -352,16 +345,16 @@ export default function AvailableRidesPage() {
         distanceMiles: offerToAccept.distanceMiles || Math.random() * 5 + 1,
         passengerCount: offerToAccept.passengerCount,
         notes: offerToAccept.notes,
-        passengerPhone: "07123456789", // Mock
-        passengerRating: Math.random() * 2 + 3, // Mock
+        passengerPhone: "07123456789", 
+        passengerRating: Math.random() * 2 + 3, 
         requiredOperatorId: offerToAccept.requiredOperatorId,
         paymentMethod: offerToAccept.paymentMethod,
-        bookingTimestamp: { _seconds: Math.floor(Date.now() / 1000), _nanoseconds: 0}, // Mock timestamp
-        vehicleType: driverUser.vehicleCategory || 'Car', // From driver profile
-        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - MOCKREG` // From driver profile
+        bookingTimestamp: { _seconds: Math.floor(Date.now() / 1000), _nanoseconds: 0}, 
+        vehicleType: driverUser.vehicleCategory || 'Car', 
+        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - MOCKREG` 
       };
       setActiveRide(newActiveRideData);
-      setRideRequests([]); // Clear pending offers list as driver is now on a ride
+      setRideRequests([]); 
       toast({title: "Ride Accepted!", description: `En Route to Pickup for ${newActiveRideData.passengerName}. Payment: ${newActiveRideData.paymentMethod === 'card' ? 'Card' : 'Cash'}.`});
     } catch(error) {
       console.error("Error accepting offer (mock API call):", error);
@@ -381,63 +374,66 @@ export default function AvailableRidesPage() {
     if (!driverUser || !activeRide) { toast({ title: "Error", description: "No active ride or driver session.", variant: "destructive"}); return; }
     
     setActionLoading(prev => ({ ...prev, [rideId]: true }));
-    let newStatus: ActiveRide['status'] | undefined = undefined; 
     let toastMessage = ""; let toastTitle = "";
-    let payload: any = { action: actionType }; // Base payload for API
+    let payload: any = { action: actionType }; 
 
     switch(actionType) {
         case 'notify_arrival':
-            newStatus = 'arrived_at_pickup'; toastTitle = "Passenger Notified"; toastMessage = `Passenger ${activeRide.passengerName} has been notified of your arrival.`;
-            // API will set notifiedPassengerArrivalTimestamp
+            toastTitle = "Passenger Notified"; toastMessage = `Passenger ${activeRide.passengerName} has been notified of your arrival.`;
             break;
         case 'start_ride':
-            newStatus = 'in_progress'; toastTitle = "Ride Started"; toastMessage = `Ride with ${activeRide.passengerName} is now in progress.`;
+            toastTitle = "Ride Started"; toastMessage = `Ride with ${activeRide.passengerName} is now in progress.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); 
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); 
             setAckWindowSecondsLeft(null);
-            // API will set rideStartedAt
             break;
         case 'complete_ride':
-            newStatus = 'completed'; 
             const finalFare = activeRide.fareEstimate + currentWaitingCharge;
             toastTitle = "Ride Completed"; toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare £${finalFare.toFixed(2)}.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
-            console.log(`Ride completed. Final waiting charge: £${currentWaitingCharge.toFixed(2)}`);
-            // API will set completedAt and potentially update fare
-            payload.finalFare = finalFare; // Send final fare to backend
+            payload.finalFare = finalFare; 
             break;
         case 'cancel_active':
-            newStatus = 'cancelled_by_driver'; toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
+            toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             setAckWindowSecondsLeft(null);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
-            // API will set cancelledAt and cancelledBy
             break;
     }
 
     try {
-      // Call the backend to update the booking status
       const response = await fetch(`/api/operator/bookings/${rideId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload), // Send the action to backend
+        body: JSON.stringify(payload), 
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to ${actionType.replace('_', ' ')}.`);
+        let errorData;
+        let errorMessageFromServer = `Failed to ${actionType.replace('_', ' ')}. Status: ${response.status}`;
+        try {
+          errorData = await response.json();
+          errorMessageFromServer = errorData.message || errorData.details || errorMessageFromServer;
+        } catch (jsonError) {
+          const errorText = await response.text();
+          console.error("Non-JSON error response from server:", errorText);
+          if (errorText.trim().startsWith("<!DOCTYPE html") || errorText.trim().startsWith("<html")) {
+             errorMessageFromServer = `Server returned an HTML error page (Status: ${response.status}). Check server logs for details.`;
+          } else {
+             errorMessageFromServer = `Server error (Status: ${response.status}): ${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}`;
+          }
+        }
+        throw new Error(errorMessageFromServer);
       }
       
       const updatedBookingFromServer = await response.json();
 
-      // Update local state with the response from the server
       setActiveRide(prev => {
         if (!prev) return null;
-        // Merge server response into local state
         const serverData = updatedBookingFromServer.booking;
         return {
           ...prev,
-          status: serverData.status || prev.status, // Use server status
+          status: serverData.status || prev.status, 
           notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
           passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
           rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
@@ -446,17 +442,14 @@ export default function AvailableRidesPage() {
         };
       });
 
-      if (newStatus) { toast({ title: toastTitle, description: toastMessage }); }
+      toast({ title: toastTitle, description: toastMessage }); 
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
-        // If ride is truly over, reset activeRide to null to show "Awaiting Offers"
-        // After a delay to let the user see the completed/cancelled message.
         setTimeout(() => setActiveRide(null), 3000);
       }
 
     } catch(err) {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      // Optionally, re-fetch active ride to ensure consistent state if API call failed partially
       fetchActiveRide();
     } finally {
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
@@ -489,10 +482,10 @@ export default function AvailableRidesPage() {
     </div>
   );
 
-  if (isLoading && !activeRide) { // Show full page loader only on initial load and no active ride
+  if (isLoading && !activeRide) { 
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
-  if (error && !activeRide) { // Show full page error if initial load fails catastrophically
+  if (error && !activeRide) { 
     return <div className="flex flex-col justify-center items-center h-full text-center p-4">
         <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
         <p className="text-lg font-semibold text-destructive">Error Loading Ride Data</p>
@@ -509,7 +502,7 @@ export default function AvailableRidesPage() {
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
     
-    const finalFare = activeRide.fareEstimate;
+    const finalFare = activeRide.fareEstimate + currentWaitingCharge;
 
     return (
       <div className="flex flex-col h-full">
@@ -525,11 +518,9 @@ export default function AvailableRidesPage() {
             <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border">
               <Avatar className="h-12 w-12"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/48x48.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar>
               <div className="flex-1"> <p className="font-semibold text-base">{activeRide.passengerName}</p> {activeRide.passengerRating && ( <div className="flex items-center"> {[...Array(5)].map((_, i) => <Star key={i} className={cn("w-3.5 h-3.5", i < Math.round(activeRide.passengerRating!) ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />)} <span className="ml-1 text-xs text-muted-foreground">({activeRide.passengerRating.toFixed(1)})</span> </div> )} </div>
-              {(!showCompletedStatus && !showCancelledByDriverStatus) && ( <> <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => toast({title: "Call Passenger", description: `Calling ${activeRide.passengerPhone || activeRide.passengerName} (Mock)`})}> <Phone className="w-4 h-4" /> </Button> 
-               <Button variant="outline" size="icon" className="h-9 w-9" asChild>
-                  <Link href="/driver/chat" className="flex items-center justify-center">
-                    <ChatIcon className="w-4 h-4" />
-                  </Link>
+              {(!showCompletedStatus && !showCancelledByDriverStatus) && ( <> 
+               <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => router.push('/driver/chat')}> 
+                  <ChatIcon className="w-4 h-4" />
                 </Button>
                </> )}
             </div>
@@ -608,8 +599,9 @@ export default function AvailableRidesPage() {
   }
 
   const mapContainerClasses = cn( "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } );
-  return ( <div className="flex flex-col h-full space-y-2"> <div className={mapContainerClasses}> <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} /> </div> <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </> )} <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} /> <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle> <AlertDialogDescription> This action cannot be undone. The passenger will be notified. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={activeRide ? actionLoading[activeRide.id] : false} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Confirm Cancel</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog> </div> );
+  return ( <div className="flex flex-col h-full space-y-2"> <div className={mapContainerClasses}> <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} /> </div> <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} /> <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle> <AlertDialogDescription> This action cannot be undone. The passenger will be notified. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={activeRide ? actionLoading[activeRide.id] : false} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Confirm Cancel</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog> </div> );
 }
     
   
+
 
