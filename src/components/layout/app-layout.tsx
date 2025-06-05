@@ -8,7 +8,7 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldExclamation, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette } from 'lucide-react';
+import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -45,7 +45,7 @@ const initialAdminToDoData: TaskCategory[] = [
   {
     id: 'admin_security',
     name: 'Security & Authentication',
-    icon: ShieldExclamation,
+    icon: ShieldAlert, // Corrected icon
     tasks: [
       { id: 'admin_sec_1', label: 'Secure all Admin API endpoints (RBAC)', completed: false },
       { id: 'admin_sec_2', label: 'Implement robust new operator password setup flow', completed: false },
@@ -220,8 +220,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Collapsible key={item.href} open={openSubMenus[item.href]} onOpenChange={() => toggleSubMenu(item.href)} className="w-full">
               <CollapsibleTrigger asChild>
                 <div className={cn(
-                  "flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-primary/10 w-full cursor-pointer",
-                  (pathname.startsWith(item.href) && item.href !== '/') || item.subItems.some(sub => pathname.startsWith(sub.href)) ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+                  "flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-all hover:text-sidebar-primary hover:bg-sidebar-primary/10 w-full cursor-pointer",
+                  (pathname.startsWith(item.href) && item.href !== '/') || item.subItems.some(sub => pathname.startsWith(sub.href)) ? 'bg-sidebar-primary/10 text-sidebar-primary' : 'text-sidebar-foreground/80 hover:text-sidebar-primary'
                 )}>
                   <div className="flex items-center gap-3">
                     <item.icon className="h-4 w-4" />
@@ -235,8 +235,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <Link
                     key={subItem.href}
                     href={subItem.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-primary/10 ${
-                      pathname === subItem.href || (pathname.startsWith(subItem.href) && subItem.href !== '/') ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-sidebar-primary hover:bg-sidebar-primary/10 ${
+                      pathname === subItem.href || (pathname.startsWith(subItem.href) && subItem.href !== '/') ? 'bg-sidebar-primary/10 text-sidebar-primary' : 'text-sidebar-foreground/80 hover:text-sidebar-primary'
                     }`}
                     onClick={isMobile ? () => document.dispatchEvent(new CustomEvent('closeSheet')) : undefined}
                   >
@@ -250,8 +250,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary hover:bg-primary/10 ${
-                pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/') ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-sidebar-primary hover:bg-sidebar-primary/10 ${
+                pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/') ? 'bg-sidebar-primary/10 text-sidebar-primary' : 'text-sidebar-foreground/80 hover:text-sidebar-primary'
               }`}
               onClick={isMobile ? () => document.dispatchEvent(new CustomEvent('closeSheet')) : undefined}
             >
@@ -426,3 +426,5 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+    
