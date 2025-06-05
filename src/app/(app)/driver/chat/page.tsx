@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MessageCircle, X } from "lucide-react"; // Added X icon
+import { Send, MessageCircle, X } from "lucide-react";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 interface ChatUser {
   id: string;
@@ -24,7 +25,6 @@ interface Message {
   timestamp: string;
 }
 
-// Full mock data (can be used for a general chat list view if needed elsewhere)
 const allMockChatUsers: ChatUser[] = [
   { id: 'passenger1', name: 'Passenger Alice S.', avatar: 'https://placehold.co/40x40.png?text=AS', lastMessage: "I'm at the corner, wearing a red hat.", timestamp: "11:05 AM", unread: 2 },
   { id: 'passenger2', name: 'Passenger Bob J.', avatar: 'https://placehold.co/40x40.png?text=BJ', lastMessage: "Thanks for the ride!", timestamp: "Yesterday" },
@@ -46,7 +46,6 @@ const allMockMessages: { [key: string]: Message[] } = {
   ]
 };
 
-// Simulate an active ride context with "Passenger Alice S."
 const activePassengerIdForContext = 'passenger1';
 const dispatchIdForContext = 'operator';
 
@@ -61,6 +60,7 @@ const contextualInitialMessages: { [key: string]: Message[] } = {
 
 
 export default function DriverChatPage() {
+  const router = useRouter(); // Initialize useRouter
   const [chatUsersList, setChatUsersList] = useState<ChatUser[]>(contextualInitialChatUsers);
   const [selectedChat, setSelectedChat] = useState<ChatUser | null>(
     contextualInitialChatUsers.find(u => u.id === activePassengerIdForContext) || contextualInitialChatUsers[0] || null
@@ -80,7 +80,7 @@ export default function DriverChatPage() {
     if (selectedChat) {
       setMessages(messagesData[selectedChat.id] || []);
     } else {
-      setMessages([]); // Clear messages if no chat is selected
+      setMessages([]); 
     }
   }, [selectedChat, messagesData]);
 
@@ -108,7 +108,7 @@ export default function DriverChatPage() {
     const updatedMessagesForSelectedChat = [...(messagesData[selectedChat.id] || []), userMsg];
     setMessagesData(prevData => ({
       ...prevData,
-      [selectedChat.id!]: updatedMessagesForSelectedChat, // selectedChat is guaranteed here
+      [selectedChat.id!]: updatedMessagesForSelectedChat, 
     }));
     
     setChatUsersList(prevUsers => 
@@ -116,7 +116,6 @@ export default function DriverChatPage() {
         u.id === selectedChat.id ? { ...u, lastMessage: newMessage, timestamp: currentTime, unread: 0 } : u
       )
     );
-    // Update selectedChat to reflect new last message (optional, but good for consistency if selectedChat object is used elsewhere)
     setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: newMessage, timestamp: currentTime, unread: 0} : null);
 
     const replyText = `Copy that: "${newMessage.substring(0, 20)}${newMessage.length > 20 ? '...' : ''}".`;
@@ -130,7 +129,6 @@ export default function DriverChatPage() {
         text: replyText,
         timestamp: replyTime,
       };
-      // Ensure selectedChat is still valid before updating its messages
       if(selectedChat && messagesData[selectedChat.id]){
         setMessages(prev => [...prev, replyMsg]);
       
@@ -199,7 +197,7 @@ export default function DriverChatPage() {
                 </Avatar>
                 <CardTitle className="text-xl font-headline">{selectedChat.name}</CardTitle>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
                 <span className="sr-only">Close chat</span>
               </Button>
