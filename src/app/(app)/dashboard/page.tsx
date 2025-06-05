@@ -51,13 +51,31 @@ export default function PassengerDashboardPage() {
   }, []);
 
   const mapContainerClasses = cn(
-    "flex-shrink-0 w-full h-[200px] rounded-lg shadow-md overflow-hidden border-2 transition-colors duration-500 ease-in-out", // Applied border-2
+    "relative flex-shrink-0 w-full h-[200px] rounded-lg shadow-md overflow-hidden border-2 transition-colors duration-500 ease-in-out",
     {
-      'border-muted bg-muted/5': mapBusynessLevel === 'idle', // Kept subtle bg tint, changed border
-      'border-yellow-500 bg-yellow-500/5': mapBusynessLevel === 'moderate', // Yellow border, subtle bg tint
-      'border-red-500 bg-red-500/5': mapBusynessLevel === 'high', // Red border, subtle bg tint
+      'border-muted bg-muted/5': mapBusynessLevel === 'idle',
+      'border-yellow-500 bg-yellow-500/5': mapBusynessLevel === 'moderate',
+      'border-red-500 bg-red-500/5': mapBusynessLevel === 'high',
     }
   );
+
+  const getBusynessStatusText = () => {
+    switch (mapBusynessLevel) {
+      case 'idle': return "Ready for Bookings";
+      case 'moderate': return "Moderately Busy";
+      case 'high': return "Currently Very Busy";
+      default: return "";
+    }
+  };
+
+  const getBusynessStatusTextColor = () => {
+    switch (mapBusynessLevel) {
+      case 'idle': return "text-foreground";
+      case 'moderate': return "text-yellow-500";
+      case 'high': return "text-red-500";
+      default: return "text-foreground";
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -133,6 +151,11 @@ export default function PassengerDashboardPage() {
               className="w-full h-full"
               disableDefaultUI={true}
             />
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm p-2 sm:p-3 rounded-md shadow-lg pointer-events-none z-10">
+                <p className={cn("text-xs sm:text-sm font-semibold text-center", getBusynessStatusTextColor())}>
+                    {getBusynessStatusText()}
+                </p>
+            </div>
           </div>
         </CardContent>
       </Card>
