@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       bookingsRef,
       where('passengerId', '==', passengerId),
       where('status', 'not-in', ['completed', 'cancelled']), // Use lowercase
-      orderBy('status'), // Order by status to prioritize certain active states if needed
+      // orderBy('status'), // Removed this line to simplify the query
       orderBy('bookingTimestamp', 'desc'), // Then by most recent
       limit(1)
     );
@@ -101,3 +101,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch active ride', details: errorMessage }, { status: 500 });
   }
 }
+
