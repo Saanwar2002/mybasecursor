@@ -31,15 +31,12 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   startAfter: z.string().optional(), // Document ID to start after
-  status: z.enum(['Active', 'Inactive', 'Pending Approval']).optional(),
+  status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended']).optional(), // Added Suspended
   sortBy: z.enum(['name', 'email', 'status', 'createdAt']).optional().default('name'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
   searchName: z.string().optional(),
 });
 
-// Define the structure of a Driver document we expect to fetch/return
-// This should align with what src/app/(app)/operator/manage-drivers/page.tsx expects
-// and what is stored in Firestore for users with role 'driver'.
 interface Driver {
   id: string;
   name: string;
@@ -47,17 +44,15 @@ interface Driver {
   phone?: string;
   vehicleModel?: string;
   licensePlate?: string;
-  status: 'Active' | 'Inactive' | 'Pending Approval';
+  status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended';
   rating?: number;
   totalRides?: number;
   role: 'driver';
-  createdAt?: { _seconds: number; _nanoseconds: number } | null; // Serialized timestamp
-  // Add other fields as necessary
+  createdAt?: { _seconds: number; _nanoseconds: number } | null;
+  operatorCode?: string; // Added operatorCode
 }
 
 export async function GET(request: NextRequest) {
-  // TODO: Implement authentication/authorization to ensure only operators can access this.
-
   const { searchParams } = new URL(request.url);
   const params = Object.fromEntries(searchParams.entries());
 
@@ -77,28 +72,21 @@ export async function GET(request: NextRequest) {
   } = parsedQuery.data;
 
   try {
-    const usersRef = collection(db, 'users'); // Assuming drivers are stored in a 'users' collection
+    const usersRef = collection(db, 'users'); 
     const queryConstraints: QueryConstraint[] = [];
 
-    // Always filter by role 'driver'
     queryConstraints.push(where('role', '==', 'driver'));
 
-    // Filtering
     if (status) {
       queryConstraints.push(where('status', '==', status));
     }
 
-    // Basic search functionality for name (case-sensitive, prefix match might require different setup or client-side filtering for basic Firestore)
-    // For more robust search, consider a dedicated search service like Algolia or Elasticsearch.
-    // Firestore's native querying for "contains" or case-insensitive search is limited.
-    // If searchName is provided, we might need to adjust sortBy if it's not 'name'.
     if (searchName) {
       queryConstraints.push(where('name', '>=', searchName));
-      queryConstraints.push(where('name', '<=', searchName + '\uf8ff')); // Firestore trick for prefix search
-       // If searching by name, Firestore requires the first orderBy to be on 'name'.
+      queryConstraints.push(where('name', '<=', searchName + '\uf8ff')); 
        if (sortBy !== 'name') {
-        queryConstraints.push(orderBy('name', sortOrder)); // Add name sort first
-        if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder)); // Then the original sort
+        queryConstraints.push(orderBy('name', sortOrder)); 
+        if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder)); 
       } else {
         queryConstraints.push(orderBy(sortBy, sortOrder));
       }
@@ -107,10 +95,9 @@ export async function GET(request: NextRequest) {
     }
 
 
-    // Pagination
     let lastDocSnapshot = null;
     if (startAfterDocId) {
-      const startAfterDocRef = doc(db, 'users', startAfterDocId); // Assuming 'users' collection
+      const startAfterDocRef = doc(db, 'users', startAfterDocId); 
       lastDocSnapshot = await getDoc(startAfterDocRef);
       if (!lastDocSnapshot.exists()) {
         return NextResponse.json({ message: 'Pagination cursor not found.' }, { status: 404 });
@@ -132,12 +119,12 @@ export async function GET(request: NextRequest) {
         phone: data.phone,
         vehicleModel: data.vehicleModel,
         licensePlate: data.licensePlate,
-        status: data.status || 'Inactive', // Default to Inactive if not set
+        status: data.status || 'Inactive', 
         rating: data.rating,
         totalRides: data.totalRides,
-        role: 'driver', // Assert role
+        role: 'driver', 
         createdAt: serializeTimestamp(data.createdAt as Timestamp | undefined),
-        // Ensure all fields expected by the Driver interface are included
+        operatorCode: data.operatorCode || null, // Include operatorCode
       } as Driver;
     });
 
@@ -155,7 +142,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching drivers for operator:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    // Check for Firestore index errors specifically
     if (error instanceof Error && (error as any).code === 'failed-precondition') {
         return NextResponse.json({
             message: 'Query requires a Firestore index. Please check the console for a link to create it.',

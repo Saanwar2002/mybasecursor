@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole } from '@/contexts/auth-context'; // Assuming UserRole is exported
+import type { UserRole } from '@/contexts/auth-context'; 
+import { useAuth } from '@/contexts/auth-context'; // To potentially get current operator's code
 
 interface Driver {
   id: string;
@@ -20,14 +21,16 @@ interface Driver {
   phone?: string;
   vehicleModel?: string;
   licensePlate?: string;
-  status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended'; // Added 'Suspended'
+  status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended';
   rating?: number;
   totalRides?: number;
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
-  role: UserRole; // Ensure role is part of the driver data
+  role: UserRole; 
+  operatorCode?: string; // Added for operator association
 }
 
 export default function OperatorManageDriversPage() {
+  const { user: currentOperatorUser } = useAuth(); // Get the currently logged-in operator
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +41,15 @@ export default function OperatorManageDriversPage() {
   const [isAddDriverDialogOpen, setIsAddDriverDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-
   const [currentPage, setCurrentPage] = useState(1);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [prevCursors, setPrevCursors] = useState<Array<string | null>>([]);
 
   const DRIVERS_PER_PAGE = 10;
+
+  // For demo purposes, assume the logged-in operator's code.
+  // In a real app, this would come from currentOperatorUser.operatorCode or similar.
+  const currentOperatorCodeForDemo = currentOperatorUser?.operatorCode || currentOperatorUser?.customId || "OP001"; // Fallback if not set
 
   const fetchDrivers = useCallback(async (cursor?: string | null, direction: 'next' | 'prev' | 'filter' = 'filter') => {
     setIsLoading(true);
@@ -60,6 +66,8 @@ export default function OperatorManageDriversPage() {
       if (searchTerm.trim() !== "") {
         params.append('searchName', searchTerm.trim());
       }
+      // TODO: In a real app, the API should automatically filter by the logged-in operator's ID.
+      // For this prototype, we fetch all and then filter on client if needed, or rely on operatorCode for approval logic.
       
       const response = await fetch(`/api/operator/drivers?${params.toString()}`);
       if (!response.ok) {
@@ -70,7 +78,7 @@ export default function OperatorManageDriversPage() {
       
       const fetchedDrivers = (data.drivers || []).map((d: any) => ({
         ...d,
-        status: d.status || 'Inactive' // Ensure status has a default
+        status: d.status || 'Inactive' 
       }));
       setDrivers(fetchedDrivers);
       setNextCursor(data.nextCursor || null);
@@ -96,7 +104,8 @@ export default function OperatorManageDriversPage() {
 
   useEffect(() => {
     fetchDrivers(null, 'filter');
-  }, [filterStatus, searchTerm]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterStatus, searchTerm]); // fetchDrivers removed from deps to avoid loop, as it depends on `drivers` for prevCursor.
 
 
   const handleNextPage = () => {
@@ -136,17 +145,28 @@ export default function OperatorManageDriversPage() {
       phone: formData.get('phone') as string,
       vehicleModel: formData.get('vehicleModel') as string,
       licensePlate: formData.get('licensePlate') as string,
-      status: 'Pending Approval', // New drivers start as pending
+      status: 'Pending Approval', 
       role: 'driver' as UserRole,
+      // For new drivers added BY an operator, their operatorCode would be the operator's own code.
+      operatorCode: currentOperatorUser?.operatorCode || currentOperatorUser?.customId || undefined, 
     };
 
     try {
-      // This would typically be a POST to /api/operator/drivers to create a new driver
-      // For now, we'll simulate and re-fetch. In a real app, the API would create the user & profile.
-      console.log("Simulating add driver:", newDriverData);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      console.log("Simulating add driver by operator:", newDriverData);
+      // This should ideally be a POST to /api/operator/drivers (not /api/auth/register)
+      // For now, we'll just simulate.
+      // const response = await fetch('/api/auth/register', { // WRONG endpoint for OPERATOR adding driver
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({...newDriverData, password: "Password123!"}), // Mock password
+      // });
+      // if (!response.ok) {
+      //   const errorData = await response.json();
+      //   throw new Error(errorData.message || 'Failed to add driver.');
+      // }
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
       
-      toast({ title: "Driver Submitted (Mock)", description: `${newDriverData.name} added and is pending approval.`});
+      toast({ title: "Driver Submitted (Mock)", description: `${newDriverData.name} added and is pending approval under operator ${newDriverData.operatorCode}.`});
       setIsAddDriverDialogOpen(false);
       (event.target as HTMLFormElement).reset();
       fetchDrivers(null, 'filter'); 
@@ -195,7 +215,7 @@ export default function OperatorManageDriversPage() {
             <CardTitle className="text-3xl font-headline flex items-center gap-2">
               <Users className="w-8 h-8 text-primary" /> Manage Drivers
             </CardTitle>
-            <CardDescription>Onboard, view, and manage your fleet of drivers.</CardDescription>
+            <CardDescription>Onboard, view, and manage your fleet of drivers. (Demo Operator: {currentOperatorCodeForDemo})</CardDescription>
           </div>
           <Dialog open={isAddDriverDialogOpen} onOpenChange={setIsAddDriverDialogOpen}>
             <DialogTrigger asChild>
@@ -207,7 +227,7 @@ export default function OperatorManageDriversPage() {
               <DialogHeader>
                 <DialogTitle>Add New Driver</DialogTitle>
                 <DialogDescription>
-                  Fill in the details to onboard a new driver. They will be set to 'Pending Approval'.
+                  Fill in the details to onboard a new driver. They will be set to 'Pending Approval' under your operator code: {currentOperatorCodeForDemo}.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleAddDriverSubmit} className="grid gap-4 py-4">
@@ -231,6 +251,7 @@ export default function OperatorManageDriversPage() {
                   <Label htmlFor="licensePlate" className="text-right">License</Label>
                   <Input id="licensePlate" name="licensePlate" className="col-span-3" disabled={actionLoading['addDriver']} />
                 </div>
+                {/* Operator Code is implicitly the current operator's code */}
                 <DialogFooter>
                   <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addDriver']}>Cancel</Button></DialogClose>
                   <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addDriver']}>
@@ -295,10 +316,8 @@ export default function OperatorManageDriversPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Vehicle</TableHead>
+                    <TableHead>Operator Code</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Rating</TableHead>
-                    <TableHead className="text-right">Total Rides</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -310,10 +329,7 @@ export default function OperatorManageDriversPage() {
                         <div>{driver.email}</div>
                         <div className="text-xs text-muted-foreground">{driver.phone || 'N/A'}</div>
                       </TableCell>
-                      <TableCell>
-                         <div>{driver.vehicleModel || 'N/A'}</div>
-                         <div className="text-xs text-muted-foreground">{driver.licensePlate || 'N/A'}</div>
-                      </TableCell>
+                      <TableCell>{driver.operatorCode || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant={
                           driver.status === 'Active' ? 'default' :
@@ -324,21 +340,19 @@ export default function OperatorManageDriversPage() {
                         className={
                             driver.status === 'Active' ? 'bg-green-500/80 text-green-950 hover:bg-green-500/70' :
                             driver.status === 'Pending Approval' ? 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70' :
-                            driver.status === 'Suspended' ? 'bg-red-600 text-white hover:bg-red-700' : // More prominent for Suspended
-                            'border-slate-500 text-slate-500 hover:bg-slate-500/10' // For Inactive
+                            driver.status === 'Suspended' ? 'bg-red-600 text-white hover:bg-red-700' : 
+                            'border-slate-500 text-slate-500 hover:bg-slate-500/10'
                         }
                         >
                           {driver.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">{driver.rating && driver.rating > 0 ? driver.rating.toFixed(1) : 'N/A'}</TableCell>
-                      <TableCell className="text-right">{driver.totalRides || 0}</TableCell>
                       <TableCell className="text-center space-x-1">
                         {actionLoading[driver.id] ? (
                             <Loader2 className="h-5 w-5 animate-spin inline-block" />
                         ) : (
                             <>
-                                {driver.status === 'Pending Approval' && (
+                                {driver.status === 'Pending Approval' && driver.operatorCode === currentOperatorCodeForDemo && (
                                     <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" title="Approve Driver" onClick={() => handleDriverStatusUpdate(driver.id, 'Active')}>
                                         <CheckCircle className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Approve</span>
                                     </Button>
@@ -356,12 +370,11 @@ export default function OperatorManageDriversPage() {
                                         <UserPlus className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Activate</span>
                                     </Button>
                                 )}
+                                {/* 
                                 <Button variant="outline" size="icon" className="h-8 w-8" title="Edit Driver (Placeholder)">
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                                {/* <Button variant="outline" size="icon" className="h-8 w-8 border-red-500 text-red-500 hover:bg-red-500 hover:text-white" title="Remove Driver (Placeholder)">
-                                    <Trash2 className="h-4 w-4" />
-                                </Button> */}
+                                */}
                             </>
                         )}
                       </TableCell>

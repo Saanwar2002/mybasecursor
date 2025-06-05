@@ -14,7 +14,6 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
   };
 }
 
-// Define the structure of a Driver document we expect to fetch/return
 interface Driver {
   id: string;
   name: string;
@@ -22,14 +21,15 @@ interface Driver {
   phone?: string;
   vehicleModel?: string;
   licensePlate?: string;
-  status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended'; // Added Suspended
+  status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended';
   rating?: number;
   totalRides?: number;
   role: 'driver';
+  operatorCode?: string; // Added operatorCode
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
   lastLogin?: { _seconds: number; _nanoseconds: number } | null;
   operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
-  statusReason?: string; // Added for suspension reason
+  statusReason?: string; 
 }
 
 
@@ -40,8 +40,6 @@ interface GetContext {
 }
 
 export async function GET(request: NextRequest, context: GetContext) {
-  // TODO: Implement authentication/authorization for operator role.
-
   const { driverId } = context.params;
 
   if (!driverId || typeof driverId !== 'string' || driverId.trim() === '') {
@@ -73,6 +71,7 @@ export async function GET(request: NextRequest, context: GetContext) {
       rating: driverData.rating,
       totalRides: driverData.totalRides,
       role: 'driver',
+      operatorCode: driverData.operatorCode || null, // Include operatorCode
       createdAt: serializeTimestamp(driverData.createdAt as Timestamp | undefined),
       lastLogin: serializeTimestamp(driverData.lastLogin as Timestamp | undefined),
       operatorUpdatedAt: serializeTimestamp(driverData.operatorUpdatedAt as Timestamp | undefined),
@@ -95,14 +94,13 @@ const driverUpdateSchema = z.object({
   vehicleModel: z.string().optional(),
   licensePlate: z.string().optional(),
   status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended']).optional(),
-  statusReason: z.string().optional(), // For suspension reason
+  statusReason: z.string().optional(),
+  operatorCode: z.string().optional(), // Allow updating operatorCode if necessary
 }).min(1, { message: "At least one field must be provided for update." });
 
 export type DriverUpdatePayload = z.infer<typeof driverUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
-  // TODO: Implement authentication/authorization for operator role.
-
   const { driverId } = context.params;
 
   if (!driverId || typeof driverId !== 'string' || driverId.trim() === '') {
@@ -134,15 +132,14 @@ export async function POST(request: NextRequest, context: GetContext) {
     const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp, statusUpdatedAt: Timestamp }> = {
       ...updateDataFromPayload,
       operatorUpdatedAt: Timestamp.now(),
-      statusUpdatedAt: Timestamp.now(), // Also update when status itself changes
     };
+    
+    if (updateDataFromPayload.status) { // If status is part of the update
+        updatePayload.statusUpdatedAt = Timestamp.now();
+    }
 
-    // Clear statusReason if status is not 'Suspended'
     if (updateDataFromPayload.status && updateDataFromPayload.status !== 'Suspended') {
-      updatePayload.statusReason = undefined; // Or use deleteField() if you prefer to remove it
-    } else if (updateDataFromPayload.status === 'Suspended' && !updateDataFromPayload.statusReason) {
-      // If suspending and no reason is provided, we might want to set a default or leave it null/undefined.
-      // Current Zod schema makes statusReason optional, so it can be undefined.
+      updatePayload.statusReason = undefined; 
     }
     
     await updateDoc(driverRef, updatePayload as any);
@@ -161,6 +158,7 @@ export async function POST(request: NextRequest, context: GetContext) {
         rating: updatedDriverData.rating,
         totalRides: updatedDriverData.totalRides,
         role: 'driver',
+        operatorCode: updatedDriverData.operatorCode || null, // Include operatorCode
         createdAt: serializeTimestamp(updatedDriverData.createdAt as Timestamp | undefined),
         lastLogin: serializeTimestamp(updatedDriverData.lastLogin as Timestamp | undefined),
         operatorUpdatedAt: serializeTimestamp(updatedDriverData.operatorUpdatedAt as Timestamp | undefined),
