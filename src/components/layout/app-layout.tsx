@@ -8,7 +8,7 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette } from 'lucide-react';
+import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, Server, Lock, Mail, PhoneCall, CreditCard, LineChart, FileText, MessageSquare, Construction, Route, Bell } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -36,100 +36,181 @@ interface TaskSubCategory {
 interface TaskCategory {
   id: string;
   name: string;
-  icon?: React.ElementType; // Optional icon for category
+  icon?: React.ElementType;
   subCategories?: TaskSubCategory[];
   tasks?: TaskItem[];
 }
 
 const initialAdminToDoData: TaskCategory[] = [
   {
-    id: 'admin_security',
+    id: 'security_auth',
     name: 'Security & Authentication',
-    icon: ShieldAlert, // Corrected icon
+    icon: Lock,
     tasks: [
-      { id: 'admin_sec_1', label: 'Secure all Admin API endpoints (RBAC)', completed: false },
-      { id: 'admin_sec_2', label: 'Implement robust new operator password setup flow', completed: false },
-      { id: 'admin_sec_3', label: 'Add Email Verification for new accounts (Operator/Driver)', completed: false },
-      { id: 'admin_sec_4', label: 'Secure PIN Login feature (currently mock)', completed: false },
-      { id: 'admin_sec_5', label: 'Review and implement CSRF, XSS protections', completed: false },
+      { id: 'sec_admin_api', label: 'Secure all Admin API endpoints (RBAC)', completed: false },
+      { id: 'sec_operator_api', label: 'Secure Operator-specific API endpoints', completed: false },
+      { id: 'sec_op_pwd_flow', label: 'Implement robust new operator password setup/reset flow', completed: false },
+      { id: 'sec_email_verify', label: 'Add Email Verification for new accounts (all roles)', completed: false },
+      { id: 'sec_pin_login', label: 'Secure PIN Login feature (replace localStorage mock)', completed: false },
+      { id: 'sec_csrf_xss', label: 'Review and implement CSRF, XSS protections', completed: false },
+      { id: 'sec_phone_verify_backend', label: 'Implement backend logic for phone number verification process', completed: false },
     ]
   },
   {
-    id: 'admin_core_backend',
-    name: 'Core Backend & Data',
-    icon: DatabaseZap,
+    id: 'backend_core',
+    name: 'Core Backend Systems',
+    icon: Server,
     subCategories: [
       {
-        id: 'admin_core_api',
-        name: 'APIs & Database',
+        id: 'be_db_api',
+        name: 'Database & APIs',
         tasks: [
-          { id: 'admin_be_1', label: 'Replace mock data in Analytics APIs with Firestore queries', completed: false },
-          { id: 'admin_be_2', label: 'Create/Verify all necessary Firestore indexes for queries', completed: false },
-          { id: 'admin_be_3', label: 'Implement backend for real-time Chat functionality', completed: false },
-          { id: 'admin_be_4', label: 'Implement actual Payment Processing (e.g., Stripe)', completed: false },
+          { id: 'be_indexes', label: 'Create/Verify all necessary Firestore indexes for queries', completed: false },
+          { id: 'be_error_reporting', label: 'Implement robust server-side error logging/reporting (e.g., Sentry)', completed: false },
+          { id: 'be_analytics_real', label: 'Replace mock data in all Analytics APIs (Admin & Operator) with real Firestore queries', completed: false },
         ]
       },
       {
-        id: 'admin_core_rideflow',
+        id: 'be_ride_system',
         name: 'Ride & Booking System',
         tasks: [
-          { id: 'admin_be_5', label: 'Implement real-time driver location updates', completed: false },
-          { id: 'admin_be_6', label: 'Develop real-time ride offer dispatch system', completed: false },
-          { id: 'admin_be_7', label: 'Implement backend for ride rating system (Passenger & Driver)', completed: false },
+          { id: 'be_driver_location', label: 'Implement real-time driver location updates & storage', completed: false },
+          { id: 'be_ride_dispatch', label: 'Develop real-time ride offer dispatch system to drivers', completed: false },
+          { id: 'be_driver_assign', label: 'Implement actual driver assignment logic for operators', completed: false },
+          { id: 'be_ride_rating', label: 'Implement backend for ride rating system (Passenger & Driver)', completed: false },
+          { id: 'be_promo_codes', label: 'Store and manage promo codes effectively in backend', completed: false },
+          { id: 'be_fare_recalc', label: 'Handle fare recalculation if booking details are changed by passenger/operator', completed: false },
+          { id: 'be_cancel_reasons_op', label: 'Backend for ride cancellation by operators (with reasons)', completed: false },
+        ]
+      },
+      {
+        id: 'be_communication_sys',
+        name: 'Communication Services',
+        tasks: [
+          { id: 'be_chat_realtime', label: 'Implement backend for real-time Chat functionality', completed: false },
+          { id: 'be_sms_email_integration', label: 'Integrate real SMS/Email services (e.g., Twilio, SendGrid)', completed: false },
+        ]
+      },
+      {
+        id: 'be_payments',
+        name: 'Payment Processing',
+        tasks: [
+          { id: 'be_stripe_integration', label: 'Implement actual Payment Processing (e.g., Stripe)', completed: false },
+          { id: 'be_payout_drivers', label: 'Develop system for driver payouts/settlements', completed: false },
         ]
       }
     ]
   },
   {
-    id: 'admin_panel_features',
+    id: 'admin_panel',
     name: 'Admin Panel Features',
     icon: UserCogIcon,
     subCategories: [
+      {
+        id: 'admin_op_manage',
+        name: 'Operator Management',
+        tasks: [
+          { id: 'admin_op_edit', label: 'Implement "Edit Operator" details functionality', completed: false },
+          { id: 'admin_op_suspend_reason_clear', label: 'Ensure suspension reason is stored and cleared on activation for operators', completed: false },
+        ]
+      },
+      {
+        id: 'admin_user_manage',
+        name: 'Platform User Management',
+        tasks: [
+          { id: 'admin_user_edit', label: 'Enable "Edit User Details" for all roles', completed: false },
+          { id: 'admin_user_history', label: 'Implement "View Detailed User Activity/History"', completed: false },
+          { id: 'admin_driver_suspend_reason_clear', label: 'Ensure suspension reason is stored and cleared on activation for drivers (via admin)', completed: false },
+        ]
+      },
+      {
+        id: 'admin_global_settings',
+        name: 'Global Settings',
+        tasks: [
+          { id: 'admin_settings_ui', label: 'Add UI for more global settings (API Keys, Feature Toggles, Currency etc.)', completed: false },
+          { id: 'admin_settings_commission_override', label: 'Allow operator-specific commission rate overrides', completed: false },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'operator_panel',
+    name: 'Operator Panel Features',
+    icon: Layers,
+    subCategories: [
         {
-            id: 'admin_panel_ops',
-            name: 'Operator Management',
+            id: 'op_driver_manage',
+            name: 'Driver Management',
             tasks: [
-                { id: 'admin_pf_1', label: 'Add "Edit Operator" functionality', completed: false },
-                { id: 'admin_pf_2', label: 'Implement "Suspend/Activate Operator" actions with reasons', completed: false },
+                 { id: 'op_driver_add_api', label: 'Connect "Add New Driver" (by Operator) to a real API endpoint', completed: false },
+                 { id: 'op_driver_edit', label: 'Implement "Edit Driver" details for Operators', completed: false },
+                 { id: 'op_driver_approve', label: 'Allow operators to approve/reject drivers *they* added (if status=Pending Approval)', completed: false },
+                 { id: 'op_driver_suspend_reason_clear', label: 'Ensure suspension reason is stored and cleared on activation for drivers (via operator)', completed: false },
             ]
         },
         {
-            id: 'admin_panel_users',
-            name: 'Platform User Management',
+            id: 'op_ride_manage',
+            name: 'Ride Management',
             tasks: [
-                { id: 'admin_pf_3', label: 'Enable "Edit User Details" for all roles', completed: false },
-                { id: 'admin_pf_4', label: 'Implement "View Detailed User Activity/History"', completed: false },
+                { id: 'op_ride_view_details', label: 'Enable "View Details" for rides in Operator Panel', completed: false },
+                { id: 'op_ride_edit', label: 'Implement "Edit Ride" for operators (if allowed, with rules)', completed: false },
+                { id: 'op_ride_cancel', label: 'Implement "Cancel Ride" by operator (with reasons)', completed: false },
             ]
         },
         {
-            id: 'admin_panel_settings',
-            name: 'Global Settings',
+            id: 'op_communications',
+            name: 'Communications',
             tasks: [
-                { id: 'admin_pf_5', label: 'Add UI for more global settings (API Keys, Feature Toggles)', completed: false },
-                { id: 'admin_pf_6', label: 'Allow operator-specific commission rate overrides', completed: false },
+                { id: 'op_comms_backend', label: 'Connect Operator Communications UI to real messaging backend', completed: false },
+            ]
+        },
+        {
+            id: 'op_analytics',
+            name: 'Analytics',
+            tasks: [
+                { id: 'op_analytics_real', label: 'Populate Operator Analytics with real data queries', completed: false },
             ]
         }
     ]
   },
-   {
-    id: 'operator_panel_dev',
-    name: 'Operator Panel Development',
-    icon: Layers,
+  {
+    id: 'driver_panel',
+    name: 'Driver Panel Features',
+    icon: Car,
     tasks: [
-      { id: 'op_dev_1', label: 'Connect "Add New Driver" (by Operator) to a real API', completed: false },
-      { id: 'op_dev_2', label: 'Implement "Edit Driver" details for Operators', completed: false },
-      { id: 'op_dev_3', label: 'Enable ride cancellation for Operators with reasons', completed: false },
+      { id: 'driver_earnings_real', label: 'Replace mock earnings data with actual calculations', completed: false },
+      { id: 'driver_ride_history_real', label: 'Fetch and display actual ride history for drivers', completed: false },
+      { id: 'driver_chat_real', label: 'Connect Driver Chat UI to real-time backend', completed: false },
+      { id: 'driver_ratings_real', label: 'Implement submission of passenger ratings by driver', completed: false },
     ]
   },
   {
-    id: 'general_enhancements',
-    name: 'General & UI/UX',
+    id: 'passenger_dashboard',
+    name: 'Passenger Dashboard Features',
+    icon: UserCircle,
+    tasks: [
+      { id: 'pass_myrides_rating_save', label: 'Store and retrieve actual ride ratings submitted by passengers', completed: false },
+      { id: 'pass_profile_save', label: 'Implement backend for saving passenger profile field changes', completed: false },
+      { id: 'pass_track_ride_real', label: 'Use real driver location for passenger ride tracking', completed: false },
+      { id: 'pass_chat_real', label: 'Connect Passenger Chat UI to real-time backend', completed: false },
+      { id: 'pass_payment_methods_ui', label: 'Implement UI for adding/managing payment methods (Stripe)', completed: false },
+    ]
+  },
+  {
+    id: 'general_ux_quality',
+    name: 'General & UI/UX Quality',
     icon: Wrench,
     tasks: [
-        {id: 'enh_1', label: 'Implement phone number verification flow for users', completed: false},
-        {id: 'enh_2', label: 'Conduct comprehensive UI testing & bug fixing', completed: false},
-        {id: 'enh_3', label: 'Accessibility (ARIA attributes) review & improvements', completed: false},
-        {id: 'enh_4', label: 'Cross-browser compatibility testing', completed: false},
+      { id: 'gen_phone_verify_flow', label: 'Implement full phone number verification flow for all relevant user roles', completed: false },
+      { id: 'gen_ui_testing', label: 'Conduct comprehensive UI testing & bug fixing across all roles and devices', completed: false },
+      { id: 'gen_accessibility', label: 'Accessibility (ARIA attributes) review & improvements', completed: false },
+      { id: 'gen_x_browser_test', label: 'Cross-browser compatibility testing', completed: false },
+      { id: 'gen_placeholder_images', label: 'Replace all placeholder images with a real image solution or more specific placeholders', completed: false },
+      { id: 'gen_i18n_l10n', label: 'Plan and implement Internationalization (i18n) & Localization (L10n) if needed', completed: false },
+      { id: 'gen_loading_states', label: 'Implement consistent loading states and optimistic updates across the app', completed: false },
+      { id: 'gen_form_validation', label: 'Refine form validations and error messages for clarity and UX', completed: false },
+      { id: 'gen_push_notifications', label: 'Implement push notifications for ride updates, chat, etc.', completed: false },
+      { id: 'gen_map_interactions', label: 'Enhance map interactions (e.g., route display, dynamic marker updates)', completed: false },
     ]
   }
 ];
@@ -345,7 +426,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               )}
             </CardContent>
              <CardFooter className="p-2 border-t border-sidebar-border">
-                  <p className="text-xs text-sidebar-foreground/70 flex items-center gap-1">
+                  <p className="text-xs text-sidebar-foreground/80 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3 text-green-400" />
                       Tasks reflect development priorities.
                   </p>
