@@ -288,7 +288,7 @@ export default function AvailableRidesPage() {
             setRideRequests(prev => prev.map(r => r.id === rideId ? { ...r, status: newStatus!, rideStartedAt: new Date().toISOString() } : r));
             break;
         case 'complete_ride':
-            newStatus = 'completed'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed.`;
+            newStatus = 'completed'; toastTitle = "Ride Completed"; toastMessage = `Ride with ${rideDisplayName} marked as completed. Final fare £${(currentRide.fareEstimate + currentWaitingCharge).toFixed(2)}.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             console.log(`Ride completed. Final waiting charge: £${currentWaitingCharge.toFixed(2)}`);
             setDriverRatingForPassenger(0); 
@@ -338,7 +338,8 @@ export default function AvailableRidesPage() {
     const showInProgressStatus = activeRide.status.toLowerCase().includes('in_progress');
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
-    const showNotes = activeRide.notes && !['in_progress', 'In Progress', 'completed', 'cancelled_by_driver'].includes(activeRide.status.toLowerCase());
+    
+    const finalFare = activeRide.fareEstimate + currentWaitingCharge;
 
     return (
       <div className="flex flex-col h-full">
@@ -390,13 +391,19 @@ export default function AvailableRidesPage() {
                  <p className={cn("flex items-start gap-1.5", (showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus)) ? "text-muted-foreground" : "text-orange-500")} /> <span className={cn((showDriverAssignedStatus && !(showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground")}> <strong>Dropoff:</strong> {activeRide.dropoffLocation} </span> </p>
                  {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className={cn("flex items-start gap-1.5 pl-5", (showDriverAssignedStatus || showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus) && "text-muted-foreground opacity-60")}> <Route className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus || showInProgressStatus || showCompletedStatus || showCancelledByDriverStatus) ? "text-muted-foreground" : "text-muted-foreground")} /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))}
                  <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
-                    <p className="flex items-center gap-1"><DollarSignIcon className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{activeRide.fareEstimate.toFixed(2)}</p>
+                    <p className="flex items-center gap-1">
+                      <DollarSignIcon className="w-4 h-4 text-muted-foreground" /> 
+                      <strong>Fare:</strong> {showCompletedStatus ? `£${finalFare.toFixed(2)}` : `~£${activeRide.fareEstimate.toFixed(2)}`}
+                      {showCompletedStatus && currentWaitingCharge > 0 && (
+                        <span className="text-xs text-muted-foreground ml-1">(incl. £{currentWaitingCharge.toFixed(2)} waiting)</span>
+                      )}
+                    </p>
                     <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
                     {activeRide.paymentMethod && ( <p className="flex items-center gap-1 col-span-2 mt-1"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card' : 'Cash'} </p> )}
                     {activeRide.distanceMiles && ( <p className="flex items-center gap-1 col-span-2 mt-1"> <Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi </p> )}
                  </div>
             </div>
-            {showNotes && ( <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1"> <p className="text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p> </div> )}
+            {activeRide.notes && !['in_progress', 'In Progress', 'completed', 'cancelled_by_driver'].includes(activeRide.status.toLowerCase()) && ( <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1"> <p className="text-xs md:text-sm text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p> </div> )}
             
             {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
@@ -422,7 +429,7 @@ export default function AvailableRidesPage() {
              {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <span className="flex items-center justify-center"><Navigation className="mr-2"/> Navigate</span> </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}> <span className="flex items-center justify-center">{actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival</span> </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </> )}
              {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <span className="flex items-center justify-center"><Navigation className="mr-2"/> Navigate</span> </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}> <span className="flex items-center justify-center">{actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride</span> </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
              {showInProgressStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <span className="flex items-center justify-center"><Navigation className="mr-2"/> Navigate</span> </Button> <Button className="w-full bg-primary hover:bg-primary/80 text-base text-primary-foreground py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}> <span className="flex items-center justify-center">{actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride</span> </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
-             {(showCompletedStatus || showCancelledByDriverStatus) && ( <Button className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" onClick={() => { if(showCompletedStatus && driverRatingForPassenger > 0) { console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`); toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`}); } setRideRequests([]); setIsCancelSwitchOn(false); setDriverRatingForPassenger(0); }} disabled={activeRide ? actionLoading[activeRide.id] : false} > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />} Done</span> </Button> )}
+             {(showCompletedStatus || showCancelledByDriverStatus) && ( <Button className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" onClick={() => { if(showCompletedStatus && driverRatingForPassenger > 0) { console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`); toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`}); } setRideRequests([]); setIsCancelSwitchOn(false); setDriverRatingForPassenger(0); setCurrentWaitingCharge(0); }} disabled={activeRide ? actionLoading[activeRide.id] : false} > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />} Done</span> </Button> )}
           </CardFooter>
         </Card>
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle> <AlertDialogDescription> This action cannot be undone. The passenger will be notified. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={activeRide ? actionLoading[activeRide.id] : false} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Confirm Cancel</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
@@ -435,4 +442,5 @@ export default function AvailableRidesPage() {
 }
     
   
+
 
