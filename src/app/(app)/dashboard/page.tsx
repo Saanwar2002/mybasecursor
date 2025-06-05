@@ -3,10 +3,14 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, MapPin, Sparkles, History, MessageCircle } from 'lucide-react';
+import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useState } from 'react';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -15,8 +19,21 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 
 const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
+const MOCK_OPERATORS = [
+  { id: 'op1', name: 'City Taxis' },
+  { id: 'op2', name: 'Speedy Cabs' },
+  { id: 'op3', name: 'Local Cars' },
+  { id: 'op4', name: 'Alpha Cars' },
+];
+
 export default function PassengerDashboardPage() {
   const { user } = useAuth();
+  const [bookingPreference, setBookingPreference] = useState<'app_chooses' | 'specific_operator'>('app_chooses');
+  const [selectedOperator, setSelectedOperator] = useState<string>('');
+
+  const bookRideHref = bookingPreference === 'specific_operator' && selectedOperator
+    ? `/dashboard/book-ride?operator_preference=${encodeURIComponent(selectedOperator)}`
+    : '/dashboard/book-ride';
 
   return (
     <div className="space-y-6">
@@ -25,16 +42,68 @@ export default function PassengerDashboardPage() {
           <CardTitle className="text-3xl font-headline">Welcome, {user?.name || 'Passenger'}!</CardTitle>
           <CardDescription>Manage your rides and explore Link Cabs features.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col md:flex-row items-center gap-6">
-          <div className="flex-1 space-y-4">
-            <p className="text-lg">Ready for your next journey? Book a ride, track your taxi, or chat with your driver all in one place.</p>
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Link href="/dashboard/book-ride">
+        <CardContent className="flex flex-col items-center gap-6">
+          <div className="w-full space-y-4">
+            <p className="text-lg text-center md:text-left">
+              Ready for your next journey? Choose your preference below.
+            </p>
+
+            {/* Booking Preference Radio Group */}
+            <div className="space-y-3 p-4 border bg-muted/30 rounded-lg">
+              <Label className="text-base font-semibold">Booking Preference</Label>
+              <RadioGroup
+                value={bookingPreference}
+                onValueChange={(value: 'app_chooses' | 'specific_operator') => {
+                  setBookingPreference(value);
+                  if (value === 'app_chooses') {
+                    setSelectedOperator(''); // Clear selected operator if app chooses
+                  }
+                }}
+                className="flex flex-col sm:flex-row gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="app_chooses" id="app_chooses" />
+                  <Label htmlFor="app_chooses" className="font-normal">Let Link Cabs find driver</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="specific_operator" id="specific_operator" />
+                  <Label htmlFor="specific_operator" className="font-normal">Choose a specific Taxi Base</Label>
+                </div>
+              </RadioGroup>
+
+              {bookingPreference === 'specific_operator' && (
+                <div className="mt-3 space-y-1">
+                  <Label htmlFor="operator-select">Select Taxi Base</Label>
+                  <Select
+                    value={selectedOperator}
+                    onValueChange={setSelectedOperator}
+                  >
+                    <SelectTrigger id="operator-select">
+                      <SelectValue placeholder="Select a taxi operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MOCK_OPERATORS.map(op => (
+                        <SelectItem key={op.id} value={op.name}>{op.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!selectedOperator && <p className="text-xs text-destructive">Please select an operator.</p>}
+                </div>
+              )}
+            </div>
+
+            <Button 
+              asChild 
+              size="lg" 
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-4"
+              disabled={bookingPreference === 'specific_operator' && !selectedOperator}
+            >
+              <Link href={bookRideHref}>
                 <Car className="mr-2 h-5 w-5" /> Book a New Ride
               </Link>
             </Button>
           </div>
-          <div className="flex-shrink-0 w-full md:w-[300px] h-[200px] rounded-lg shadow-md overflow-hidden border border-muted">
+          <div className="flex-shrink-0 w-full h-[200px] rounded-lg shadow-md overflow-hidden border border-muted">
             <GoogleMapDisplay
               center={huddersfieldCenter}
               zoom={13}
@@ -46,13 +115,6 @@ export default function PassengerDashboardPage() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <FeatureCard
-          title="Book a Ride"
-          description="Quickly find and book a taxi to your destination."
-          icon={Car}
-          link="/dashboard/book-ride"
-          actionText="Book Now"
-        />
         <FeatureCard
           title="AI Taxi Search"
           description="Let our AI suggest the best taxi for your specific needs."
