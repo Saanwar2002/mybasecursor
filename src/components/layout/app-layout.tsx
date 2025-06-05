@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -7,7 +8,7 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity } from 'lucide-react';
+import { Car, LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -19,11 +20,15 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
+import * as LucideIcons from 'lucide-react';
+
 
 interface TaskItem {
   id: string;
   label: string;
   completed: boolean;
+  priority?: 'high' | 'medium' | 'low';
 }
 
 interface TaskSubCategory {
@@ -40,196 +45,24 @@ interface TaskCategory {
   tasks?: TaskItem[];
 }
 
-const initialAdminToDoData: TaskCategory[] = [
-  {
-    id: 'ai_systems',
-    name: 'AI & Automation',
-    icon: BrainCircuit,
-    tasks: [
-        { id: 'ai_sys_diag_backend', label: 'Develop & Implement AI System Health & Diagnostics Backend (real data, not simulated)', completed: false },
-        { id: 'ai_todo_integration', label: 'Integrate AI diagnostic recommendations directly into Admin To-Do (make To-Do dynamic)', completed: false },
-    ]
-  },
-  {
-    id: 'security_auth',
-    name: 'Security & Authentication',
-    icon: ShieldAlert,
-    tasks: [
-      { id: 'sec_admin_api', label: 'Secure all Admin API endpoints (RBAC)', completed: false },
-      { id: 'sec_operator_api', label: 'Secure Operator-specific API endpoints (RBAC)', completed: false },
-      { id: 'sec_op_pwd_flow', label: 'Implement robust new operator password setup/reset flow', completed: false },
-      { id: 'sec_email_verify', label: 'Add Email Verification for new accounts (all roles)', completed: false },
-      { id: 'sec_pin_login', label: 'Secure PIN Login feature (replace localStorage mock)', completed: false },
-      { id: 'sec_csrf_xss', label: 'Review and implement CSRF, XSS protections', completed: false },
-      { id: 'sec_phone_verify_backend', label: 'Implement backend logic for phone number verification process', completed: false },
-    ]
-  },
-  {
-    id: 'backend_core',
-    name: 'Core Backend Systems',
-    icon: DatabaseZap,
-    subCategories: [
-      {
-        id: 'be_db_api',
-        name: 'Database & APIs',
-        tasks: [
-          { id: 'be_indexes', label: 'Create/Verify all necessary Firestore indexes for queries', completed: false },
-          { id: 'be_error_reporting', label: 'Implement robust server-side error logging/reporting (e.g., Sentry)', completed: false },
-          { id: 'be_analytics_real', label: 'Replace mock data in all Analytics APIs (Admin & Operator) with real Firestore queries', completed: false },
-        ]
-      },
-      {
-        id: 'be_ride_system',
-        name: 'Ride & Booking System',
-        tasks: [
-          { id: 'be_driver_location', label: 'Implement real-time driver location updates & storage', completed: false },
-          { id: 'be_ride_dispatch', label: 'Develop real-time ride offer dispatch system to drivers', completed: false },
-          { id: 'be_driver_assign', label: 'Implement actual driver assignment logic for operators', completed: false },
-          { id: 'be_ride_rating', label: 'Implement backend for ride rating system (Passenger & Driver)', completed: false },
-          { id: 'be_promo_codes', label: 'Store and manage promo codes effectively in backend', completed: false },
-          { id: 'be_fare_recalc', label: 'Handle fare recalculation if booking details are changed by passenger/operator', completed: false },
-          { id: 'be_cancel_reasons_op', label: 'Backend for ride cancellation by operators (with reasons)', completed: false },
-        ]
-      },
-      {
-        id: 'be_communication_sys',
-        name: 'Communication Services',
-        tasks: [
-          { id: 'be_chat_realtime', label: 'Implement backend for real-time Chat functionality', completed: false },
-          { id: 'be_sms_email_integration', label: 'Integrate real SMS/Email services (e.g., Twilio, SendGrid)', completed: false },
-        ]
-      },
-      {
-        id: 'be_payments',
-        name: 'Payment Processing',
-        tasks: [
-          { id: 'be_stripe_integration', label: 'Implement actual Payment Processing (e.g., Stripe)', completed: false },
-          { id: 'be_payout_drivers', label: 'Develop system for driver payouts/settlements', completed: false },
-        ]
-      }
-    ]
-  },
-  {
-    id: 'admin_panel',
-    name: 'Admin Panel Features',
-    icon: UserCogIcon,
-    subCategories: [
-      {
-        id: 'admin_op_manage',
-        name: 'Operator Management',
-        tasks: [
-          { id: 'admin_op_edit', label: 'Implement "Edit Operator" details functionality', completed: false },
-          { id: 'admin_op_suspend_reason_clear', label: 'Ensure suspension reason is stored and cleared on activation for operators', completed: false },
-        ]
-      },
-      {
-        id: 'admin_user_manage',
-        name: 'Platform User Management',
-        tasks: [
-          { id: 'admin_user_edit', label: 'Enable "Edit User Details" for all roles', completed: false },
-          { id: 'admin_user_history', label: 'Implement "View Detailed User Activity/History"', completed: false },
-          { id: 'admin_driver_suspend_reason_clear', label: 'Ensure suspension reason is stored and cleared on activation for drivers (via admin)', completed: false },
-        ]
-      },
-      {
-        id: 'admin_global_settings',
-        name: 'Global Settings',
-        tasks: [
-          { id: 'admin_settings_ui', label: 'Add UI for more global settings (API Keys, Feature Toggles, Currency etc.)', completed: false },
-          { id: 'admin_settings_commission_override', label: 'Allow operator-specific commission rate overrides', completed: false },
-        ]
-      }
-    ]
-  },
-  {
-    id: 'operator_panel',
-    name: 'Operator Panel Features',
-    icon: Layers,
-    subCategories: [
-        {
-            id: 'op_driver_manage',
-            name: 'Driver Management',
-            tasks: [
-                 { id: 'op_driver_add_api', label: 'Connect "Add New Driver" (by Operator) to a real API endpoint', completed: false },
-                 { id: 'op_driver_edit', label: 'Implement "Edit Driver" details for Operators', completed: false },
-                 { id: 'op_driver_approve', label: 'Allow operators to approve/reject drivers *they* added (if status=Pending Approval)', completed: false },
-                 { id: 'op_driver_suspend_reason_clear', label: 'Ensure suspension reason is stored and cleared on activation for drivers (via operator)', completed: false },
-            ]
-        },
-        {
-            id: 'op_ride_manage',
-            name: 'Ride Management',
-            tasks: [
-                { id: 'op_ride_view_details', label: 'Enable "View Details" for rides in Operator Panel', completed: false },
-                { id: 'op_ride_edit', label: 'Implement "Edit Ride" for operators (if allowed, with rules)', completed: false },
-                { id: 'op_ride_cancel', label: 'Implement "Cancel Ride" by operator (with reasons)', completed: false },
-            ]
-        },
-        {
-            id: 'op_communications',
-            name: 'Communications',
-            tasks: [
-                { id: 'op_comms_backend', label: 'Connect Operator Communications UI to real messaging backend', completed: false },
-            ]
-        },
-        {
-            id: 'op_analytics',
-            name: 'Analytics',
-            tasks: [
-                { id: 'op_analytics_real', label: 'Populate Operator Analytics with real data queries', completed: false },
-            ]
-        }
-    ]
-  },
-  {
-    id: 'driver_panel',
-    name: 'Driver Panel Features',
-    icon: Car,
-    tasks: [
-      { id: 'driver_earnings_real', label: 'Replace mock earnings data with actual calculations', completed: false },
-      { id: 'driver_ride_history_real', label: 'Fetch and display actual ride history for drivers', completed: false },
-      { id: 'driver_chat_real', label: 'Connect Driver Chat UI to real-time backend', completed: false },
-      { id: 'driver_ratings_real', label: 'Implement submission of passenger ratings by driver', completed: false },
-    ]
-  },
-  {
-    id: 'passenger_dashboard',
-    name: 'Passenger Dashboard Features',
-    icon: UserCircle,
-    tasks: [
-      { id: 'pass_myrides_rating_save', label: 'Store and retrieve actual ride ratings submitted by passengers', completed: false },
-      { id: 'pass_profile_save', label: 'Implement backend for saving passenger profile field changes', completed: false },
-      { id: 'pass_track_ride_real', label: 'Use real driver location for passenger ride tracking', completed: false },
-      { id: 'pass_chat_real', label: 'Connect Passenger Chat UI to real-time backend', completed: false },
-      { id: 'pass_payment_methods_ui', label: 'Implement UI for adding/managing payment methods (Stripe)', completed: false },
-    ]
-  },
-  {
-    id: 'general_ux_quality',
-    name: 'General & UI/UX Quality',
-    icon: Wrench,
-    tasks: [
-      { id: 'gen_phone_verify_flow', label: 'Implement full phone number verification flow for all relevant user roles', completed: false },
-      { id: 'gen_ui_testing', label: 'Conduct comprehensive UI testing & bug fixing across all roles and devices', completed: false },
-      { id: 'gen_accessibility', label: 'Accessibility (ARIA attributes) review & improvements', completed: false },
-      { id: 'gen_x_browser_test', label: 'Cross-browser compatibility testing', completed: false },
-      { id: 'gen_placeholder_images', label: 'Replace all placeholder images with a real image solution or more specific placeholders', completed: false },
-      { id: 'gen_i18n_l10n', label: 'Plan and implement Internationalization (i18n) & Localization (L10n) if needed', completed: false },
-      { id: 'gen_loading_states', label: 'Implement consistent loading states and optimistic updates across the app', completed: false },
-      { id: 'gen_form_validation', label: 'Refine form validations and error messages for clarity and UX', completed: false },
-      { id: 'gen_push_notifications', label: 'Implement push notifications for ride updates, chat, etc.', completed: false },
-      { id: 'gen_map_interactions', label: 'Enhance map interactions (e.g., route display, dynamic marker updates)', completed: false },
-    ]
-  }
-];
+// Default icon for AI-generated tasks if no specific one is provided
+const DefaultAiTaskIcon = Lightbulb;
 
+const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
+  switch (priority) {
+    case 'high': return 'font-bold text-destructive';
+    case 'medium': return 'font-semibold text-orange-600 dark:text-orange-400';
+    default: return '';
+  }
+};
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
-  const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>(initialAdminToDoData);
+  const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
+  const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
 
   const toggleAdminTaskCompletion = (taskId: string) => {
     setAdminToDoList(prevList =>
@@ -247,6 +80,53 @@ export function AppLayout({ children }: { children: ReactNode }) {
       }))
     );
   };
+
+   useEffect(() => {
+    if (user?.role === 'admin' && !loading) {
+      const fetchAdminTasks = async () => {
+        setIsLoadingAdminTasks(true);
+        try {
+          const mockInput: AdminActionItemsInput = {
+            pendingOperatorApprovals: Math.floor(Math.random() * 10),
+            activeSystemAlerts: Math.floor(Math.random() * 3),
+            unresolvedSupportTickets: Math.floor(Math.random() * 15),
+            recentFeatureFeedbackCount: Math.floor(Math.random() * 20),
+            platformLoadPercentage: Math.floor(Math.random() * 101),
+          };
+          const output = await getAdminActionItems(mockInput);
+          
+          const aiTasksByCategory = output.actionItems.reduce((acc, item) => {
+            const categoryName = item.category || "General Tasks";
+            if (!acc[categoryName]) {
+              const IconComponent = item.iconName && (LucideIcons as any)[item.iconName] ? (LucideIcons as any)[item.iconName] : DefaultAiTaskIcon;
+              acc[categoryName] = {
+                id: categoryName.toLowerCase().replace(/\s+/g, '-'),
+                name: categoryName,
+                icon: IconComponent,
+                tasks: [],
+              };
+            }
+            acc[categoryName].tasks.push({
+              id: item.id,
+              label: item.label,
+              completed: false, 
+              priority: item.priority,
+            });
+            return acc;
+          }, {} as Record<string, TaskCategory>);
+          
+          setAdminToDoList(Object.values(aiTasksByCategory));
+        } catch (error) {
+          console.error("Failed to fetch admin action items:", error);
+          setAdminToDoList([{ id: 'error', name: "Error Loading Tasks", icon: ShieldAlert, tasks: [{id: 'err-1', label: "Could not load AI suggestions.", completed: false}] }]);
+        } finally {
+          setIsLoadingAdminTasks(false);
+        }
+      };
+      fetchAdminTasks();
+    }
+  }, [user, loading]);
+
 
   useEffect(() => {
     if (!loading && !user && !['/login', '/register', '/'].includes(pathname) && !pathname.startsWith('/_next/')) {
@@ -356,11 +236,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <Card className="bg-sidebar-accent/10 border-sidebar-accent shadow-md">
             <CardHeader className="p-3">
               <CardTitle className="text-base font-headline flex items-center gap-2 text-sidebar-foreground">
-                <ListChecks className="w-5 h-5" /> Admin To-Do
+                <ListChecks className="w-5 h-5" /> Admin Action Items
               </CardTitle>
-              <CardDescription className="text-xs text-sidebar-foreground/80">Key platform development tasks.</CardDescription>
+              <CardDescription className="text-xs text-sidebar-foreground/80">AI Suggested Tasks</CardDescription>
             </CardHeader>
-            <CardContent className="p-0 max-h-60 overflow-y-auto">
+            <CardContent className="p-0 max-h-72 overflow-y-auto">
+              {isLoadingAdminTasks ? (
+                <div className="p-3 space-y-2">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              ) : adminToDoList.length === 0 && !isLoadingAdminTasks ? (
+                 <p className="text-sidebar-foreground/50 text-xs text-center p-3">No specific action items from AI. System looks good!</p>
+              ) : (
               <Accordion type="multiple" className="w-full text-xs">
                 {adminToDoList.map((category) => (
                   <AccordionItem value={category.id} key={category.id} className="border-sidebar-border last:border-b-0">
@@ -371,7 +260,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="bg-sidebar-background/50"> 
-                      {category.tasks && category.tasks.length > 0 && (
+                      {category.tasks && category.tasks.length > 0 ? (
                         <ul className="space-y-1.5 p-3">
                           {category.tasks.map(task => (
                             <li key={task.id} className="flex items-center space-x-2">
@@ -383,60 +272,30 @@ export function AppLayout({ children }: { children: ReactNode }) {
                               />
                               <Label
                                 htmlFor={`sidebar-task-${task.id}`}
-                                className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`}
+                                className={cn(
+                                  'text-xs cursor-pointer',
+                                  task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90',
+                                  mapPriorityToStyle(task.priority)
+                                )}
                               >
                                 {task.label}
                               </Label>
                             </li>
                           ))}
                         </ul>
-                      )}
-                      {category.subCategories && category.subCategories.length > 0 && (
-                        <Accordion type="multiple" className="w-full pl-3">
-                          {category.subCategories.map(subCat => (
-                            <AccordionItem value={subCat.id} key={subCat.id} className="border-l-2 border-sidebar-primary/20 pl-2 my-0.5 rounded-r-md">
-                              <AccordionTrigger className="text-xs hover:no-underline py-1.5 font-medium text-sidebar-foreground hover:text-sidebar-primary">
-                                {subCat.name}
-                              </AccordionTrigger>
-                              <AccordionContent className="bg-sidebar-background/30">
-                                <ul className="space-y-1.5 p-3">
-                                  {subCat.tasks.map(task => (
-                                    <li key={task.id} className="flex items-center space-x-2">
-                                      <Checkbox
-                                        id={`sidebar-task-${task.id}`}
-                                        checked={task.completed}
-                                        onCheckedChange={() => toggleAdminTaskCompletion(task.id)}
-                                        className="border-sidebar-primary data-[state=checked]:bg-sidebar-primary data-[state=checked]:text-sidebar-primary-foreground"
-                                      />
-                                      <Label
-                                        htmlFor={`sidebar-task-${task.id}`}
-                                        className={`text-xs ${task.completed ? 'line-through text-sidebar-foreground/50' : 'text-sidebar-foreground/90'}`}
-                                      >
-                                        {task.label}
-                                      </Label>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      )}
-                       {(!category.tasks || category.tasks.length === 0) && (!category.subCategories || category.subCategories.length === 0) && (
-                          <p className="text-xs text-sidebar-foreground/50 pl-3 py-2">No tasks in this category.</p>
+                      ) : (
+                         <p className="text-xs text-sidebar-foreground/50 pl-3 py-2">No tasks in this category.</p>
                       )}
                     </AccordionContent>
                   </AccordionItem>
                 ))}
               </Accordion>
-              {adminToDoList.length === 0 && (
-                <p className="text-sidebar-foreground/50 text-xs text-center p-3">All tasks completed!</p>
               )}
             </CardContent>
              <CardFooter className="p-2 border-t border-sidebar-border">
                   <p className="text-xs text-sidebar-foreground/80 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3 text-green-400" />
-                      Tasks reflect development priorities.
+                      Tasks are AI-generated based on simulated metrics.
                   </p>
               </CardFooter>
           </Card>
@@ -515,3 +374,4 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+  
