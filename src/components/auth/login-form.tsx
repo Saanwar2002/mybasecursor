@@ -18,7 +18,7 @@ import { useAuth, UserRole, User } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
-import { User as UserIconLucide, Briefcase, CarIcon, Loader2, Shield, KeyRound, AlertTriangle } from "lucide-react";
+import { User as UserIconLucide, Briefcase, CarIcon, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth";
@@ -44,9 +44,9 @@ export function LoginForm() {
   const { login: contextLogin } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [showPinLogin, setShowPinLogin] = useState(false);
-  const [pinUserEmail, setPinUserEmail] = useState<string | null>(null);
-  const [pinInputValue, setPinInputValue] = useState(""); 
+  const [loginMode, setLoginMode] = useState<'email' | 'pin'>('email');
+  const [storedPinUser, setStoredPinUser] = useState<StoredPinUser | null>(null);
+  const [pinInputValue, setPinInputValue] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -62,23 +62,25 @@ export function LoginForm() {
     defaultValues: {
       pin: "",
     },
-    // mode: "onChange", // You might consider this if errors don't clear as expected
   });
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (loginMode === 'pin' && typeof window !== "undefined") {
       const storedUserData = localStorage.getItem('linkCabsUserWithPin');
       if (storedUserData) {
         try {
           const parsedData: StoredPinUser = JSON.parse(storedUserData);
-          setPinUserEmail(parsedData.email);
+          setStoredPinUser(parsedData);
         } catch (e) {
           console.error("Error parsing stored PIN user data from localStorage:", e);
           localStorage.removeItem('linkCabsUserWithPin');
+          setStoredPinUser(null);
         }
+      } else {
+        setStoredPinUser(null);
       }
     }
-  }, []);
+  }, [loginMode]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -191,32 +193,29 @@ export function LoginForm() {
 
   async function onPinSubmit(values: z.infer<typeof pinFormSchema>) {
     setIsLoading(true);
-    const storedUserData = localStorage.getItem('linkCabsUserWithPin');
-    if (!storedUserData) {
-      toast({ title: "PIN Login Failed", description: "No PIN found for this device. Please login with password to set up a PIN.", variant: "destructive" });
+    if (!storedPinUser) {
+      toast({ title: "PIN Login Error", description: "No PIN user data found. Please switch to email/password login.", variant: "destructive" });
       setIsLoading(false);
-      setShowPinLogin(false);
-      setPinInputValue("");
       return;
     }
+
     try {
-      const storedUser: StoredPinUser = JSON.parse(storedUserData);
-      if (storedUser.pin === values.pin) { 
+      if (storedPinUser.pin === values.pin) { 
         contextLogin(
-          storedUser.id,
-          storedUser.email,
-          storedUser.name,
-          storedUser.role,
-          storedUser.vehicleCategory,
-          storedUser.phoneNumber,
-          storedUser.phoneVerified,
-          storedUser.status,
-          storedUser.phoneVerificationDeadline,
-          storedUser.customId,
-          storedUser.operatorCode,
-          storedUser.driverIdentifier
+          storedPinUser.id,
+          storedPinUser.email,
+          storedPinUser.name,
+          storedPinUser.role,
+          storedPinUser.vehicleCategory,
+          storedPinUser.phoneNumber,
+          storedPinUser.phoneVerified,
+          storedPinUser.status,
+          storedPinUser.phoneVerificationDeadline,
+          storedPinUser.customId,
+          storedPinUser.operatorCode,
+          storedPinUser.driverIdentifier
         );
-        toast({ title: "PIN Login Successful", description: `Welcome back, ${storedUser.name}!` });
+        toast({ title: "PIN Login Successful", description: `Welcome back, ${storedPinUser.name}!` });
         setPinInputValue(""); 
       } else {
         toast({ title: "PIN Login Failed", description: "Incorrect PIN.", variant: "destructive" });
@@ -260,6 +259,17 @@ export function LoginForm() {
     });
     setPinInputValue(""); 
   };
+  
+  const switchToPinLogin = () => {
+    setLoginMode('pin');
+    setPinInputValue("");
+    pinForm.reset();
+  };
+
+  const switchToEmailLogin = () => {
+    setLoginMode('email');
+    form.reset(); // Reset email/password form
+  };
 
   return (
     <>
@@ -273,7 +283,7 @@ export function LoginForm() {
         </AlertDescription>
       </Alert>
 
-      {!showPinLogin ? (
+      {loginMode === 'email' ? (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
@@ -347,11 +357,9 @@ export function LoginForm() {
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Login with Email/Password
             </Button>
-             {pinUserEmail && (
-              <Button type="button" variant="outline" className="w-full" onClick={() => { setShowPinLogin(true); setPinInputValue(""); pinForm.reset(); }} disabled={isLoading}>
-                <KeyRound className="mr-2 h-4 w-4" /> Quick Login with PIN (for {pinUserEmail.length > 15 ? pinUserEmail.substring(0,12) + "..." : pinUserEmail})
-              </Button>
-            )}
+            <Button type="button" variant="outline" className="w-full" onClick={switchToPinLogin} disabled={isLoading}>
+              <KeyRound className="mr-2 h-4 w-4" /> Use Quick PIN Login
+            </Button>
             <p className="text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="underline text-accent hover:text-accent/90">
@@ -360,12 +368,22 @@ export function LoginForm() {
             </p>
           </form>
         </Form>
-      ) : (
+      ) : ( // PIN Login Mode
         <Form {...pinForm}>
           <form onSubmit={pinForm.handleSubmit(onPinSubmit)} className="space-y-6">
-            <p className="text-sm text-center text-muted-foreground">
-              Quick login for <span className="font-semibold">{pinUserEmail}</span>.
-            </p>
+            {storedPinUser ? (
+              <p className="text-sm text-center text-muted-foreground">
+                Enter PIN for <span className="font-semibold">{storedPinUser.email.length > 20 ? storedPinUser.email.substring(0,17) + "..." : storedPinUser.email}</span>.
+              </p>
+            ) : (
+              <Alert variant="default" className="bg-blue-50 border-blue-300">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-700">No PIN Configured</AlertTitle>
+                <AlertDescription className="text-blue-600">
+                  No PIN is set up for quick login on this device. Please log in with your email and password, then set up a PIN in your profile if you wish.
+                </AlertDescription>
+              </Alert>
+            )}
             <FormField
               control={pinForm.control}
               name="pin"
@@ -381,10 +399,9 @@ export function LoginForm() {
                         const newRawValue = e.target.value;
                         const newNumericValue = newRawValue.replace(/\D/g, "").slice(0, 4);
                         setPinInputValue(newNumericValue); 
-                        // Use pinForm.setValue to explicitly update RHF and trigger validation
                         pinForm.setValue("pin", newNumericValue, { shouldValidate: true });
                       }}
-                      disabled={isLoading}
+                      disabled={isLoading || !storedPinUser}
                       className="text-center text-2xl tracking-[0.5em]"
                       inputMode="numeric"
                     />
@@ -393,11 +410,11 @@ export function LoginForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || !storedPinUser}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
               Login with PIN
             </Button>
-            <Button type="button" variant="link" className="w-full" onClick={() => { setShowPinLogin(false); setPinInputValue(""); }} disabled={isLoading}>
+            <Button type="button" variant="link" className="w-full" onClick={switchToEmailLogin} disabled={isLoading}>
               Login with Email/Password instead
             </Button>
           </form>
@@ -442,4 +459,3 @@ export function LoginForm() {
     </>
   );
 }
-
