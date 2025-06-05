@@ -1,7 +1,8 @@
+
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader'; // Renamed to avoid conflict
+import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader'; 
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -148,6 +149,8 @@ export default function MyActiveRidePage() {
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+  
+  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>({ lat: 53.6450, lng: -1.7830 }); // Default center
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
     resolver: zodResolver(editDetailsFormSchema),
@@ -174,22 +177,25 @@ export default function MyActiveRidePage() {
       if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`})); throw new Error(errorData.details || errorData.message); }
       const data: ActiveRide | null = await response.json();
       setActiveRide(data);
+      if (data?.pickupLocation) {
+        setDriverLocation({lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude});
+      }
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; setError(message); toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" });
     } finally { setIsLoading(false); }
   }, [user, toast]);
 
   useEffect(() => { fetchActiveRide(); }, [fetchActiveRide]);
   
-  useEffect(() => { // Simulate driver ETA updates
+  useEffect(() => { 
     if (activeRide && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup')) {
       const interval = setInterval(() => {
         setActiveRide(prev => {
           if (!prev) return null;
-          let newEta = prev.driverEtaMinutes ? Math.max(0, prev.driverEtaMinutes - 1) : (Math.floor(Math.random() * 5) + 2); // Initial random if not set
+          let newEta = prev.driverEtaMinutes ? Math.max(0, prev.driverEtaMinutes - 1) : (Math.floor(Math.random() * 5) + 2); 
           if (prev.status === 'arrived_at_pickup') newEta = 0;
           return { ...prev, driverEtaMinutes: newEta };
         });
-      }, 60000); // Update ETA every minute
+      }, 60000); 
       return () => clearInterval(interval);
     }
   }, [activeRide]);
@@ -213,18 +219,18 @@ export default function MyActiveRidePage() {
   const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
     setRideToEditDetails(ride);
     editDetailsForm.reset({
-        pickupDoorOrFlat: ride.pickupLocation.doorOrFlat || "",
-        pickupLocation: ride.pickupLocation.address,
-        dropoffDoorOrFlat: ride.dropoffLocation.doorOrFlat || "",
-        dropoffLocation: ride.dropoffLocation.address,
+        pickupDoorOrFlat: ride.pickupLocation?.doorOrFlat || "",
+        pickupLocation: ride.pickupLocation?.address || "",
+        dropoffDoorOrFlat: ride.dropoffLocation?.doorOrFlat || "",
+        dropoffLocation: ride.dropoffLocation?.address || "",
         stops: ride.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || ""})) || [],
         desiredPickupDate: ride.scheduledPickupAt ? parseISO(ride.scheduledPickupAt) : undefined,
         desiredPickupTime: ride.scheduledPickupAt ? format(parseISO(ride.scheduledPickupAt), "HH:mm") : "",
     });
-    setDialogPickupInputValue(ride.pickupLocation.address);
-    setDialogPickupCoords({ lat: ride.pickupLocation.latitude, lng: ride.pickupLocation.longitude });
-    setDialogDropoffInputValue(ride.dropoffLocation.address);
-    setDialogDropoffCoords({ lat: ride.dropoffLocation.latitude, lng: ride.dropoffLocation.longitude });
+    setDialogPickupInputValue(ride.pickupLocation?.address || "");
+    setDialogPickupCoords(ride.pickupLocation ? { lat: ride.pickupLocation.latitude, lng: ride.pickupLocation.longitude } : null);
+    setDialogDropoffInputValue(ride.dropoffLocation?.address || "");
+    setDialogDropoffCoords(ride.dropoffLocation ? { lat: ride.dropoffLocation.latitude, lng: ride.dropoffLocation.longitude } : null);
     
     const initialStopData: DialogAutocompleteData[] = (ride.stops || []).map((stop, index) => ({
         fieldId: `dialog-stop-${index}-${Date.now()}`, inputValue: stop.address,
@@ -237,21 +243,34 @@ export default function MyActiveRidePage() {
 
   const handleEditAddressInputChangeFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (inputValue: string, formOnChange: (value: string) => void) => {
     formOnChange(inputValue);
-    const setCoordsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (coords) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords} : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupCoords : setDialogDropoffCoords);
+    const setCoordsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (coords: google.maps.LatLngLiteral | null) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords} : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupCoords : setDialogDropoffCoords);
     setCoordsFunc(null);
 
-    const setShowSuggestionsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (show) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show, inputValue } : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setShowDialogPickupSuggestions : setShowDialogDropoffSuggestions);
+    const setShowSuggestionsFunc = (show: boolean) => {
+      if (typeof formFieldNameOrStopIndex === 'number') {
+        setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show, inputValue } : item));
+      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        setShowDialogPickupSuggestions(show);
+        setDialogPickupInputValue(inputValue);
+      } else {
+        setShowDialogDropoffSuggestions(show);
+        setDialogDropoffInputValue(inputValue);
+      }
+    };
     setShowSuggestionsFunc(inputValue.length >= 2);
     
-    if (typeof formFieldNameOrStopIndex === 'string' && formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupInputValue(inputValue);
-    if (typeof formFieldNameOrStopIndex === 'string' && formFieldNameOrStopIndex === 'dropoffLocation') setDialogDropoffInputValue(inputValue);
-
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     if (inputValue.length < 2) return;
     debounceTimeoutRef.current = setTimeout(() => {
       if (!autocompleteServiceRef.current) return;
-      const setSuggestionsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg, isFetchingSuggestions: false} : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupSuggestions : setDialogDropoffSuggestions);
-      const setIsFetchingFunc = (fetch) => { if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch} : item)); else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupSuggestions(fetch); else setIsFetchingDialogDropoffSuggestions(fetch); };
+      const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => {
+         if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg, isFetchingSuggestions: false} : item));
+         else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg); else setDialogDropoffSuggestions(sugg);
+      };
+      const setIsFetchingFunc = (fetch: boolean) => { 
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch} : item)); 
+        else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(fetch); else setIsFetchingDialogDropoffDetails(fetch);
+      };
       
       setIsFetchingFunc(true);
       autocompleteServiceRef.current.getPlacePredictions({ input: inputValue, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } }, (predictions, status) => {
@@ -287,7 +306,6 @@ export default function MyActiveRidePage() {
   }, [toast]);
 
   const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
-    // Simplified: only show if suggestions already exist and input is long enough
     if (typeof fieldNameOrIndex === 'number') {
         const stop = dialogStopAutocompleteData[fieldNameOrIndex];
         if (stop?.inputValue.length >= 2 && stop.suggestions.length > 0) setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
@@ -328,7 +346,7 @@ export default function MyActiveRidePage() {
         scheduledAtISO = combinedDateTime.toISOString();
     }
 
-    const payload: UpdateDetailsPayload = {
+    const payload: BookingUpdatePayload = { // Ensure this matches the backend expected type
         bookingId: rideToEditDetails.id, passengerId: user.id,
         pickupLocation: { address: values.pickupLocation, latitude: dialogPickupCoords.lat, longitude: dialogPickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
         dropoffLocation: { address: values.dropoffLocation, latitude: dialogDropoffCoords.lat, longitude: dialogDropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat },
@@ -339,8 +357,18 @@ export default function MyActiveRidePage() {
     try {
         const response = await fetch(`/api/bookings/update-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)});
         if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to update booking.'); }
-        const updatedRideData = await response.json();
-        setActiveRide(prev => prev ? {...prev, ...updatedRideData, id: rideToEditDetails.id} : null );
+        const updatedRideDataFromServer = await response.json(); // This should contain the updated booking fields
+        
+        // Update the local activeRide state with the response from the server
+        setActiveRide(prev => prev ? {
+             ...prev, 
+             pickupLocation: updatedRideDataFromServer.pickupLocation,
+             dropoffLocation: updatedRideDataFromServer.dropoffLocation,
+             stops: updatedRideDataFromServer.stops,
+             scheduledPickupAt: updatedRideDataFromServer.scheduledPickupAt,
+             // Potentially other fields like fareEstimate if backend recalculates and returns it
+            } : null );
+
         toast({ title: "Booking Updated", description: "Your ride details have been successfully changed." });
         setIsEditDetailsDialogOpen(false);
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error."; toast({ title: "Update Failed", description: message, variant: "destructive" });
@@ -348,23 +376,23 @@ export default function MyActiveRidePage() {
   };
 
   const handleAcknowledgeArrival = async (rideId: string) => {
-    // Simulate passenger acknowledging driver's arrival
     setActiveRide(prev => prev ? { ...prev, passengerAcknowledgedArrivalTimestamp: { _seconds: Math.floor(Date.now()/1000), _nanoseconds: 0 } } : null);
     toast({title: "Arrival Acknowledged", description: "You've let the driver know you're aware of their arrival."});
-    // In real app, this would call: POST /api/operator/bookings/[bookingId] with { action: 'acknowledge_arrival' }
   };
 
-  const getStatusMessage = (ride: ActiveRide) => {
+  const getStatusMessage = (ride: ActiveRide | null) => {
+    if (!ride || !ride.status) return "Loading status...";
     switch (ride.status.toLowerCase()) {
         case 'pending_assignment': return "Waiting for driver assignment...";
         case 'driver_assigned': return `Driver ${ride.driver || 'N/A'} is on the way. ETA: ${ride.driverEtaMinutes ?? 'calculating...'} min.`;
         case 'arrived_at_pickup': return `Driver ${ride.driver || 'N/A'} has arrived at pickup.`;
         case 'in_progress': return "Ride in progress...";
-        default: return "Loading status...";
+        default: return `Status: ${ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
     }
   };
   
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status: string | undefined) => {
+    if (!status) return 'secondary';
     switch (status.toLowerCase()) {
         case 'pending_assignment': return 'secondary';
         case 'driver_assigned': return 'default';
@@ -374,7 +402,8 @@ export default function MyActiveRidePage() {
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
+  const getStatusBadgeClass = (status: string | undefined) => {
+    if (!status) return '';
     switch (status.toLowerCase()) {
         case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
         case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
@@ -404,6 +433,22 @@ export default function MyActiveRidePage() {
     </ScrollArea>
   );
 
+  const vehicleTypeDisplay = activeRide?.vehicleType 
+    ? activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ') 
+    : 'Vehicle N/A';
+  const statusDisplay = activeRide?.status 
+    ? activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) 
+    : 'Status N/A';
+  const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
+  const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
+  const fareDisplay = `£${(activeRide?.fareEstimate ?? 0).toFixed(2)}`;
+  const paymentMethodDisplay = activeRide?.paymentMethod === 'card' 
+    ? 'Card (pay driver directly)' 
+    : activeRide?.paymentMethod === 'cash' 
+    ? 'Cash to Driver' 
+    : 'Payment N/A';
+
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -426,9 +471,9 @@ export default function MyActiveRidePage() {
         <>
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
             <GoogleMapDisplay
-              center={{ lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude }}
+              center={activeRide.pickupLocation ? { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : driverLocation}
               zoom={14}
-              markers={[{ position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude }, title: "Pickup" }]}
+              markers={activeRide.pickupLocation ? [{ position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude }, title: "Pickup" }] : []}
               className="h-full w-full"
               disableDefaultUI={true}
             />
@@ -438,14 +483,14 @@ export default function MyActiveRidePage() {
             <CardHeader className="flex flex-row justify-between items-start gap-2">
                 <div>
                     <CardTitle className="text-xl flex items-center gap-2">
-                        <Car className="w-5 h-5 text-primary" /> {activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ')}
+                        <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay}
                     </CardTitle>
                     <CardDescription className="text-xs">
                         {activeRide.scheduledPickupAt ? `Scheduled: ${formatDate(null, activeRide.scheduledPickupAt)}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}
                     </CardDescription>
                 </div>
                 <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("text-xs sm:text-sm", getStatusBadgeClass(activeRide.status))}>
-                    {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {statusDisplay}
                 </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -461,20 +506,20 @@ export default function MyActiveRidePage() {
                             <p className="font-semibold">{activeRide.driver}</p>
                             <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p>
                         </div>
-                         <Button variant="outline" size="sm" className="ml-auto">
-                            <MessageSquare className="w-4 h-4 mr-1.5" /> Chat
+                         <Button variant="outline" size="sm" className="ml-auto" asChild>
+                            <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link>
                         </Button>
                     </div>
                 )}
                 <Separator />
                 <div className="text-sm space-y-1">
-                    <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {activeRide.pickupLocation.address}</p>
+                    <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p>
                     {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index+1}:</strong> {stop.address}</p> ))}
-                    <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {activeRide.dropoffLocation.address}</p>
-                    <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{activeRide.fareEstimate.toFixed(2)}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div>
+                    <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p>
+                    <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div>
                     <div className="flex items-center gap-1.5">
                         {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
-                        <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card (pay driver directly)' : 'Cash to Driver'}
+                        <strong>Payment:</strong> {paymentMethodDisplay}
                     </div>
                 </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
@@ -516,17 +561,15 @@ export default function MyActiveRidePage() {
       <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset();}}}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader><DialogTitle>Edit Booking Details</DialogTitle><DialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</DialogDescription></DialogHeader>
-          <ScrollArea className="flex-1 pr-2"> {/* Added ScrollArea */}
+          <ScrollArea className="flex-1 pr-2"> 
             <Form {...editDetailsForm}>
               <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4 py-2">
-                {/* Pickup Location */}
                 <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
                 <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => (
                   <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl>
                   {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupDetails, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem>
                 )} />
 
-                {/* Stops */}
                 {editStopsFields.map((stopField, index) => (
                     <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50">
                         <div className="flex justify-between items-center">
@@ -543,14 +586,12 @@ export default function MyActiveRidePage() {
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
                 
-                {/* Dropoff Location */}
                 <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
                 <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => (
                   <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl>
                   {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffDetails, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem>
                 )} />
                 
-                {/* Scheduled Time */}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => (
                     <FormItem><FormLabel>Pickup Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
@@ -563,7 +604,7 @@ export default function MyActiveRidePage() {
               </form>
             </Form>
           </ScrollArea>
-          <DialogFooter className="mt-auto pt-4 border-t"> {/* Ensure footer is at bottom */}
+          <DialogFooter className="mt-auto pt-4 border-t">
             <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingDetails}>Cancel</Button></DialogClose>
             <Button type="submit" form="edit-details-form-actual" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isUpdatingDetails || !dialogPickupCoords || !dialogDropoffCoords}>
               {isUpdatingDetails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
