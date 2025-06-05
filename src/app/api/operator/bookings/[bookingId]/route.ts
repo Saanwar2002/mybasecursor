@@ -85,7 +85,7 @@ const bookingUpdateSchema = z.object({
   driverId: z.string().optional(),
   driverName: z.string().optional(),
   driverAvatar: z.string().url().optional(),
-  status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'Cancelled', 'pending_assignment', 'arrived_at_pickup', 'driver_assigned']).optional(),
+  status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'completed', 'Cancelled', 'cancelled', 'pending_assignment', 'arrived_at_pickup', 'driver_assigned']).optional(),
   vehicleType: z.string().optional(),
   fareEstimate: z.number().optional(),
   notes: z.string().optional(),
@@ -140,14 +140,21 @@ export async function POST(request: NextRequest, context: GetContext) {
     } else if (updateDataFromPayload.action === 'acknowledge_arrival') {
       updateData.passengerAcknowledgedArrivalTimestamp = Timestamp.now();
     } else if (updateDataFromPayload.action === 'start_ride') {
-      updateData.status = 'In Progress'; 
+      updateData.status = 'in_progress'; // Standardized to lowercase
       updateData.rideStartedAt = Timestamp.now();
     } else if (updateDataFromPayload.action === 'complete_ride') {
-       updateData.status = 'Completed';
+       updateData.status = 'completed'; // Standardized to lowercase
        updateData.completedAt = Timestamp.now();
     } else {
       // Handle direct status updates or other field updates
-      if (updateDataFromPayload.status) updateData.status = updateDataFromPayload.status;
+      if (updateDataFromPayload.status) {
+        // Normalize common statuses to lowercase
+        const statusLower = updateDataFromPayload.status.toLowerCase();
+        if (statusLower === 'completed') updateData.status = 'completed';
+        else if (statusLower === 'cancelled') updateData.status = 'cancelled';
+        else updateData.status = updateDataFromPayload.status; // Keep as is for others like 'Assigned', 'pending_assignment' etc.
+      }
+
       if (updateDataFromPayload.driverId) updateData.driverId = updateDataFromPayload.driverId;
       if (updateDataFromPayload.driverName) updateData.driverName = updateDataFromPayload.driverName;
       if (updateDataFromPayload.driverAvatar) updateData.driverAvatar = updateDataFromPayload.driverAvatar;
@@ -156,11 +163,11 @@ export async function POST(request: NextRequest, context: GetContext) {
       if (updateDataFromPayload.notes) updateData.notes = updateDataFromPayload.notes;
 
       // Specific timestamp logic for certain status transitions
-      if ((updateDataFromPayload.status === 'Assigned' || updateDataFromPayload.status === 'driver_assigned') && updateDataFromPayload.driverId) {
+      if ((updateData.status === 'Assigned' || updateData.status === 'driver_assigned') && updateDataFromPayload.driverId) {
         updateData.driverAssignedAt = Timestamp.now();
-      } else if (updateDataFromPayload.status === 'Completed') {
+      } else if (updateData.status === 'completed') { // lowercase
         updateData.completedAt = Timestamp.now();
-      } else if (updateDataFromPayload.status === 'Cancelled') {
+      } else if (updateData.status === 'cancelled') { // lowercase
         updateData.cancelledAt = Timestamp.now();
         updateData.cancelledBy = 'operator'; 
       }
