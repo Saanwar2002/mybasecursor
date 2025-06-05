@@ -35,7 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -172,6 +172,7 @@ export default function BookRidePage() {
   
   const { toast } = useToast();
   const { user } = useAuth();
+  const router = useRouter();
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
 
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
@@ -286,7 +287,7 @@ export default function BookRidePage() {
     const intervalId = setInterval(() => {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
-    }, 4000); // Change busyness state every 4 seconds
+    }, 4000);
   
     return () => clearInterval(intervalId);
   }, []);
@@ -1486,13 +1487,31 @@ const handleProceedToConfirmation = async () => {
   };
 
   const mapContainerClasses = cn(
-    "w-full h-[35vh] rounded-lg overflow-hidden shadow-md bg-muted/30 mb-3 border-2",
+    "relative w-full h-[35vh] rounded-lg overflow-hidden shadow-md bg-muted/30 mb-3 border-2",
     {
-      'border-border': mapBusynessLevel === 'idle', // Default border
+      'border-border': mapBusynessLevel === 'idle',
       'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
       'animate-flash-red-border': mapBusynessLevel === 'high',
     }
   );
+
+  const getBusynessStatusText = () => {
+    switch (mapBusynessLevel) {
+      case 'idle': return "Ready for Bookings";
+      case 'moderate': return "Moderately Busy";
+      case 'high': return "Currently Very Busy";
+      default: return "";
+    }
+  };
+
+  const getBusynessStatusTextColor = () => {
+    switch (mapBusynessLevel) {
+      case 'idle': return "text-foreground"; // Black/Default text
+      case 'moderate': return "text-yellow-500";
+      case 'high': return "text-red-500";
+      default: return "text-foreground";
+    }
+  };
 
 
   return (
@@ -1529,6 +1548,11 @@ const handleProceedToConfirmation = async () => {
                     className="w-full h-full"
                     disableDefaultUI={true}
                  />
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm p-3 rounded-md shadow-lg pointer-events-none z-10">
+                    <p className={cn("text-sm font-semibold text-center", getBusynessStatusTextColor())}>
+                        {getBusynessStatusText()}
+                    </p>
+                 </div>
               </div>
 
             <Card className="mb-4 bg-primary/5 border-primary/20 shadow-sm">
