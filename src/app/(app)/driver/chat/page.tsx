@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, X } from "lucide-react"; // Added X icon
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ChatUser {
@@ -24,13 +24,14 @@ interface Message {
   timestamp: string;
 }
 
-const initialMockChatUsers: ChatUser[] = [
+// Full mock data (can be used for a general chat list view if needed elsewhere)
+const allMockChatUsers: ChatUser[] = [
   { id: 'passenger1', name: 'Passenger Alice S.', avatar: 'https://placehold.co/40x40.png?text=AS', lastMessage: "I'm at the corner, wearing a red hat.", timestamp: "11:05 AM", unread: 2 },
   { id: 'passenger2', name: 'Passenger Bob J.', avatar: 'https://placehold.co/40x40.png?text=BJ', lastMessage: "Thanks for the ride!", timestamp: "Yesterday" },
   { id: 'operator', name: 'TaxiBase Dispatch', avatar: 'https://placehold.co/40x40.png?text=TB', lastMessage: "New high priority pickup available.", timestamp: "2 hrs ago" },
 ];
 
-const initialMockMessages: { [key: string]: Message[] } = {
+const allMockMessages: { [key: string]: Message[] } = {
   passenger1: [
     { id: 'm1', sender: 'other', text: "Hello, I'm your passenger. I'm waiting at 123 Oak St.", timestamp: "11:00 AM" },
     { id: 'm2', sender: 'user', text: "On my way! Should be there in 5 minutes.", timestamp: "11:01 AM" },
@@ -45,11 +46,27 @@ const initialMockMessages: { [key: string]: Message[] } = {
   ]
 };
 
+// Simulate an active ride context with "Passenger Alice S."
+const activePassengerIdForContext = 'passenger1';
+const dispatchIdForContext = 'operator';
+
+const contextualInitialChatUsers: ChatUser[] = allMockChatUsers.filter(
+  user => user.id === activePassengerIdForContext || user.id === dispatchIdForContext
+);
+
+const contextualInitialMessages: { [key: string]: Message[] } = {
+  [activePassengerIdForContext]: allMockMessages[activePassengerIdForContext] || [],
+  [dispatchIdForContext]: allMockMessages[dispatchIdForContext] || [],
+};
+
+
 export default function DriverChatPage() {
-  const [chatUsersList, setChatUsersList] = useState<ChatUser[]>(initialMockChatUsers);
-  const [selectedChat, setSelectedChat] = useState<ChatUser | null>(initialMockChatUsers[0]);
-  const [messages, setMessages] = useState<Message[]>(initialMockMessages[initialMockChatUsers[0].id]);
-  const [messagesData, setMessagesData] = useState<{ [key: string]: Message[] }>(initialMockMessages);
+  const [chatUsersList, setChatUsersList] = useState<ChatUser[]>(contextualInitialChatUsers);
+  const [selectedChat, setSelectedChat] = useState<ChatUser | null>(
+    contextualInitialChatUsers.find(u => u.id === activePassengerIdForContext) || contextualInitialChatUsers[0] || null
+  );
+  const [messages, setMessages] = useState<Message[]>(selectedChat ? contextualInitialMessages[selectedChat.id] || [] : []);
+  const [messagesData, setMessagesData] = useState<{ [key: string]: Message[] }>(contextualInitialMessages);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +79,8 @@ export default function DriverChatPage() {
   useEffect(() => {
     if (selectedChat) {
       setMessages(messagesData[selectedChat.id] || []);
+    } else {
+      setMessages([]); // Clear messages if no chat is selected
     }
   }, [selectedChat, messagesData]);
 
@@ -89,7 +108,7 @@ export default function DriverChatPage() {
     const updatedMessagesForSelectedChat = [...(messagesData[selectedChat.id] || []), userMsg];
     setMessagesData(prevData => ({
       ...prevData,
-      [selectedChat.id]: updatedMessagesForSelectedChat,
+      [selectedChat.id!]: updatedMessagesForSelectedChat, // selectedChat is guaranteed here
     }));
     
     setChatUsersList(prevUsers => 
@@ -97,10 +116,11 @@ export default function DriverChatPage() {
         u.id === selectedChat.id ? { ...u, lastMessage: newMessage, timestamp: currentTime, unread: 0 } : u
       )
     );
+    // Update selectedChat to reflect new last message (optional, but good for consistency if selectedChat object is used elsewhere)
     setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: newMessage, timestamp: currentTime, unread: 0} : null);
 
     const replyText = `Copy that: "${newMessage.substring(0, 20)}${newMessage.length > 20 ? '...' : ''}".`;
-    setNewMessage(""); // Clear input after capturing value
+    setNewMessage("");
 
     setTimeout(() => {
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -110,21 +130,23 @@ export default function DriverChatPage() {
         text: replyText,
         timestamp: replyTime,
       };
-      setMessages(prev => [...prev, replyMsg]);
+      // Ensure selectedChat is still valid before updating its messages
+      if(selectedChat && messagesData[selectedChat.id]){
+        setMessages(prev => [...prev, replyMsg]);
       
-      const finalMessagesForChat = [...updatedMessagesForSelectedChat, replyMsg];
-      setMessagesData(prevData => ({
-        ...prevData,
-        [selectedChat.id]: finalMessagesForChat,
-      }));
-      
-      setChatUsersList(prevUsers => 
-        prevUsers.map(u => 
-          u.id === selectedChat.id ? { ...u, lastMessage: replyText, timestamp: replyTime } : u
-        )
-      );
-      setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: replyText, timestamp: replyTime} : null);
-
+        const finalMessagesForChat = [...updatedMessagesForSelectedChat, replyMsg];
+        setMessagesData(prevData => ({
+          ...prevData,
+          [selectedChat.id!]: finalMessagesForChat,
+        }));
+        
+        setChatUsersList(prevUsers => 
+          prevUsers.map(u => 
+            u.id === selectedChat.id ? { ...u, lastMessage: replyText, timestamp: replyTime } : u
+          )
+        );
+        setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: replyText, timestamp: replyTime} : null);
+      }
     }, 1200);
   };
 
@@ -169,7 +191,7 @@ export default function DriverChatPage() {
       <Card className="flex-1 flex flex-col rounded-l-none shadow-lg">
         {selectedChat ? (
           <>
-            <CardHeader className="border-b p-4">
+            <CardHeader className="border-b p-4 flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar>
                   <AvatarImage src={selectedChat.avatar} alt={selectedChat.name} data-ai-hint="avatar profile" />
@@ -177,6 +199,10 @@ export default function DriverChatPage() {
                 </Avatar>
                 <CardTitle className="text-xl font-headline">{selectedChat.name}</CardTitle>
               </div>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close chat</span>
+              </Button>
             </CardHeader>
             <ScrollArea className="flex-1 p-4 space-y-4 bg-muted/20">
               {messages.map(msg => (
@@ -208,10 +234,11 @@ export default function DriverChatPage() {
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-4">
             <MessageCircle className="w-16 h-16 mb-4" />
             <p className="text-lg">Select a chat to start messaging</p>
-            <p className="text-sm">Communicate with passengers or support here.</p>
+            <p className="text-sm">Communicate with passengers or dispatch here.</p>
           </div>
         )}
       </Card>
     </div>
   );
 }
+
