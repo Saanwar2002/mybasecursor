@@ -56,7 +56,7 @@ interface RideRequest {
   rideStartedAt?: string | null;
   completedAt?: string | null;
   requiredOperatorId?: string;
-  paymentMethod?: 'card' | 'cash'; // Added paymentMethod
+  paymentMethod?: 'card' | 'cash';
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -492,7 +492,7 @@ export default function AvailableRidesPage() {
               ))}
               <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
                 <p className="flex items-center gap-1"><DollarSignIcon className="w-4 h-4 text-muted-foreground" /> <strong>Fare:</strong> ~£{activeRide.fareEstimate.toFixed(2)}</p>
-                <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Pax:</strong> {activeRide.passengerCount}</p>
+                <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
                  {activeRide.paymentMethod && (
                     <p className="flex items-center gap-1 col-span-2 mt-1">
                         {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
@@ -670,13 +670,13 @@ export default function AvailableRidesPage() {
                 if (activeRide) {
                     handleRideAction(activeRide.id, 'cancel_active');
                 }
-                setShowCancelConfirmationDialog(false); 
-                }}
+                setShowCancelConfirmationDialog(false);
+              }}
                 disabled={activeRide ? actionLoading[activeRide.id] : false}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
-                {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Confirm Cancel
+              {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirm Cancel
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

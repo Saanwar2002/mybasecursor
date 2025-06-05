@@ -29,7 +29,7 @@ export interface RideOffer {
   notes?: string;
   requiredOperatorId?: string;
   distanceMiles?: number;
-  paymentMethod?: 'card' | 'cash'; // Added paymentMethod
+  paymentMethod?: 'card' | 'cash';
 }
 
 interface RideOfferModalProps {
