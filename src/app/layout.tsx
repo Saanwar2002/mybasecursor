@@ -1,6 +1,6 @@
 
 import type { Metadata } from 'next';
-// import { AuthProvider } from '@/contexts/auth-context'; // AuthProvider remains commented out
+// import { AuthProvider } from '@/contexts/auth-context'; // AuthProvider remains commented out for now based on previous steps
 // import { Toaster } from "@/components/ui/toaster"; // Toaster is now commented out
 // import { ThemeInitializer } from '@/components/theme-provider'; // ThemeInitializer now commented out
 import './globals.css';
