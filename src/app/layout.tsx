@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 // import { AuthProvider } from '@/contexts/auth-context'; // AuthProvider remains commented out
 // import { Toaster } from "@/components/ui/toaster"; // Toaster is now commented out
 // import { ThemeInitializer } from '@/components/theme-provider'; // ThemeInitializer now commented out
-import './globals.css';
+import './globals.css'; // Ensure this is uncommented and present
 
 export const metadata: Metadata = {
   title: 'Link Cabs',
