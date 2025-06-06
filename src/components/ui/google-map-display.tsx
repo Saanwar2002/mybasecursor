@@ -23,7 +23,8 @@ interface GoogleMapDisplayProps {
   fitBoundsToMarkers?: boolean;
 }
 
-const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyDZuA2S5Ia1DnKgaxQ60wzxyOsRW8WdUH8"; // Same as Firebase fallback
+// Updated Fallback API Key to the one user confirmed is working
+const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4";
 
 const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   center,
@@ -35,10 +36,6 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   disableDefaultUI = false,
   fitBoundsToMarkers = false,
 }) => {
-  // TEMPORARY DEBUG LOGS:
-  console.log("GoogleMapDisplay ENV CHECK: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:", process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
-  console.log("GoogleMapDisplay ENV CHECK: NEXT_PUBLIC_FIREBASE_API_KEY:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
-
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const currentMarkersRef = useRef<google.maps.Marker[]>([]);
@@ -52,27 +49,34 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   useEffect(() => {
     let isMounted = true;
 
+    // Log environment variables seen by the component
+    console.log("GoogleMapDisplay ENV CHECK (mounted): NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:", process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+    console.log("GoogleMapDisplay ENV CHECK (mounted): NEXT_PUBLIC_FIREBASE_API_KEY:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+
     const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const firebaseApiKeyForMapsFallback = process.env.NEXT_PUBLIC_FIREBASE_API_KEY; // Use this for the second check if primary maps key is missing
     let apiKeyToUse: string | undefined = undefined;
     let apiKeySource: string = "unknown";
 
     if (googleMapsApiKey && googleMapsApiKey.trim() !== "") {
       apiKeyToUse = googleMapsApiKey;
       apiKeySource = "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY";
-    } else if (firebaseApiKey && firebaseApiKey.trim() !== "") {
-      apiKeyToUse = firebaseApiKey;
-      apiKeySource = "NEXT_PUBLIC_FIREBASE_API_KEY (as fallback)";
+    } else if (firebaseApiKeyForMapsFallback && firebaseApiKeyForMapsFallback.trim() !== "") {
+      apiKeyToUse = firebaseApiKeyForMapsFallback;
+      apiKeySource = "NEXT_PUBLIC_FIREBASE_API_KEY (as fallback for Maps)";
     } else {
       apiKeyToUse = FALLBACK_API_KEY_FOR_MAPS;
-      apiKeySource = "Hardcoded Fallback";
+      apiKeySource = "Hardcoded Fallback (User Confirmed Key)";
     }
     
     if (isMounted) setUsedApiKeySource(apiKeySource);
+    console.log(`GoogleMapDisplay: Attempting to use API Key from source: ${apiKeySource}, Key starts with: ${apiKeyToUse?.substring(0, 10)}...`);
+
 
     if (!apiKeyToUse) { 
       if (isMounted) {
         setMapError("Critical Error: No Google Maps API Key could be determined. Map cannot be loaded.");
+        console.error("GoogleMapDisplay: No API Key determined after checking env vars and fallback.");
       }
       return;
     }
@@ -90,23 +94,27 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       if (isMounted) {
         if (googleInstance && googleInstance.maps && googleInstance.maps.Map) {
            setIsSdkLoaded(true);
+           console.log("GoogleMapDisplay: SDK loaded successfully.");
         } else {
-           setMapError(`Google Maps SDK loaded, but 'google.maps.Map' is not available. API Key used: ${apiKeySource}. Check API key permissions for Maps JavaScript API in Google Cloud Console.`);
+           const errorMsg = `Google Maps SDK loaded, but 'google.maps.Map' is not available. API Key used from: ${apiKeySource}. Check API key permissions for "Maps JavaScript API" in Google Cloud Console.`;
+           setMapError(errorMsg);
+           console.error("GoogleMapDisplay Error:", errorMsg);
            setIsSdkLoaded(false);
         }
       }
     }).catch(e => {
       if (isMounted) {
-        console.error("Failed to load Google Maps SDK:", e);
-        setMapError(`Failed to load Google Maps SDK. API Key used: ${apiKeySource}. Check API key, network, and console. Error: ${e.message || String(e)}`);
+        const errorMsg = `Failed to load Google Maps SDK. API Key used from: ${apiKeySource}. Check API key, network, and console. Error: ${e.message || String(e)}`;
+        console.error("GoogleMapDisplay: SDK Load Error:", e);
+        setMapError(errorMsg);
         setIsSdkLoaded(false);
       }
     });
     return () => { isMounted = false; };
-  }, []);
+  }, []); // Removed dependencies to ensure it only runs once on mount
 
   useEffect(() => {
-    if (!isSdkLoaded || !mapRef.current || !google.maps) { 
+    if (!isSdkLoaded || !mapRef.current || typeof google === 'undefined' || !google.maps) { 
       return;
     }
 
@@ -128,12 +136,11 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         mapOptions.fullscreenControl = false;
     }
 
-
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
       mapInstanceRef.current = new google.maps.Map(mapRef.current, mapOptions);
     } else if (mapInstanceRef.current) {
-      mapInstanceRef.current.setOptions(mapOptions); 
-
+      // Only update options if they have changed, avoid re-creating the map unnecessarily.
+      // For fitBoundsToMarkers, the logic below will handle center/zoom adjustments.
       if (!fitBoundsToMarkers || !markers || markers.length < 1) {
         const currentMapCenter = mapInstanceRef.current.getCenter();
         if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
@@ -145,9 +152,11 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     }
 
+    // Clear existing markers
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
+    // Add new markers
     if (markers && markers.length > 0 && mapInstanceRef.current && google.maps && google.maps.Marker && google.maps.LatLngBounds) {
       const bounds = new google.maps.LatLngBounds();
       markers.forEach(markerData => {
@@ -175,12 +184,13 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
         if (markers.length === 1) {
             mapInstanceRef.current.setCenter(bounds.getCenter());
-            mapInstanceRef.current.setZoom(zoom); 
+            mapInstanceRef.current.setZoom(zoom); // Use default zoom for single marker unless specified otherwise
         } else {
-            mapInstanceRef.current.fitBounds(bounds, 60); 
+            mapInstanceRef.current.fitBounds(bounds, 60); // Padding of 60px
         }
       }
     } else if (mapInstanceRef.current && (!markers || markers.length === 0)) {
+      // If no markers or fitBounds is false, ensure map is centered and zoomed as per props
        const currentMapCenter = mapInstanceRef.current.getCenter();
         if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
           mapInstanceRef.current.setCenter(center);
@@ -190,8 +200,9 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         }
     }
 
-  }, [isSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers]);
+  }, [isSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers]); // Added dependencies that control map instance re-creation or updates
 
+  // Cleanup markers on unmount
   useEffect(() => {
     return () => {
       currentMarkersRef.current.forEach(marker => marker.setMap(null));
