@@ -189,6 +189,9 @@ export default function MyActiveRidePage() {
   const [extraWaitingSeconds, setExtraWaitingSeconds] = useState<number | null>(null);
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
   const passengerWaitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
     resolver: zodResolver(editDetailsFormSchema),
@@ -524,6 +527,27 @@ export default function MyActiveRidePage() {
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
             </CardContent>
              {activeRide.status === 'pending_assignment' && ( <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2"> <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto"> <Edit className="mr-2 h-4 w-4" /> Edit Booking </Button> <div className="flex items-center space-x-2 bg-destructive/10 p-2 rounded-md w-full sm:w-auto justify-center sm:justify-start"> <Label htmlFor={`cancel-switch-${activeRide.id}`} className="text-destructive font-medium text-sm flex items-center"> <ShieldX className="mr-1.5 h-4 w-4" /> Initiate Cancellation </Label> <Switch id={`cancel-switch-${activeRide.id}`} checked={isCancelSwitchOn && rideToCancel?.id === activeRide.id} onCheckedChange={handleCancelSwitchChange} disabled={isCancelling} className="data-[state=checked]:bg-destructive data-[state=unchecked]:bg-muted shrink-0" /> </div> </CardFooter> )}
+             {(activeRide.status === 'completed' || activeRide.status === 'cancelled_by_driver') && (
+                <CardFooter className="border-t pt-4">
+                  <Button className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" onClick={() => {
+                    if (activeRide.status === 'completed' && driverRatingForPassenger > 0) {
+                      console.log(`Passenger rated driver ${driverRatingForPassenger} stars for ride ${activeRide.id}.`);
+                      toast({title: "Rating Submitted (Mock)", description: `You rated the driver ${driverRatingForPassenger} stars.`});
+                    }
+                    setDriverRatingForPassenger(0); 
+                    setCurrentWaitingCharge(0);
+                    setIsCancelSwitchOn(false);
+                    fetchActiveRide(); 
+                  }}
+                  disabled={actionLoading[activeRide.id]}
+                  >
+                    <span className="flex items-center justify-center">
+                      {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />}
+                       Done
+                    </span>
+                  </Button>
+                </CardFooter>
+             )}
           </Card>
         </>
       )}
