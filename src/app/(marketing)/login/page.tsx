@@ -1,4 +1,5 @@
-"use client";
+
+"use client"; // Ensure this is present
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";

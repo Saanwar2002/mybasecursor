@@ -1,3 +1,6 @@
+
+"use client"; // Add this line
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RegisterForm } from "@/components/auth/register-form";
 import { UserPlus } from "lucide-react";
