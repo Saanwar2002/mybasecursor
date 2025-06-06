@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check } from "lucide-react";
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -129,6 +129,16 @@ const FREE_WAITING_TIME_SECONDS_PASSENGER = 3 * 60; // 3 minutes
 const WAITING_CHARGE_PER_MINUTE_PASSENGER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS = 30;
 
+const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
+const blueDotSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
+    <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
+  </svg>
+`;
+const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
+
+
 const parseTimestampToDatePassenger = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
   if (!timestamp) return null;
   if (typeof timestamp === 'string') {
@@ -181,7 +191,7 @@ export default function MyActiveRidePage() {
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
   
-  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>({ lat: 53.6450, lng: -1.7830 }); 
+  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle); 
 
   const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
   const [freeWaitingSecondsLeft, setFreeWaitingSecondsLeft] = useState<number | null>(null);
@@ -456,6 +466,46 @@ export default function MyActiveRidePage() {
     }
   };
 
+  const mapMarkers = useMemo(() => {
+    if (!activeRide) return [];
+    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    markers.push({ position: driverLocation, title: "Your Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+
+    if (activeRide.pickupLocation) {
+      markers.push({
+        position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
+        title: `Pickup: ${activeRide.pickupLocation.address}`,
+        label: { text: "P", color: "white", fontWeight: "bold"}
+      });
+    }
+    if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) {
+      markers.push({
+        position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
+        title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+        label: { text: "D", color: "white", fontWeight: "bold" }
+      });
+    }
+    activeRide.stops?.forEach((stop, index) => {
+      if(stop.latitude && stop.longitude) {
+        markers.push({
+          position: {lat: stop.latitude, lng: stop.longitude},
+          title: `Stop ${index+1}: ${stop.address}`,
+          label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+        });
+      }
+    });
+    return markers;
+  }, [activeRide, driverLocation]);
+
+  const mapCenter = useMemo(() => {
+    if (activeRide?.status === 'driver_assigned' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
+    if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
+    if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
+    if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
+    // Fallback to driverLocation or a default center if driverLocation is not set
+    return driverLocation || huddersfieldCenterGoogle;
+  }, [activeRide, driverLocation]);
+
   if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
 
@@ -474,7 +524,7 @@ export default function MyActiveRidePage() {
       {activeRide && (
         <>
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
-            <GoogleMapDisplay center={activeRide.pickupLocation ? { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : driverLocation} zoom={14} markers={activeRide.pickupLocation ? [{ position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude }, title: "Pickup" }] : []} className="h-full w-full" disableDefaultUI={true} />
+            <GoogleMapDisplay center={mapCenter} zoom={14} markers={mapMarkers} className="h-full w-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
           </div>
           <Card className="shadow-md">
             <CardHeader className="flex flex-row justify-between items-start gap-2">
@@ -559,10 +609,10 @@ export default function MyActiveRidePage() {
             <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => { setRideToCancel(null); setIsCancelSwitchOn(false);}} disabled={isCancelling}>Keep Ride</AlertDialogCancel>
                 <AlertDialogAction onClick={handleCancelRide} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                    <span className="flex items-center justify-center">
-                        {isCancelling ? <Loader2 className="animate-spin mr-2"/> : null}
-                        Confirm Cancel
-                    </span>
+                  <span className="flex items-center justify-center">
+                    {isCancelling ? <Loader2 className="animate-spin mr-2"/> : null}
+                    Confirm Cancel
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter> 
         </AlertDialogContent> 
