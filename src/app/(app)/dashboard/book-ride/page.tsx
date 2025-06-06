@@ -1740,7 +1740,7 @@ const handleProceedToConfirmation = async () => {
                           type="button"
                           variant="ghost"
                           onClick={handleAddStop}
-                          className="text-sm font-semibold text-accent hover:text-accent/90 bg-accent/10 hover:bg-accent/20 px-6 py-2 rounded-lg shadow-sm"
+                          className="text-sm font-semibold text-accent-foreground hover:text-accent-foreground/90 bg-accent/10 hover:bg-accent/20 px-6 py-2 rounded-lg shadow-sm"
                       >
                           <PlusCircle className="mr-2 h-4 w-4" /> (+ Stop/Pickup)
                       </Button>
