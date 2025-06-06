@@ -2,7 +2,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -529,29 +529,44 @@ export default function MyActiveRidePage() {
              {activeRide.status === 'pending_assignment' && ( <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2"> <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto"> <Edit className="mr-2 h-4 w-4" /> Edit Booking </Button> <div className="flex items-center space-x-2 bg-destructive/10 p-2 rounded-md w-full sm:w-auto justify-center sm:justify-start"> <Label htmlFor={`cancel-switch-${activeRide.id}`} className="text-destructive font-medium text-sm flex items-center"> <ShieldX className="mr-1.5 h-4 w-4" /> Initiate Cancellation </Label> <Switch id={`cancel-switch-${activeRide.id}`} checked={isCancelSwitchOn && rideToCancel?.id === activeRide.id} onCheckedChange={handleCancelSwitchChange} disabled={isCancelling} className="data-[state=checked]:bg-destructive data-[state=unchecked]:bg-muted shrink-0" /> </div> </CardFooter> )}
              {(activeRide.status === 'completed' || activeRide.status === 'cancelled_by_driver') && (
                 <CardFooter className="border-t pt-4">
-                  <Button className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" onClick={() => {
-                    if (activeRide.status === 'completed' && driverRatingForPassenger > 0) {
-                      console.log(`Passenger rated driver ${driverRatingForPassenger} stars for ride ${activeRide.id}.`);
-                      toast({title: "Rating Submitted (Mock)", description: `You rated the driver ${driverRatingForPassenger} stars.`});
-                    }
-                    setDriverRatingForPassenger(0); 
-                    setCurrentWaitingCharge(0);
-                    setIsCancelSwitchOn(false);
-                    fetchActiveRide(); 
-                  }}
-                  disabled={actionLoading[activeRide.id]}
-                  >
-                    <span className="flex items-center justify-center">
-                      {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />}
-                       Done
-                    </span>
-                  </Button>
+                  <Button 
+                      className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" 
+                      onClick={() => {
+                        if (activeRide.status === 'completed' && driverRatingForPassenger > 0) {
+                          console.log(`Passenger rated driver ${driverRatingForPassenger} stars for ride ${activeRide.id}.`);
+                          toast({title: "Rating Submitted (Mock)", description: `You rated the driver ${driverRatingForPassenger} stars.`});
+                        }
+                        setDriverRatingForPassenger(0); 
+                        setCurrentWaitingCharge(0);
+                        setIsCancelSwitchOn(false);
+                        fetchActiveRide(); 
+                      }}
+                      disabled={actionLoading[activeRide.id]}
+                    >
+                      <span className="flex items-center justify-center">
+                        {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />}
+                        Done
+                      </span>
+                    </Button>
                 </CardFooter>
              )}
           </Card>
         </>
       )}
-      <AlertDialog open={!!rideToCancel && isCancelSwitchOn} onOpenChange={(isOpen) => { if (!isOpen) { setRideToCancel(null); setIsCancelSwitchOn(false); }}}> <AlertDialogContent> <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader> <AlertDialogFooter><AlertDialogCancel onClick={() => { setRideToCancel(null); setIsCancelSwitchOn(false);}} disabled={isCancelling}>Keep Ride</AlertDialogCancel><AlertDialogAction onClick={handleCancelRide} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90">{isCancelling ? <Loader2 className="animate-spin mr-2"/> : null}Confirm Cancel</AlertDialogAction></AlertDialogFooter> </AlertDialogContent> </AlertDialog>
+      <AlertDialog open={!!rideToCancel && isCancelSwitchOn} onOpenChange={(isOpen) => { if (!isOpen) { setRideToCancel(null); setIsCancelSwitchOn(false); }}}> 
+        <AlertDialogContent> 
+            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader> 
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => { setRideToCancel(null); setIsCancelSwitchOn(false);}} disabled={isCancelling}>Keep Ride</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancelRide} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                    <span className="flex items-center justify-center">
+                        {isCancelling ? <Loader2 className="animate-spin mr-2"/> : null}
+                        Confirm Cancel
+                    </span>
+                </AlertDialogAction>
+            </AlertDialogFooter> 
+        </AlertDialogContent> 
+      </AlertDialog>
       <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset();}}}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
           <DialogHeader className="p-6 pb-0"> <DialogTitle>Edit Booking Details</DialogTitle> <DialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</DialogDescription> </DialogHeader>
