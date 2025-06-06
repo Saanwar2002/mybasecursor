@@ -1,25 +1,23 @@
 
-"use client"; // Required for using client components like GoogleMapDisplay
+"use client"; 
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, MapPin, ShieldCheck, MessagesSquare, Sparkles, Award, Users, Smartphone, CheckCircle2, Smile, DollarSign as DollarSignIcon } from 'lucide-react'; // Renamed DollarSign to avoid conflict
-import Image from 'next/image'; // Keep Image for other images on page if any
+import { Car, MapPin, ShieldCheck, MessagesSquare, Sparkles, Smartphone, CheckCircle2, Smile, DollarSign as DollarSignIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Use the new GoogleMapDisplay component
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-[400px] rounded-xl shadow-2xl mx-auto" />,
 });
 
-const defaultMapCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 }; // Huddersfield HD1, UK
+const defaultMapCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 }; 
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col items-center text-center space-y-16 py-8 md:py-12">
+    <div className="flex flex-col items-center text-center space-y-16 md:space-y-24 py-8 md:py-12">
       {/* Hero Section */}
       <section className="w-full max-w-4xl mx-auto px-4">
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight mb-6">
@@ -36,12 +34,11 @@ export default function LandingPage() {
             <Link href="/login">Login to Your Account</Link>
           </Button>
         </div>
-        <div className="mt-12">
-          <div className="w-full max-w-[800px] h-[400px] rounded-xl shadow-2xl mx-auto overflow-hidden border border-muted">
+        <div className="mt-12 md:mt-16">
+          <div className="w-full max-w-[700px] h-[350px] md:h-[400px] rounded-xl shadow-2xl mx-auto overflow-hidden border-2 border-muted/50">
             <GoogleMapDisplay
               center={defaultMapCenter}
-              zoom={14} // Adjusted zoom for a more local view
-              // markers={[{ position: defaultMapCenter, title: "Link Cabs Huddersfield" }]} // Optional: Add a marker
+              zoom={14}
               className="w-full h-full"
               disableDefaultUI={true}
             />
@@ -82,7 +79,7 @@ export default function LandingPage() {
             description="Easily communicate with your driver for smooth pickups and coordination."
           />
           <FeatureCard
-            icon={DollarSignIcon} // Using the renamed import
+            icon={DollarSignIcon} 
             title="Transparent Pricing"
             description="Know your fare estimate upfront. No hidden charges, just fair pricing."
           />
@@ -90,7 +87,7 @@ export default function LandingPage() {
       </section>
 
       {/* How It Works Section */}
-      <section className="w-full max-w-4xl mx-auto px-4 py-12 bg-muted/50 rounded-xl shadow-inner">
+      <section className="w-full max-w-4xl mx-auto px-4 py-12 bg-muted/30 rounded-xl shadow-inner">
         <h2 className="text-3xl md:text-4xl font-bold font-headline mb-10">Get Going in 3 Easy Steps</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
           <StepCard
@@ -130,7 +127,6 @@ export default function LandingPage() {
   );
 }
 
-// Helper components for structured feature display
 interface FeatureCardProps {
   icon: React.ElementType;
   title: string;
@@ -139,7 +135,7 @@ interface FeatureCardProps {
 
 function FeatureCard({ icon: Icon, title, description }: FeatureCardProps) {
   return (
-    <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 ease-in-out transform hover:-translate-y-1">
+    <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 ease-in-out transform hover:-translate-y-1 bg-card">
       <div className="mb-4 inline-flex items-center justify-center p-3 bg-primary/10 rounded-full">
         <Icon className="w-8 h-8 text-primary" />
       </div>

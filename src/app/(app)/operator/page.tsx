@@ -2,7 +2,7 @@
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import Image from 'next/image';
@@ -20,10 +20,10 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 const mockFleetMarkersData = [
-    { position: {lat: 53.6480, lng: -1.7800}, title: "Driver 1 (John D) - Active" /* iconUrl: "/icons/taxi-marker.png", iconScaledSize: {width: 32, height: 32} */ },
-    { position: {lat: 53.6420, lng: -1.7850}, title: "Driver 2 (Jane S) - Available" /* iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} */ },
-    { position: {lat: 53.6500, lng: -1.7750}, title: "Driver 3 (Mike B) - On Break" /* iconUrl: "/icons/busy-taxi.png", iconScaledSize: {width: 32, height: 32} */ },
-    { position: {lat: 53.6400, lng: -1.7900}, title: "Driver 4 (Sarah W) - Available" /* iconUrl: "/icons/available-taxi.png", iconScaledSize: {width: 32, height: 32} */ },
+    { position: {lat: 53.6480, lng: -1.7800}, title: "Driver 1 (John D) - Active", label: { text: "D1", color: "white", fontWeight: "bold"} },
+    { position: {lat: 53.6420, lng: -1.7850}, title: "Driver 2 (Jane S) - Available", label: { text: "D2", color: "white", fontWeight: "bold"} },
+    { position: {lat: 53.6500, lng: -1.7750}, title: "Driver 3 (Mike B) - On Break", label: { text: "D3", color: "white", fontWeight: "bold"} },
+    { position: {lat: 53.6400, lng: -1.7900}, title: "Driver 4 (Sarah W) - Available", label: { text: "D4", color: "white", fontWeight: "bold"} },
 ];
 
 interface Ride { id: string; status: string; }
