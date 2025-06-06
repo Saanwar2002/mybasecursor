@@ -1580,7 +1580,7 @@ const handleProceedToConfirmation = async () => {
                               </p>
                             </div>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-accent" onClick={() => handleApplySavedRoute(route)}>Apply</Button>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-accent-foreground" onClick={() => handleApplySavedRoute(route)}>Apply</Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteSavedRoute(route.id)} disabled={isDeletingRouteId === route.id}>
                                 {isDeletingRouteId === route.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                               </Button>
@@ -1993,7 +1993,7 @@ const handleProceedToConfirmation = async () => {
                         <Card className="w-full text-center shadow-md mb-4"> 
                           <CardHeader className="p-3">
                             <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
-                              <DollarSign className="w-5 h-5 text-accent" /> Fare Estimate
+                              <DollarSign className="w-5 h-5 text-primary" /> Fare Estimate
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="p-3 pt-0">
@@ -2004,7 +2004,7 @@ const handleProceedToConfirmation = async () => {
                               </div>
                             ) : fareEstimate !== null ? (
                               <>
-                                <p className="text-3xl font-bold text-accent">£{fareEstimate.toFixed(2)}</p>
+                                <p className="text-3xl font-bold text-primary">£{fareEstimate.toFixed(2)}</p>
                                 {isSurgeActive && (
                                   <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
                                     <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
