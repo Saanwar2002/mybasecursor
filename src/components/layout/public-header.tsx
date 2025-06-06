@@ -13,13 +13,13 @@ export function PublicHeader() {
           <Car className="h-6 w-6" />
           <span className="font-headline">Link Cabs</span>
         </Link>
-        <nav className="space-x-2 sm:space-x-4">
-          <Button variant="ghost" asChild>
-            <Link href="/login">Login</Link>
-          </Button>
-          <Button variant="default" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Link href="/register">Sign Up</Link>
-          </Button>
+        <nav className="space-x-4 md:space-x-6">
+          <Link href="/login" className="text-sm font-medium text-primary hover:underline underline-offset-4">
+            Login
+          </Link>
+          <Link href="/register" className="text-sm font-medium text-primary hover:underline underline-offset-4">
+            Sign Up
+          </Link>
         </nav>
       </div>
     </header>
