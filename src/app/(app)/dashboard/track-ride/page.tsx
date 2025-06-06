@@ -130,6 +130,7 @@ const WAITING_CHARGE_PER_MINUTE_PASSENGER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS = 30;
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
+
 const blueDotSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
@@ -469,7 +470,9 @@ export default function MyActiveRidePage() {
   const mapMarkers = useMemo(() => {
     if (!activeRide) return [];
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-    markers.push({ position: driverLocation, title: "Your Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+    if (activeRide.driverCurrentLocation) {
+        markers.push({ position: activeRide.driverCurrentLocation, title: "Driver's Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+    }
 
     if (activeRide.pickupLocation) {
       markers.push({
@@ -495,14 +498,14 @@ export default function MyActiveRidePage() {
       }
     });
     return markers;
-  }, [activeRide, driverLocation]);
+  }, [activeRide]);
 
   const mapCenter = useMemo(() => {
+    if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
     if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
     if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    // Fallback to driverLocation or a default center if driverLocation is not set
     return driverLocation || huddersfieldCenterGoogle;
   }, [activeRide, driverLocation]);
 
@@ -603,12 +606,19 @@ export default function MyActiveRidePage() {
           </Card>
         </>
       )}
-      <AlertDialog open={!!rideToCancel && isCancelSwitchOn} onOpenChange={(isOpen) => { if (!isOpen) { setRideToCancel(null); setIsCancelSwitchOn(false); }}}> 
+      <AlertDialog 
+        open={!!rideToCancel && isCancelSwitchOn} 
+        onOpenChange={(isOpen) => { if (!isOpen) { setRideToCancel(null); setIsCancelSwitchOn(false); }}}
+      > 
         <AlertDialogContent> 
             <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader> 
             <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => { setRideToCancel(null); setIsCancelSwitchOn(false);}} disabled={isCancelling}>Keep Ride</AlertDialogCancel>
-                <AlertDialogAction onClick={handleCancelRide} disabled={isCancelling} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                <AlertDialogAction 
+                  onClick={handleCancelRide} 
+                  disabled={isCancelling} 
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
                   <span className="flex items-center justify-center">
                     {isCancelling ? <Loader2 className="animate-spin mr-2"/> : null}
                     Confirm Cancel
@@ -633,5 +643,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
     
