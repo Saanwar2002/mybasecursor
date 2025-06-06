@@ -53,29 +53,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
+    console.log("AuthProvider: useEffect running to check localStorage.");
     let isMounted = true;
-    try {
-      const storedUserJson = localStorage.getItem('linkCabsUser');
-      if (storedUserJson) {
-        const storedUserObject = JSON.parse(storedUserJson) as User;
-        if (isMounted) {
-          if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
-            setUser(storedUserObject);
-          } else {
-            console.warn("Stored user object from localStorage is missing critical fields. Clearing.");
-            localStorage.removeItem('linkCabsUser');
-            setUser(null);
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUserJson = localStorage.getItem('linkCabsUser');
+        console.log("AuthProvider: localStorage.getItem('linkCabsUser') retrieved:", storedUserJson ? "Data found" : "No data");
+        if (storedUserJson) {
+          const storedUserObject = JSON.parse(storedUserJson) as User;
+          console.log("AuthProvider: Parsed user from localStorage:", storedUserObject);
+          if (isMounted) {
+            if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
+              setUser(storedUserObject);
+              console.log("AuthProvider: User set from localStorage.");
+            } else {
+              console.warn("AuthProvider: Stored user object from localStorage is missing critical fields. Clearing.");
+              localStorage.removeItem('linkCabsUser');
+              setUser(null);
+            }
           }
+        } else {
+           if (isMounted) setUser(null); // Ensure user is null if nothing in localStorage
+        }
+      } catch (error) {
+        console.error("AuthProvider: Error processing stored user in AuthProvider:", error);
+        localStorage.removeItem('linkCabsUser');
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) {
+            setLoading(false);
+            console.log("AuthProvider: Loading set to false.");
         }
       }
-    } catch (error) {
-      console.error("Error processing stored user in AuthProvider:", error);
-      localStorage.removeItem('linkCabsUser');
-      if (isMounted) setUser(null);
-    } finally {
-      if (isMounted) setLoading(false);
+    } else {
+        console.log("AuthProvider: window is undefined, skipping localStorage access during SSR or early client render.");
+        if (isMounted) {
+            setLoading(false); // Still need to set loading to false if window is not available
+        }
     }
-    return () => { isMounted = false; };
+    return () => { 
+        isMounted = false; 
+        console.log("AuthProvider: useEffect cleanup.");
+    };
   }, []);
 
 
@@ -93,6 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     operatorCode?: string,
     driverIdentifier?: string
   ) => {
+    console.log("AuthProvider: login function called for user:", email, "role:", role);
     let deadlineISO: string | null = null;
     if (phoneVerificationDeadlineInput) {
       if (typeof phoneVerificationDeadlineInput === 'string') {
@@ -126,22 +146,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ...(deadlineISO && { phoneVerificationDeadline: deadlineISO }),
     };
     setUser(newUser);
-    localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
+        console.log("AuthProvider: User saved to localStorage.");
+    }
+
 
     if (pathname.includes('/login') || pathname.includes('/register') || pathname === '/') {
         if (role === 'passenger') router.push('/dashboard');
-        else if (role === 'driver') router.push('/driver'); // Changed from /driver/available-rides
+        else if (role === 'driver') router.push('/driver'); 
         else if (role === 'operator') router.push('/operator');
         else if (role === 'admin') router.push('/admin');
-        else router.push('/'); // Fallback, should not happen with defined roles
+        else router.push('/'); 
     }
   };
 
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id }; // Ensure ID is preserved
-        localStorage.setItem('linkCabsUser', JSON.stringify(updatedUser));
+        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id }; 
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('linkCabsUser', JSON.stringify(updatedUser));
+        }
         return updatedUser;
       }
       return null;
@@ -149,9 +175,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    console.log("AuthProvider: logout function called.");
     setUser(null);
-    localStorage.removeItem('linkCabsUser');
-    localStorage.removeItem('linkCabsUserWithPin'); // Clear PIN data too
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('linkCabsUser');
+        localStorage.removeItem('linkCabsUserWithPin'); 
+        console.log("AuthProvider: User data removed from localStorage.");
+    }
     router.push('/login');
   };
   
@@ -199,8 +229,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const isPublicPath = publicPaths.some(p => pathname.startsWith(p)) || isMarketingRoot;
 
     if (!user && !isPublicPath) {
+      console.log("AuthProvider: User not found and not on public path, redirecting to /login. Current path:", pathname);
       router.push('/login');
     } else if (user && (isMarketingRoot || pathname.startsWith('/login') || pathname.startsWith('/register'))) {
+      console.log("AuthProvider: User found and on public/auth path, redirecting to role-specific dashboard. Role:", user.role, "Path:", pathname);
       if (user.role === 'passenger') router.push('/dashboard');
       else if (user.role === 'driver') router.push('/driver');
       else if (user.role === 'operator') router.push('/operator');
@@ -223,3 +255,4 @@ export const useAuth = () => {
   }
   return context;
 };
+
