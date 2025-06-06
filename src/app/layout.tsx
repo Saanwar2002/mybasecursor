@@ -1,6 +1,6 @@
 
 import type { Metadata } from 'next';
-// import { AuthProvider } from '@/contexts/auth-context'; // AuthProvider remains commented out for now based on previous steps
+// import { AuthProvider } from '@/contexts/auth-context'; // AuthProvider remains commented out
 // import { Toaster } from "@/components/ui/toaster"; // Toaster is now commented out
 // import { ThemeInitializer } from '@/components/theme-provider'; // ThemeInitializer now commented out
 import './globals.css';
@@ -23,12 +23,12 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground">
-        {/* <ThemeInitializer> */} {/* ThemeInitializer now commented out */}
-          {/* <AuthProvider> */} {/* AuthProvider remains commented out */}
+        {/* <ThemeInitializer> */}
+          {/* <AuthProvider> */}
             {children}
-            {/* <Toaster /> */} {/* Toaster is now commented out */}
+            {/* <Toaster /> */}
           {/* </AuthProvider> */}
-        {/* </ThemeInitializer> */} {/* ThemeInitializer now commented out */}
+        {/* </ThemeInitializer> */}
       </body>
     </html>
   );
