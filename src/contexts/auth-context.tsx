@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Timestamp } from 'firebase/firestore'; // Import Timestamp for type checking
 
-export type UserRole = 'passenger' | 'driver' | 'operator' | 'admin'; // Added 'admin' role
+export type UserRole = 'passenger' | 'driver' | 'operator' | 'admin';
 
 interface User {
   id: string; // Firebase UID
@@ -54,29 +54,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
-    // try {
-    //   const storedUserJson = localStorage.getItem('linkCabsUser');
-    //   if (storedUserJson) {
-    //     const storedUserObject = JSON.parse(storedUserJson) as User;
-    //     if (isMounted) {
-    //       if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
-    //         setUser(storedUserObject);
-    //       } else {
-    //         console.warn("Stored user object from localStorage is missing critical fields. Clearing.");
-    //         localStorage.removeItem('linkCabsUser');
-    //         setUser(null);
-    //       }
-    //     }
-    //   }
-    // } catch (error) {
-    //   console.error("Error processing stored user in AuthProvider:", error);
-    //   localStorage.removeItem('linkCabsUser');
-    //   if (isMounted) setUser(null);
-    // } finally {
-      if (isMounted) setLoading(false); // Keep setLoading(false)
-    // }
+    try {
+      const storedUserJson = localStorage.getItem('linkCabsUser');
+      if (storedUserJson) {
+        const storedUserObject = JSON.parse(storedUserJson) as User;
+        if (isMounted) {
+          if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
+            setUser(storedUserObject);
+          } else {
+            console.warn("Stored user object from localStorage is missing critical fields. Clearing.");
+            localStorage.removeItem('linkCabsUser');
+            setUser(null);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error processing stored user in AuthProvider:", error);
+      localStorage.removeItem('linkCabsUser');
+      if (isMounted) setUser(null);
+    } finally {
+      if (isMounted) setLoading(false);
+    }
     return () => { isMounted = false; };
-  }, []); // Keep dependency array empty
+  }, []);
 
 
   const login = (
@@ -128,21 +128,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(newUser);
     localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
 
-    // This redirection should happen AFTER successful login from the login page
-    // The useEffect below will handle redirects from '/' if already logged in.
-    if (pathname.includes('/login') || pathname.includes('/register')) {
+    if (pathname.includes('/login') || pathname.includes('/register') || pathname === '/') {
         if (role === 'passenger') router.push('/dashboard');
-        else if (role === 'driver') router.push('/driver/available-rides');
+        else if (role === 'driver') router.push('/driver'); // Changed from /driver/available-rides
         else if (role === 'operator') router.push('/operator');
         else if (role === 'admin') router.push('/admin');
-        else router.push('/');
+        else router.push('/'); // Fallback, should not happen with defined roles
     }
   };
 
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id };
+        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id }; // Ensure ID is preserved
         localStorage.setItem('linkCabsUser', JSON.stringify(updatedUser));
         return updatedUser;
       }
@@ -153,7 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('linkCabsUser');
-    localStorage.removeItem('linkCabsUserWithPin');
+    localStorage.removeItem('linkCabsUserWithPin'); // Clear PIN data too
     router.push('/login');
   };
   
@@ -162,28 +160,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let name = "";
     const guestId = `guest-${Date.now()}`;
     let operatorCodeForGuest: string | undefined = undefined;
+    let customIdForGuest: string | undefined = undefined;
 
     switch (role) {
       case "passenger":
         email = "guest-passenger@taxinow.com";
         name = "Guest Passenger";
+        customIdForGuest = `CU-${guestId.slice(-6)}`;
         break;
       case "driver":
         email = "guest-driver@taxinow.com";
         name = "Guest Driver";
         operatorCodeForGuest = "OP001"; 
+        customIdForGuest = `DR-${guestId.slice(-6)}`;
         break;
       case "operator":
         email = "guest-operator@taxinow.com";
         name = "Guest Operator";
-        operatorCodeForGuest = "OP001";
+        operatorCodeForGuest = "OP001"; 
+        customIdForGuest = `OP-${guestId.slice(-6)}`;
         break;
       case "admin":
         email = "guest-admin@taxinow.com";
         name = "Guest Platform Admin";
+        customIdForGuest = `AD-${guestId.slice(-6)}`;
         break;
     }
-    login(guestId, email, name, role, undefined, undefined, true, 'Active', null, undefined, operatorCodeForGuest);
+    login(guestId, email, name, role, undefined, undefined, true, 'Active', null, customIdForGuest, operatorCodeForGuest);
   };
 
 
@@ -191,21 +194,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (loading) {
       return;
     }
-    const publicPaths = ['/login', '/register', '/forgot-password', '/'];
-    const isRootMarketingPage = pathname === '/';
-    const isPublicPath = publicPaths.some(p => pathname === p) || pathname.startsWith('/_next/');
-
+    const publicPaths = ['/login', '/register', '/forgot-password'];
+    const isMarketingRoot = pathname === '/';
+    const isPublicPath = publicPaths.some(p => pathname.startsWith(p)) || isMarketingRoot;
 
     if (!user && !isPublicPath) {
       router.push('/login');
-    } else if (user && isRootMarketingPage) {
+    } else if (user && (isMarketingRoot || pathname.startsWith('/login') || pathname.startsWith('/register'))) {
       if (user.role === 'passenger') router.push('/dashboard');
-      else if (user.role === 'driver') router.push('/driver/available-rides');
+      else if (user.role === 'driver') router.push('/driver');
       else if (user.role === 'operator') router.push('/operator');
       else if (user.role === 'admin') router.push('/admin');
       else router.push('/'); 
     }
-    
   }, [user, loading, router, pathname]);
 
   return (
