@@ -1,77 +1,70 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   font-family: 'PT Sans', sans-serif;
+  /* VISIBLE DEBUGGING BORDER - REMOVED */
 }
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 215 39% 10%;
+    --background: 210 40% 98%; /* Light gray */
+    --foreground: 215 39% 10%; /* Dark blue/gray */
     --card: 0 0% 100%;
     --card-foreground: 215 39% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 215 39% 10%;
-    --primary: 172 80% 40%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 220 60% 65%; /* Soft Blue - #A0B4E8 */
+    --primary-foreground: 215 39% 10%; /* Dark text for soft blue */
     --secondary: 210 30% 94%;
     --secondary-foreground: 215 30% 25%;
     --muted: 210 30% 90%;
     --muted-foreground: 215 25% 30%;
-    --accent: 25 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 270 40% 65%; /* Muted Purple - #B08BCD */
+    --accent-foreground: 0 0% 100%; /* White text for muted purple */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 20% 88%;
-    --input: 0 0% 100%;
-    --ring: 172 70% 50%;
+    --border: 210 20% 88%; /* Main border color */
+    --input: 0 0% 100%; /* Default white for input background in light mode */
+    --ring: 220 50% 55%; /* Ring color based on primary */
     --radius: 0.5rem;
 
-    /* Chart colors removed to match simplified tailwind config */
-    /* Sidebar specific colors also effectively use defaults or above if not overridden */
-    --sidebar-background: 172 30% 96%;
-    --sidebar-foreground: 215 39% 10%;
-    --sidebar-primary: 172 80% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 25 95% 53%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 172 30% 90%;
-    --sidebar-ring: 172 70% 50%;
+    /* Chart colors (example) */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 70% 60%;
+    --chart-5: 320 75% 50%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 220 13% 95%;
+    --background: 222 47% 11%; /* Dark gray */
+    --foreground: 220 13% 95%; /* Light text */
     --card: 215 28% 17%;
     --card-foreground: 220 13% 95%;
     --popover: 215 28% 17%;
     --popover-foreground: 220 13% 95%;
-    --primary: 172 70% 50%;
-    --primary-foreground: 172 80% 15%;
+    --primary: 220 60% 60%; /* Soft Blue - slightly adjusted for dark */
+    --primary-foreground: 220 13% 95%; /* Light text */
     --secondary: 215 25% 25%;
     --secondary-foreground: 220 10% 80%;
     --muted: 215 20% 20%;
     --muted-foreground: 220 10% 65%;
-    --accent: 25 90% 60%;
-    --accent-foreground: 25 80% 15%;
+    --accent: 270 50% 70%; /* Muted Purple - slightly adjusted for dark */
+    --accent-foreground: 0 0% 100%; /* White text */
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 215 20% 30%;
-    --input: 215 25% 22%;
-    --ring: 172 70% 60%;
+    --border: 215 20% 30%; /* Darker border */
+    --input: 215 25% 22%; /* Darker input background */
+    --ring: 220 60% 70%; /* Ring color based on primary for dark */
 
-    /* Sidebar dark theme */
-    --sidebar-background: 222 40% 13%;
-    --sidebar-foreground: 220 13% 95%;
-    --sidebar-primary: 172 70% 50%;
-    --sidebar-primary-foreground: 172 80% 15%;
-    --sidebar-accent: 25 90% 60%;
-    --sidebar-accent-foreground: 25 80% 15%;
-    --sidebar-border: 215 20% 25%;
-    --sidebar-ring: 172 70% 60%;
+    /* Chart colors dark (example) */
+    --chart-1: 220 70% 60%;
+    --chart-2: 160 60% 55%;
+    --chart-3: 30 80% 65%;
+    --chart-4: 280 70% 70%;
+    --chart-5: 320 75% 60%;
   }
 }
 
