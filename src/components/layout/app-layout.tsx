@@ -145,8 +145,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user) { // Should not happen if AuthProvider redirects, but good for safety
-    router.push('/login');
+  if (!user) {
+    // AuthProvider should handle redirection. If AppLayout is reached with no user
+    // after loading, it indicates a potential routing issue or that AuthProvider's
+    // redirect effect hasn't completed. Returning null prevents rendering this layout
+    // and avoids the router.push error.
+    console.warn("AppLayout: User is null after loading state. AuthProvider should have redirected. Returning null.");
     return null;
   }
 
@@ -284,8 +288,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </SheetContent>
         </Sheet>
 
-        {/* Placeholder for search or other header items */}
-        {/* <Input type="search" placeholder="Search..." className="hidden md:flex md:w-1/3 lg:w-1/4" /> */}
         <div className="flex-1 md:grow-0"></div>
 
         <DropdownMenu>
