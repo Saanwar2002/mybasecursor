@@ -90,7 +90,7 @@ const config: Config = {
     },
   },
   plugins: [
-    // require("tailwindcss-animate") // Still keeping this commented out
+    require("tailwindcss-animate")
   ],
 };
 export default config;
