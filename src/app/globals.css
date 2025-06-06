@@ -1,8 +1,4 @@
 
-body {
-  border: 10px solid red !important;
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
