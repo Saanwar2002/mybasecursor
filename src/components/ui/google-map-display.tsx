@@ -35,6 +35,10 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   disableDefaultUI = false,
   fitBoundsToMarkers = false,
 }) => {
+  // TEMPORARY DEBUG LOGS:
+  console.log("GoogleMapDisplay ENV CHECK: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:", process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+  console.log("GoogleMapDisplay ENV CHECK: NEXT_PUBLIC_FIREBASE_API_KEY:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const currentMarkersRef = useRef<google.maps.Marker[]>([]);
@@ -66,7 +70,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     
     if (isMounted) setUsedApiKeySource(apiKeySource);
 
-    if (!apiKeyToUse) { // Should not happen if fallback is defined
+    if (!apiKeyToUse) { 
       if (isMounted) {
         setMapError("Critical Error: No Google Maps API Key could be determined. Map cannot be loaded.");
       }
