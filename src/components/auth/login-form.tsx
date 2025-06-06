@@ -14,16 +14,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuth, UserRole, User } from "@/contexts/auth-context";
+// import { useAuth, UserRole, User } from "@/contexts/auth-context"; // Commented out
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
 import { User as UserIconLucide, Briefcase, CarIcon, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { useState, useEffect } from "react";
-import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { useState, useEffect, useRef } from "react";
+// import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth"; // Commented out
+// import { auth, db } from "@/lib/firebase"; // Commented out
+// import { doc, getDoc, Timestamp } from "firebase/firestore"; // Commented out
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const formSchema = z.object({
@@ -36,12 +36,28 @@ const pinFormSchema = z.object({
   pin: z.string().length(4, { message: "PIN must be 4 digits." }).regex(/^\d{4}$/, { message: "PIN must be 4 digits." }),
 });
 
-interface StoredPinUser extends User {
+// interface StoredPinUser extends User { // User type is from auth-context
+//   pin: string;
+// }
+interface StoredPinUser { // Temporary simplified User type
+  id: string;
+  email: string;
+  name: string;
+  role: 'passenger' | 'driver' | 'operator' | 'admin';
   pin: string;
+  vehicleCategory?: string;
+  phoneNumber?: string | null;
+  phoneVerified?: boolean;
+  status?: 'Active' | 'Pending Approval' | 'Suspended';
+  phoneVerificationDeadline?: string | null;
+  customId?: string;
+  operatorCode?: string;
+  driverIdentifier?: string;
 }
 
+
 export function LoginForm() {
-  const { login: contextLogin } = useAuth();
+  // const { login: contextLogin } = useAuth(); // Commented out
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [loginMode, setLoginMode] = useState<'email' | 'pin'>('email');
@@ -84,184 +100,35 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    setPinInputValue(""); // Reset PIN input value if user switches back and forth or on new email submit
-    if (!auth || !db) {
-      toast({
-        title: "Login Error",
-        description: "Firebase services not available. Please try again later.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const firebaseUser = userCredential.user;
-
-      const userDocRef = doc(db, "users", firebaseUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (!userDocSnap.exists()) {
-        toast({
-          title: "Login Failed",
-          description: "User profile not found. Please contact support.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      const userProfile = userDocSnap.data();
-
-      if (userProfile.role !== values.role) {
-        toast({
-          title: "Role Mismatch",
-          description: `You're trying to log in as ${values.role}, but your account is registered as ${userProfile.role}. Please select the correct role.`,
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      
-      let deadlineISO: string | null = null;
-      if (userProfile.phoneVerificationDeadline) {
-          if (userProfile.phoneVerificationDeadline instanceof Timestamp) {
-              deadlineISO = userProfile.phoneVerificationDeadline.toDate().toISOString();
-          } else if (typeof userProfile.phoneVerificationDeadline === 'string') {
-              try {
-                  deadlineISO = new Date(userProfile.phoneVerificationDeadline).toISOString();
-              } catch (e) { console.warn("Could not parse phoneVerificationDeadline from string", userProfile.phoneVerificationDeadline); }
-          } else if (typeof userProfile.phoneVerificationDeadline === 'object' && ('seconds' in userProfile.phoneVerificationDeadline || '_seconds' in userProfile.phoneVerificationDeadline)) {
-              const seconds = (userProfile.phoneVerificationDeadline as any).seconds ?? (userProfile.phoneVerificationDeadline as any)._seconds;
-              const nanoseconds = (userProfile.phoneVerificationDeadline as any).nanoseconds ?? (userProfile.phoneVerificationDeadline as any)._nanoseconds ?? 0;
-              if (typeof seconds === 'number') {
-                  deadlineISO = new Date(seconds * 1000 + nanoseconds / 1000000).toISOString();
-              }
-          }
-      }
-
-      contextLogin(
-        firebaseUser.uid,
-        firebaseUser.email || values.email,
-        userProfile.name || firebaseUser.displayName || values.email.split('@')[0],
-        userProfile.role as UserRole,
-        userProfile.vehicleCategory,
-        userProfile.phoneNumber || firebaseUser.phoneNumber,
-        userProfile.phoneVerified,
-        userProfile.status,
-        deadlineISO,
-        userProfile.customId,
-        userProfile.operatorCode,
-        userProfile.driverIdentifier
-      );
-
-      toast({
-        title: "Login Successful",
-        description: `Welcome back, ${userProfile.name || firebaseUser.displayName}!`,
-      });
-      // setPinInputValue(""); // Already done at the start
-
-    } catch (error: any) {
-      console.error("Login error:", error);
-      let errorMessage = "Invalid email or password.";
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/user-not-found':
-          case 'auth/wrong-password':
-          case 'auth/invalid-credential':
-            errorMessage = "Invalid email or password. Please try again.";
-            break;
-          case 'auth/too-many-requests':
-            errorMessage = "Too many login attempts. Please try again later.";
-            break;
-          case 'auth/user-disabled':
-            errorMessage = "This account has been disabled.";
-            break;
-          default:
-            errorMessage = `Login failed: ${error.message}`;
-        }
-      }
-      toast({
-        title: "Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    setPinInputValue("");
+    toast({ title: "Login (Mocked)", description: "Login functionality temporarily disabled for debugging.", variant: "default" });
+    console.log("Login form submitted (mocked):", values);
+    // Actual login logic commented out
+    // if (!auth || !db) { ... }
+    // try { ... signInWithEmailAndPassword ... contextLogin ... }
+    // catch (error: any) { ... }
+    setIsLoading(false);
   }
 
   async function onPinSubmit(values: z.infer<typeof pinFormSchema>) {
     setIsLoading(true);
-    if (!storedPinUser) {
-      toast({ title: "PIN Login Error", description: "No PIN user data found. Please switch to email/password login.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      if (storedPinUser.pin === values.pin) { 
-        contextLogin(
-          storedPinUser.id,
-          storedPinUser.email,
-          storedPinUser.name,
-          storedPinUser.role,
-          storedPinUser.vehicleCategory,
-          storedPinUser.phoneNumber,
-          storedPinUser.phoneVerified,
-          storedPinUser.status,
-          storedPinUser.phoneVerificationDeadline,
-          storedPinUser.customId,
-          storedPinUser.operatorCode,
-          storedPinUser.driverIdentifier
-        );
-        toast({ title: "PIN Login Successful", description: `Welcome back, ${storedPinUser.name}!` });
-        setPinInputValue(""); 
-      } else {
-        toast({ title: "PIN Login Failed", description: "Incorrect PIN.", variant: "destructive" });
-        pinForm.resetField("pin");
-        setPinInputValue("");
-      }
-    } catch (e) {
-        toast({ title: "PIN Login Error", description: "Could not process stored PIN data.", variant: "destructive"});
-        setPinInputValue("");
-    } finally {
-        setIsLoading(false);
-    }
+    toast({ title: "PIN Login (Mocked)", description: "PIN Login temporarily disabled for debugging.", variant: "default" });
+    console.log("PIN Login form submitted (mocked):", values);
+    // Actual PIN login logic commented out
+    // if (!storedPinUser) { ... }
+    // try { if (storedPinUser.pin === values.pin) { ... contextLogin ... } else { ... } }
+    // catch (e) { ... }
+    setIsLoading(false);
+    setPinInputValue("");
   }
 
-  const handleGuestLogin = (role: UserRole) => {
-    let email = "";
-    let name = "";
-    const guestId = `guest-${Date.now()}`;
-    let operatorCodeForGuest: string | undefined = undefined;
-    switch (role) {
-      case "passenger":
-        email = "guest-passenger@taxinow.com";
-        name = "Guest Passenger";
-        break;
-      case "driver":
-        email = "guest-driver@taxinow.com";
-        name = "Guest Driver";
-        operatorCodeForGuest = "OP001";
-        break;
-      case "operator":
-        email = "guest-operator@taxinow.com";
-        name = "Guest Operator";
-        operatorCodeForGuest = "OP001";
-        break;
-      case "admin":
-        email = "guest-admin@taxinow.com";
-        name = "Guest Platform Admin";
-        break;
-    }
-    contextLogin(guestId, email, name, role, undefined, undefined, true, 'Active', null, undefined, operatorCodeForGuest);
-    toast({
-      title: "Guest Login Successful",
-      description: `Logged in as ${name}.`,
-    });
-    setPinInputValue(""); 
+  const handleGuestLogin = (role: 'passenger' | 'driver' | 'operator' | 'admin' // UserRole
+   ) => {
+    toast({ title: "Guest Login (Mocked)", description: `Guest login as ${role} temporarily disabled.`, variant: "default" });
+    console.log("Guest login clicked (mocked):", role);
+    // Actual guest login logic commented out
+    // let email = ""; ... contextLogin ...
+    setPinInputValue("");
   };
   
   const switchToPinLogin = () => {
