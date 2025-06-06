@@ -54,29 +54,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
-    try {
-      const storedUserJson = localStorage.getItem('linkCabsUser');
-      if (storedUserJson) {
-        const storedUserObject = JSON.parse(storedUserJson) as User;
-        if (isMounted) {
-          if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
-            setUser(storedUserObject);
-          } else {
-            console.warn("Stored user object from localStorage is missing critical fields. Clearing.");
-            localStorage.removeItem('linkCabsUser');
-            setUser(null);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error processing stored user in AuthProvider:", error);
-      localStorage.removeItem('linkCabsUser');
-      if (isMounted) setUser(null);
-    } finally {
-      if (isMounted) setLoading(false);
-    }
+    // try {
+    //   const storedUserJson = localStorage.getItem('linkCabsUser');
+    //   if (storedUserJson) {
+    //     const storedUserObject = JSON.parse(storedUserJson) as User;
+    //     if (isMounted) {
+    //       if (storedUserObject && storedUserObject.id && storedUserObject.email && storedUserObject.role) {
+    //         setUser(storedUserObject);
+    //       } else {
+    //         console.warn("Stored user object from localStorage is missing critical fields. Clearing.");
+    //         localStorage.removeItem('linkCabsUser');
+    //         setUser(null);
+    //       }
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.error("Error processing stored user in AuthProvider:", error);
+    //   localStorage.removeItem('linkCabsUser');
+    //   if (isMounted) setUser(null);
+    // } finally {
+      if (isMounted) setLoading(false); // Keep setLoading(false)
+    // }
     return () => { isMounted = false; };
-  }, []);
+  }, []); // Keep dependency array empty
+
 
   const login = (
     id: string,
@@ -191,25 +192,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     const publicPaths = ['/login', '/register', '/forgot-password', '/'];
-    const isAuthPage = ['/login', '/register', '/forgot-password'].includes(pathname);
     const isRootMarketingPage = pathname === '/';
     const isPublicPath = publicPaths.some(p => pathname === p) || pathname.startsWith('/_next/');
 
 
     if (!user && !isPublicPath) {
-      // If not logged in and not on a public path, redirect to login
       router.push('/login');
     } else if (user && isRootMarketingPage) {
-      // If logged in and on the root marketing page, redirect to the appropriate dashboard
       if (user.role === 'passenger') router.push('/dashboard');
       else if (user.role === 'driver') router.push('/driver/available-rides');
       else if (user.role === 'operator') router.push('/operator');
       else if (user.role === 'admin') router.push('/admin');
-      else router.push('/'); // Fallback, though should be covered by roles
+      else router.push('/'); 
     }
-    // If user is logged in and on /login, /register, /forgot-password (isAuthPage = true),
-    // DO NOT redirect from here. Let them stay on the page.
-    // The login() function itself will handle redirection after a successful login attempt.
     
   }, [user, loading, router, pathname]);
 
