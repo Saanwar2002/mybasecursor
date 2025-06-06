@@ -1,7 +1,7 @@
 
 import type { Metadata } from 'next';
 // import { AuthProvider } from '@/contexts/auth-context'; // AuthProvider remains commented out
-import { Toaster } from "@/components/ui/toaster";
+// import { Toaster } from "@/components/ui/toaster"; // Toaster is now commented out
 // import { ThemeInitializer } from '@/components/theme-provider'; // ThemeInitializer now commented out
 import './globals.css';
 
@@ -26,7 +26,7 @@ export default function RootLayout({
         {/* <ThemeInitializer> */} {/* ThemeInitializer now commented out */}
           {/* <AuthProvider> */} {/* AuthProvider remains commented out */}
             {children}
-            <Toaster />
+            {/* <Toaster /> */} {/* Toaster is now commented out */}
           {/* </AuthProvider> */}
         {/* </ThemeInitializer> */} {/* ThemeInitializer now commented out */}
       </body>
