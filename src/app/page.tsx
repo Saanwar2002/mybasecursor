@@ -18,8 +18,8 @@ const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.78
 
 export default function HomePage() {
   return (
-    <main className="flex flex-col min-h-screen items-center justify-center p-6 md:p-12 bg-gradient-to-br from-background to-muted/30">
-      <div className="container max-w-4xl text-center space-y-8">
+    <main className="flex flex-col min-h-screen items-center justify-start p-6 pt-12 md:p-12 bg-gradient-to-br from-background to-muted/30 overflow-y-auto">
+      <div className="container max-w-4xl text-center space-y-8 md:pt-0">
         <div className="flex justify-center">
           <Car className="w-24 h-24 text-primary" />
         </div>
