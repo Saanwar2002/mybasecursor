@@ -2,7 +2,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -514,7 +514,7 @@ export default function MyActiveRidePage() {
   }, [activeRide, driverLocation]);
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
+  if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4"><span>Try Again</span></Button></div>;
 
   const renderAutocompleteSuggestions = ( suggestions: google.maps.places.AutocompletePrediction[], isFetchingSugg: boolean, isFetchingDet: boolean, inputValue: string, onSuggClick: (suggestion: google.maps.places.AutocompletePrediction) => void, fieldKey: string ) => ( <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60"> <div className="space-y-1 p-1"> {isFetchingSugg && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> <span>Loading...</span></div>} {isFetchingDet && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> <span>Fetching...</span></div>} {!isFetchingSugg && !isFetchingDet && suggestions.length === 0 && inputValue.length >= 2 && <div className="p-2 text-sm text-muted-foreground"><span>No suggestions.</span></div>} {!isFetchingSugg && !isFetchingDet && suggestions.map((s) => ( <div key={`${fieldKey}-${s.place_id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm" onMouseDown={() => onSuggClick(s)}><span>{s.description}</span></div> ))} </div> </ScrollArea> );
   const vehicleTypeDisplay = activeRide?.vehicleType ? activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ')  : 'Vehicle N/A';
@@ -537,7 +537,7 @@ export default function MyActiveRidePage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> <span>My Active Ride</span></CardTitle> <CardDescription><span>Track your current ride details and status live.</span></CardDescription> </CardHeader> </Card>
-      {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride">Book a New Ride</Link> </Button> </CardContent> </Card> )}
+      {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride"><span>Book a New Ride</span></Link> </Button> </CardContent> </Card> )}
       {activeRide && (
         <>
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
@@ -617,9 +617,9 @@ export default function MyActiveRidePage() {
                         setIsCancelSwitchOn(false);
                         fetchActiveRide(); 
                       }}
-                      disabled={actionLoading[activeRide.id]}
+                      disabled={activeRide ? actionLoading[activeRide.id] : false}
                     >
-                    {actionLoading[activeRide.id] ? (
+                    {activeRide && actionLoading[activeRide.id] ? (
                       <span className="flex items-center justify-center">
                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
                         <span>Processing...</span>
@@ -659,16 +659,16 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="flex items-center justify-center">
-                    {activeRide && (actionLoading[activeRide.id] || false) ? (
-                        <span className="flex items-center justify-center">
-                            <Loader2 className="animate-spin mr-2 h-4 w-4"/>
-                            Cancelling...
-                        </span>
-                    ) : (
-                      "Confirm Cancel"
-                    )}
-                  </span>
+                  {activeRide && (actionLoading[activeRide.id] || false) ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="animate-spin mr-2 h-4 w-4"/>
+                      <span>Cancelling...</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      <span>Confirm Cancel</span>
+                    </span>
+                  )}
                 </AlertDialogAction>
             </AlertDialogFooter> 
         </AlertDialogContent> 
@@ -695,6 +695,7 @@ export default function MyActiveRidePage() {
                 </span>
               ) : (
                 <span className="flex items-center justify-center">
+                  <Edit className="mr-2 h-4 w-4" />
                   <span>Save Changes</span>
                 </span>
               )}
@@ -710,3 +711,4 @@ export default function MyActiveRidePage() {
     
 
     
+
