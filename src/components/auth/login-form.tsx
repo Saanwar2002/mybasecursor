@@ -18,7 +18,7 @@ import { useAuth, UserRole, User } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
-import { User as UserIconLucide, Briefcase, CarIcon, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react";
+import { User as UserIconLucide, Briefcase, CarIcon as CarIconLucide, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react"; // Renamed CarIcon to CarIconLucide
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect, useRef } from "react";
 import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth";
@@ -68,14 +68,14 @@ export function LoginForm() {
 
   useEffect(() => {
     if (loginMode === 'pin' && typeof window !== "undefined") {
-      const storedUserData = localStorage.getItem('myBaseUserWithPin'); // Updated storage key
+      const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
         try {
           const parsedData: StoredPinUser = JSON.parse(storedUserData);
           setStoredPinUser(parsedData);
         } catch (e) {
           console.error("Error parsing stored PIN user data from localStorage:", e);
-          localStorage.removeItem('myBaseUserWithPin'); // Updated storage key
+          localStorage.removeItem('myBaseUserWithPin');
           setStoredPinUser(null);
         }
       } else {
@@ -87,7 +87,7 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     console.log("LoginForm onSubmit triggered with values:", values);
     setIsLoading(true);
-    setPinInputValue(""); // Clear PIN input if switching from PIN mode or re-submitting email
+    setPinInputValue(""); 
     if (!auth || !db) {
         toast({ title: "Login Error", description: "Firebase services not initialized. Please try again later or contact support.", variant: "destructive", duration: 7000 });
         setIsLoading(false);
@@ -120,14 +120,14 @@ export function LoginForm() {
 
         contextLogin(
           firebaseUser.uid, 
-          firebaseUser.email || values.email, // Use Auth email, fallback to form
+          firebaseUser.email || values.email, 
           userData.name || firebaseUser.displayName || "User", 
           userData.role as UserRole,
           userData.vehicleCategory,
           userData.phoneNumber || firebaseUser.phoneNumber,
           userData.phoneVerified,
           userData.status,
-          userData.phoneVerificationDeadline, // This will be a Firestore Timestamp
+          userData.phoneVerificationDeadline, 
           userData.customId,
           userData.operatorCode,
           userData.driverIdentifier
@@ -183,7 +183,6 @@ export function LoginForm() {
 
     try {
       if (storedPinUser.pin === values.pin) {
-        // Simulate fetching the full user profile from Firestore as we only stored minimal data with PIN
         const userDocRef = doc(db, "users", storedPinUser.id);
         const userDocSnap = await getDoc(userDocRef);
 
@@ -211,7 +210,7 @@ export function LoginForm() {
           toast({ title: "PIN Login Successful!", description: `Welcome back, ${userData.name || storedPinUser.name}!` });
         } else {
           toast({ title: "PIN Login Failed", description: "User profile not found for stored PIN data. Please re-login with email.", variant: "destructive" });
-          localStorage.removeItem('myBaseUserWithPin'); // Updated storage key
+          localStorage.removeItem('myBaseUserWithPin');
           setStoredPinUser(null);
           setLoginMode('email');
         }
@@ -229,7 +228,7 @@ export function LoginForm() {
   }
 
   const handleGuestLogin = (role: UserRole) => {
-    console.log(`Guest login attempt for role: ${role}`); // Ensure this line is present
+    console.log(`Guest login attempt for role: ${role}`);
     let email = "";
     let name = "";
     const guestId = `guest-${Date.now()}`;
@@ -238,24 +237,24 @@ export function LoginForm() {
 
     switch (role) {
       case "passenger":
-        email = "guest-passenger@mybase.com"; // Updated domain
+        email = "guest-passenger@mybase.com";
         name = "Guest Passenger";
         customIdForGuest = `CU-${guestId.slice(-6)}`;
         break;
       case "driver":
-        email = "guest-driver@mybase.com"; // Updated domain
+        email = "guest-driver@mybase.com";
         name = "Guest Driver";
         operatorCodeForGuest = "OP001"; 
         customIdForGuest = `DR-${guestId.slice(-6)}`;
         break;
       case "operator":
-        email = "guest-operator@mybase.com"; // Updated domain
+        email = "guest-operator@mybase.com";
         name = "Guest Operator";
         operatorCodeForGuest = "OP001"; 
         customIdForGuest = `OP-${guestId.slice(-6)}`;
         break;
       case "admin":
-        email = "guest-admin@mybase.com"; // Updated domain
+        email = "guest-admin@mybase.com";
         name = "Guest Platform Admin";
         customIdForGuest = `AD-${guestId.slice(-6)}`;
         break;
@@ -442,8 +441,9 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => {
-            toast({ title: "Test Click", description: "Standard HTML Guest Passenger button clicked!" });
-            handleGuestLogin("passenger");
+            alert("HTML Button Clicked!"); // Direct alert for testing
+            // console.log("Standard HTML Guest Passenger button clicked!");
+            // handleGuestLogin("passenger");
           }}
           disabled={isLoading}
           className="w-full flex items-center justify-center px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
@@ -455,20 +455,17 @@ export function LoginForm() {
           variant="outline"
           className="w-full"
           onClick={() => {
-            toast({ title: "Test Click", description: "Guest Driver button clicked!" });
-            handleGuestLogin("driver");
+            alert("Shadcn Guest Driver Button Clicked!"); // Test alert
+            // handleGuestLogin("driver");
           }}
           disabled={isLoading}
         >
-          <CarIcon className="mr-2 h-4 w-4" /> Login as Guest Driver
+          <CarIconLucide className="mr-2 h-4 w-4" /> Login as Guest Driver
         </Button>
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => {
-            toast({ title: "Test Click", description: "Guest Operator button clicked!" });
-            handleGuestLogin("operator");
-          }}
+          onClick={() => handleGuestLogin("operator")}
           disabled={isLoading}
         >
           <Briefcase className="mr-2 h-4 w-4" /> Login as Guest Operator
@@ -476,10 +473,7 @@ export function LoginForm() {
         <Button
           variant="outline"
           className="w-full border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white"
-          onClick={() => {
-            toast({ title: "Test Click", description: "Guest Admin button clicked!" });
-            handleGuestLogin("admin");
-          }}
+          onClick={() => handleGuestLogin("admin")}
           disabled={isLoading}
         >
           <Shield className="mr-2 h-4 w-4" /> Login as Guest Admin
