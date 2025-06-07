@@ -14,22 +14,19 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuth, UserRole } from "@/contexts/auth-context";
+// Not using useAuth or firebase in this specific test onSubmit
+// import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), // Min 1 for now, can be increased
+  password: z.string().min(1, { message: "Password is required." }),
 });
 
 export function LoginForm() {
-  const { login: contextLogin } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,95 +38,23 @@ export function LoginForm() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    alert("LoginForm onSubmit function CALLED!"); // Crucial test alert
     setIsLoading(true);
-    console.log("Login form submitted with values:", values); // For console debugging
+    console.log("LoginForm onSubmit CALLED with values:", values); 
+    
+    toast({
+      title: "Login Button Clicked (Test)",
+      description: "Form handler was reached if you see this.",
+      duration: 5000,
+    });
 
-    if (!auth || !db) {
-      toast({
-        title: "Login Error",
-        description: "Firebase services not initialized. Please try again later.",
-        variant: "destructive",
-      });
+    // Simulate some async work then stop loading.
+    // If the page refreshes, this timeout might not complete or be visible.
+    setTimeout(() => {
       setIsLoading(false);
-      return;
-    }
-
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const firebaseUser = userCredential.user;
-
-      // Fetch user profile from Firestore
-      const userDocRef = doc(db, "users", firebaseUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (userDocSnap.exists()) {
-        const userProfile = userDocSnap.data();
-        contextLogin(
-          firebaseUser.uid,
-          firebaseUser.email || userProfile.email,
-          userProfile.name || firebaseUser.displayName,
-          userProfile.role || 'passenger', // Default to passenger if role not in profile
-          userProfile.vehicleCategory,
-          userProfile.phoneNumber || firebaseUser.phoneNumber,
-          userProfile.phoneVerified || firebaseUser.phoneNumber ? true : false, // Assume verified if phone exists from Auth
-          userProfile.status || 'Active',
-          userProfile.phoneVerificationDeadline ? new Date(userProfile.phoneVerificationDeadline.seconds * 1000).toISOString() : null,
-          userProfile.customId,
-          userProfile.operatorCode,
-          userProfile.driverIdentifier
-        );
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${userProfile.name || firebaseUser.displayName}!`,
-        });
-      } else {
-        // This case should ideally not happen if registration always creates a profile
-        // But handle it defensively.
-        console.error("User profile not found in Firestore for UID:", firebaseUser.uid);
-        contextLogin(
-          firebaseUser.uid, 
-          firebaseUser.email!, 
-          firebaseUser.displayName || "User", 
-          'passenger' // Default to passenger if profile missing
-        ); 
-        toast({
-          title: "Login Partially Successful",
-          description: "Logged in, but profile details incomplete. Please contact support if issues persist.",
-          variant: "default",
-        });
-      }
-    } catch (error: any) {
-      console.error("Login error:", error);
-      let errorMessage = "An unknown error occurred during login.";
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/user-not-found':
-          case 'auth/wrong-password':
-          case 'auth/invalid-credential': // Covers both wrong email/password in newer SDK versions
-            errorMessage = 'Invalid email or password. Please try again.';
-            break;
-          case 'auth/invalid-email':
-            errorMessage = 'The email address is not valid.';
-            break;
-          case 'auth/user-disabled':
-            errorMessage = 'This user account has been disabled.';
-            break;
-          case 'auth/too-many-requests':
-            errorMessage = 'Too many login attempts. Please try again later.';
-            break;
-          default:
-            errorMessage = `Login failed: ${error.message}`;
-        }
-      }
-      toast({
-        title: "Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+      console.log("LoginForm onSubmit: isLoading set to false after timeout.");
+    }, 1500);
   }
 
   return (
@@ -166,13 +91,13 @@ export function LoginForm() {
           Log In
         </Button>
         <div className="text-sm text-center">
-          <Link href="/forgot-password" className="underline text-muted-foreground hover:text-primary">
+          <Link href="/forgot-password" prefetch={false} className="underline text-muted-foreground hover:text-primary">
             Forgot your password?
           </Link>
         </div>
         <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
-          <Link href="/register" className="underline text-accent hover:text-accent/90">
+          <Link href="/register" prefetch={false} className="underline text-accent hover:text-accent/90">
             Sign up
           </Link>
         </p>
