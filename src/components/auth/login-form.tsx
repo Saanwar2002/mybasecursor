@@ -18,7 +18,7 @@ import { useAuth, UserRole, User } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
-import { User as UserIconLucide, Briefcase, CarIcon as CarIconLucide, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react"; 
+import { User as UserIconLucide, Briefcase, CarIcon as CarIconLucide, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect, useRef } from "react";
 import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth";
@@ -87,7 +87,7 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     console.log("LoginForm onSubmit triggered with values:", values);
     setIsLoading(true);
-    setPinInputValue(""); 
+    setPinInputValue("");
     if (!auth || !db) {
         toast({ title: "Login Error", description: "Firebase services not initialized. Please try again later or contact support.", variant: "destructive", duration: 7000 });
         setIsLoading(false);
@@ -119,15 +119,15 @@ export function LoginForm() {
         }
 
         contextLogin(
-          firebaseUser.uid, 
-          firebaseUser.email || values.email, 
-          userData.name || firebaseUser.displayName || "User", 
+          firebaseUser.uid,
+          firebaseUser.email || values.email,
+          userData.name || firebaseUser.displayName || "User",
           userData.role as UserRole,
           userData.vehicleCategory,
           userData.phoneNumber || firebaseUser.phoneNumber,
           userData.phoneVerified,
           userData.status,
-          userData.phoneVerificationDeadline, 
+          userData.phoneVerificationDeadline,
           userData.customId,
           userData.operatorCode,
           userData.driverIdentifier
@@ -228,7 +228,10 @@ export function LoginForm() {
   }
 
   const handleGuestLogin = (role: UserRole) => {
-    console.log(`Guest login attempt for role: ${role}`); 
+    console.log(`Guest login attempt for role: ${role}`);
+    // For mobile, we'll rely on the navigation to confirm success
+    // toast({ title: `Test Click: Guest ${role} button clicked!` }); 
+
     let email = "";
     let name = "";
     const guestId = `guest-${Date.now()}`;
@@ -244,13 +247,13 @@ export function LoginForm() {
       case "driver":
         email = "guest-driver@mybase.com";
         name = "Guest Driver";
-        operatorCodeForGuest = "OP001"; 
+        operatorCodeForGuest = "OP001";
         customIdForGuest = `DR-${guestId.slice(-6)}`;
         break;
       case "operator":
         email = "guest-operator@mybase.com";
         name = "Guest Operator";
-        operatorCodeForGuest = "OP001"; 
+        operatorCodeForGuest = "OP001";
         customIdForGuest = `OP-${guestId.slice(-6)}`;
         break;
       case "admin":
@@ -262,7 +265,7 @@ export function LoginForm() {
     contextLogin(guestId, email, name, role, undefined, undefined, true, 'Active', null, customIdForGuest, operatorCodeForGuest);
     setPinInputValue("");
   };
-  
+
   const switchToPinLogin = () => {
     setLoginMode('pin');
     setPinInputValue("");
@@ -271,7 +274,7 @@ export function LoginForm() {
 
   const switchToEmailLogin = () => {
     setLoginMode('email');
-    form.reset(); 
+    form.reset();
   };
 
   return (
@@ -371,7 +374,7 @@ export function LoginForm() {
             </p>
           </form>
         </Form>
-      ) : ( 
+      ) : (
         <Form {...pinForm}>
           <form onSubmit={pinForm.handleSubmit(onPinSubmit)} className="space-y-6">
             {storedPinUser ? (
@@ -390,18 +393,18 @@ export function LoginForm() {
             <FormField
               control={pinForm.control}
               name="pin"
-              render={({ field }) => ( 
+              render={({ field }) => (
                 <FormItem>
                   <FormLabel>Enter 4-Digit PIN</FormLabel>
                   <FormControl>
                     <Input
-                      type="tel" 
+                      type="tel"
                       placeholder="••••"
-                      value={pinInputValue} 
+                      value={pinInputValue}
                       onChange={(e) => {
                         const newRawValue = e.target.value;
                         const newNumericValue = newRawValue.replace(/\D/g, "").slice(0, 4);
-                        setPinInputValue(newNumericValue); 
+                        setPinInputValue(newNumericValue);
                         pinForm.setValue("pin", newNumericValue, { shouldValidate: true });
                       }}
                       disabled={isLoading || !storedPinUser}
@@ -430,17 +433,28 @@ export function LoginForm() {
         <p className="text-center text-sm font-medium text-muted-foreground">
           Or try as a guest:
         </p>
-        
+
         <button
           type="button"
           onClick={() => {
-            alert('HTML Button Clicked!'); // Reverted to alert
-            handleGuestLogin("passenger"); 
+            alert('HTML Button Clicked!'); // Reinstating direct alert for this specific button
+          }}
+          style={{
+            display: 'block',
+            width: '100%',
+            padding: '10px',
+            marginTop: '10px',
+            marginBottom: '10px',
+            backgroundColor: '#f0f0f0',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            textAlign: 'center',
+            cursor: 'pointer'
           }}
           disabled={isLoading}
-          className="w-full flex items-center justify-center px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          className="flex items-center justify-center" // Added flex for icon alignment
         >
-          <UserIconLucide className="mr-2 h-4 w-4" /> Login as Guest Passenger (HTML Button)
+          <UserIconLucide style={{ display: 'inline-block', marginRight: '8px', height: '16px', width: '16px' }} /> Login as Guest Passenger (HTML Button)
         </button>
 
         <Button
@@ -471,3 +485,4 @@ export function LoginForm() {
     </>
   );
 }
+    
