@@ -619,10 +619,16 @@ export default function MyActiveRidePage() {
                   disabled={isCancelling} 
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="flex items-center justify-center">
-                    {isCancelling ? <Loader2 className="animate-spin mr-2"/> : null}
-                    Confirm Cancel
-                  </span>
+                  {isCancelling ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="animate-spin mr-2 h-4 w-4"/> 
+                      Cancelling...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      Confirm Cancel
+                    </span>
+                  )}
                 </AlertDialogAction>
             </AlertDialogFooter> 
         </AlertDialogContent> 
