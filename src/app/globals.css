@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -22,7 +23,7 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%; /* Was same as secondary, changed for distinction */
+    --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
@@ -34,7 +35,6 @@
 
     --radius: 0.5rem;
 
-    /* Chart colors */
     --chart-1: 221 83% 53%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -71,7 +71,6 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 217.2 91.2% 59.8%;
     
-    /* Chart colors dark */
     --chart-1: 217 91% 59%;
     --chart-2: 173 58% 50%;
     --chart-3: 40 78% 52%;
@@ -87,6 +86,7 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+*/
 
 /* Custom scrollbar for Webkit browsers */
 ::-webkit-scrollbar {
@@ -94,13 +94,21 @@
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-muted/50;
+  /* @apply bg-muted/50; */ /* Commented out to avoid dependency on HSL vars for this test */
+  background-color: #f0f0f0; /* Simple fallback */
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-border;
+  /* @apply bg-border; */ /* Commented out to avoid dependency on HSL vars for this test */
+  background-color: #cccccc; /* Simple fallback */
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary/50;
+  /* @apply bg-primary/50; */ /* Commented out to avoid dependency on HSL vars for this test */
+  background-color: #aaaaaa; /* Simple fallback */
+}
+
+/* Diagnostic style */
+body {
+  background-color: red !important;
 }
