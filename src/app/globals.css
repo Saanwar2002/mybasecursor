@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -86,7 +85,6 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
-*/
 
 /* Custom scrollbar for Webkit browsers */
 ::-webkit-scrollbar {
@@ -94,21 +92,13 @@
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  /* @apply bg-muted/50; */ /* Commented out to avoid dependency on HSL vars for this test */
-  background-color: #f0f0f0; /* Simple fallback */
+  background-color: hsl(var(--muted) / 0.5); 
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  /* @apply bg-border; */ /* Commented out to avoid dependency on HSL vars for this test */
-  background-color: #cccccc; /* Simple fallback */
+  background-color: hsl(var(--border)); 
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  /* @apply bg-primary/50; */ /* Commented out to avoid dependency on HSL vars for this test */
-  background-color: #aaaaaa; /* Simple fallback */
-}
-
-/* Diagnostic style */
-body {
-  background-color: red !important;
+  background-color: hsl(var(--primary) / 0.5);
 }
