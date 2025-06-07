@@ -614,14 +614,14 @@ export default function MyActiveRidePage() {
             <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader> 
             <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => { setRideToCancel(null); setIsCancelSwitchOn(false);}} disabled={isCancelling}>Keep Ride</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleCancelRide} 
-                  disabled={isCancelling} 
+                <AlertDialogAction
+                  onClick={handleCancelRide}
+                  disabled={isCancelling}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
                   {isCancelling ? (
                     <span className="flex items-center justify-center">
-                      <Loader2 className="animate-spin mr-2 h-4 w-4"/> 
+                      <Loader2 className="animate-spin mr-2 h-4 w-4"/>
                       Cancelling...
                     </span>
                   ) : (
