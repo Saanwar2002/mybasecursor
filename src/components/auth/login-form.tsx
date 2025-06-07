@@ -2,53 +2,38 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 
 export function LoginForm() {
-  const [buttonClickMessage, setButtonClickMessage] = useState("Button not clicked yet.");
+  const [buttonClickMessage, setButtonClickMessage] = useState("Button not clicked yet (from LoginForm).");
 
-  useEffect(() => {
-    alert('LoginForm component has mounted!');
-    console.log('LoginForm component has mounted! (console)');
-  }, []);
+  // useEffect(() => {
+  //   // Removed alert('LoginForm component has mounted!');
+  //   console.log('LoginForm component has mounted! (console)');
+  // }, []);
 
   const handleTestButtonClick = () => {
-    setButtonClickMessage("Minimal HTML button was clicked!");
-    console.log('Minimal HTML button was clicked! (console log)');
+    setButtonClickMessage("Button inside LoginForm was clicked!");
+    console.log('Button inside LoginForm was clicked! (console log)');
   };
 
   return (
     <>
-      <div style={{ padding: '20px', border: '2px solid red', margin: '20px' }}>
-        <h1>Minimal Test Page</h1>
-        <p>If you see this, React is rendering.</p>
-        <p>Status: <span id="button-status" style={{ fontWeight: 'bold' }}>{buttonClickMessage}</span></p>
+      <div style={{ padding: '10px', border: '1px dashed green', margin: '5px', backgroundColor: '#f0fff0' }}>
+        <h5>LoginForm Component (Simplified)</h5>
+        <p>LoginForm Status: <span style={{ fontWeight: 'bold' }}>{buttonClickMessage}</span></p>
         <button
           onClick={handleTestButtonClick}
           style={{
-            padding: '25px 40px', // Increased padding for larger size
-            fontSize: '20px',     // Increased font size
-            margin: '15px',        // Increased margin
-            border: '2px solid darkblue',
-            backgroundColor: 'tomato', // Distinct color
-            color: 'white',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            zIndex: 99999,
-            position: 'relative',
-            pointerEvents: 'auto',
-            minWidth: '200px', // Ensure it's wide enough
-            minHeight: '80px', // Ensure it's tall enough
-            display: 'block', // Make it a block to control width/height more easily
-            marginLeft: 'auto',
-            marginRight: 'auto',
+            padding: '8px 12px',
+            fontSize: '12px',
+            margin: '5px',
+            border: '1px solid darkgreen',
+            backgroundColor: 'lightgreen',
           }}
         >
-          Test VERY LARGE Button
+          Test Button (in LoginForm)
         </button>
-        <p style={{textAlign: 'center', marginTop: '10px'}}>
-          <Link href="/register" style={{color: 'blue', textDecoration: 'underline', fontSize: '18px'}}>Go to Register Page (Test Link)</Link>
-        </p>
       </div>
     </>
   );
