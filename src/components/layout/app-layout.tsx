@@ -22,7 +22,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 // import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
-import * as LucideIcons from 'lucide-react';
+// import * as LucideIcons from 'lucide-react';
 
 interface TaskItem {
   id: string;
@@ -47,15 +47,15 @@ interface TaskCategory {
   tasks?: TaskItem[];
 }
 
-const DefaultAiTaskIcon = Lightbulb;
+// const DefaultAiTaskIcon = Lightbulb;
 
-const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
-  switch (priority) {
-    case 'high': return 'font-bold text-destructive';
-    case 'medium': return 'font-semibold text-orange-600 dark:text-orange-400';
-    default: return '';
-  }
-};
+// const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
+//   switch (priority) {
+//     case 'high': return 'font-bold text-destructive';
+//     case 'medium': return 'font-semibold text-orange-600 dark:text-orange-400';
+//     default: return '';
+//   }
+// };
 
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -124,7 +124,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         })
         .finally(() => setIsLoadingAdminTasks(false));
     }
-  }, [user?.role]);
+  }, [user?.role]); // eslint-disable-next-line react-hooks/exhaustive-deps
   */
 
 
@@ -157,9 +157,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const renderNavItems = (items: NavItem[], isSubItem = false, isMobileView = false) => {
     return items.map((item) => {
-      const shouldShowLabels = isSidebarExpanded || isMobileView;
       const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
       const Icon = item.icon;
+      const shouldShowLabels = isSidebarExpanded || isMobileView;
 
       if (item.subItems && item.subItems.length > 0) {
         const isSubMenuOpen = openSubMenus[item.label] ?? false;
@@ -227,7 +227,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </Link>
           )}
           {!isMobileView && ( 
-            <Button variant="ghost" size="icon" onClick={toggleSidebar} className={cn(!shouldShowLabels && "mx-auto")}>
+            <Button variant="ghost" size="icon" onClick={toggleSidebar} className={cn(shouldShowLabels ? "" : "mx-auto")}>
               <Menu className="h-5 w-5" />
             </Button>
           )}
@@ -237,7 +237,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             {renderNavItems(navItems, false, isMobileView)}
           </nav>
         </ScrollArea>
-        {/* {user.role === 'admin' && shouldShowLabels && (
+        {/* 
+        {user.role === 'admin' && shouldShowLabels && (
           <Card className="m-2 bg-card/50">
             <CardHeader className="p-3">
               <CardTitle className="text-base font-headline flex items-center gap-1.5">
@@ -261,7 +262,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                             <ul className="space-y-1 pl-1">
                               {category.tasks.map(task => (
                                 <li key={task.id} className="flex items-center space-x-1.5">
-                                  <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {/* Mock toggle */}} className="w-3.5 h-3.5" />
+                                  <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {}} className="w-3.5 h-3.5" />
                                   <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
                                     <span>{task.label}</span>
                                   </Label>
@@ -277,7 +278,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
               }
             </CardContent>
           </Card>
-        )} */}
+        )}
+        */}
       </>
     );
   };
