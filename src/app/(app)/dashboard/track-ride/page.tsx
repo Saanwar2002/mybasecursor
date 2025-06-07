@@ -588,16 +588,16 @@ export default function MyActiveRidePage() {
                   </Alert>
                 )}
                 
-                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><span className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</span></Link> </Button> </div> )}
+                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><span className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> <span>Chat</span></span></Link> </Button> </div> )}
                 <Separator />
                 <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index+1}:</strong> {stop.address}</p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
-                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <span className="flex items-center justify-center"><CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </span></Button> )}
+                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <span className="flex items-center justify-center"><CheckCheck className="mr-2 h-5 w-5" /> <span>Acknowledge Driver Arrival</span> </span></Button> )}
             </CardContent>
              {(activeRide.status === 'pending_assignment' || activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.toLowerCase().includes('in_progress')) && ( 
                 <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2"> 
                     {activeRide.status === 'pending_assignment' && (
                         <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto"> 
-                            <span className="flex items-center justify-center"><Edit className="mr-2 h-4 w-4" /> Edit Booking</span>
+                            <span className="flex items-center justify-center"><Edit className="mr-2 h-4 w-4" /> <span>Edit Booking</span></span>
                         </Button>
                     )}
                     <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> 
@@ -622,12 +622,12 @@ export default function MyActiveRidePage() {
                     {actionLoading[activeRide.id] ? (
                       <span className="flex items-center justify-center">
                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                        Processing...
+                        <span>Processing...</span>
                       </span>
                     ) : (
                       <span className="flex items-center justify-center">
                         <Check className="mr-2 h-4 w-4" />
-                        Done
+                        <span>Done</span>
                       </span>
                     )}
                   </Button>
@@ -650,25 +650,25 @@ export default function MyActiveRidePage() {
             <AlertDialogFooter>
                 <AlertDialogCancel 
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
-                    disabled={activeRide && actionLoading[activeRide.id]}
+                    disabled={activeRide ? actionLoading[activeRide.id] : false}
                 >
                     <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={handleInitiateCancelRide}
-                  disabled={activeRide && actionLoading[activeRide.id]}
+                  onClick={() => { if (activeRide) { handleInitiateCancelRide(); } }}
+                  disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {(activeRide && actionLoading[activeRide.id]) ? (
-                    <span className="flex items-center justify-center">
-                      <Loader2 className="animate-spin mr-2 h-4 w-4"/>
-                      Cancelling...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center">
-                      Confirm Cancel
-                    </span>
-                  )}
+                  <span className="flex items-center justify-center">
+                    {activeRide && (actionLoading[activeRide.id] || false) ? (
+                        <span className="flex items-center justify-center">
+                            <Loader2 className="animate-spin mr-2 h-4 w-4"/>
+                            Cancelling...
+                        </span>
+                    ) : (
+                      "Confirm Cancel"
+                    )}
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter> 
         </AlertDialogContent> 
@@ -679,8 +679,8 @@ export default function MyActiveRidePage() {
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4"> 
           <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel><span>Pickup Door/Flat</span></FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> 
           <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel><span>Pickup Address</span></FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupDetails, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
-                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm"><span>Stop {index + 1}</span></FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><span className="flex items-center"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</span></Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs"><span>Stop Door/Flat</span></FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel><span>Stop Address</span></FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><span className="flex items-center"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</span></Button>
+                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm"><span>Stop {index + 1}</span></FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><span className="flex items-center"><XCircle className="mr-1 h-3.5 w-3.5" /> <span>Remove</span></span></Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs"><span>Stop Door/Flat</span></FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel><span>Stop Address</span></FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><span className="flex items-center"><PlusCircle className="mr-2 h-4 w-4"/><span>Add Stop</span></span></Button>
                   <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs"><span>Dropoff Door/Flat</span></FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> 
                   <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel><span>Dropoff Address</span></FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffDetails, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
                   <div className="grid grid-cols-2 gap-4"> <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => ( <FormItem><FormLabel><span>Pickup Date</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}><span>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}</span><CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} /> <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => ( <FormItem><FormLabel><span>Pickup Time</span></FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem> )} /> </div>
@@ -691,11 +691,11 @@ export default function MyActiveRidePage() {
               {isUpdatingDetails ? (
                 <span className="flex items-center justify-center">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  <span>Saving...</span>
                 </span>
               ) : (
                 <span className="flex items-center justify-center">
-                  Save Changes
+                  <span>Save Changes</span>
                 </span>
               )}
             </Button> 
