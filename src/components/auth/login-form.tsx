@@ -14,40 +14,47 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // This function should NOT be called if the button is type="button"
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); // Still good practice to have it
+    event.preventDefault(); 
     setIsLoading(true);
-    console.log("Basic HTML form onSubmit CALLED! Values:", { email, password });
-
+    // This alert won't show, but keeping logic for future
+    // alert("Basic HTML form onSubmit CALLED!"); 
     toast({
-      title: "Form Submit Attempt (Test)",
+      title: "Login Attempt (Test)",
       description: "This is a basic HTML form submission test. No actual login.",
       duration: 5000,
     });
-
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log("isLoading set to false after timeout.");
-    }, 1500);
+    setTimeout(() => setIsLoading(false), 1500);
   };
 
   const handleButtonClick = () => {
-    console.log("Button onClick JavaScript EXECUTED!");
+    console.log("Button onClick JavaScript EXECUTED (for text change and style)!");
     const testButton = document.getElementById("test-interaction-button");
+    const statusSpan = document.getElementById("click-status-span");
+
     if (testButton) {
-      testButton.innerText = "CLICKED!";
-      testButton.style.backgroundColor = "lightgreen"; // Visual feedback
+      // This part works (background color change)
+      testButton.style.backgroundColor = "lightgreen"; 
+      // This part did not work (innerText on button itself)
+      // testButton.innerText = "CLICKED!";
     } else {
       console.error("Test button not found by ID.");
     }
 
+    if (statusSpan) {
+      statusSpan.innerText = "Button was clicked! Span updated.";
+      statusSpan.style.color = "green";
+      statusSpan.style.fontWeight = "bold";
+    } else {
+      console.error("Status span not found by ID.");
+    }
+
+    // This part also does not seem to work (toast)
     toast({
       title: "Button Clicked (Test)",
-      description: "The type='button' onClick handler fired. Button text should change.",
+      description: "The type='button' onClick handler fired. Span text should change.",
       duration: 3000,
     });
-    // No state update for isLoading here for this specific test
   };
 
   return (
@@ -74,18 +81,23 @@ export function LoginForm() {
           disabled={isLoading}
         />
       </div>
-      {/* Basic HTML button with type="button" and direct onClick */}
+      
       <button
         id="test-interaction-button"
-        type="button"
+        type="button" // Important: not type="submit" for this test
         onClick={handleButtonClick}
         disabled={isLoading}
         className="w-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-10 px-4 py-2 rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-        style={{ backgroundColor: 'hsl(var(--primary))' }} // Ensure initial color is set
+        style={{ backgroundColor: 'hsl(var(--primary))' }}
       >
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Test Button (Click Me)
       </button>
+
+      <div className="text-center mt-4">
+        <span id="click-status-span" style={{ color: 'red' }}>Status: Button not clicked yet.</span>
+      </div>
+
       <div className="text-sm text-center">
         <Link href="/forgot-password" prefetch={false} className="underline text-muted-foreground hover:text-primary">
           Forgot your password?
@@ -100,3 +112,5 @@ export function LoginForm() {
     </form>
   );
 }
+
+    
