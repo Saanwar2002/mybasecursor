@@ -32,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader'; 
+import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -165,8 +165,7 @@ export default function MyActiveRidePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [rideToCancel, setRideToCancel] = useState<ActiveRide | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false); // Kept for clarity, but actionLoading drives button state
   const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
 
@@ -333,20 +332,23 @@ export default function MyActiveRidePage() {
   }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
 
 
-  const handleCancelRide = async () => {
-    if (!rideToCancel || !user) return;
-    setIsCancelling(true);
+  const handleInitiateCancelRide = async () => {
+    if (!activeRide || !user) return;
+    setActionLoading(prev => ({ ...prev, [activeRide.id]: true }));
     try {
-      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: rideToCancel.id, passengerId: user.id })});
+      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: activeRide.id, passengerId: user.id })});
       if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
-      toast({ title: "Ride Cancelled", description: `Your ride ${rideToCancel.id} has been cancelled.` });
-      setActiveRide(null); setRideToCancel(null); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);
+      toast({ title: "Ride Cancelled", description: `Your ride ${activeRide.id} has been cancelled.` });
+      setActiveRide(null); 
+      setShowCancelConfirmationDialog(false);
+      setIsCancelSwitchOn(false);
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
-    } finally { setIsCancelling(false); }
+    } finally { 
+        if (activeRide) setActionLoading(prev => ({ ...prev, [activeRide.id]: false }));
+    }
   };
 
-  const handleOpenCancelDialog = (ride: ActiveRide) => { setRideToCancel(ride); setShowCancelConfirmationDialog(true); };
-  const handleCancelSwitchChange = (checked: boolean) => { setIsCancelSwitchOn(checked); if (checked && activeRide) { handleOpenCancelDialog(activeRide); } else if (!checked) { setRideToCancel(null); setShowCancelConfirmationDialog(false); }};
+  const handleCancelSwitchChange = (checked: boolean) => { setIsCancelSwitchOn(checked); if (checked && activeRide) { setShowCancelConfirmationDialog(true); } else if (!checked) { setShowCancelConfirmationDialog(false); }};
 
   const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
     setRideToEditDetails(ride);
@@ -522,10 +524,12 @@ export default function MyActiveRidePage() {
   const fareDisplay = `£${(activeRide?.fareEstimate ?? 0).toFixed(2)}`;
   const paymentMethodDisplay = activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)'  : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' : 'Payment N/A';
 
-  const CancelRideInteraction = ({ ride, isLoading: actionIsLoading }: { ride: ActiveRide, isLoading: boolean }) => (
+  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide, isLoading: boolean }) => (
     <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
-      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm"> Initiate Cancellation </Label>
-      <Switch id={`cancel-ride-switch-${ride.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoading} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
+      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm">
+        <span>Initiate Cancellation</span>
+      </Label>
+      <Switch id={`cancel-ride-switch-${ride.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoadingProp} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
     </div>
   );
 
@@ -550,7 +554,7 @@ export default function MyActiveRidePage() {
                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
                   <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
                     <Info className="h-5 w-5 text-current" />
-                    <ShadAlertTitle className="font-semibold text-current">Driver Has Arrived!</ShadAlertTitle>
+                    <ShadAlertTitle className="font-semibold text-current"><span>Driver Has Arrived!</span></ShadAlertTitle>
                     <ShadAlertDescription className="text-current">
                       <span className="block">Please acknowledge within <span className="font-bold">{formatTimerPassenger(ackWindowSecondsLeft)}</span> to start your 3 minutes free waiting.</span>
                     </ShadAlertDescription>
@@ -560,7 +564,7 @@ export default function MyActiveRidePage() {
                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft === 0 && (
                   <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
                     <Timer className="h-5 w-5 text-current" />
-                    <ShadAlertTitle className="font-semibold text-current">Acknowledgment Window Expired</ShadAlertTitle>
+                    <ShadAlertTitle className="font-semibold text-current"><span>Acknowledgment Window Expired</span></ShadAlertTitle>
                     <ShadAlertDescription className="text-current">
                       <span className="block">Your 3 mins free waiting time ({freeWaitingSecondsLeft !== null ? formatTimerPassenger(freeWaitingSecondsLeft) : 'N/A'}) has started.</span>
                       <span className="block">Waiting charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.</span>
@@ -571,7 +575,7 @@ export default function MyActiveRidePage() {
                 {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
                   <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300">
                     <CheckCheck className="h-5 w-5 text-current" />
-                    <ShadAlertTitle className="font-semibold text-current">Arrival Acknowledged - Free Waiting</ShadAlertTitle>
+                    <ShadAlertTitle className="font-semibold text-current"><span>Arrival Acknowledged - Free Waiting</span></ShadAlertTitle>
                     <ShadAlertDescription className="text-current">
                       {freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
                         `Free waiting time: ${formatTimerPassenger(freeWaitingSecondsLeft)}. Charges (£${WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.`
@@ -596,7 +600,7 @@ export default function MyActiveRidePage() {
                             <span className="flex items-center justify-center"><Edit className="mr-2 h-4 w-4" /> Edit Booking</span>
                         </Button>
                     )}
-                    <CancelRideInteraction ride={activeRide} isLoading={isCancelling} /> 
+                    <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> 
                 </CardFooter> 
             )}
             {(activeRide.status === 'completed' || activeRide.status === 'cancelled_by_driver') && (
@@ -637,26 +641,26 @@ export default function MyActiveRidePage() {
         onOpenChange={(isOpen) => { 
             setShowCancelConfirmationDialog(isOpen); 
             if (!isOpen) { 
-                setRideToCancel(null); 
-                if (isCancelSwitchOn) setIsCancelSwitchOn(false); // Ensure switch is off if dialog closed externally
+                // setRideToCancel(null); // rideToCancel is not used, isCancelSwitchOn controls dialog directly
+                if (isCancelSwitchOn) setIsCancelSwitchOn(false); 
             }
         }}
       > 
         <AlertDialogContent> 
-            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader> 
+            <AlertDialogHeader><AlertDialogTitle><span>Are you sure?</span></AlertDialogTitle><AlertDialogDescription><span>This will cancel your ride request. This action cannot be undone.</span></AlertDialogDescription></AlertDialogHeader> 
             <AlertDialogFooter>
                 <AlertDialogCancel 
-                    onClick={() => { setRideToCancel(null); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
-                    disabled={isCancelling}
+                    onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
+                    disabled={activeRide && actionLoading[activeRide.id]}
                 >
                     <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={handleCancelRide}
-                  disabled={isCancelling}
+                  onClick={handleInitiateCancelRide}
+                  disabled={activeRide && actionLoading[activeRide.id]}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {isCancelling ? (
+                  {(activeRide && actionLoading[activeRide.id]) ? (
                     <span className="flex items-center justify-center">
                       <Loader2 className="animate-spin mr-2 h-4 w-4"/>
                       Cancelling...
