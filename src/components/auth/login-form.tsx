@@ -18,7 +18,7 @@ import { useAuth, UserRole, User } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
-import { User as UserIconLucide, Briefcase, CarIcon as CarIconLucide, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react"; // Renamed CarIcon to CarIconLucide
+import { User as UserIconLucide, Briefcase, CarIcon as CarIconLucide, Loader2, Shield, KeyRound, AlertTriangle, Info } from "lucide-react"; 
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect, useRef } from "react";
 import { signInWithEmailAndPassword, User as FirebaseUser } from "firebase/auth";
@@ -229,7 +229,6 @@ export function LoginForm() {
 
   const handleGuestLogin = (role: UserRole) => {
     console.log(`Guest login attempt for role: ${role}`); 
-    toast({ title: `Test Click: Guest ${role} button clicked!`});
     let email = "";
     let name = "";
     const guestId = `guest-${Date.now()}`;
@@ -282,7 +281,6 @@ export function LoginForm() {
           DEBUG: isLoading is TRUE
         </div>
       )}
-
       <Alert variant="destructive" className="mb-4">
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Developer Note: PIN Feature</AlertTitle>
@@ -292,14 +290,6 @@ export function LoginForm() {
           **Do not use for real applications.**
         </AlertDescription>
       </Alert>
-
-      <Button 
-        variant="secondary" 
-        className="w-full mb-4" 
-        onClick={() => alert('Minimal Shadcn Button Clicked!')}
-      >
-        Test Minimal Shadcn Button
-      </Button>
 
       {loginMode === 'email' ? (
         <Form {...form}>
@@ -449,21 +439,20 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => {
-            alert("HTML Button Clicked!"); // For immediate visual feedback
-            // toast({ title: "Standard HTML Guest Passenger button clicked!" });
-            // handleGuestLogin("passenger"); 
+            toast({title: "Test Click", description: "Standard HTML Guest Passenger button clicked!"});
+            handleGuestLogin("passenger"); 
           }}
           disabled={isLoading}
           className="w-full flex items-center justify-center px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
           <UserIconLucide className="mr-2 h-4 w-4" /> Login as Guest Passenger (HTML Button)
-        </Button>
+        </button>
 
         <Button
           variant="outline"
           className="w-full"
           onClick={() => {
-            // alert("Shadcn Guest Driver Button Clicked!"); // Reverted this direct alert
+            // toast({title: "Test Click", description: "Shadcn Guest Driver button clicked!"});
             handleGuestLogin("driver");
           }}
           disabled={isLoading}
