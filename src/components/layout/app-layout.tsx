@@ -67,9 +67,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('sidebarState') === 'expanded';
+      return localStorage.getItem('sidebarState') !== 'collapsed'; // Default to expanded if no state or if state is 'expanded'
     }
-    return true;
+    return true; // Default to expanded for SSR or if window not available yet
   });
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             groupedTasks[category].push({
               id: item.id,
               label: item.label,
-              completed: false, // AI doesn't know completion status
+              completed: false, 
               priority: item.priority,
               iconName: item.iconName,
               category: item.category
@@ -118,7 +118,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         })
         .catch(err => {
           console.error("Error fetching admin AI tasks:", err);
-          // Fallback to some default tasks or an error message task
            setAdminToDoList([{ id: 'error', name: "AI Tasks Error", tasks: [{id: 'err-1', label: "Could not load AI tasks.", completed: false, priority: 'high'}]}]);
         })
         .finally(() => setIsLoadingAdminTasks(false));
@@ -146,10 +145,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    // AuthProvider should handle redirection. If AppLayout is reached with no user
-    // after loading, it indicates a potential routing issue or that AuthProvider's
-    // redirect effect hasn't completed. Returning null prevents rendering this layout
-    // and avoids the router.push error.
     console.warn("AppLayout: User is null after loading state. AuthProvider should have redirected. Returning null.");
     return null;
   }
@@ -157,8 +152,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navItems = getNavItemsForRole(user.role);
   const toggleSubMenu = (label: string) => setOpenSubMenus(prev => ({ ...prev, [label]: !prev[label] }));
 
-  const renderNavItems = (items: NavItem[], isSubItem = false) => {
+  const renderNavItems = (items: NavItem[], isSubItem = false, isMobileView = false) => {
     return items.map((item) => {
+      const shouldShowLabels = isSidebarExpanded || isMobileView;
       const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
       const Icon = item.icon;
 
@@ -172,17 +168,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 className={cn(
                   "w-full justify-start text-base gap-3 px-3",
                   isActive && "bg-primary/10 text-primary",
-                  !isSidebarExpanded && "justify-center px-0"
+                  !shouldShowLabels && "justify-center px-0"
                 )}
               >
-                <Icon className={cn("h-5 w-5", !isSidebarExpanded && "h-6 w-6")} />
-                {isSidebarExpanded && item.label}
-                {isSidebarExpanded && (isSubMenuOpen ? <ChevronUp className="ml-auto h-4 w-4" /> : <ChevronDown className="ml-auto h-4 w-4" />)}
+                <Icon className={cn("h-5 w-5", !shouldShowLabels && "h-6 w-6")} />
+                {shouldShowLabels && item.label}
+                {shouldShowLabels && (isSubMenuOpen ? <ChevronUp className="ml-auto h-4 w-4" /> : <ChevronDown className="ml-auto h-4 w-4" />)}
               </Button>
             </CollapsibleTrigger>
-            {isSidebarExpanded && (
+            {shouldShowLabels && (
               <CollapsibleContent className="pl-7 space-y-1 mt-1">
-                {renderNavItems(item.subItems, true)}
+                {renderNavItems(item.subItems, true, isMobileView)}
               </CollapsibleContent>
             )}
           </Collapsible>
@@ -198,80 +194,86 @@ export function AppLayout({ children }: { children: ReactNode }) {
             "w-full justify-start text-base gap-3 px-3",
             isActive && "bg-primary/10 text-primary font-semibold",
             isSubItem && "text-sm h-9",
-            !isSidebarExpanded && "justify-center px-0"
+            !shouldShowLabels && "justify-center px-0"
           )}
-          title={!isSidebarExpanded ? item.label : undefined}
+          title={!shouldShowLabels ? item.label : undefined}
           onClick={() => isMobileSheetOpen && setIsMobileSheetOpen(false)}
         >
           <Link href={item.href}>
-            <Icon className={cn("h-5 w-5", !isSidebarExpanded && "h-6 w-6", isSubItem && "h-4 w-4")} />
-            {(isSidebarExpanded || isSubItem && isSidebarExpanded) && item.label}
+            <Icon className={cn("h-5 w-5", !shouldShowLabels && "h-6 w-6", isSubItem && "h-4 w-4")} />
+            {(shouldShowLabels || (isSubItem && shouldShowLabels)) && item.label}
           </Link>
         </Button>
       );
     });
   };
 
-  const sidebarContent = (
-    <>
-      <div className={cn("p-4 border-b flex items-center", isSidebarExpanded ? "justify-between" : "justify-center")}>
-        {isSidebarExpanded && (
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold text-primary-foreground bg-primary py-1 px-2 rounded-md">
-            <Car className="h-6 w-6" /> LinkCabs
-          </Link>
+  const sidebarContent = (isMobileView = false) => {
+    const shouldShowLabels = isSidebarExpanded || isMobileView;
+    return (
+      <>
+        <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
+          {shouldShowLabels && (
+            <Link href="/" className="flex items-center gap-2 text-xl font-bold text-primary-foreground bg-primary py-1 px-2 rounded-md">
+              <Car className="h-6 w-6" /> LinkCabs
+            </Link>
+          )}
+          {!isMobileView && ( // Only show toggle for desktop sidebar
+            <Button variant="ghost" size="icon" onClick={toggleSidebar} className={cn(!shouldShowLabels && "mx-auto")}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
+        <ScrollArea className="flex-1">
+          <nav className={cn("grid items-start gap-1 p-2 text-sm font-medium", shouldShowLabels ? "px-4" : "px-2")}>
+            {renderNavItems(navItems, false, isMobileView)}
+          </nav>
+        </ScrollArea>
+        {user.role === 'admin' && shouldShowLabels && (
+          <Card className="m-2 bg-card/50">
+            <CardHeader className="p-3">
+              <CardTitle className="text-base font-headline flex items-center gap-1.5">
+                <DatabaseZap className="w-5 h-5 text-accent" /> Admin To-Do
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
+              {isLoadingAdminTasks ? <Skeleton className="h-20 w-full" /> :
+              adminToDoList.length > 0 ? (
+                  <Accordion type="multiple" className="w-full">
+                    {adminToDoList.map((category) => (
+                      <AccordionItem value={category.id} key={category.id} className="border-b-0">
+                        <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <DefaultAiTaskIcon className="w-3.5 h-3.5 text-muted-foreground" />}
+                            {category.name} ({category.tasks?.length || 0})
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-1">
+                          {category.tasks && category.tasks.length > 0 && (
+                            <ul className="space-y-1 pl-1">
+                              {category.tasks.map(task => (
+                                <li key={task.id} className="flex items-center space-x-1.5">
+                                  <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {/* Mock toggle */}} className="w-3.5 h-3.5" />
+                                  <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
+                                    {task.label}
+                                  </Label>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                ) : (<p className="text-muted-foreground text-center">No urgent admin tasks from AI.</p>)
+              }
+            </CardContent>
+          </Card>
         )}
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className={cn(!isSidebarExpanded && "mx-auto")}>
-          <Menu className="h-5 w-5" />
-        </Button>
-      </div>
-      <ScrollArea className="flex-1">
-        <nav className={cn("grid items-start gap-1 p-2 text-sm font-medium", isSidebarExpanded ? "px-4" : "px-2")}>
-          {renderNavItems(navItems)}
-        </nav>
-      </ScrollArea>
-      {user.role === 'admin' && isSidebarExpanded && (
-        <Card className="m-2 bg-card/50">
-          <CardHeader className="p-3">
-            <CardTitle className="text-base font-headline flex items-center gap-1.5">
-              <DatabaseZap className="w-5 h-5 text-accent" /> Admin To-Do
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
-            {isLoadingAdminTasks ? <Skeleton className="h-20 w-full" /> :
-             adminToDoList.length > 0 ? (
-                <Accordion type="multiple" className="w-full">
-                  {adminToDoList.map((category) => (
-                    <AccordionItem value={category.id} key={category.id} className="border-b-0">
-                      <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
-                        <div className="flex items-center gap-1.5">
-                           {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <DefaultAiTaskIcon className="w-3.5 h-3.5 text-muted-foreground" />}
-                           {category.name} ({category.tasks?.length || 0})
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-1">
-                        {category.tasks && category.tasks.length > 0 && (
-                          <ul className="space-y-1 pl-1">
-                            {category.tasks.map(task => (
-                              <li key={task.id} className="flex items-center space-x-1.5">
-                                <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {/* Mock toggle */}} className="w-3.5 h-3.5" />
-                                <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                  {task.label}
-                                </Label>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (<p className="text-muted-foreground text-center">No urgent admin tasks from AI.</p>)
-            }
-          </CardContent>
-        </Card>
-      )}
-    </>
-  );
+      </>
+    );
+  };
+  
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -284,7 +286,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="sm:max-w-xs p-0 flex flex-col">
-            {sidebarContent}
+            {sidebarContent(true)}
           </SheetContent>
         </Sheet>
 
@@ -318,7 +320,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </header>
       <div className="flex flex-1">
         <aside className={cn("hidden md:flex flex-col border-r bg-card transition-all duration-300", isSidebarExpanded ? "w-64" : "w-16")}>
-          {sidebarContent}
+          {sidebarContent(false)}
         </aside>
         <main className="flex-1 p-4 sm:px-6 sm:py-0 space-y-4 overflow-auto">
           {children}
@@ -327,3 +329,5 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+      
