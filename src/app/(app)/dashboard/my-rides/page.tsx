@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins } from "lucide-react"; // Added ShieldX, CreditCard, Coins
+import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX } from "lucide-react"; // Added UserX
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, UserRole } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -18,6 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Import AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,8 +33,8 @@ import { cn } from "@/lib/utils";
 import { Loader } from '@googlemaps/js-api-loader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch"; 
-import { Label } from "@/components/ui/label"; 
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 
 interface JsonTimestamp {
@@ -50,21 +51,22 @@ interface LocationPoint {
 interface Ride {
   id: string;
   bookingTimestamp?: JsonTimestamp | null;
-  scheduledPickupAt?: string | null; 
+  scheduledPickupAt?: string | null;
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: LocationPoint[];
+  driverId?: string; // Added driverId
   driver?: string;
   driverAvatar?: string;
   vehicleType: string;
   fareEstimate: number;
-  status: string; 
+  status: string;
   rating?: number;
   passengerName: string;
   isSurgeApplied?: boolean;
   notifiedPassengerArrivalTimestamp?: JsonTimestamp | null;
   passengerAcknowledgedArrivalTimestamp?: JsonTimestamp | null;
-  paymentMethod?: "card" | "cash"; // Added paymentMethod
+  paymentMethod?: "card" | "cash";
 }
 
 const formatDate = (timestamp?: JsonTimestamp | null, isoString?: string | null): string => {
@@ -72,7 +74,7 @@ const formatDate = (timestamp?: JsonTimestamp | null, isoString?: string | null)
     try {
       const date = parseISO(isoString);
        if (!isValid(date)) return 'Scheduled time N/A (Invalid ISO Date)';
-      return format(date, "PPPp"); 
+      return format(date, "PPPp");
     } catch (e) { return 'Scheduled time N/A (ISO Parse Error)'; }
   }
   if (!timestamp) return 'Date/Time N/A (Missing)';
@@ -100,25 +102,22 @@ type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions
 export default function MyRidesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [allFetchedRides, setAllFetchedRides] = useState<Ride[]>([]); // Store all rides first
+  const [allFetchedRides, setAllFetchedRides] = useState<Ride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [selectedRideForRating, setSelectedRideForRating] = useState<Ride | null>(null);
   const [currentRating, setCurrentRating] = useState(0);
-  
-  // Edit and Cancel dialog states remain, but actions will be on active ride page
+
   const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [cancellingRideIdSwitch, setCancellingRideIdSwitch] = useState<string | null>(null); 
+  const [cancellingRideIdSwitch, setCancellingRideIdSwitch] = useState<string | null>(null);
 
   const [rideToEditDetails, setRideToEditDetails] = useState<Ride | null>(null);
   const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
   const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-
-  // Autocomplete state (can be removed if edit dialog is fully moved)
   const [dialogPickupInputValue, setDialogPickupInputValue] = useState("");
   const [dialogPickupSuggestions, setDialogPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showDialogPickupSuggestions, setShowDialogPickupSuggestions] = useState(false);
@@ -132,7 +131,7 @@ export default function MyRidesPage() {
   const [isFetchingDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions] = useState(false);
   const [isFetchingDialogDropoffDetails, setIsFetchingDialogDropoffDetails] = useState(false);
   const [dialogDropoffCoords, setDialogDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
-  
+
   const [dialogStopAutocompleteData, setDialogStopAutocompleteData] = useState<DialogAutocompleteData[]>([]);
 
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -146,7 +145,7 @@ export default function MyRidesPage() {
   });
 
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
-  
+
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) { console.warn("Google Maps API Key missing."); return; }
     const loader = new Loader({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["places", "marker", "maps"]});
@@ -166,29 +165,25 @@ export default function MyRidesPage() {
           const response = await fetch(`/api/bookings/my-rides?passengerId=${user.id}`);
           if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch rides: ${response.status}` })); throw new Error(errorData.details || errorData.message); }
           const data: Ride[] = await response.json();
-          setAllFetchedRides(data); // Store all rides
+          setAllFetchedRides(data);
         } catch (err) { const displayMessage = err instanceof Error ? err.message : "An unknown error occurred."; setError(displayMessage); toast({ title: "Error Fetching Rides History", description: displayMessage, variant: "destructive", duration: 7000 });
         } finally { setIsLoading(false); }
       };
       fetchRides();
     } else setIsLoading(false);
   }, [user, toast]);
-  
-  const displayedRides = allFetchedRides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled');
 
+  const displayedRides = allFetchedRides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled');
 
   const handleRateRide = (ride: Ride) => { setSelectedRideForRating(ride); setCurrentRating(ride.rating || 0); };
   const submitRating = async () => {
     if (!selectedRideForRating || !user) return;
-    // In a real app, this would be an API call:
-    // await fetch(`/api/bookings/rate/${selectedRideForRating.id}`, { method: 'POST', body: JSON.stringify({ rating: currentRating }) });
     const updatedRides = allFetchedRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r);
-    setAllFetchedRides(updatedRides); 
+    setAllFetchedRides(updatedRides);
     toast({ title: "Rating Submitted (Mock)", description: `You rated your ride ${currentRating} stars.`});
     setSelectedRideForRating(null); setCurrentRating(0);
   };
-  
-  // Placeholder for functions that were moved or are not relevant for history
+
   const handleOpenCancelDialog = (ride: Ride) => {
     toast({title: "Action Not Available", description: "Cancellation is handled on the 'My Active Ride' page for pending rides."});
   };
@@ -197,6 +192,36 @@ export default function MyRidesPage() {
   };
    const handleAcknowledgeArrival = async (rideId: string) => {
      toast({title: "Action Not Available", description: "Arrival acknowledgement is on the 'My Active Ride' page."});
+  };
+
+  const handleBlockDriver = async (rideToBlock: Ride) => {
+    if (!user || !rideToBlock.driverId || !rideToBlock.driver) {
+      toast({ title: "Cannot Block", description: "Driver information is missing for this ride.", variant: "destructive" });
+      return;
+    }
+    setActionLoading(prev => ({ ...prev, [`block-${rideToBlock.driverId}`]: true }));
+    try {
+      const response = await fetch('/api/users/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blockerId: user.id,
+          blockedId: rideToBlock.driverId,
+          blockerRole: user.role,
+          blockedRole: 'driver' as UserRole,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || `Failed to block driver. Status: ${response.status}`);
+      }
+      toast({ title: "Driver Blocked", description: `${rideToBlock.driver} has been added to your block list.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error while blocking driver.";
+      toast({ title: "Blocking Failed", description: message, variant: "destructive" });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`block-${rideToBlock.driverId}`]: false }));
+    }
   };
 
 
@@ -239,6 +264,28 @@ export default function MyRidesPage() {
               </div>
               <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
                 {ride.status === 'completed' && (ride.rating ? (<div className="flex items-center"><p className="text-sm mr-2">Your Rating:</p>{[...Array(5)].map((_, i) => (<Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />))}</div>) : (<Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>))}
+                {ride.status === 'completed' && ride.driverId && ride.driver && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" className="bg-destructive/80 hover:bg-destructive text-destructive-foreground" disabled={actionLoading[`block-${ride.driverId}`]}>
+                        {actionLoading[`block-${ride.driverId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
+                        Block Driver
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Block {ride.driver}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to block this driver? You will not be matched with them for future rides. This action can be undone in your profile settings.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleBlockDriver(ride)} className="bg-destructive hover:bg-destructive/90">Block Driver</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </CardContent>
           </Card>
