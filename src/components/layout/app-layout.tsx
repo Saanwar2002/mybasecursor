@@ -8,8 +8,8 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase } from 'lucide-react'; // Removed Car
-import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon'; // Added MyBaseLogoIcon
+import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase } from 'lucide-react';
+import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -220,8 +220,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <>
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
-            <Link href="/" className="flex items-center gap-2 text-xl font-bold text-primary-foreground bg-primary py-1 px-2 rounded-md">
-              <MyBaseLogoIcon className="h-7 w-7" /> MyBase {/* Updated Icon and Name */}
+            <Link href="/" className="flex items-center" aria-label="MyBase Home">
+              <MyBaseLogoIcon className="h-10 w-28 md:w-32 shrink-0" />
             </Link>
           )}
           {!isMobileView && ( 

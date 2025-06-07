@@ -4,8 +4,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-// import { Car, LogIn, UserPlus, ArrowRight } from 'lucide-react'; // Removed Car
-import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon'; // Added MyBaseLogoIcon
+import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon';
 import { LogIn, UserPlus, ArrowRight } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,13 +22,13 @@ export default function HomePage() {
     <main className="flex flex-col min-h-screen items-center justify-start p-6 pt-12 md:p-12 bg-gradient-to-br from-background to-muted/30 overflow-y-auto">
       <div className="container max-w-4xl text-center space-y-8 md:pt-0">
         <div className="flex justify-center">
-          <MyBaseLogoIcon className="w-24 h-24 text-primary" /> {/* Updated Icon */}
+          <MyBaseLogoIcon className="h-20 w-auto md:h-24" priority />
         </div>
         <h1 className="text-4xl md:text-6xl font-bold text-foreground tracking-tight">
-          MyBase: Your Journey, Simplified. {/* Updated App Name */}
+          MyBase: Your Journey, Simplified.
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-          Reliable, comfortable, and efficient taxi services at your fingertips. Book your next ride with MyBase and experience seamless travel. {/* Updated App Name */}
+          Reliable, comfortable, and efficient taxi services at your fingertips. Book your next ride with MyBase and experience seamless travel.
         </p>
         <div className="hidden md:block my-8">
           <div className="w-full max-w-[700px] h-[300px] rounded-xl shadow-2xl mx-auto overflow-hidden border">
