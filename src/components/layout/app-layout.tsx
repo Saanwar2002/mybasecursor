@@ -172,7 +172,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 )}
               >
                 <Icon className={cn("h-5 w-5", !shouldShowLabels && "h-6 w-6")} />
-                {shouldShowLabels && item.label}
+                {shouldShowLabels && <span>{item.label}</span>}
                 {shouldShowLabels && (isSubMenuOpen ? <ChevronUp className="ml-auto h-4 w-4" /> : <ChevronDown className="ml-auto h-4 w-4" />)}
               </Button>
             </CollapsibleTrigger>
@@ -191,7 +191,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           asChild
           variant="ghost"
           className={cn(
-            "w-full justify-start text-base px-3", // Removed gap-3 here
+            "w-full justify-start text-base px-3",
             isActive && "bg-primary/10 text-primary font-semibold",
             isSubItem && "text-sm h-9",
             !shouldShowLabels && "justify-center px-0"
@@ -202,7 +202,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <Link href={item.href}>
             <span className={cn(
               "flex items-center w-full",
-              shouldShowLabels ? "gap-3" : "" // Apply gap only when labels are shown
+              shouldShowLabels ? "gap-3" : ""
             )}>
               <Icon className={cn("h-5 w-5 shrink-0", !shouldShowLabels && "h-6 w-6", isSubItem && "h-4 w-4")} />
               {(shouldShowLabels || (isSubItem && shouldShowLabels)) && <span className="truncate">{item.label}</span>}
@@ -250,7 +250,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                         <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
                           <div className="flex items-center gap-1.5">
                             {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <DefaultAiTaskIcon className="w-3.5 h-3.5 text-muted-foreground" />}
-                            {category.name} ({category.tasks?.length || 0})
+                            <span>{category.name} ({category.tasks?.length || 0})</span>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pb-1">
@@ -260,7 +260,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                                 <li key={task.id} className="flex items-center space-x-1.5">
                                   <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {/* Mock toggle */}} className="w-3.5 h-3.5" />
                                   <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                    {task.label}
+                                    <span>{task.label}</span>
                                   </Label>
                                 </li>
                               ))}
@@ -335,3 +335,4 @@ export function AppLayout({ children }: { children: ReactNode }) {
   );
 }
     
+
