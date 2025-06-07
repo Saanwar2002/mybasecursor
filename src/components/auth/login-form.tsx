@@ -1,9 +1,9 @@
 
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button"; // Still used for Link styling potentially, or could be removed if not used elsewhere
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; // Shadcn Label for consistency
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -16,12 +16,11 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
 
   const handleBasicFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    alert("Basic HTML form onSubmit CALLED!"); // Test alert
-    event.preventDefault(); // Crucial to prevent page refresh
+    alert("Basic HTML form onSubmit CALLED!"); 
+    event.preventDefault(); 
     setIsLoading(true);
     console.log("Basic HTML Form submitted with values:", { email, password });
 
-    // Simulate API call
     toast({
       title: "Login Attempt (Test)",
       description: "This is a basic HTML form submission test. No actual login.",
@@ -45,7 +44,6 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isLoading}
-          // Removed 'required'
         />
       </div>
       <div className="space-y-2">
@@ -57,13 +55,17 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isLoading}
-          // Removed 'required'
         />
       </div>
-      <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+      {/* Replaced Shadcn Button with a standard HTML button */}
+      <button 
+        type="submit" 
+        disabled={isLoading}
+        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-10 px-4 py-2 rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+      >
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Log In (Basic Form)
-      </Button>
+        Log In (Basic HTML Button)
+      </button>
       <div className="text-sm text-center">
         <Link href="/forgot-password" prefetch={false} className="underline text-muted-foreground hover:text-primary">
           Forgot your password?
