@@ -228,7 +228,8 @@ export function LoginForm() {
   }
 
   const handleGuestLogin = (role: UserRole) => {
-    console.log(`Guest login attempt for role: ${role}`);
+    console.log(`Guest login attempt for role: ${role}`); 
+    toast({ title: `Test Click: Guest ${role} button clicked!`});
     let email = "";
     let name = "";
     const guestId = `guest-${Date.now()}`;
@@ -291,6 +292,14 @@ export function LoginForm() {
           **Do not use for real applications.**
         </AlertDescription>
       </Alert>
+
+      <Button 
+        variant="secondary" 
+        className="w-full mb-4" 
+        onClick={() => alert('Minimal Shadcn Button Clicked!')}
+      >
+        Test Minimal Shadcn Button
+      </Button>
 
       {loginMode === 'email' ? (
         <Form {...form}>
@@ -437,26 +446,25 @@ export function LoginForm() {
           Or try as a guest:
         </p>
         
-        {/* Standard HTML button for Guest Passenger */}
         <button
           type="button"
           onClick={() => {
-            alert("HTML Button Clicked!"); // Direct alert for testing
-            // console.log("Standard HTML Guest Passenger button clicked!");
-            // handleGuestLogin("passenger");
+            alert("HTML Button Clicked!"); // For immediate visual feedback
+            // toast({ title: "Standard HTML Guest Passenger button clicked!" });
+            // handleGuestLogin("passenger"); 
           }}
           disabled={isLoading}
           className="w-full flex items-center justify-center px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
           <UserIconLucide className="mr-2 h-4 w-4" /> Login as Guest Passenger (HTML Button)
-        </button>
+        </Button>
 
         <Button
           variant="outline"
           className="w-full"
           onClick={() => {
-            alert("Shadcn Guest Driver Button Clicked!"); // Test alert
-            // handleGuestLogin("driver");
+            // alert("Shadcn Guest Driver Button Clicked!"); // Reverted this direct alert
+            handleGuestLogin("driver");
           }}
           disabled={isLoading}
         >
