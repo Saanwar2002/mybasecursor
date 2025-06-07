@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import './globals.css'; // Essential for Tailwind
 import { AuthProvider } from '@/contexts/auth-context';
 import { Toaster } from '@/components/ui/toaster';
-import { ThemeInitializer } from '@/components/theme-provider';
+// import { ThemeInitializer } from '@/components/theme-provider'; // Temporarily commented out
 
 export default function RootLayout({
   children,
@@ -13,12 +13,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ThemeInitializer>
+        {/* <ThemeInitializer> */}
           <AuthProvider>
             {children}
             <Toaster />
           </AuthProvider>
-        </ThemeInitializer>
+        {/* </ThemeInitializer> */}
       </body>
     </html>
   );
