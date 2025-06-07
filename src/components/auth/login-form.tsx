@@ -16,10 +16,9 @@ export function LoginForm() {
 
   // This function should NOT be called if the button is type="button"
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    alert("Basic HTML form onSubmit CALLED! This should not happen with type='button'.");
-    event.preventDefault();
+    event.preventDefault(); // Still good practice to have it
     setIsLoading(true);
-    console.log("Form submitted with values:", { email, password });
+    console.log("Basic HTML form onSubmit CALLED! Values:", { email, password });
 
     toast({
       title: "Form Submit Attempt (Test)",
@@ -34,12 +33,21 @@ export function LoginForm() {
   };
 
   const handleButtonClick = () => {
-    alert("Button onClick JavaScript EXECUTED!");
+    console.log("Button onClick JavaScript EXECUTED!");
+    const testButton = document.getElementById("test-interaction-button");
+    if (testButton) {
+      testButton.innerText = "CLICKED!";
+      testButton.style.backgroundColor = "lightgreen"; // Visual feedback
+    } else {
+      console.error("Test button not found by ID.");
+    }
+
     toast({
       title: "Button Clicked (Test)",
-      description: "The type='button' onClick handler fired.",
+      description: "The type='button' onClick handler fired. Button text should change.",
       duration: 3000,
     });
+    // No state update for isLoading here for this specific test
   };
 
   return (
@@ -66,15 +74,17 @@ export function LoginForm() {
           disabled={isLoading}
         />
       </div>
-      {/* Changed to type="button" and using onClick */}
+      {/* Basic HTML button with type="button" and direct onClick */}
       <button
-        type="button" 
+        id="test-interaction-button"
+        type="button"
         onClick={handleButtonClick}
         disabled={isLoading}
         className="w-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-10 px-4 py-2 rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        style={{ backgroundColor: 'hsl(var(--primary))' }} // Ensure initial color is set
       >
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Test Button (type='button')
+        Test Button (Click Me)
       </button>
       <div className="text-sm text-center">
         <Link href="/forgot-password" prefetch={false} className="underline text-muted-foreground hover:text-primary">
