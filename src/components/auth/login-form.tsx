@@ -276,11 +276,6 @@ export function LoginForm() {
 
   return (
     <>
-      {isLoading && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-black p-2 rounded shadow-lg z-50 text-xs">
-          DEBUG: isLoading is TRUE
-        </div>
-      )}
       <Alert variant="destructive" className="mb-4">
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Developer Note: PIN Feature</AlertTitle>
@@ -439,7 +434,7 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => {
-            toast({title: "Test Click", description: "Standard HTML Guest Passenger button clicked!"});
+            alert('HTML Button Clicked!'); // Reverted to alert
             handleGuestLogin("passenger"); 
           }}
           disabled={isLoading}
@@ -451,10 +446,7 @@ export function LoginForm() {
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => {
-            // toast({title: "Test Click", description: "Shadcn Guest Driver button clicked!"});
-            handleGuestLogin("driver");
-          }}
+          onClick={() => handleGuestLogin("driver")}
           disabled={isLoading}
         >
           <CarIconLucide className="mr-2 h-4 w-4" /> Login as Guest Driver
