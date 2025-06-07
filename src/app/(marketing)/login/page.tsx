@@ -14,7 +14,7 @@ export default function LoginPage() {
             <LogIn className="h-8 w-8" />
           </div>
           <CardTitle className="text-3xl font-headline">Welcome Back</CardTitle>
-          <CardDescription>Log in to access your Link Cabs account.</CardDescription>
+          <CardDescription>Log in to access your MyBase account.</CardDescription> {/* Updated App Name */}
         </CardHeader>
         <CardContent>
           <LoginForm />

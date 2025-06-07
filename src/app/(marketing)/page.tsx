@@ -3,7 +3,9 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Car, LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
+// import { Car, LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react'; // Removed Car
+import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon'; // Added MyBaseLogoIcon
+import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyCarousel } from '@/components/marketing/company-carousel'; // Import the new carousel
 
@@ -37,9 +39,9 @@ export default function LandingPage() {
       <section className="container mx-auto px-4">
         <div className="grid md:grid-cols-2 items-center gap-8 md:gap-16">
           <div className="space-y-6 text-center md:text-left">
-            <Car className="w-20 h-20 text-primary mb-4 mx-auto md:mx-0" />
+            <MyBaseLogoIcon className="w-20 h-20 text-primary mb-4 mx-auto md:mx-0" /> {/* Updated Icon */}
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground tracking-tight">
-              Welcome to Link Cabs
+              Welcome to MyBase {/* Updated App Name */}
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto md:mx-0">
               Your reliable and efficient taxi service, connecting you to your destination with ease and comfort.
@@ -71,11 +73,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Why Choose Link Cabs Section */}
+      {/* Why Choose MyBase Section */}
       <section className="container mx-auto px-4">
         <div className="text-center mb-10 md:mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Why Choose Link Cabs?
+            Why Choose MyBase? {/* Updated App Name */}
           </h2>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
             Experience the difference with our commitment to quality service.

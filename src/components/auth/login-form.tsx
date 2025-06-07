@@ -68,14 +68,14 @@ export function LoginForm() {
 
   useEffect(() => {
     if (loginMode === 'pin' && typeof window !== "undefined") {
-      const storedUserData = localStorage.getItem('linkCabsUserWithPin');
+      const storedUserData = localStorage.getItem('myBaseUserWithPin'); // Updated storage key
       if (storedUserData) {
         try {
           const parsedData: StoredPinUser = JSON.parse(storedUserData);
           setStoredPinUser(parsedData);
         } catch (e) {
           console.error("Error parsing stored PIN user data from localStorage:", e);
-          localStorage.removeItem('linkCabsUserWithPin');
+          localStorage.removeItem('myBaseUserWithPin'); // Updated storage key
           setStoredPinUser(null);
         }
       } else {
@@ -209,7 +209,7 @@ export function LoginForm() {
           toast({ title: "PIN Login Successful!", description: `Welcome back, ${userData.name || storedPinUser.name}!` });
         } else {
           toast({ title: "PIN Login Failed", description: "User profile not found for stored PIN data. Please re-login with email.", variant: "destructive" });
-          localStorage.removeItem('linkCabsUserWithPin'); // Clear potentially stale PIN data
+          localStorage.removeItem('myBaseUserWithPin'); // Updated storage key
           setStoredPinUser(null);
           setLoginMode('email');
         }
@@ -235,24 +235,24 @@ export function LoginForm() {
 
     switch (role) {
       case "passenger":
-        email = "guest-passenger@taxinow.com";
+        email = "guest-passenger@mybase.com"; // Updated domain
         name = "Guest Passenger";
         customIdForGuest = `CU-${guestId.slice(-6)}`;
         break;
       case "driver":
-        email = "guest-driver@taxinow.com";
+        email = "guest-driver@mybase.com"; // Updated domain
         name = "Guest Driver";
         operatorCodeForGuest = "OP001"; 
         customIdForGuest = `DR-${guestId.slice(-6)}`;
         break;
       case "operator":
-        email = "guest-operator@taxinow.com";
+        email = "guest-operator@mybase.com"; // Updated domain
         name = "Guest Operator";
         operatorCodeForGuest = "OP001"; 
         customIdForGuest = `OP-${guestId.slice(-6)}`;
         break;
       case "admin":
-        email = "guest-admin@taxinow.com";
+        email = "guest-admin@mybase.com"; // Updated domain
         name = "Guest Platform Admin";
         customIdForGuest = `AD-${guestId.slice(-6)}`;
         break;

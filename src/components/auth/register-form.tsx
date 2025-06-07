@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Car, Loader2, PhoneOutcome, Briefcase, Shield, ShieldCheck } from "lucide-react"; // Added Shield
+import { Car, Loader2, PhoneOutcome, Briefcase, Shield, ShieldCheck } from "lucide-react"; 
 import React, { useState, useEffect, useRef } from "react";
 import { 
   createUserWithEmailAndPassword, 
@@ -44,7 +44,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(["passenger", "driver", "operator", "admin"], { required_error: "You must select a role." }), // Added admin
+  role: z.enum(["passenger", "driver", "operator", "admin"], { required_error: "You must select a role." }), 
   vehicleCategory: z.string().optional(),
   operatorCode: z.string().optional(), 
   phoneNumber: z.string().optional(),
@@ -191,7 +191,7 @@ export function RegisterForm() {
         
         if (values.role === 'passenger') userProfile.customId = `CU-mock-${firebaseUser.uid.slice(0,4)}`;
         if (values.role === 'operator') userProfile.customId = `OP-mock-${firebaseUser.uid.slice(0,4)}`;
-        if (values.role === 'admin') userProfile.customId = `AD-mock-${firebaseUser.uid.slice(0,4)}`; // Admin custom ID
+        if (values.role === 'admin') userProfile.customId = `AD-mock-${firebaseUser.uid.slice(0,4)}`; 
         
         if (values.role === 'driver') {
           if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
@@ -253,7 +253,7 @@ export function RegisterForm() {
             userProfile.operatorCode,
             userProfile.driverIdentifier
           );
-          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''}` });
+          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''}` }); {/* Updated App Name */}
           setIsSubmitting(false);
         }
 
@@ -274,7 +274,7 @@ export function RegisterForm() {
         
         const userDocRef = doc(db, "users", firebaseUserForLinking.uid);
         await updateDoc(userDocRef, {
-          phoneNumber: firebaseUserForLinking.phoneNumber, // Store E.164 from Firebase Auth
+          phoneNumber: firebaseUserForLinking.phoneNumber, 
           phoneVerified: true,
           phoneVerificationDeadline: deleteField(),
         });

@@ -57,8 +57,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let isMounted = true;
     if (typeof window !== 'undefined') {
       try {
-        const storedUserJson = localStorage.getItem('linkCabsUser');
-        console.log("AuthProvider: localStorage.getItem('linkCabsUser') retrieved:", storedUserJson ? "Data found" : "No data");
+        const storedUserJson = localStorage.getItem('myBaseUser'); // Updated storage key
+        console.log("AuthProvider: localStorage.getItem('myBaseUser') retrieved:", storedUserJson ? "Data found" : "No data");
         if (storedUserJson) {
           const storedUserObject = JSON.parse(storedUserJson) as User;
           console.log("AuthProvider: Parsed user from localStorage:", storedUserObject);
@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log("AuthProvider: User set from localStorage.");
             } else {
               console.warn("AuthProvider: Stored user object from localStorage is missing critical fields. Clearing.");
-              localStorage.removeItem('linkCabsUser');
+              localStorage.removeItem('myBaseUser'); // Updated storage key
               setUser(null);
             }
           }
@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (error) {
         console.error("AuthProvider: Error processing stored user in AuthProvider:", error);
-        localStorage.removeItem('linkCabsUser');
+        localStorage.removeItem('myBaseUser'); // Updated storage key
         if (isMounted) setUser(null);
       } finally {
         if (isMounted) {
@@ -147,7 +147,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     setUser(newUser);
     if (typeof window !== 'undefined') {
-        localStorage.setItem('linkCabsUser', JSON.stringify(newUser));
+        localStorage.setItem('myBaseUser', JSON.stringify(newUser)); // Updated storage key
         console.log("AuthProvider: User saved to localStorage.");
     }
 
@@ -166,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (currentUser) {
         const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id };
         if (typeof window !== 'undefined') {
-            localStorage.setItem('linkCabsUser', JSON.stringify(updatedUser));
+            localStorage.setItem('myBaseUser', JSON.stringify(updatedUser)); // Updated storage key
         }
         return updatedUser;
       }
@@ -177,8 +177,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     console.log("AuthProvider: logout function called.");
     if (typeof window !== 'undefined') {
-        localStorage.removeItem('linkCabsUser');
-        localStorage.removeItem('linkCabsUserWithPin');
+        localStorage.removeItem('myBaseUser'); // Updated storage key
+        localStorage.removeItem('myBaseUserWithPin'); // Updated storage key for PIN
         console.log("AuthProvider: User data removed from localStorage.");
     }
     setUser(null); // This state update will trigger the redirection useEffect
@@ -194,24 +194,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     switch (role) {
       case "passenger":
-        email = "guest-passenger@taxinow.com";
+        email = "guest-passenger@mybase.com"; // Updated domain
         name = "Guest Passenger";
         customIdForGuest = `CU-${guestId.slice(-6)}`;
         break;
       case "driver":
-        email = "guest-driver@taxinow.com";
+        email = "guest-driver@mybase.com"; // Updated domain
         name = "Guest Driver";
         operatorCodeForGuest = "OP001";
         customIdForGuest = `DR-${guestId.slice(-6)}`;
         break;
       case "operator":
-        email = "guest-operator@taxinow.com";
+        email = "guest-operator@mybase.com"; // Updated domain
         name = "Guest Operator";
         operatorCodeForGuest = "OP001";
         customIdForGuest = `OP-${guestId.slice(-6)}`;
         break;
       case "admin":
-        email = "guest-admin@taxinow.com";
+        email = "guest-admin@mybase.com"; // Updated domain
         name = "Guest Platform Admin";
         customIdForGuest = `AD-${guestId.slice(-6)}`;
         break;
@@ -256,4 +256,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

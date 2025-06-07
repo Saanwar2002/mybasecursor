@@ -55,7 +55,7 @@ export default function ProfilePage() {
       setPhone(user.phoneNumber || (user.role === 'driver' ? "555-0101" : "")); // Example phone
 
       // Load current PIN for this user if it exists for this device
-      const storedUserData = localStorage.getItem('linkCabsUserWithPin');
+      const storedUserData = localStorage.getItem('myBaseUserWithPin'); // Updated storage key
       if (storedUserData) {
         try {
             const parsedData: StoredPinUser = JSON.parse(storedUserData);
@@ -64,7 +64,7 @@ export default function ProfilePage() {
             }
         } catch (e) {
             console.error("Error parsing stored PIN user data:", e);
-            localStorage.removeItem('linkCabsUserWithPin'); // Clear corrupted data
+            localStorage.removeItem('myBaseUserWithPin'); // Updated storage key; Clear corrupted data
         }
       } else {
         setCurrentPin(null);
@@ -99,7 +99,7 @@ export default function ProfilePage() {
       ...user,
       pin: values.newPin, // Storing PIN directly - NOT SECURE for production
     };
-    localStorage.setItem('linkCabsUserWithPin', JSON.stringify(userWithPin));
+    localStorage.setItem('myBaseUserWithPin', JSON.stringify(userWithPin)); // Updated storage key
     setCurrentPin(values.newPin);
     pinForm.reset();
     setIsSettingPin(false);
@@ -108,7 +108,7 @@ export default function ProfilePage() {
 
   const handleRemovePin = () => {
     if (!user) return;
-    localStorage.removeItem('linkCabsUserWithPin');
+    localStorage.removeItem('myBaseUserWithPin'); // Updated storage key
     setCurrentPin(null);
     toast({ title: "PIN Removed", description: "Quick PIN login has been disabled for this device." });
   };
