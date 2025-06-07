@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Car, LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CompanyCarousel } from '@/components/marketing/company-carousel'; // Import the new carousel
 
 const features = [
   {
@@ -96,6 +97,20 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* New Carousel Section */}
+      <section className="container mx-auto px-4">
+        <div className="text-center mb-10 md:mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
+            Get to Know Us Better
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            A quick look into our values and commitment to you.
+          </p>
+        </div>
+        <CompanyCarousel />
+      </section>
+
     </div>
   );
 }
