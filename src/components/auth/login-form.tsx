@@ -21,9 +21,10 @@ export function LoginForm() {
     setIsLoading(true);
     console.log("Basic HTML Form submitted with values:", { email, password });
 
+    // Simulate API call
     toast({
-      title: "Basic Form Submit (Test)",
-      description: "If you see this, the basic HTML form handler was reached and default submission was prevented.",
+      title: "Login Attempt (Test)",
+      description: "This is a basic HTML form submission test. No actual login.",
       duration: 5000,
     });
 
@@ -44,7 +45,7 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isLoading}
-          required
+          // Removed 'required'
         />
       </div>
       <div className="space-y-2">
@@ -56,7 +57,7 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isLoading}
-          required
+          // Removed 'required'
         />
       </div>
       <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
