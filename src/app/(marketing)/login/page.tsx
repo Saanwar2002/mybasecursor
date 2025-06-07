@@ -1,37 +1,25 @@
 
-"use client";
-import { useEffect, useState } from "react";
+"use client"; // Add this line
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoginForm } from "@/components/auth/login-form";
+import { LogIn } from "lucide-react";
 
 export default function LoginPage() {
-  const [statusMessage, setStatusMessage] = useState("INITIAL: useState is working, useEffect pending.");
-  const [statusColor, setStatusColor] = useState("red");
-  const [statusWeight, setStatusWeight] = useState("normal");
-
-  useEffect(() => {
-    // This is the ONLY JavaScript that should run after the component attempts to mount.
-    // alert('LoginPage Minimal Mount Test: Component Mounted'); // Removed alert
-    console.log('LoginPage Minimal Mount Test: Component Mounted (console). Attempting to setStatusMessage.');
-    setStatusMessage('SUCCESS: useEffect ran and called setStatusMessage!');
-    setStatusColor('green');
-    setStatusWeight('bold');
-  }, []); // Empty dependency array ensures this runs once on mount
-
   return (
-    <div style={{ padding: '50px', textAlign: 'center', border: '5px solid orange', backgroundColor: 'lightyellow' }}>
-      <h1>Login Page - MINIMAL TEST</h1>
-      <p>If you see this, the basic page component is rendering.</p>
-      <p 
-        id="mountStatus" 
-        style={{
-          color: statusColor, 
-          border: '1px dashed red', 
-          padding: '10px', 
-          fontWeight: statusWeight as 'normal' | 'bold' // Cast to type
-        }}
-      >
-        {statusMessage}
-      </p>
-      <p>If the text above changes to green and says "SUCCESS...", then useEffect and useState are working.</p>
+    <div className="flex justify-center items-center py-12">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="text-center">
+          <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
+            <LogIn className="h-8 w-8" />
+          </div>
+          <CardTitle className="text-3xl font-headline">Welcome Back!</CardTitle>
+          <CardDescription>Log in to access your MyBase account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoginForm />
+        </CardContent>
+      </Card>
     </div>
   );
 }
