@@ -85,6 +85,7 @@ export function LoginForm() {
   }, [loginMode]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log("LoginForm onSubmit triggered with values:", values);
     setIsLoading(true);
     setPinInputValue(""); // Clear PIN input if switching from PIN mode or re-submitting email
     if (!auth || !db) {
@@ -167,6 +168,7 @@ export function LoginForm() {
   }
 
   async function onPinSubmit(values: z.infer<typeof pinFormSchema>) {
+    console.log("LoginForm onPinSubmit triggered with PIN:", values.pin);
     setIsLoading(true);
     if (!storedPinUser) {
       toast({ title: "PIN Login Error", description: "No PIN user data found for this device. Please log in with email/password first to set up a PIN.", variant: "destructive" });
@@ -227,6 +229,7 @@ export function LoginForm() {
   }
 
   const handleGuestLogin = (role: UserRole) => {
+    console.log(`Guest login attempt for role: ${role}`); // Diagnostic log
     let email = "";
     let name = "";
     const guestId = `guest-${Date.now()}`;
