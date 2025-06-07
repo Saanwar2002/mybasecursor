@@ -13,20 +13,20 @@ interface User {
   email: string;
   name: string;
   role: UserRole;
-  customId?: string; 
-  operatorCode?: string; 
-  driverIdentifier?: string; 
+  customId?: string;
+  operatorCode?: string;
+  driverIdentifier?: string;
   vehicleCategory?: string;
   phoneNumber?: string | null;
   phoneVerified?: boolean;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
-  phoneVerificationDeadline?: string | null; 
+  phoneVerificationDeadline?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (
-    id: string, 
+    id: string,
     email: string,
     name: string,
     role: UserRole,
@@ -35,9 +35,9 @@ interface AuthContextType {
     phoneVerified?: boolean,
     status?: 'Active' | 'Pending Approval' | 'Suspended',
     phoneVerificationDeadlineInput?: Date | string | null | { seconds: number, nanoseconds: number } | Timestamp,
-    customId?: string, 
-    operatorCode?: string, 
-    driverIdentifier?: string 
+    customId?: string,
+    operatorCode?: string,
+    driverIdentifier?: string
   ) => void;
   logout: () => void;
   loading: boolean;
@@ -91,8 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false); // Still need to set loading to false if window is not available
         }
     }
-    return () => { 
-        isMounted = false; 
+    return () => {
+        isMounted = false;
         console.log("AuthProvider: useEffect cleanup.");
     };
   }, []);
@@ -154,17 +154,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (pathname.includes('/login') || pathname.includes('/register') || pathname === '/') {
         if (role === 'passenger') router.push('/dashboard');
-        else if (role === 'driver') router.push('/driver'); 
+        else if (role === 'driver') router.push('/driver');
         else if (role === 'operator') router.push('/operator');
         else if (role === 'admin') router.push('/admin');
-        else router.push('/'); 
+        else router.push('/');
     }
   };
 
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id }; 
+        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id };
         if (typeof window !== 'undefined') {
             localStorage.setItem('linkCabsUser', JSON.stringify(updatedUser));
         }
@@ -176,15 +176,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     console.log("AuthProvider: logout function called.");
-    setUser(null);
     if (typeof window !== 'undefined') {
         localStorage.removeItem('linkCabsUser');
-        localStorage.removeItem('linkCabsUserWithPin'); 
+        localStorage.removeItem('linkCabsUserWithPin');
         console.log("AuthProvider: User data removed from localStorage.");
     }
-    router.push('/login');
+    setUser(null); // This state update will trigger the redirection useEffect
+    // The redirection useEffect will handle router.push('/login') if on a protected path.
   };
-  
+
   const handleGuestLogin = (role: UserRole) => {
     let email = "";
     let name = "";
@@ -201,13 +201,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       case "driver":
         email = "guest-driver@taxinow.com";
         name = "Guest Driver";
-        operatorCodeForGuest = "OP001"; 
+        operatorCodeForGuest = "OP001";
         customIdForGuest = `DR-${guestId.slice(-6)}`;
         break;
       case "operator":
         email = "guest-operator@taxinow.com";
         name = "Guest Operator";
-        operatorCodeForGuest = "OP001"; 
+        operatorCodeForGuest = "OP001";
         customIdForGuest = `OP-${guestId.slice(-6)}`;
         break;
       case "admin":
@@ -222,6 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (loading) {
+      console.log("AuthProvider Redirection: Still loading, skipping redirection logic.");
       return;
     }
     const publicPaths = ['/login', '/register', '/forgot-password'];
@@ -237,7 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       else if (user.role === 'driver') router.push('/driver');
       else if (user.role === 'operator') router.push('/operator');
       else if (user.role === 'admin') router.push('/admin');
-      else router.push('/'); 
+      else router.push('/');
     }
   }, [user, loading, router, pathname]);
 
