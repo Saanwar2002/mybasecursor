@@ -1,13 +1,16 @@
 
-"use client"; 
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-// import { LoginForm } from "@/components/auth/login-form"; // LoginForm still commented out
-import { LogIn } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LogIn } from "lucide-react";
+// LoginForm is still commented out as per previous steps
+// import { LoginForm } from "@/components/auth/login-form";
 
 export default function LoginPage() {
+  // State for the message is no longer used by the button's test click,
+  // but we'll keep it to show the initial text.
   const [pageButtonClickMessage, setPageButtonClickMessage] = useState("Page Button not clicked yet.");
 
   useEffect(() => {
@@ -17,26 +20,28 @@ export default function LoginPage() {
     const testButton = document.getElementById('pageLevelTestButton');
     if (testButton) {
       const handleClick = () => {
-        setPageButtonClickMessage("Page-level HTML button (manual listener) was clicked!");
-        console.log('Page-level HTML button (manual listener) was clicked! (console log)');
-        // We can even try a direct DOM manipulation here if setState isn't updating the view
-        // const statusElement = document.getElementById('buttonStatus');
-        // if (statusElement) statusElement.innerText = "Page-level HTML button (manual listener) was clicked! (Direct DOM)";
+        console.log('Manual event listener (direct DOM manipulation) triggered!'); // Log first
+        const statusElement = document.getElementById('buttonStatus');
+        if (statusElement) {
+          // Direct DOM manipulation
+          statusElement.innerText = "Page Status: Page-level HTML button (manual listener) was clicked! (Direct DOM)";
+        } else {
+          console.error('Status element not found for direct DOM manipulation.');
+        }
       };
       testButton.addEventListener('click', handleClick);
-      console.log('Manual event listener attached to pageLevelTestButton');
+      console.log('Manual event listener (direct DOM) attached to pageLevelTestButton');
 
-      // Cleanup the event listener when the component unmounts
       return () => {
-        if (testButton) { // Check if testButton still exists before removing listener
+        if (testButton) {
             testButton.removeEventListener('click', handleClick);
-            console.log('Manual event listener removed from pageLevelTestButton');
+            console.log('Manual event listener (direct DOM) removed from pageLevelTestButton');
         }
       };
     } else {
-      console.error('Test button not found in DOM for manual listener attachment.');
+      console.error('Test button not found in DOM for manual listener attachment (direct DOM test).');
     }
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []);
 
   return (
     <div className="flex flex-col justify-center items-center py-12">
@@ -56,13 +61,12 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      {/* Page-level test area */}
       <div style={{ padding: '20px', border: '2px solid crimson', margin: '20px', backgroundColor: '#fff0f0', width: '100%', maxWidth: '450px', textAlign: 'center' }}>
         <h3>Page-Level Test Area</h3>
-        <p id="buttonStatus">Page Status: <span style={{ fontWeight: 'bold' }}>{pageButtonClickMessage}</span></p>
+        {/* The text of this paragraph will be updated by direct DOM manipulation */}
+        <p id="buttonStatus">Page Status: {pageButtonClickMessage}</p>
         <button
-          id="pageLevelTestButton" // Added ID for manual event listener
-          // onClick is removed, event listener is attached in useEffect
+          id="pageLevelTestButton"
           style={{
             padding: '15px 25px',
             fontSize: '18px',
