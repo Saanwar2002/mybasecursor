@@ -229,7 +229,7 @@ export function LoginForm() {
   }
 
   const handleGuestLogin = (role: UserRole) => {
-    console.log(`Guest login attempt for role: ${role}`); // Diagnostic log
+    console.log(`Guest login attempt for role: ${role}`); // Ensure this line is present
     let email = "";
     let name = "";
     const guestId = `guest-${Date.now()}`;
@@ -261,7 +261,6 @@ export function LoginForm() {
         break;
     }
     contextLogin(guestId, email, name, role, undefined, undefined, true, 'Active', null, customIdForGuest, operatorCodeForGuest);
-    // toast({ title: "Guest Login Successful", description: `Logged in as ${name} (${role}). Some features may be limited.`}); // Keep original toast for actual login
     setPinInputValue("");
   };
   
@@ -278,7 +277,6 @@ export function LoginForm() {
 
   return (
     <>
-      {/* Visual Debugger for isLoading state */}
       {isLoading && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-black p-2 rounded shadow-lg z-50 text-xs">
           DEBUG: isLoading is TRUE
@@ -439,17 +437,20 @@ export function LoginForm() {
         <p className="text-center text-sm font-medium text-muted-foreground">
           Or try as a guest:
         </p>
-        <Button
-          variant="outline"
-          className="w-full"
+        
+        {/* Standard HTML button for Guest Passenger */}
+        <button
+          type="button"
           onClick={() => {
-            toast({ title: "Test Click", description: "Guest Passenger button clicked!" });
+            toast({ title: "Test Click", description: "Standard HTML Guest Passenger button clicked!" });
             handleGuestLogin("passenger");
           }}
           disabled={isLoading}
+          className="w-full flex items-center justify-center px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
-          <UserIconLucide className="mr-2 h-4 w-4" /> Login as Guest Passenger
-        </Button>
+          <UserIconLucide className="mr-2 h-4 w-4" /> Login as Guest Passenger (HTML Button)
+        </button>
+
         <Button
           variant="outline"
           className="w-full"
