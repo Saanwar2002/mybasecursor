@@ -5,7 +5,16 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Car, LogIn, UserPlus, ArrowRight } from 'lucide-react';
-import Image from 'next/image'; // Added Image for consistency
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Dynamically import the GoogleMapDisplay component
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-[300px] rounded-xl shadow-2xl mx-auto" />,
+});
+
+const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
 export default function HomePage() {
   return (
@@ -21,15 +30,15 @@ export default function HomePage() {
           Reliable, comfortable, and efficient taxi services at your fingertips. Book your next ride with Link Cabs and experience seamless travel.
         </p>
         <div className="hidden md:block my-8">
-            <Image
-              src="https://placehold.co/700x300.png"
-              alt="Taxi illustration on a city background"
-              data-ai-hint="taxi city modern"
-              width={700}
-              height={300}
-              className="rounded-xl shadow-2xl object-cover mx-auto"
+          <div className="w-full max-w-[700px] h-[300px] rounded-xl shadow-2xl mx-auto overflow-hidden border">
+            <GoogleMapDisplay
+              center={huddersfieldCenter}
+              zoom={13}
+              disableDefaultUI={true}
+              className="w-full h-full" 
             />
           </div>
+        </div>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 py-6" asChild>
             <Link href="/register">
