@@ -67,9 +67,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('sidebarState') !== 'collapsed'; // Default to expanded if no state or if state is 'expanded'
+      return localStorage.getItem('sidebarState') !== 'collapsed'; 
     }
-    return true; // Default to expanded for SSR or if window not available yet
+    return true; 
   });
 
   useEffect(() => {
@@ -191,7 +191,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           asChild
           variant="ghost"
           className={cn(
-            "w-full justify-start text-base gap-3 px-3",
+            "w-full justify-start text-base px-3", // Removed gap-3 here
             isActive && "bg-primary/10 text-primary font-semibold",
             isSubItem && "text-sm h-9",
             !shouldShowLabels && "justify-center px-0"
@@ -200,8 +200,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
           onClick={() => isMobileSheetOpen && setIsMobileSheetOpen(false)}
         >
           <Link href={item.href}>
-            <Icon className={cn("h-5 w-5", !shouldShowLabels && "h-6 w-6", isSubItem && "h-4 w-4")} />
-            {(shouldShowLabels || (isSubItem && shouldShowLabels)) && item.label}
+            <span className={cn(
+              "flex items-center w-full",
+              shouldShowLabels ? "gap-3" : "" // Apply gap only when labels are shown
+            )}>
+              <Icon className={cn("h-5 w-5 shrink-0", !shouldShowLabels && "h-6 w-6", isSubItem && "h-4 w-4")} />
+              {(shouldShowLabels || (isSubItem && shouldShowLabels)) && <span className="truncate">{item.label}</span>}
+            </span>
           </Link>
         </Button>
       );
@@ -218,7 +223,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Car className="h-6 w-6" /> LinkCabs
             </Link>
           )}
-          {!isMobileView && ( // Only show toggle for desktop sidebar
+          {!isMobileView && ( 
             <Button variant="ghost" size="icon" onClick={toggleSidebar} className={cn(!shouldShowLabels && "mx-auto")}>
               <Menu className="h-5 w-5" />
             </Button>
@@ -329,5 +334,4 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-      
+    
