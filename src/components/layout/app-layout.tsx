@@ -21,7 +21,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
+// import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
 import * as LucideIcons from 'lucide-react';
 
 interface TaskItem {
@@ -64,8 +64,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
-  const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
-  const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
+  // const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
+  // const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('sidebarState') !== 'collapsed'; 
@@ -81,6 +81,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const toggleSidebar = () => setIsSidebarExpanded(!isSidebarExpanded);
 
+  /*
   useEffect(() => {
     if (user?.role === 'admin') {
       setIsLoadingAdminTasks(true);
@@ -124,6 +125,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         .finally(() => setIsLoadingAdminTasks(false));
     }
   }, [user?.role]);
+  */
 
 
   if (loading) {
@@ -235,7 +237,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             {renderNavItems(navItems, false, isMobileView)}
           </nav>
         </ScrollArea>
-        {user.role === 'admin' && shouldShowLabels && (
+        {/* {user.role === 'admin' && shouldShowLabels && (
           <Card className="m-2 bg-card/50">
             <CardHeader className="p-3">
               <CardTitle className="text-base font-headline flex items-center gap-1.5">
@@ -275,7 +277,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               }
             </CardContent>
           </Card>
-        )}
+        )} */}
       </>
     );
   };
