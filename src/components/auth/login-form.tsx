@@ -1,116 +1,121 @@
 
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import React, { useState } from "react";
+// Removed: import { useAuth } from "@/contexts/auth-context"; // Not used in this restored basic version yet
+
+const formSchema = z.object({
+  email: z.string().email({ message: "Invalid email address." }),
+  password: z.string().min(1, { message: "Password is required." }), // Min 1 to allow submission for basic testing
+});
 
 export function LoginForm() {
+  // const { login } = useAuth(); // Not used yet
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
-  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); 
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    // This is where actual login logic would go
+    console.log("LoginForm onSubmit (Restored):", values);
     setIsLoading(true);
-    // This alert won't show, but keeping logic for future
-    // alert("Basic HTML form onSubmit CALLED!"); 
     toast({
-      title: "Login Attempt (Test)",
-      description: "This is a basic HTML form submission test. No actual login.",
-      duration: 5000,
+      title: "Login Attempted (Restored Form)",
+      description: `Email: ${values.email}. (Actual login not implemented yet).`,
     });
-    setTimeout(() => setIsLoading(false), 1500);
-  };
-
-  const handleButtonClick = () => {
-    console.log("Button onClick JavaScript EXECUTED (for text change and style)!");
-    const testButton = document.getElementById("test-interaction-button");
-    const statusSpan = document.getElementById("click-status-span");
-
-    if (testButton) {
-      // This part works (background color change)
-      testButton.style.backgroundColor = "lightgreen"; 
-      // This part did not work (innerText on button itself)
-      // testButton.innerText = "CLICKED!";
-    } else {
-      console.error("Test button not found by ID.");
-    }
-
-    if (statusSpan) {
-      statusSpan.innerText = "Button was clicked! Span updated.";
-      statusSpan.style.color = "green";
-      statusSpan.style.fontWeight = "bold";
-    } else {
-      console.error("Status span not found by ID.");
-    }
-
-    // This part also does not seem to work (toast)
-    toast({
-      title: "Button Clicked (Test)",
-      description: "The type='button' onClick handler fired. Span text should change.",
-      duration: 3000,
-    });
-  };
+    
+    // Simulate API call
+    setTimeout(() => {
+      setIsLoading(false);
+      // Example: For now, let's assume login fails or is just a test
+      // In a real scenario:
+      // try {
+      //   await firebaseLoginFunction(values.email, values.password);
+      //   contextLogin(userId, email, name, role, ...); // Call context login
+      // } catch (error) {
+      //   toast({ title: "Login Failed", description: error.message, variant: "destructive"});
+      // }
+    }, 1500);
+  }
 
   return (
-    <form onSubmit={handleFormSubmit} className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="email-basic">Email</Label>
-        <Input
-          id="email-basic"
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={isLoading}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input 
+                  type="email" 
+                  placeholder="you@example.com" 
+                  {...field} 
+                  disabled={isLoading}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password-basic">Password</Label>
-        <Input
-          id="password-basic"
-          type="password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={isLoading}
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input 
+                  type="password" 
+                  placeholder="••••••••" 
+                  {...field} 
+                  disabled={isLoading}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
-      
-      <button
-        id="test-interaction-button"
-        type="button" // Important: not type="submit" for this test
-        onClick={handleButtonClick}
-        disabled={isLoading}
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center h-10 px-4 py-2 rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-        style={{ backgroundColor: 'hsl(var(--primary))' }}
-      >
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Test Button (Click Me)
-      </button>
-
-      <div className="text-center mt-4">
-        <span id="click-status-span" style={{ color: 'red' }}>Status: Button not clicked yet.</span>
-      </div>
-
-      <div className="text-sm text-center">
-        <Link href="/forgot-password" prefetch={false} className="underline text-muted-foreground hover:text-primary">
-          Forgot your password?
-        </Link>
-      </div>
-      <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{" "}
-        <Link href="/register" prefetch={false} className="underline text-accent hover:text-accent/90">
-          Sign up
-        </Link>
-      </p>
-    </form>
+        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Log In
+        </Button>
+        <div className="text-sm text-center">
+          <Link href="/forgot-password" prefetch={false} className="underline text-muted-foreground hover:text-primary">
+            Forgot your password?
+          </Link>
+        </div>
+        <p className="text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" prefetch={false} className="underline text-accent hover:text-accent/90">
+            Sign up
+          </Link>
+        </p>
+      </form>
+    </Form>
   );
 }
-
-    
