@@ -3,15 +3,15 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 
-// Fallback Firebase configuration (from values previously provided by user)
-const FALLBACK_API_KEY = "AIzaSyDZuA2S5Ia1DnKgaxQ60wzxyOsRW8WdUH8";
+// Fallback Firebase configuration (using user-confirmed working key for Maps as API key fallback)
+const FALLBACK_API_KEY = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; // Updated to user-confirmed working key
 const FALLBACK_AUTH_DOMAIN = "taxinow-vvp38.firebaseapp.com";
 const FALLBACK_PROJECT_ID = "taxinow-vvp38";
-const FALLBACK_STORAGE_BUCKET = "taxinow-vvp38.firebasestorage.app"; // Updated to user-provided value
+const FALLBACK_STORAGE_BUCKET = "taxinow-vvp38.firebasestorage.app";
 const FALLBACK_MESSAGING_SENDER_ID = "679652213262";
 const FALLBACK_APP_ID = "1:679652213262:web:0217c9706165949cd5f25f";
 
-console.log("Firebase Init Script: Checking for environment variables or using fallbacks...");
+console.log("Firebase Init Script: Attempting to load Firebase configuration...");
 
 const firebaseConfigFromEnv = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -34,28 +34,25 @@ const firebaseConfig = {
 const criticalConfigKeys: Array<keyof typeof firebaseConfig> = ['apiKey', 'authDomain', 'projectId'];
 let firebaseConfigError = false;
 
-console.log("Firebase Init Script: Visible NEXT_PUBLIC_FIREBASE_ variables at runtime:");
-for (const envVar of Object.keys(process.env)) {
-  if (envVar.startsWith('NEXT_PUBLIC_FIREBASE_')) {
-    console.log(`  ${envVar}: ${process.env[envVar] ? 'SET' : 'NOT SET (or empty string)'}`);
-  }
-}
-
-console.log("Firebase config check (using resolved values which might include fallbacks):");
+console.log("Firebase Init Script: Debugging resolved configuration values:");
 for (const key of criticalConfigKeys) {
-  const value = firebaseConfig[key];
-  if (!value) {
-    console.error(`Firebase config error: Critical key ${key} is UNDEFINED or an EMPTY STRING after attempting to use env var or fallback.`);
+  const envValue = firebaseConfigFromEnv[key];
+  const fallbackValue = 
+    key === 'apiKey' ? FALLBACK_API_KEY :
+    key === 'authDomain' ? FALLBACK_AUTH_DOMAIN :
+    key === 'projectId' ? FALLBACK_PROJECT_ID : 'N/A_FALLBACK_FOR_THIS_KEY_TYPE';
+  
+  const resolvedValue = firebaseConfig[key];
+  const source = resolvedValue === envValue && envValue ? "Environment Variable" : "Fallback Value";
+
+  if (!resolvedValue || resolvedValue.trim() === "") {
+    console.error(`Firebase Config FATAL ERROR: Critical key '${key}' is MISSING or EMPTY.`);
+    console.error(`  Attempted to use value from env: [${envValue || 'NOT_SET'}]`);
+    console.error(`  Attempted to use fallback value: [${fallbackValue || 'NOT_SET'}]`);
     firebaseConfigError = true;
   } else {
-    console.log(`  ${key}: Loaded successfully (value: ${value.substring(0,15)}...).`);
+    console.log(`  OK: ${key}: ${resolvedValue.substring(0, 10)}... (Source: ${source})`);
   }
-}
-
-if (firebaseConfigError) {
-  console.error(
-    "Critical Firebase config error: One or more of API_KEY, AUTH_DOMAIN, or PROJECT_ID are effectively missing. Firebase initialization WILL BE SKIPPED."
-  );
 }
 
 let app: FirebaseApp | null = null;
@@ -64,7 +61,7 @@ let auth: Auth | null = null;
 
 if (firebaseConfigError) {
   console.error(
-    "Firebase initialization has been SKIPPED due to missing critical configuration values. Subsequent Firebase operations will fail."
+    "Firebase initialization has been SKIPPED due to missing critical configuration values. Subsequent Firebase operations will likely fail, leading to errors."
   );
 } else {
   try {
@@ -80,30 +77,32 @@ if (firebaseConfigError) {
         try {
           db = getFirestore(app);
           console.log("Firestore instance (db) obtained successfully.");
-        } catch (dbError) {
-          console.error("Failed to initialize Firestore (db):", dbError);
+        } catch (dbError: any) {
+          console.error("Failed to initialize Firestore (db). Error Code:", dbError.code, "Message:", dbError.message);
+          console.error("Full Firestore initialization error object:", dbError);
           db = null;
         }
 
         try {
           auth = getAuth(app);
           console.log("Firebase Auth instance obtained successfully.");
-        } catch (authError) {
-          console.error("Failed to initialize Firebase Auth:", authError);
+        } catch (authError: any) {
+          console.error("Failed to initialize Firebase Auth. Error Code:", authError.code, "Message:", authError.message);
+          console.error("Full Auth initialization error object:", authError);
           auth = null;
         }
     } else {
-        console.error("Firebase app object is null after initialization/retrieval attempt, cannot proceed with db/auth initialization.");
-        db = null; // Ensure db and auth are null if app is null
+        console.error("Firebase app object is null after initialization/retrieval attempt. This should not happen if config check passed. Cannot proceed with db/auth initialization.");
+        db = null;
         auth = null;
     }
-  } catch (initError) {
-    console.error("Critical error during Firebase app initialization process:", initError);
+  } catch (initError: any) {
+    console.error("CRITICAL: Firebase app initializeApp() FAILED. Error Code:", initError.code, "Message:", initError.message);
+    console.error("Full initializeApp() error object:", initError);
     app = null; db = null; auth = null;
   }
 }
 
-// Log final state of db and auth
 console.log(`Firebase Init Script: Final state - db is ${db ? 'INITIALIZED' : 'NULL'}, auth is ${auth ? 'INITIALIZED' : 'NULL'}`);
 
 export { app, db, auth };
