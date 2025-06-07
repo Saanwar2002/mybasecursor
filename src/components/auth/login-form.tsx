@@ -261,7 +261,7 @@ export function LoginForm() {
         break;
     }
     contextLogin(guestId, email, name, role, undefined, undefined, true, 'Active', null, customIdForGuest, operatorCodeForGuest);
-    toast({ title: "Guest Login Successful", description: `Logged in as ${name} (${role}). Some features may be limited.`});
+    // toast({ title: "Guest Login Successful", description: `Logged in as ${name} (${role}). Some features may be limited.`}); // Keep original toast for actual login
     setPinInputValue("");
   };
   
@@ -278,6 +278,13 @@ export function LoginForm() {
 
   return (
     <>
+      {/* Visual Debugger for isLoading state */}
+      {isLoading && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-black p-2 rounded shadow-lg z-50 text-xs">
+          DEBUG: isLoading is TRUE
+        </div>
+      )}
+
       <Alert variant="destructive" className="mb-4">
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Developer Note: PIN Feature</AlertTitle>
@@ -435,28 +442,44 @@ export function LoginForm() {
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => handleGuestLogin("passenger")}
+          onClick={() => {
+            toast({ title: "Test Click", description: "Guest Passenger button clicked!" });
+            handleGuestLogin("passenger");
+          }}
+          disabled={isLoading}
         >
           <UserIconLucide className="mr-2 h-4 w-4" /> Login as Guest Passenger
         </Button>
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => handleGuestLogin("driver")}
+          onClick={() => {
+            toast({ title: "Test Click", description: "Guest Driver button clicked!" });
+            handleGuestLogin("driver");
+          }}
+          disabled={isLoading}
         >
           <CarIcon className="mr-2 h-4 w-4" /> Login as Guest Driver
         </Button>
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => handleGuestLogin("operator")}
+          onClick={() => {
+            toast({ title: "Test Click", description: "Guest Operator button clicked!" });
+            handleGuestLogin("operator");
+          }}
+          disabled={isLoading}
         >
           <Briefcase className="mr-2 h-4 w-4" /> Login as Guest Operator
         </Button>
         <Button
           variant="outline"
           className="w-full border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white"
-          onClick={() => handleGuestLogin("admin")}
+          onClick={() => {
+            toast({ title: "Test Click", description: "Guest Admin button clicked!" });
+            handleGuestLogin("admin");
+          }}
+          disabled={isLoading}
         >
           <Shield className="mr-2 h-4 w-4" /> Login as Guest Admin
         </Button>
