@@ -31,7 +31,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    // resolver: zodResolver(formSchema), // Temporarily removed resolver
     defaultValues: {
       email: "",
       password: "",
@@ -45,7 +45,7 @@ export function LoginForm() {
     
     toast({
       title: "Login Button Clicked (Test)",
-      description: "Form handler was reached if you see this.",
+      description: "Form handler was reached if you see this. Validation was temporarily bypassed.",
       duration: 5000,
     });
 
