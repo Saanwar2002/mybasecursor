@@ -25,6 +25,7 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 
 interface ActiveDriverRide {
   id: string;
+  passengerId: string; // Added passengerId
   passengerName: string;
   passengerAvatar?: string;
   pickupLocation: { address: string; latitude: number; longitude: number; doorOrFlat?: string; };
@@ -87,6 +88,7 @@ export async function GET(request: NextRequest) {
     // Map Firestore data to the ActiveDriverRide interface, ensuring all fields are handled
     const activeRide: ActiveDriverRide = {
       id: doc.id,
+      passengerId: data.passengerId, // Ensure passengerId is mapped
       passengerName: data.passengerName || 'N/A',
       passengerAvatar: data.passengerAvatar,
       pickupLocation: data.pickupLocation,

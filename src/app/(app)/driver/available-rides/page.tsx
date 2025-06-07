@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX } from "lucide-react"; // Added UserX
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, UserRole } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -27,6 +27,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 
@@ -49,6 +50,7 @@ interface SerializedTimestamp {
 
 interface ActiveRide {
   id: string;
+  passengerId: string; // Added passengerId
   passengerName: string;
   passengerAvatar?: string;
   pickupLocation: LocationPoint;
@@ -301,11 +303,11 @@ export default function AvailableRidesPage() {
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) {
       const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001";
-      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, };
+      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-mismatch-${Date.now()}`};
     } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) {
-      mockOffer = { id: `mock-offer-match-${Date.now()}`, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, };
+      mockOffer = { id: `mock-offer-match-${Date.now()}`, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-match-${Date.now()}` };
     } else {
-      mockOffer = { id: `mock-offer-general-${Date.now()}`, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, };
+      mockOffer = { id: `mock-offer-general-${Date.now()}`, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-general-${Date.now()}` };
     }
 
     if (mockOffer.requiredOperatorId && currentDriverOperatorPrefix && mockOffer.requiredOperatorId !== currentDriverOperatorPrefix) {
@@ -487,6 +489,37 @@ export default function AvailableRidesPage() {
 
   const handleCancelSwitchChange = (checked: boolean) => { setIsCancelSwitchOn(checked); if (checked) { setShowCancelConfirmationDialog(true); } };
 
+  const handleBlockPassenger = async () => {
+    if (!driverUser || !activeRide || !activeRide.passengerId || !activeRide.passengerName) {
+      toast({ title: "Cannot Block", description: "Passenger information is missing for this ride.", variant: "destructive" });
+      return;
+    }
+    setActionLoading(prev => ({ ...prev, [`block-p-${activeRide.passengerId}`]: true }));
+    try {
+      const response = await fetch('/api/users/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blockerId: driverUser.id,
+          blockedId: activeRide.passengerId,
+          blockerRole: 'driver',
+          blockedRole: 'passenger',
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || `Failed to block passenger. Status: ${response.status}`);
+      }
+      toast({ title: "Passenger Blocked", description: `${activeRide.passengerName} has been added to your block list.` });
+      // Optionally, you might want to mark the UI somehow to indicate this passenger is now blocked by this driver
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error while blocking passenger.";
+      toast({ title: "Blocking Failed", description: message, variant: "destructive" });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`block-p-${activeRide.passengerId}`]: false }));
+    }
+  };
+
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoading }: { ride: ActiveRide, isLoading: boolean }) => (
     <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
       <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm"> Initiate Cancellation </Label>
@@ -578,6 +611,31 @@ export default function AvailableRidesPage() {
             </div>
             {activeRide.notes && !['in_progress', 'In Progress', 'completed', 'cancelled_by_driver'].includes(activeRide.status.toLowerCase()) && ( <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1"> <p className="text-xs md:text-sm text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p> </div> )}
 
+             {showCompletedStatus && activeRide.passengerId && activeRide.passengerName && (
+                <div className="pt-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground" disabled={actionLoading[`block-p-${activeRide.passengerId}`]}>
+                        {actionLoading[`block-p-${activeRide.passengerId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
+                        Block Passenger
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Block {activeRide.passengerName}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to block this passenger? You will not be offered rides from them in the future. This action can be undone in your profile settings.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleBlockPassenger} className="bg-destructive hover:bg-destructive/90">Block Passenger</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
+
              {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
                 <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName}:</p>
@@ -613,3 +671,4 @@ export default function AvailableRidesPage() {
   const mapContainerClasses = cn( "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } );
   return ( <div className="flex flex-col h-full space-y-2"> <div className={mapContainerClasses}> <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} /> </div> <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} /> <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle> <AlertDialogDescription> This action cannot be undone. The passenger will be notified. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={activeRide ? actionLoading[activeRide.id] : false} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Confirm Cancel</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog> </div> );
 }
+
