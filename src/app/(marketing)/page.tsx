@@ -1,39 +1,101 @@
+
 import React from 'react';
-import { Button } from '@/components/ui/button'; // Assuming Button component uses theme colors
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Car, LogIn, UserPlus } from 'lucide-react';
+import Image from 'next/image';
+import { Car, LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+const features = [
+  {
+    icon: Zap,
+    title: "Fast & Reliable",
+    description: "Get to your destination quickly and dependably with our efficient service.",
+  },
+  {
+    icon: ThumbsUp,
+    title: "Competitive Pricing",
+    description: "Enjoy affordable rates without compromising on quality or comfort.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Professional Drivers",
+    description: "Our courteous and experienced drivers prioritize your safety and satisfaction.",
+  },
+  {
+    icon: Smartphone,
+    title: "Easy Booking",
+    description: "Book your ride in seconds through our user-friendly app or website.",
+  },
+];
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center p-4 md:p-8">
-      <Car className="w-24 h-24 text-primary mb-6" />
-      <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-        Welcome to Link Cabs
-      </h1>
-      <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-8">
-        Your reliable and efficient taxi service, connecting you to your destination with ease and comfort.
-      </p>
-      <div className="space-y-4 md:space-y-0 md:space-x-4">
-        <Button size="lg" className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-          <Link href="/register">
-            <UserPlus className="mr-2 h-5 w-5" /> Get Started - Sign Up
-          </Link>
-        </Button>
-        <Button variant="outline" size="lg" className="w-full md:w-auto" asChild>
-          <Link href="/login">
-            <LogIn className="mr-2 h-5 w-5" /> Already have an account? Login
-          </Link>
-        </Button>
-      </div>
-      <div className="mt-10 p-6 bg-card rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-semibold text-accent-foreground mb-3">Why Choose Link Cabs?</h2>
-        <ul className="text-left space-y-2 text-muted-foreground">
-          <li className="flex items-center"><Car className="w-5 h-5 mr-2 text-accent" /> Fast & Reliable Service</li>
-          <li className="flex items-center"><Car className="w-5 h-5 mr-2 text-accent" /> Competitive Pricing</li>
-          <li className="flex items-center"><Car className="w-5 h-5 mr-2 text-accent" /> Professional Drivers</li>
-          <li className="flex items-center"><Car className="w-5 h-5 mr-2 text-accent" /> Easy Booking via App</li>
-        </ul>
-      </div>
+    <div className="flex flex-col space-y-16 md:space-y-24 py-8 md:py-12">
+      {/* Hero Section */}
+      <section className="container mx-auto px-4">
+        <div className="grid md:grid-cols-2 items-center gap-8 md:gap-16">
+          <div className="space-y-6 text-center md:text-left">
+            <Car className="w-20 h-20 text-primary mb-4 mx-auto md:mx-0" />
+            <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground tracking-tight">
+              Welcome to Link Cabs
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto md:mx-0">
+              Your reliable and efficient taxi service, connecting you to your destination with ease and comfort.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start pt-4">
+              <Button size="lg" className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 text-base" asChild>
+                <Link href="/register">
+                  <UserPlus className="mr-2 h-5 w-5" /> Get Started - Sign Up
+                </Link>
+              </Button>
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-base" asChild>
+                <Link href="/login">
+                  <LogIn className="mr-2 h-5 w-5" /> Already have an account?
+                </Link>
+              </Button>
+            </div>
+          </div>
+          <div className="hidden md:block">
+            <Image
+              src="https://placehold.co/600x400.png"
+              alt="Modern taxi service illustration"
+              data-ai-hint="taxi city street"
+              width={600}
+              height={400}
+              className="rounded-xl shadow-2xl object-cover"
+              priority
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Link Cabs Section */}
+      <section className="container mx-auto px-4">
+        <div className="text-center mb-10 md:mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
+            Why Choose Link Cabs?
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+            Experience the difference with our commitment to quality service.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+          {features.map((feature) => (
+            <Card key={feature.title} className="bg-card hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="items-center text-center">
+                <div className="p-3 bg-primary/10 rounded-full mb-3">
+                  <feature.icon className="w-8 h-8 text-primary" />
+                </div>
+                <CardTitle className="font-semibold text-xl">{feature.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <p className="text-muted-foreground text-sm">{feature.description}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
