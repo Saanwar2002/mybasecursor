@@ -326,22 +326,19 @@ export default function BookRidePage() {
     setIsCheckingAvailability(true);
     setAvailabilityStatusMessage("Checking availability...");
 
+    const waitTimes = [
+      "3-5 mins", "5-8 mins", "7-12 mins", "10-15 mins"
+    ];
+    const vehicleTypes = [
+      "Standard Cars available.",
+      "Standard & Estate Cars available.",
+      "High demand. Standard Cars available.",
+      "Limited availability. Expect longer wait for Minibus."
+    ];
     const timer = setTimeout(() => {
-      const waitTimes = [
-        "3-5 mins",
-        "5-8 mins",
-        "7-12 mins",
-        "10-15 mins"
-      ];
-      const vehicleTypes = [
-        "Standard Cars available.",
-        "Standard & Estate Cars available.",
-        "High demand. Standard Cars available.",
-        "Limited availability. Expect longer wait for Minibus."
-      ];
       const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
       const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-      setAvailabilityStatusMessage(`Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`);
+      setAvailabilityStatusMessage(\`Estimated wait: ~$\{randomWait}. $\{randomVehicles} (Mock)\`);
       setIsCheckingAvailability(false);
     }, 1500);
 
@@ -1945,29 +1942,37 @@ const handleProceedToConfirmation = async () => {
                         </FormItem>
                     )}
                   />
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-primary/5">
+                  <FormField
+                    control={form.control}
+                    name="waitAndReturn"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-primary/5">
                         <div className="space-y-0.5">
-                            <FormLabel className="text-base flex items-center gap-2">
-                                <RefreshCwIcon className="w-5 h-5 text-primary" />
-                                Wait & Return Journey?
-                            </FormLabel>
-                            <p className="text-xs text-muted-foreground">
-                                Adds {WAIT_AND_RETURN_SURCHARGE_PERCENTAGE * 100}% of one-way fare + waiting time.
-                            </p>
+                          <FormLabel className="text-base flex items-center gap-2">
+                            <RefreshCwIcon className="w-5 h-5 text-primary" />
+                            Wait & Return Journey?
+                          </FormLabel>
+                          <p className="text-xs text-muted-foreground">
+                            Adds {WAIT_AND_RETURN_SURCHARGE_PERCENTAGE * 100}% of one-way fare + waiting time.
+                          </p>
                         </div>
                         <FormControl>
-                            <Switch
-                            checked={watchedWaitAndReturn}
+                          <Switch
+                            checked={field.value}
                             onCheckedChange={(checked) => {
-                                form.setValue('waitAndReturn', checked);
-                                if (checked) setIsWaitTimeDialogOpen(true);
-                                else form.setValue('estimatedWaitTimeMinutes', undefined);
+                              field.onChange(checked);
+                              if (checked) setIsWaitTimeDialogOpen(true);
+                              else form.setValue('estimatedWaitTimeMinutes', undefined);
                             }}
                             aria-label="Toggle Wait and Return"
                             className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-primary/30"
-                            />
+                          />
                         </FormControl>
-                    </FormItem>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                     {watchedWaitAndReturn && (
                          <Alert variant="default" className="bg-primary/10 border-primary/30">
                             <Info className="h-5 w-5 text-primary"/>
@@ -1981,30 +1986,36 @@ const handleProceedToConfirmation = async () => {
                             </AlertDescription>
                         </Alert>
                     )}
-
-                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-orange-500/10">
+                  <FormField
+                    control={form.control}
+                    name="isPriorityPickup"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-orange-500/10">
                         <div className="space-y-0.5">
-                            <FormLabel className="text-base flex items-center gap-2 text-orange-700 dark:text-orange-300">
-                                <Crown className="w-5 h-5" />
-                                Priority Pickup?
-                            </FormLabel>
-                            <p className="text-xs text-orange-600 dark:text-orange-400">
-                                Offer an extra fee to prioritize your booking during busy times.
-                            </p>
+                          <FormLabel className="text-base flex items-center gap-2 text-orange-700 dark:text-orange-300">
+                            <Crown className="w-5 h-5" />
+                            Priority Pickup?
+                          </FormLabel>
+                          <p className="text-xs text-orange-600 dark:text-orange-400">
+                            Offer an extra fee to prioritize your booking during busy times.
+                          </p>
                         </div>
                         <FormControl>
-                            <Switch
-                            checked={watchedIsPriorityPickup}
+                          <Switch
+                            checked={field.value}
                             onCheckedChange={(checked) => {
-                                form.setValue('isPriorityPickup', checked);
+                                field.onChange(checked);
                                 if (checked) setIsPriorityFeeDialogOpen(true);
                                 else form.setValue('priorityFeeAmount', undefined);
                             }}
                             aria-label="Toggle Priority Pickup"
                             className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
-                            />
+                          />
                         </FormControl>
-                    </FormItem>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                      {watchedIsPriorityPickup && (
                          <Alert variant="default" className="bg-orange-500/10 border-orange-500/30">
                             <Info className="h-5 w-5 text-orange-600"/>
@@ -2289,3 +2300,4 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
+
