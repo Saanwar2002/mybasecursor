@@ -1954,7 +1954,7 @@ const handleProceedToConfirmation = async () => {
                     control={form.control}
                     name="waitAndReturn"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-primary/5">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base flex items-center gap-2">
                             <RefreshCwIcon className="w-5 h-5 text-primary" />
@@ -1977,6 +1977,7 @@ const handleProceedToConfirmation = async () => {
                               }
                             }}
                             aria-label="Wait and Return toggle"
+                            className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-primary/30"
                           />
                         </FormControl>
                          <FormMessage />
@@ -2027,6 +2028,7 @@ const handleProceedToConfirmation = async () => {
                               }
                             }}
                             aria-label="Priority Pickup toggle"
+                            className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
                           />
                         </FormControl>
                          <FormMessage />
