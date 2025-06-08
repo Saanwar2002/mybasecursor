@@ -1,3 +1,4 @@
+
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -27,7 +28,8 @@ interface BookingPayload {
   customerPhoneNumber?: string;
   bookedByOperatorId?: string;
   driverNotes?: string;
-  waitAndReturn?: boolean; // Added waitAndReturn
+  waitAndReturn?: boolean;
+  estimatedWaitTimeMinutes?: number; // Added field for estimated wait time
   promoCode?: string;
   paymentMethod: "card" | "cash";
   preferredOperatorId?: string;
@@ -50,6 +52,10 @@ export async function POST(request: NextRequest) {
     if (bookingData.paymentMethod !== "card" && bookingData.paymentMethod !== "cash") {
       return NextResponse.json({ message: 'Invalid payment method. Must be "card" or "cash".' }, { status: 400 });
     }
+    if (bookingData.waitAndReturn && (bookingData.estimatedWaitTimeMinutes === undefined || bookingData.estimatedWaitTimeMinutes < 0)) {
+        return NextResponse.json({ message: 'Estimated wait time is required and must be non-negative for Wait & Return journeys.' }, { status: 400 });
+    }
+
 
     // Ensure db is not null before using it
     if (!db) {
@@ -87,8 +93,12 @@ export async function POST(request: NextRequest) {
       status: 'pending_assignment',
       bookingTimestamp: serverTimestamp(),
       paymentMethod: bookingData.paymentMethod,
-      waitAndReturn: bookingData.waitAndReturn || false, // Store waitAndReturn status
+      waitAndReturn: bookingData.waitAndReturn || false,
     };
+
+    if (bookingData.waitAndReturn && bookingData.estimatedWaitTimeMinutes !== undefined) {
+      newBooking.estimatedWaitTimeMinutes = bookingData.estimatedWaitTimeMinutes;
+    }
 
     if (bookingData.scheduledPickupAt) {
       newBooking.scheduledPickupAt = bookingData.scheduledPickupAt;

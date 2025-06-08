@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -100,6 +100,7 @@ const bookingFormSchema = z.object({
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
   waitAndReturn: z.boolean().default(false),
+  estimatedWaitTimeMinutes: z.number().int().min(0).optional(),
   promoCode: z.string().optional(),
   paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
 }).superRefine((data, ctx) => {
@@ -118,6 +119,13 @@ const bookingFormSchema = z.object({
         path: ["desiredPickupTime"],
       });
     }
+  }
+  if (data.waitAndReturn && (data.estimatedWaitTimeMinutes === undefined || data.estimatedWaitTimeMinutes < 0)) {
+    ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Estimated wait time is required for Wait & Return journeys.",
+        path: ["estimatedWaitTimeMinutes"],
+    });
   }
 });
 
@@ -144,7 +152,7 @@ const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
 const SURGE_MULTIPLIER_VALUE = 1.5;
 const PER_STOP_SURCHARGE = 0.50;
-const WAIT_AND_RETURN_SURCHARGE_PERCENTAGE = 0.70; // 70% extra for return leg
+const WAIT_AND_RETURN_SURCHARGE_PERCENTAGE = 0.70; 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION = 10;
 const WAITING_CHARGE_PER_MINUTE_AT_DESTINATION = 0.20;
 
@@ -225,6 +233,10 @@ export default function BookRidePage() {
   const searchParams = useSearchParams();
   const operatorPreference = searchParams.get('operator_preference');
 
+  const [isWaitTimeDialogOpen, setIsWaitTimeDialogOpen] = useState(false);
+  const [estimatedWaitMinutesInput, setEstimatedWaitMinutesInput] = useState<string>("10");
+  const [calculatedChargedWaitMinutes, setCalculatedChargedWaitMinutes] = useState<number>(0);
+
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -241,6 +253,7 @@ export default function BookRidePage() {
       passengers: 1,
       driverNotes: "",
       waitAndReturn: false,
+      estimatedWaitTimeMinutes: undefined,
       promoCode: "",
       paymentMethod: "card",
     },
@@ -253,6 +266,8 @@ export default function BookRidePage() {
 
   const watchedPaymentMethod = form.watch("paymentMethod");
   const watchedWaitAndReturn = form.watch("waitAndReturn");
+  const watchedEstimatedWaitTimeMinutes = form.watch("estimatedWaitTimeMinutes");
+
 
   const [pickupInputValue, setPickupInputValue] = useState("");
   const [pickupSuggestions, setPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
@@ -802,15 +817,14 @@ export default function BookRidePage() {
 
       let totalDistanceForDisplay = oneWayDistanceMiles;
       if (watchedWaitAndReturn) {
-        totalDistanceForDisplay *= 2; // Display round trip distance
+        totalDistanceForDisplay *= 2; 
       }
       setEstimatedDistance(parseFloat(totalDistanceForDisplay.toFixed(2)));
 
       const oneWayDurationMinutes = (oneWayDistanceMiles / AVERAGE_SPEED_MPH) * 60;
       let totalDurationForDisplay = oneWayDurationMinutes;
        if (watchedWaitAndReturn) {
-        totalDurationForDisplay = (oneWayDistanceMiles * 2 / AVERAGE_SPEED_MPH) * 60; // Duration for round trip
-        // Note: Actual waiting time is not included in this duration estimate
+        totalDurationForDisplay = (oneWayDistanceMiles * 2 / AVERAGE_SPEED_MPH) * 60; 
       }
       setEstimatedDurationMinutes(totalDistanceForDisplay > 0 ? parseFloat(totalDurationForDisplay.toFixed(0)) : null);
 
@@ -834,20 +848,24 @@ export default function BookRidePage() {
       }
       
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; // No change for estate in this version
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
 
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; // 10% extra per passenger beyond the first
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
 
       let adjustedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
-      adjustedFare = Math.max(adjustedFare, MINIMUM_FARE); // Apply minimum fare to the adjusted one-way cost
+      adjustedFare = Math.max(adjustedFare, MINIMUM_FARE); 
 
       if (watchedWaitAndReturn) {
         const returnSurcharge = adjustedFare * WAIT_AND_RETURN_SURCHARGE_PERCENTAGE;
         adjustedFare += returnSurcharge;
-        // Free 10 mins waiting is noted in UI, actual charges for >10min would be added by driver/system later.
+        
+        const prePaidWaitMinutes = form.getValues('estimatedWaitTimeMinutes') || 0;
+        const chargeableWaitTimeForEstimate = Math.max(0, prePaidWaitMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION);
+        const waitingChargeForEstimate = chargeableWaitTimeForEstimate * WAITING_CHARGE_PER_MINUTE_AT_DESTINATION;
+        adjustedFare += waitingChargeForEstimate;
       }
 
       const fareWithSurge = adjustedFare * surgeMultiplierToApply;
@@ -860,7 +878,7 @@ export default function BookRidePage() {
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare, watchedWaitAndReturn]);
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare, watchedWaitAndReturn, watchedEstimatedWaitTimeMinutes, calculatedChargedWaitMinutes]);
 
 
  useEffect(() => {
@@ -953,6 +971,7 @@ export default function BookRidePage() {
       scheduledPickupAt,
       driverNotes: values.driverNotes,
       waitAndReturn: values.waitAndReturn,
+      estimatedWaitTimeMinutes: values.estimatedWaitTimeMinutes,
       promoCode: values.promoCode,
       paymentMethod: values.paymentMethod,
     };
@@ -987,7 +1006,7 @@ export default function BookRidePage() {
           toastDescription += `Payment: Card (Pay driver directly).`;
       }
       if (values.waitAndReturn) {
-        toastDescription += ` Wait & Return requested.`;
+        toastDescription += ` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.`;
       }
 
       toast({
@@ -1015,6 +1034,8 @@ export default function BookRidePage() {
       setGeolocationFetchStatus('idle');
       setShowGpsSuggestionAlert(false);
       setSuggestedGpsPickup(null);
+      setCalculatedChargedWaitMinutes(0);
+      setEstimatedWaitMinutesInput("10");
 
 
     } catch (error) {
@@ -1526,6 +1547,25 @@ const handleProceedToConfirmation = async () => {
     }
   );
 
+  const handleWaitAndReturnDialogConfirm = () => {
+    const minutes = parseInt(estimatedWaitMinutesInput, 10);
+    if (isNaN(minutes) || minutes < 0) {
+      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive"});
+      return;
+    }
+    form.setValue('waitAndReturn', true);
+    form.setValue('estimatedWaitTimeMinutes', minutes);
+    setCalculatedChargedWaitMinutes(Math.max(0, minutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION));
+    setIsWaitTimeDialogOpen(false);
+  };
+
+  const handleWaitAndReturnDialogCancel = () => {
+    form.setValue('waitAndReturn', false); // Ensure form state reflects cancellation
+    form.setValue('estimatedWaitTimeMinutes', undefined);
+    setCalculatedChargedWaitMinutes(0);
+    setIsWaitTimeDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -1846,13 +1886,21 @@ const handleProceedToConfirmation = async () => {
                             Wait & Return Journey?
                           </FormLabel>
                           <FormDescription className="text-xs">
-                            Adds 70% to one-way fare for return. Includes 10 min free waiting.
+                            Adds 70% for return + waiting charges.
                           </FormDescription>
                         </div>
                         <FormControl>
                           <Switch
                             checked={field.value}
-                            onCheckedChange={field.onChange}
+                            onCheckedChange={(isChecked) => {
+                              if (isChecked) {
+                                setIsWaitTimeDialogOpen(true);
+                              } else {
+                                field.onChange(false);
+                                form.setValue('estimatedWaitTimeMinutes', undefined);
+                                setCalculatedChargedWaitMinutes(0);
+                              }
+                            }}
                             aria-label="Wait and Return toggle"
                           />
                         </FormControl>
@@ -1862,11 +1910,18 @@ const handleProceedToConfirmation = async () => {
                   />
                   {watchedWaitAndReturn && (
                     <Alert variant="default" className="bg-blue-50 border-blue-300 text-blue-700">
-                        <Info className="h-5 w-5" />
-                        <ShadAlertTitle className="font-semibold">Wait & Return Selected</ShadAlertTitle>
+                        <Timer className="h-5 w-5" />
+                        <ShadAlertTitle className="font-semibold">Wait & Return Details</ShadAlertTitle>
                         <AlertDescription>
-                          Fare estimate updated: 70% surcharge for return leg, plus 10 minutes free waiting at destination.
-                          Additional waiting time charged at £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)} per minute.
+                          Fare includes 70% for return leg.
+                          {watchedEstimatedWaitTimeMinutes !== undefined && (
+                            <>
+                            <br/>Your estimated wait: <strong>{watchedEstimatedWaitTimeMinutes} mins</strong>.
+                            <br/>Free waiting: <strong>{FREE_WAITING_TIME_MINUTES_AT_DESTINATION} mins</strong>.
+                            <br/>Charged waiting in estimate: <strong>{calculatedChargedWaitMinutes} mins</strong> (£{(calculatedChargedWaitMinutes * WAITING_CHARGE_PER_MINUTE_AT_DESTINATION).toFixed(2)}).
+                            <br/>Exceeding your <strong>{watchedEstimatedWaitTimeMinutes} min</strong> estimate incurs extra charges (£{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min).
+                            </>
+                          )}
                         </AlertDescription>
                     </Alert>
                   )}
@@ -2071,7 +2126,7 @@ const handleProceedToConfirmation = async () => {
                                   </p>
                                 )}
                                 {!isSurgeActive && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
-                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 mt-1">(Includes 70% Wait & Return Surcharge)</p>}
+                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 mt-1">(Includes Wait & Return Surcharges)</p>}
                                  <p className="text-xs text-muted-foreground mt-1">
                                     Estimates may vary based on real-time conditions.
                                 </p>
@@ -2189,7 +2244,39 @@ const handleProceedToConfirmation = async () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isWaitTimeDialogOpen} onOpenChange={setIsWaitTimeDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</DialogTitle>
+            <DialogDescription>
+              How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
+              (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
+            <Input
+              id="wait-time-input"
+              type="number"
+              min="0"
+              value={estimatedWaitMinutesInput}
+              onChange={(e) => setEstimatedWaitMinutesInput(e.target.value)}
+              placeholder="e.g., 15"
+            />
+            <p className="text-xs text-muted-foreground">
+              If actual wait exceeds this, extra charges may apply.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleWaitAndReturnDialogCancel}>
+              Cancel W&R
+            </Button>
+            <Button type="button" onClick={handleWaitAndReturnDialogConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              Confirm Wait Time
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
