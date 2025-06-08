@@ -79,8 +79,8 @@ type GeolocationFetchStatus =
   | "error_permission"
   | "error_accuracy_moderate"
   | "error_accuracy_poor"
-  | "error_unavailable"
-  | "error_geocoding";
+  | "error_geocoding"
+  | "error_unavailable";
 
 const bookingFormSchema = z.object({
   pickupDoorOrFlat: z.string().max(50, {message: "Door/Flat info too long."}).optional(),
@@ -342,10 +342,11 @@ export default function BookRidePage() {
 
 
   useEffect(() => {
+    let isMounted = true;
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
       console.warn("Google Maps API Key is missing or empty. Address autocomplete will not work.");
-      toast({ title: "Configuration Error", description: "Google Maps API Key is not set or empty. Address search is disabled.", variant: "destructive" });
+      if(isMounted) toast({ title: "Configuration Error", description: "Google Maps API Key is not set or empty. Address search is disabled.", variant: "destructive" });
       return;
     }
     const loader = new Loader({
@@ -355,6 +356,7 @@ export default function BookRidePage() {
     });
 
     loader.load().then((google) => {
+      if (!isMounted) return;
       if (google && google.maps && google.maps.Geocoder && google.maps.places && google.maps.places.AutocompleteService && google.maps.places.PlacesService) {
         autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
         const mapDiv = document.createElement('div');
@@ -369,6 +371,7 @@ export default function BookRidePage() {
 
           navigator.geolocation.getCurrentPosition(
             async (position) => {
+              if(!isMounted) return;
               const currentCoords = {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
@@ -384,29 +387,31 @@ export default function BookRidePage() {
 
               if (geocoderRef.current) {
                 geocoderRef.current.geocode({ location: currentCoords }, (results, status) => {
+                  if(!isMounted) return;
                   if (status === "OK" && results && results[0]) {
                     const geocodedAddress = results[0].formatted_address;
                     setSuggestedGpsPickup({ address: geocodedAddress, coords: currentCoords, accuracy });
 
                     if (accuracy <= 20) {
-                      setGeolocationFetchStatus('success'); // GPS fetch was successful
-                      setShowGpsSuggestionAlert(true); // Show alert for confirmation
+                      setGeolocationFetchStatus('success'); 
+                      setShowGpsSuggestionAlert(true); 
                     } else {
                       setGeolocationFetchStatus('error_accuracy_moderate');
                       setShowGpsSuggestionAlert(false);
                     }
                   } else {
                     setGeolocationFetchStatus('error_geocoding');
-                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); // Keep coords for context
+                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); 
                     setShowGpsSuggestionAlert(false);
                   }
                 });
               } else {
-                  setGeolocationFetchStatus('error_unavailable'); // Geocoder not ready
+                  setGeolocationFetchStatus('error_unavailable'); 
                   toast({ title: "Service Error", description: "Geocoder service not available.", variant: "destructive" });
               }
             },
             (err) => {
+              if(!isMounted) return;
               let status: GeolocationFetchStatus = 'error_unavailable';
               let message = "Could not get your location.";
               if (err.code === 1) { status = 'error_permission'; message = "Location permission denied. Enable in browser/system settings.";}
@@ -428,10 +433,13 @@ export default function BookRidePage() {
         toast({ title: "Error", description: "Could not initialize map services.", variant: "destructive" });
       }
     }).catch(e => {
-      console.error("Failed to load Google Maps API for address search", e);
-      toast({ title: "Error", description: "Could not load address search. Check API key or network.", variant: "destructive" });
+      if (isMounted) {
+        console.error("Failed to load Google Maps API for address search", e);
+        toast({ title: "Error", description: "Could not load address search. Check API key or network.", variant: "destructive" });
+      }
     });
-  }, [toast]);
+    return () => { isMounted = false; };
+  }, []); // Empty dependency array to ensure it runs once on mount
 
   const handleApplyGpsSuggestion = () => {
     if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) {
@@ -440,7 +448,7 @@ export default function BookRidePage() {
       setPickupCoords(suggestedGpsPickup.coords);
       setShowPickupSuggestions(false);
       setShowGpsSuggestionAlert(false);
-      setGeolocationFetchStatus('success'); // Explicitly set to success when applied
+      setGeolocationFetchStatus('success'); 
       toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
     } else if (suggestedGpsPickup) {
         toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
@@ -535,8 +543,8 @@ export default function BookRidePage() {
     setEstimatedDistance(null);
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
-      setShowGpsSuggestionAlert(false); // User is typing, hide GPS suggestion
-      setGeolocationFetchStatus('idle'); // Reset GPS status as user is overriding
+      setShowGpsSuggestionAlert(false); 
+      setGeolocationFetchStatus('idle'); 
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -643,7 +651,7 @@ export default function BookRidePage() {
         setPickupCoords(coords);
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
-        setShowGpsSuggestionAlert(false); // Clear GPS suggestion when user picks from autocomplete
+        setShowGpsSuggestionAlert(false); 
         setGeolocationFetchStatus('idle');
       } else {
         setDropoffCoords(coords);
@@ -758,7 +766,7 @@ export default function BookRidePage() {
       setPickupInputValue(fav.address);
       setPickupCoords(newCoords);
       setShowPickupSuggestions(false);
-      setShowGpsSuggestionAlert(false); // Clear GPS suggestion if favorite is selected
+      setShowGpsSuggestionAlert(false); 
       setGeolocationFetchStatus('idle');
     } else {
       setDropoffInputValue(fav.address);
@@ -1471,7 +1479,7 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    if (showGpsSuggestionAlert) return null; // Don't show if suggestion alert is active
+    if (showGpsSuggestionAlert) return null; 
 
     switch (geolocationFetchStatus) {
         case 'fetching':
@@ -1488,11 +1496,11 @@ export default function BookRidePage() {
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. <strong>Please enter your pickup address manually.</strong></p>;
         case 'error_geocoding':
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. <strong>Please enter your pickup address manually.</strong></p>;
-        case 'success': // This status indicates GPS location was successfully *used* by the user
-             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) { // Only show if the used GPS was high-accuracy
+        case 'success': 
+             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) { 
                 return <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" />GPS location was used for pickup.</p>;
              }
-            return null; // Don't show anything if it was successful but user picked manually or it wasn't high accuracy
+            return null; 
         case 'idle':
         default:
             return null;
@@ -1560,7 +1568,7 @@ const handleProceedToConfirmation = async () => {
   };
 
   const handleWaitAndReturnDialogCancel = () => {
-    form.setValue('waitAndReturn', false); // Ensure form state reflects cancellation
+    form.setValue('waitAndReturn', false); 
     form.setValue('estimatedWaitTimeMinutes', undefined);
     setCalculatedChargedWaitMinutes(0);
     setIsWaitTimeDialogOpen(false);
