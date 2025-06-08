@@ -24,6 +24,13 @@ export interface User {
   phoneVerified?: boolean;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
   phoneVerificationDeadline?: string | null; 
+
+  // Conceptual fields for Fair Ride Assignment (populated by backend)
+  currentSessionId?: string | null;
+  lastLoginAt?: string | null; // ISO string representation of Timestamp
+  totalEarningsCurrentSession?: number | null; // In smallest currency unit (e.g., pence)
+  totalDurationOnlineCurrentSessionSeconds?: number | null;
+  currentHourlyRate?: number | null; // Calculated: totalEarningsCurrentSession / (totalDurationOnlineCurrentSessionSeconds / 3600)
 }
 
 interface AuthContextType {
@@ -77,6 +84,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             phoneVerificationDeadline: firestoreUser.phoneVerificationDeadline
               ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
               : null,
+            // Initialize conceptual fields for fairness system (backend would populate these)
+            currentSessionId: firestoreUser.currentSessionId || null,
+            lastLoginAt: firestoreUser.lastLoginAt ? (firestoreUser.lastLoginAt as Timestamp).toDate().toISOString() : null,
+            totalEarningsCurrentSession: firestoreUser.totalEarningsCurrentSession || null,
+            totalDurationOnlineCurrentSessionSeconds: firestoreUser.totalDurationOnlineCurrentSessionSeconds || null,
+            currentHourlyRate: firestoreUser.currentHourlyRate || null,
           };
           setUser(userData);
           console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);
