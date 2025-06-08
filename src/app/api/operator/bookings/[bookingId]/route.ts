@@ -1,4 +1,3 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -87,14 +86,15 @@ const bookingUpdateSchema = z.object({
   driverId: z.string().optional(),
   driverName: z.string().optional(),
   driverAvatar: z.string().url().optional(),
-  status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'completed', 'Cancelled', 'cancelled', 'pending_assignment', 'arrived_at_pickup', 'driver_assigned']).optional(),
+  status: z.enum(['Pending', 'Assigned', 'In Progress', 'Completed', 'completed', 'Cancelled', 'cancelled', 'pending_assignment', 'arrived_at_pickup', 'driver_assigned', 'pending_driver_wait_and_return_approval', 'in_progress_wait_and_return']).optional(),
   vehicleType: z.string().optional(),
   driverVehicleDetails: z.string().optional(),
   fareEstimate: z.number().optional(),
   finalFare: z.number().optional(),
   notes: z.string().max(500).optional(),
-  action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride', 'cancel_active']).optional(),
+  action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride', 'cancel_active', 'request_wait_and_return', 'accept_wait_and_return', 'decline_wait_and_return']).optional(),
   cancelledBy: z.string().optional(),
+  estimatedAdditionalWaitTimeMinutes: z.number().int().min(0).optional(),
 }).min(1, { message: "At least one field or action must be provided for update." });
 
 
@@ -156,10 +156,18 @@ export async function POST(request: NextRequest, context: GetContext) {
     console.log(`API POST /api/operator/bookings/${bookingId} - Current booking status from Firestore: ${currentBookingData.status}`);
 
     if (updateDataFromPayload.action === 'cancel_active' && 
-        !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress'].includes(currentBookingData.status)) {
+        !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress', 'pending_driver_wait_and_return_approval', 'in_progress_wait_and_return'].includes(currentBookingData.status)) {
         console.log(`API POST /api/operator/bookings/${bookingId} - Invalid status for cancellation action: ${currentBookingData.status}`);
         return new Response(JSON.stringify({ error: true, message: `Cannot cancel ride with status: ${currentBookingData.status}.`}), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
+    
+    if (updateDataFromPayload.action === 'request_wait_and_return' && currentBookingData.status !== 'in_progress') {
+        return new Response(JSON.stringify({ error: true, message: `Can only request Wait & Return for rides currently 'in_progress'. Current status: ${currentBookingData.status}`}), { status: 400, headers: { 'Content-Type': 'application/json' }});
+    }
+    if ((updateDataFromPayload.action === 'accept_wait_and_return' || updateDataFromPayload.action === 'decline_wait_and_return') && currentBookingData.status !== 'pending_driver_wait_and_return_approval') {
+        return new Response(JSON.stringify({ error: true, message: `Cannot accept/decline Wait & Return unless status is 'pending_driver_wait_and_return_approval'. Current status: ${currentBookingData.status}`}), { status: 400, headers: { 'Content-Type': 'application/json' }});
+    }
+
 
     const updateData: { [key: string]: any } = { 
       operatorUpdatedAt: Timestamp.now(),
@@ -176,7 +184,7 @@ export async function POST(request: NextRequest, context: GetContext) {
                 updateData.passengerAcknowledgedArrivalTimestamp = Timestamp.now();
                 break;
             case 'start_ride':
-                updateData.status = 'in_progress'; 
+                updateData.status = currentBookingData.waitAndReturn ? 'in_progress_wait_and_return' : 'in_progress'; 
                 updateData.rideStartedAt = Timestamp.now();
                 break;
             case 'complete_ride':
@@ -189,7 +197,29 @@ export async function POST(request: NextRequest, context: GetContext) {
             case 'cancel_active':
                 updateData.status = 'cancelled';
                 updateData.cancelledAt = Timestamp.now();
-                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver';
+                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver'; // Or 'operator' if operator initiates
+                break;
+            case 'request_wait_and_return':
+                if (updateDataFromPayload.estimatedAdditionalWaitTimeMinutes === undefined) {
+                     return new Response(JSON.stringify({ error: true, message: 'estimatedAdditionalWaitTimeMinutes is required for request_wait_and_return action.'}), { status: 400, headers: { 'Content-Type': 'application/json' }});
+                }
+                updateData.status = 'pending_driver_wait_and_return_approval';
+                updateData.estimatedAdditionalWaitTimeMinutes = updateDataFromPayload.estimatedAdditionalWaitTimeMinutes;
+                updateData.waitAndReturn = true; // Tentatively set
+                break;
+            case 'accept_wait_and_return':
+                const originalFare = currentBookingData.fareEstimate || 0;
+                const requestedWait = currentBookingData.estimatedAdditionalWaitTimeMinutes || 0;
+                const chargeableWaitMinutes = Math.max(0, requestedWait - 10); // 10 mins free
+                const waitingCharge = chargeableWaitMinutes * 0.20;
+                updateData.fareEstimate = parseFloat((originalFare * 1.70 + waitingCharge).toFixed(2));
+                updateData.status = 'in_progress_wait_and_return';
+                updateData.waitAndReturn = true; // Confirm
+                break;
+            case 'decline_wait_and_return':
+                updateData.status = 'in_progress'; // Revert to normal in_progress
+                updateData.estimatedAdditionalWaitTimeMinutes = deleteField(); // Remove requested time
+                updateData.waitAndReturn = false; // Ensure W&R is off
                 break;
         }
     } else {
@@ -266,6 +296,8 @@ export async function POST(request: NextRequest, context: GetContext) {
         completedAt: serializeTimestamp(updatedBookingDataResult.completedAt as Timestamp | undefined | null),
         cancelledAt: serializeTimestamp(updatedBookingDataResult.cancelledAt as Timestamp | undefined | null),
         cancelledBy: updatedBookingDataResult.cancelledBy,
+        waitAndReturn: updatedBookingDataResult.waitAndReturn, // Added
+        estimatedAdditionalWaitTimeMinutes: serializeTimestamp(updatedBookingDataResult.estimatedAdditionalWaitTimeMinutes as Timestamp | undefined | null), // Added
     };
 
     console.log(`API POST /api/operator/bookings/${bookingId} - Successfully processed. Sending 200 response with payload:`, JSON.stringify(bookingResponseObject).substring(0,500));

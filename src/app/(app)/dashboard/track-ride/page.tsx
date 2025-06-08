@@ -1,8 +1,7 @@
-
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw } from "lucide-react"; // Added RefreshCw
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,6 +79,8 @@ interface ActiveRide {
   driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
   driverVehicleDetails?: string;
+  waitAndReturn?: boolean; // Added
+  estimatedAdditionalWaitTimeMinutes?: number; // Added
 }
 
 const formatDate = (timestamp?: SerializedTimestamp | string | null, isoString?: string | null): string => {
@@ -87,21 +88,21 @@ const formatDate = (timestamp?: SerializedTimestamp | string | null, isoString?:
     try {
       const date = parseISO(isoString);
       if (!isValid(date)) return 'Scheduled N/A';
-      return format(date, "MMM do, yyyy 'at' p");
+      return format(date, "MMM do, yyyy \'at\' p");
     } catch (e) { return 'Scheduled N/A'; }
   }
    if (!timestamp) return 'N/A';
   if (typeof timestamp === 'string') {
     try {
       const date = new Date(timestamp);
-      return isNaN(date.getTime()) ? 'N/A (Invalid ISO str)' : format(date, "MMM do, yyyy 'at' p");
+      return isNaN(date.getTime()) ? 'N/A (Invalid ISO str)' : format(date, "MMM do, yyyy \'at\' p");
     } catch (e) { return 'N/A (ISO Parse Err)';}
   }
   if (typeof timestamp === 'object' && '_seconds' in timestamp && '_nanoseconds' in timestamp) {
      try {
       const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
       if (!isValid(date)) return 'Invalid Date Obj';
-      return format(date, "MMM do, yyyy 'at' p");
+      return format(date, "MMM do, yyyy \'at\' p");
     } catch (e) { return 'Date Conversion Err'; }
   }
   return 'N/A (Unknown format)';
@@ -128,6 +129,8 @@ type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions
 const FREE_WAITING_TIME_SECONDS_PASSENGER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_PASSENGER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS = 30;
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10; // For Wait & Return
+
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
@@ -173,6 +176,7 @@ export default function MyActiveRidePage() {
   const [rideToEditDetails, setRideToEditDetails] = useState<ActiveRide | null>(null);
   const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
   const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const [dialogPickupInputValue, setDialogPickupInputValue] = useState("");
   const [dialogPickupSuggestions, setDialogPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
@@ -202,7 +206,10 @@ export default function MyActiveRidePage() {
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
   const passengerWaitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  
+  const [isRequestingWR, setIsRequestingWR] = useState(false);
+  const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
+  const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
 
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
@@ -438,6 +445,39 @@ export default function MyActiveRidePage() {
     }
   };
 
+  const handleRequestWaitAndReturn = async () => {
+    if (!activeRide || !user) return;
+    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
+    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
+      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
+      return;
+    }
+    setIsRequestingWR(true);
+    try {
+      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'request_wait_and_return', 
+          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes 
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to request Wait & Return.");
+      }
+      const updatedBooking = await response.json();
+      setActiveRide(updatedBooking.booking); // Update local state with backend response
+      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the driver for confirmation." });
+      setIsWRRequestDialogOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error.";
+      toast({ title: "Request Failed", description: message, variant: "destructive" });
+    } finally {
+      setIsRequestingWR(false);
+    }
+  };
+
   const getStatusMessage = (ride: ActiveRide | null) => {
     if (!ride || !ride.status) return "Loading status...";
     switch (ride.status.toLowerCase()) {
@@ -445,6 +485,8 @@ export default function MyActiveRidePage() {
         case 'driver_assigned': return `Driver ${ride.driver || 'N/A'} is en route. ETA: ${ride.driverEtaMinutes ?? 'calculating...'} min.`;
         case 'arrived_at_pickup': return `Driver ${ride.driver || 'N/A'} has arrived at your pickup location.`;
         case 'in_progress': return "Your ride is in progress. Enjoy!";
+        case 'pending_driver_wait_and_return_approval': return `Wait & Return requested for an additional ${ride.estimatedAdditionalWaitTimeMinutes || 0} mins. Awaiting driver confirmation.`;
+        case 'in_progress_wait_and_return': return `Ride in progress (Wait & Return). Driver will wait ~${ride.estimatedAdditionalWaitTimeMinutes || 0} mins at dropoff.`;
         default: return `Status: ${ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
     }
   };
@@ -456,6 +498,8 @@ export default function MyActiveRidePage() {
         case 'driver_assigned': return 'default';
         case 'arrived_at_pickup': return 'outline';
         case 'in_progress': return 'default';
+        case 'pending_driver_wait_and_return_approval': return 'secondary';
+        case 'in_progress_wait_and_return': return 'default';
         default: return 'secondary';
     }
   };
@@ -467,6 +511,8 @@ export default function MyActiveRidePage() {
         case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
         case 'arrived_at_pickup': return 'border-blue-500 text-blue-600 hover:bg-blue-500/10';
         case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
+        case 'pending_driver_wait_and_return_approval': return 'bg-purple-400/80 text-purple-900 hover:bg-purple-400/70';
+        case 'in_progress_wait_and_return': return 'bg-teal-500 text-white hover:bg-teal-600';
         default: return '';
     }
   };
@@ -475,7 +521,7 @@ export default function MyActiveRidePage() {
     if (!activeRide) return [];
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     if (activeRide.driverCurrentLocation) {
-        markers.push({ position: activeRide.driverCurrentLocation, title: "Driver's Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+        markers.push({ position: activeRide.driverCurrentLocation, title: "Driver\'s Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
     }
 
     if (activeRide.pickupLocation) {
@@ -521,7 +567,14 @@ export default function MyActiveRidePage() {
   const statusDisplay = activeRide?.status ? activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Status N/A';
   const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
   const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
-  const fareDisplay = `£${(activeRide?.fareEstimate ?? 0).toFixed(2)}`;
+  
+  let fareDisplay = `£${(activeRide?.fareEstimate ?? 0).toFixed(2)}`;
+  if (activeRide?.status === 'in_progress_wait_and_return' || activeRide?.waitAndReturn) {
+    const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * WAITING_CHARGE_PER_MINUTE_PASSENGER;
+    const waitAndReturnBaseFare = (activeRide.fareEstimate || 0) * 1.70; // Assuming fareEstimate before W&R was one-way base
+    fareDisplay = `£${(waitAndReturnBaseFare + additionalWaitCharge).toFixed(2)} (W&R)`;
+  }
+
   const paymentMethodDisplay = activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)'  : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' : 'Payment N/A';
 
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide, isLoading: boolean }) => (
@@ -590,8 +643,36 @@ export default function MyActiveRidePage() {
 
                 {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><span className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> <span>Chat</span></span></Link> </Button> </div> )}
                 <Separator />
-                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index+1}:</strong> {stop.address}</p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
+                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <span className="flex items-center justify-center"><CheckCheck className="mr-2 h-5 w-5" /> <span>Acknowledge Driver Arrival</span> </span></Button> )}
+                 {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
+                   <Button
+                     variant="outline"
+                     className="w-full mt-2 border-accent text-accent hover:bg-accent/10"
+                     onClick={() => setIsWRRequestDialogOpen(true)}
+                     disabled={isRequestingWR || activeRide.status.startsWith('pending_driver_wait_and_return')}
+                   >
+                     <RefreshCw className="mr-2 h-4 w-4" /> Request Wait & Return
+                   </Button>
+                 )}
+                 {activeRide.status === 'pending_driver_wait_and_return_approval' && (
+                    <Alert variant="default" className="bg-purple-50 border-purple-300 text-purple-700 mt-2">
+                        <Timer className="h-5 w-5" />
+                        <ShadAlertTitle className="font-semibold">Wait & Return Requested</ShadAlertTitle>
+                        <ShadAlertDescription>
+                          Your request for wait & return (approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins wait) is awaiting driver confirmation.
+                        </ShadAlertDescription>
+                    </Alert>
+                 )}
+                 {activeRide.status === 'in_progress_wait_and_return' && (
+                     <Alert variant="default" className="bg-teal-50 border-teal-300 text-teal-700 mt-2">
+                        <CheckCheck className="h-5 w-5" />
+                        <ShadAlertTitle className="font-semibold">Wait & Return Active!</ShadAlertTitle>
+                        <ShadAlertDescription>
+                          Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {fareDisplay}.
+                        </ShadAlertDescription>
+                    </Alert>
+                 )}
             </CardContent>
              {(activeRide.status === 'pending_assignment' || activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.toLowerCase().includes('in_progress')) && (
                 <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2">
@@ -706,6 +787,35 @@ export default function MyActiveRidePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+       <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
+          <ShadDialogDescription>
+            Estimate your additional waiting time at the current drop-off point. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
+          </ShadDialogDescription>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
+            <Input
+              id="wr-wait-time-input"
+              type="number"
+              min="0"
+              value={wrRequestDialogMinutes}
+              onChange={(e) => setWrRequestDialogMinutes(e.target.value)}
+              placeholder="e.g., 15"
+              disabled={isRequestingWR}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleRequestWaitAndReturn} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+              {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -720,3 +830,4 @@ export default function MyActiveRidePage() {
 
 
     
+
