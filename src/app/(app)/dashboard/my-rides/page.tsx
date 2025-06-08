@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger, // Import AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
@@ -148,7 +148,7 @@ export default function MyRidesPage() {
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) { console.warn("Google Maps API Key missing."); return; }
-    const loader = new Loader({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["places", "marker", "maps"]});
+    const loader = new Loader({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["geocoding", "maps", "marker", "places"]});
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
       placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
@@ -296,3 +296,4 @@ export default function MyRidesPage() {
     </div>
   );
 }
+
