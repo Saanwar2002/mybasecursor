@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -336,7 +335,7 @@ export default function BookRidePage() {
       ];
       const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
       const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-      setAvailabilityStatusMessage(`Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`);
+      setAvailabilityStatusMessage(\`Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)\`);
       setIsCheckingAvailability(false);
     }, 1500);
     return () => clearTimeout(timer);
@@ -486,9 +485,9 @@ export default function BookRidePage() {
       setShowPickupSuggestions(false);
       setShowGpsSuggestionAlert(false);
       setGeolocationFetchStatus('success'); 
-      toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
+      toast({ title: "GPS Location Applied", description: \`Pickup set to: ${suggestedGpsPickup.address}\`});
     } else if (suggestedGpsPickup) {
-        toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
+        toast({ title: "Cannot Apply Suggestion", description: \`Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.\`, variant: "default"});
     }
   };
 
@@ -496,7 +495,7 @@ export default function BookRidePage() {
     if (!user) return;
     setIsLoadingFavorites(true);
     try {
-      const response = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
+      const response = await fetch(\`/api/users/favorite-locations/list?userId=${user.id}\`);
       if (!response.ok) throw new Error("Failed to fetch favorites");
       const data: FavoriteLocation[] = await response.json();
       setFavoriteLocations(data);
@@ -511,7 +510,7 @@ export default function BookRidePage() {
     if (!user) return;
     setIsLoadingSavedRoutes(true);
     try {
-      const response = await fetch(`/api/users/saved-routes/list?userId=${user.id}`);
+      const response = await fetch(\`/api/users/saved-routes/list?userId=${user.id}\`);
       if (!response.ok) {
         let errorMsg = "Failed to fetch saved routes.";
         try {
@@ -663,7 +662,7 @@ export default function BookRidePage() {
         const stopIndex = formFieldNameOrStopIndex;
         setStopAutocompleteData(prev => prev.map((item, idx) =>
           idx === stopIndex
-          ? { ...item, inputValue: form.getValues(`stops.${stopIndex}.location`) || item.inputValue, coords: null, showSuggestions: false }
+          ? { ...item, inputValue: form.getValues(\`stops.${stopIndex}.location\`) || item.inputValue, coords: null, showSuggestions: false }
           : item
         ));
       }
@@ -713,7 +712,7 @@ export default function BookRidePage() {
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
             });
-            toast({ title: "Location Selected", description: `${addressText} coordinates captured.`});
+            toast({ title: "Location Selected", description: \`${addressText} coordinates captured.\`});
           } else {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsFunc(null);
@@ -784,7 +783,7 @@ export default function BookRidePage() {
   const handleFavoriteSelectFactory = (
     formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number,
     formOnChange: (value: string) => void,
-    doorOrFlatFormFieldName?: `pickupDoorOrFlat` | `dropoffDoorOrFlat` | `stops.${number}.doorOrFlat`
+    doorOrFlatFormFieldName?: \`pickupDoorOrFlat\` | \`dropoffDoorOrFlat\` | \`stops.${number}.doorOrFlat\`
   ) => (fav: FavoriteLocation) => {
     formOnChange(fav.address);
     const newCoords = { lat: fav.latitude, lng: fav.longitude };
@@ -811,7 +810,7 @@ export default function BookRidePage() {
       setDropoffCoords(newCoords);
       setShowDropoffSuggestions(false);
     }
-    toast({ title: "Favorite Applied", description: `${fav.label}: ${fav.address} selected.` });
+    toast({ title: "Favorite Applied", description: \`${fav.label}: ${fav.address} selected.\` });
   };
 
   const watchedVehicleType = form.watch("vehicleType");
@@ -825,7 +824,7 @@ export default function BookRidePage() {
     setStopAutocompleteData(prev => [
       ...prev,
       {
-        fieldId: `stop-temp-${prev.length}-${Date.now()}`,
+        fieldId: \`stop-temp-${prev.length}-${Date.now()}\`,
         inputValue: "",
         suggestions: [],
         showSuggestions: false,
@@ -843,7 +842,7 @@ export default function BookRidePage() {
 
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
   const validStopsForFare = stopAutocompleteData.filter((stopData, index) => {
-    const formStopValue = form.getValues(`stops.${index}.location`);
+    const formStopValue = form.getValues(\`stops.${index}.location\`);
     return stopData.coords && formStopValue && formStopValue.trim() !== "";
   });
 
@@ -946,7 +945,7 @@ export default function BookRidePage() {
     if (pickupCoords) {
       newMarkers.push({
         position: pickupCoords,
-        title: `Pickup: ${form.getValues('pickupLocation')}`,
+        title: \`Pickup: ${form.getValues('pickupLocation')}\`,
         label: 'P'
       });
     }
@@ -956,15 +955,15 @@ export default function BookRidePage() {
         if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
              newMarkers.push({
                 position: stopData.coords,
-                title: `Stop ${index + 1}: ${formStop.location}`,
-                label: `S${index + 1}`
+                title: \`Stop ${index + 1}: ${formStop.location}\`,
+                label: \`S${index + 1}\`
             });
         }
     });
     if (dropoffCoords) {
       newMarkers.push({
         position: dropoffCoords,
-        title: `Dropoff: ${form.getValues('dropoffLocation')}`,
+        title: \`Dropoff: ${form.getValues('dropoffLocation')}\`,
         label: 'D'
     });
     }
@@ -988,7 +987,7 @@ export default function BookRidePage() {
         const stopDoorOrFlatInput = values.stops?.[i]?.doorOrFlat;
         const stopData = stopAutocompleteData[i];
         if (stopLocationInput && stopLocationInput.trim() !== "" && !stopData?.coords) {
-            toast({ title: `Missing Stop ${i + 1} Details`, description: `Select a valid location for stop ${i+1} or remove it.`, variant: "destructive" });
+            toast({ title: \`Missing Stop ${i + 1} Details\`, description: \`Select a valid location for stop ${i+1} or remove it.\`, variant: "destructive" });
             return;
         }
         if (stopData?.coords && stopLocationInput && stopLocationInput.trim() !== "") {
@@ -1051,33 +1050,33 @@ export default function BookRidePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `Booking failed with status ${response.status}`);
+        throw new Error(errorData.message || \`Booking failed with status ${response.status}\`);
       }
 
       const result = await response.json();
 
-      let toastDescription = `Ride ID: ${result.bookingId}. `;
+      let toastDescription = \`Ride ID: ${result.bookingId}. \`;
       if (values.bookingType === 'asap' && !scheduledPickupAt) {
-          toastDescription += `We'll notify you when your driver is on the way. `;
+          toastDescription += \`We'll notify you when your driver is on the way. \`;
       } else {
-          toastDescription += `Your driver will be assigned shortly for the scheduled time. `;
+          toastDescription += \`Your driver will be assigned shortly for the scheduled time. \`;
       }
       if (values.paymentMethod === 'cash') {
-          toastDescription += `Payment: Cash to driver.`;
+          toastDescription += \`Payment: Cash to driver.\`;
       } else {
-          toastDescription += `Payment: Card (Pay driver directly).`;
+          toastDescription += \`Payment: Card (Pay driver directly).\`;
       }
       if (values.waitAndReturn) {
-        toastDescription += ` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.`;
+        toastDescription += \` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.\`;
       }
       if (values.isPriorityPickup) {
-          toastDescription += ` Priority Fee: £${(values.priorityFeeAmount || 0).toFixed(2)}.`;
+          toastDescription += \` Priority Fee: £${(values.priorityFeeAmount || 0).toFixed(2)}.\`;
       }
       if (values.vehicleType === "pet_friendly_car" || values.vehicleType === "minibus_6_pet_friendly" || values.vehicleType === "minibus_8_pet_friendly") {
-        toastDescription += ` Pet Friendly Surcharge: +£${PET_FRIENDLY_SURCHARGE.toFixed(2)}.`;
+        toastDescription += \` Pet Friendly Surcharge: +£${PET_FRIENDLY_SURCHARGE.toFixed(2)}.\`;
       }
       if (values.vehicleType === "disable_wheelchair_access") {
-        toastDescription += ` Wheelchair Access surcharge applied.`;
+        toastDescription += \` Wheelchair Access surcharge applied.\`;
       }
 
 
@@ -1165,7 +1164,7 @@ export default function BookRidePage() {
       if (!response.ok) throw new Error (await response.json().then(e => e.message || "Failed to save route"));
       const newSavedRoute: SavedRoute = await response.json().then(r => r.route);
       setSavedRoutes(prev => [newSavedRoute, ...prev]);
-      toast({ title: "Route Saved!", description: `"${newRouteLabel}" has been added to your saved routes.`});
+      toast({ title: "Route Saved!", description: \`"${newRouteLabel}" has been added to your saved routes.\`});
       setSaveRouteDialogOpen(false);
     } catch (error) {
       toast({ title: "Save Failed", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive"});
@@ -1193,7 +1192,7 @@ export default function BookRidePage() {
     replace(newStopsForForm);
 
     const newStopAutocompleteData: AutocompleteData[] = route.stops?.map((s, index) => ({
-      fieldId: `stop-applied-${index}-${Date.now()}`,
+      fieldId: \`stop-applied-${index}-${Date.now()}\`,
       inputValue: s.address,
       coords: { lat: s.latitude, lng: s.longitude },
       suggestions: [],
@@ -1203,14 +1202,14 @@ export default function BookRidePage() {
     })) || [];
     setStopAutocompleteData(newStopAutocompleteData);
 
-    toast({ title: "Route Applied", description: `Route "${route.label}" loaded into the form.`});
+    toast({ title: "Route Applied", description: \`Route "${route.label}" loaded into the form.\`});
   };
 
   const handleDeleteSavedRoute = async (routeId: string) => {
     if (!user) return;
     setIsDeletingRouteId(routeId);
     try {
-      const response = await fetch(`/api/users/saved-routes/remove?id=${routeId}&userId=${user.id}`, {
+      const response = await fetch(\`/api/users/saved-routes/remove?id=${routeId}&userId=${user.id}\`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error (await response.json().then(e => e.message || "Failed to delete route"));
@@ -1234,7 +1233,7 @@ export default function BookRidePage() {
       setCoordsFunc(null);
       form.setValue(formField, addressString);
       setInputValueFunc(addressString);
-      toast({ title: `AI Geocoding Failed for ${locationType}`, description: `Address services not ready or no address provided for "${addressString}". Original text kept.`, variant: "default" });
+      toast({ title: \`AI Geocoding Failed for ${locationType}\`, description: \`Address services not ready or no address provided for "${addressString}". Original text kept.\`, variant: "default" });
       return;
     }
 
@@ -1257,12 +1256,12 @@ export default function BookRidePage() {
                     setShowGpsSuggestionAlert(false);
                     setGeolocationFetchStatus('idle');
                   }
-                  toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
+                  toast({ title: \`AI ${locationType} applied\`, description: \`Set to: ${finalAddress}\` });
                 } else {
                   setCoordsFunc(null);
                   form.setValue(formField, addressString);
                   setInputValueFunc(addressString);
-                  toast({ title: `AI Geocoding Failed`, description: `Could not get details for ${locationType}: "${addressString}". Original text kept.`, variant: "default" });
+                  toast({ title: \`AI Geocoding Failed\`, description: \`Could not get details for ${locationType}: "${addressString}". Original text kept.\`, variant: "default" });
                 }
                 autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
                 resolve();
@@ -1272,7 +1271,7 @@ export default function BookRidePage() {
             setCoordsFunc(null);
             form.setValue(formField, addressString);
             setInputValueFunc(addressString);
-            toast({ title: `AI Geocoding Failed`, description: `Could not find ${locationType}: "${addressString}". Original text kept.`, variant: "default" });
+            toast({ title: \`AI Geocoding Failed\`, description: \`Could not find ${locationType}: "${addressString}". Original text kept.\`, variant: "default" });
             resolve();
           }
         }
@@ -1359,7 +1358,7 @@ export default function BookRidePage() {
     recognition.onresult = async (event: SpeechRecognitionEvent) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
       setIsProcessingAi(true);
-      toast({ title: "Processing your request...", description: `Heard: "${transcript}"`, duration: 2000 });
+      toast({ title: "Processing your request...", description: \`Heard: "${transcript}"\`, duration: 2000 });
 
       if (transcript) {
           try {
@@ -1392,7 +1391,7 @@ export default function BookRidePage() {
 
               if (aiOutput.requestedTime && aiOutput.requestedTime.toLowerCase() !== 'asap' && aiOutput.requestedTime.toLowerCase() !== 'now') {
                 form.setValue('bookingType', 'scheduled');
-                toast({ title: "AI Suggested Time", description: `AI suggests: "${aiOutput.requestedTime}". Please set date/time manually if needed.`, duration: 5000});
+                toast({ title: "AI Suggested Time", description: \`AI suggests: "${aiOutput.requestedTime}". Please set date/time manually if needed.\`, duration: 5000});
                 appliedFieldsCount++;
               } else {
                   form.setValue('bookingType', 'asap');
@@ -1499,7 +1498,7 @@ export default function BookRidePage() {
         )}
         {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestionItem) => (
           <div
-            key={`${fieldKey}-${suggestionItem.place_id}`}
+            key={\`${fieldKey}-${suggestionItem.place_id}\`}
             className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm"
             onMouseDown={() => onSuggestionClick(suggestionItem)}
           >
@@ -1528,7 +1527,7 @@ export default function BookRidePage() {
             {!isLoadingFavorites && favoriteLocations.length === 0 && <p className="p-2 text-sm text-muted-foreground">No favorites saved yet.</p>}
             {!isLoadingFavorites && favoriteLocations.map(fav => (
               <div
-                key={`${triggerKey}-fav-${fav.id}`}
+                key={\`${triggerKey}-fav-${fav.id}\`}
                 className="p-2 text-sm hover:bg-muted cursor-pointer rounded-md"
                 onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }}
               >
@@ -1576,7 +1575,11 @@ export default function BookRidePage() {
 const handleProceedToConfirmation = async () => {
     const pickupValid = await form.trigger("pickupLocation");
     const dropoffValid = await form.trigger("dropoffLocation");
-    await form.trigger("stops");
+    // Only trigger stops validation if there are stops
+    if (form.getValues("stops") && form.getValues("stops").length > 0) {
+      await form.trigger("stops");
+    }
+
 
     if (!pickupValid || !dropoffValid) {
       toast({
@@ -1601,8 +1604,8 @@ const handleProceedToConfirmation = async () => {
         for (let i = 0; i < stopFields.length; i++) {
             if (stopFields[i].location && stopFields[i].location.trim() !== "" && !stopAutocompleteData[i]?.coords) {
                  toast({
-                    title: `Incomplete Stop ${i+1}`,
-                    description: `Please select stop ${i+1} from suggestions or remove it.`,
+                    title: \`Incomplete Stop ${i+1}\`,
+                    description: \`Please select stop ${i+1} from suggestions or remove it.\`,
                     variant: "destructive",
                  });
                  return;
@@ -1734,7 +1737,7 @@ const handleProceedToConfirmation = async () => {
                           <div className="flex justify-between items-center">
                             <div>
                               <p className="text-sm font-semibold">{route.label}</p>
-                              <p className="text-xs text-muted-foreground truncate w-48" title={`${route.pickupLocation.address} to ${route.dropoffLocation.address}`}>
+                              <p className="text-xs text-muted-foreground truncate w-48" title={\`${route.pickupLocation.address} to ${route.dropoffLocation.address}\`}>
                                 {route.pickupLocation.address.split(',')[0]} to {route.dropoffLocation.address.split(',')[0]}
                               </p>
                             </div>
@@ -1837,7 +1840,8 @@ const handleProceedToConfirmation = async () => {
                     />
                   </div>
 
-
+                  {/* Stops fields are commented out for diagnosis */}
+                  {/*
                   {fields.map((stopField, index) => {
                     const currentStopData = stopAutocompleteData[index] || { inputValue: '', suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null, fieldId: stopField.id };
                     return (
@@ -1850,7 +1854,7 @@ const handleProceedToConfirmation = async () => {
                         </FormLabel>
                         <FormField
                             control={form.control}
-                            name={`stops.${index}.doorOrFlat`}
+                            name={\`stops.${index}.doorOrFlat\`}
                             render={({ field }) => (
                             <FormItem className="mb-1">
                                 <FormControl>
@@ -1862,13 +1866,13 @@ const handleProceedToConfirmation = async () => {
                         />
                         <FormField
                             control={form.control}
-                            name={`stops.${index}.location`}
+                            name={\`stops.${index}.location\`}
                             render={({ field }) => (
                             <FormItem>
                                 <div className="relative flex items-center">
                                 <FormControl>
                                     <Input
-                                    placeholder={`Type stop ${index + 1} address`}
+                                    placeholder={\`Type stop ${index + 1} address\`}
                                     {...field}
                                     value={currentStopData.inputValue}
                                     onChange={(e) => handleAddressInputChangeFactory(index)(e.target.value, field.onChange)}
@@ -1878,14 +1882,14 @@ const handleProceedToConfirmation = async () => {
                                     className="pr-10 border-2 border-primary shadow-none"
                                     />
                                 </FormControl>
-                                {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange, `stops.${index}.doorOrFlat`), `stop-${index}`)}
+                                {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange, \`stops.${index}.doorOrFlat\`), \`stop-${index}\`)}
                                 {currentStopData.showSuggestions && renderSuggestions(
                                     currentStopData.suggestions,
                                     currentStopData.isFetchingSuggestions,
                                     currentStopData.isFetchingDetails,
                                     currentStopData.inputValue,
                                     (sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange),
-                                    `stop-${index}`
+                                    \`stop-${index}\`
                                 )}
                                 </div>
                                 <FormMessage />
@@ -1905,6 +1909,7 @@ const handleProceedToConfirmation = async () => {
                           <PlusCircle className="mr-2 h-4 w-4" /> (+ Stop/Pickup)
                       </Button>
                   </div>
+                  */}
 
                   <div className="space-y-2">
                     <FormLabel className="flex items-center gap-1"><HomeIcon className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
@@ -1953,7 +1958,9 @@ const handleProceedToConfirmation = async () => {
                         )}
                     />
                   </div>
-
+                  
+                  {/* Other FormFields commented out for diagnosis */}
+                  {/*
                   <FormField
                     control={form.control}
                     name="driverNotes"
@@ -2050,7 +2057,7 @@ const handleProceedToConfirmation = async () => {
                               }
                             }}
                             aria-label="Priority Pickup toggle"
-                            className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
+                             className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
                           />
                         </FormControl>
                          <FormMessage />
@@ -2174,6 +2181,7 @@ const handleProceedToConfirmation = async () => {
                       />
                     </>
                   )}
+                  */}
 
 
                   <FormField
@@ -2190,6 +2198,8 @@ const handleProceedToConfirmation = async () => {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="car">Car (Standard)</SelectItem>
+                            {/* Other vehicle types commented out for diagnosis */}
+                            {/*
                             <SelectItem value="estate">Estate Car</SelectItem>
                             <SelectItem value="minibus_6">Minibus (6 people)</SelectItem>
                             <SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
@@ -2205,6 +2215,7 @@ const handleProceedToConfirmation = async () => {
                              <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
                                 <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (8 ppl) (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
                             </SelectItem>
+                            */}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -2225,6 +2236,7 @@ const handleProceedToConfirmation = async () => {
                       </FormItem>
                     )}
                   />
+                  {/*
                   <FormField
                     control={form.control}
                     name="promoCode"
@@ -2238,6 +2250,39 @@ const handleProceedToConfirmation = async () => {
                       </FormItem>
                     )}
                   />
+                  */}
+
+                  <FormField
+                    control={form.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                        <FormItem className="space-y-3">
+                        <FormLabel className="text-base">Payment Method</FormLabel>
+                            <FormControl>
+                                <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4"
+                                >
+                                <FormItem className="flex items-center space-x-2">
+                                    <FormControl><RadioGroupItem value="card" id="card" /></FormControl>
+                                    <FormLabel htmlFor="card" className="font-normal flex items-center gap-1">
+                                    <CreditCard className="w-4 h-4 text-blue-500" /> Card (Pay Driver)
+                                    </FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2">
+                                    <FormControl><RadioGroupItem value="cash" id="cash" /></FormControl>
+                                    <FormLabel htmlFor="cash" className="font-normal flex items-center gap-1">
+                                    <Coins className="w-4 h-4 text-green-500" /> Cash
+                                    </FormLabel>
+                                </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                  />
+
 
                   <Button
                     type="button"
