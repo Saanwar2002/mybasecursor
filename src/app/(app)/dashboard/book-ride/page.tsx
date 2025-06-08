@@ -389,20 +389,20 @@ export default function BookRidePage() {
                     setSuggestedGpsPickup({ address: geocodedAddress, coords: currentCoords, accuracy });
 
                     if (accuracy <= 20) {
-                      setGeolocationFetchStatus('success');
-                      setShowGpsSuggestionAlert(true);
+                      setGeolocationFetchStatus('success'); // GPS fetch was successful
+                      setShowGpsSuggestionAlert(true); // Show alert for confirmation
                     } else {
                       setGeolocationFetchStatus('error_accuracy_moderate');
                       setShowGpsSuggestionAlert(false);
                     }
                   } else {
                     setGeolocationFetchStatus('error_geocoding');
-                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
+                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); // Keep coords for context
                     setShowGpsSuggestionAlert(false);
                   }
                 });
               } else {
-                  setGeolocationFetchStatus('error_unavailable');
+                  setGeolocationFetchStatus('error_unavailable'); // Geocoder not ready
                   toast({ title: "Service Error", description: "Geocoder service not available.", variant: "destructive" });
               }
             },
@@ -440,7 +440,7 @@ export default function BookRidePage() {
       setPickupCoords(suggestedGpsPickup.coords);
       setShowPickupSuggestions(false);
       setShowGpsSuggestionAlert(false);
-      setGeolocationFetchStatus('success');
+      setGeolocationFetchStatus('success'); // Explicitly set to success when applied
       toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
     } else if (suggestedGpsPickup) {
         toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
@@ -535,8 +535,8 @@ export default function BookRidePage() {
     setEstimatedDistance(null);
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
-      setShowGpsSuggestionAlert(false);
-      setGeolocationFetchStatus('idle');
+      setShowGpsSuggestionAlert(false); // User is typing, hide GPS suggestion
+      setGeolocationFetchStatus('idle'); // Reset GPS status as user is overriding
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -643,7 +643,7 @@ export default function BookRidePage() {
         setPickupCoords(coords);
         setPickupInputValue(addressText);
         setShowPickupSuggestions(false);
-        setShowGpsSuggestionAlert(false);
+        setShowGpsSuggestionAlert(false); // Clear GPS suggestion when user picks from autocomplete
         setGeolocationFetchStatus('idle');
       } else {
         setDropoffCoords(coords);
@@ -758,7 +758,7 @@ export default function BookRidePage() {
       setPickupInputValue(fav.address);
       setPickupCoords(newCoords);
       setShowPickupSuggestions(false);
-      setShowGpsSuggestionAlert(false);
+      setShowGpsSuggestionAlert(false); // Clear GPS suggestion if favorite is selected
       setGeolocationFetchStatus('idle');
     } else {
       setDropoffInputValue(fav.address);
@@ -1471,7 +1471,7 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    if (showGpsSuggestionAlert) return null;
+    if (showGpsSuggestionAlert) return null; // Don't show if suggestion alert is active
 
     switch (geolocationFetchStatus) {
         case 'fetching':
@@ -1488,11 +1488,11 @@ export default function BookRidePage() {
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. <strong>Please enter your pickup address manually.</strong></p>;
         case 'error_geocoding':
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. <strong>Please enter your pickup address manually.</strong></p>;
-        case 'success':
-             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) {
+        case 'success': // This status indicates GPS location was successfully *used* by the user
+             if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) { // Only show if the used GPS was high-accuracy
                 return <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" />GPS location was used for pickup.</p>;
              }
-            return null;
+            return null; // Don't show anything if it was successful but user picked manually or it wasn't high accuracy
         case 'idle':
         default:
             return null;
@@ -2280,3 +2280,4 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
+
