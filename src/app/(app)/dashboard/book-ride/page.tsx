@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -19,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon } from 'lucide-react'; // Added RefreshCwIcon
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { Switch } from "@/components/ui/switch";
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -98,6 +98,7 @@ const bookingFormSchema = z.object({
   vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
+  waitAndReturn: z.boolean().default(false), // Added Wait & Return field
   promoCode: z.string().optional(),
   paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
 }).superRefine((data, ctx) => {
@@ -140,7 +141,7 @@ const PER_MINUTE_RATE = 0.10;
 const AVERAGE_SPEED_MPH = 15;
 const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
-const SURGE_MULTIPLIER_VALUE = 1.5; 
+const SURGE_MULTIPLIER_VALUE = 1.5;
 const PER_STOP_SURCHARGE = 0.50;
 
 
@@ -169,7 +170,7 @@ export default function BookRidePage() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const [estimatedDurationMinutes, setEstimatedDurationMinutes] = useState<number | null>(null);
-  
+
   const { toast } = useToast();
   const { user } = useAuth();
   const router = useRouter();
@@ -178,9 +179,9 @@ export default function BookRidePage() {
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
-  const [isSurgeActive, setIsSurgeActive] = useState(false); 
-  const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1); 
-  const [isOperatorSurgeEnabled, setIsOperatorSurgeEnabled] = useState<boolean>(false); 
+  const [isSurgeActive, setIsSurgeActive] = useState(false);
+  const [currentSurgeMultiplier, setCurrentSurgeMultiplier] = useState(1);
+  const [isOperatorSurgeEnabled, setIsOperatorSurgeEnabled] = useState<boolean>(false);
   const [isLoadingSurgeSetting, setIsLoadingSurgeSetting] = useState<boolean>(true);
 
 
@@ -216,7 +217,7 @@ export default function BookRidePage() {
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
   const [availabilityStatusMessage, setAvailabilityStatusMessage] = useState("Checking availability in your area...");
   const [mapBusynessLevel, setMapBusynessLevel] = useState<'idle' | 'moderate' | 'high'>('idle');
-  
+
   const searchParams = useSearchParams();
   const operatorPreference = searchParams.get('operator_preference');
 
@@ -235,6 +236,7 @@ export default function BookRidePage() {
       vehicleType: "car",
       passengers: 1,
       driverNotes: "",
+      waitAndReturn: false, // Default for waitAndReturn
       promoCode: "",
       paymentMethod: "card",
     },
@@ -246,6 +248,7 @@ export default function BookRidePage() {
   });
 
   const watchedPaymentMethod = form.watch("paymentMethod");
+  const watchedWaitAndReturn = form.watch("waitAndReturn"); // Watch the new field
 
   const [pickupInputValue, setPickupInputValue] = useState("");
   const [pickupSuggestions, setPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
@@ -291,7 +294,7 @@ export default function BookRidePage() {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
     }, 4000);
-  
+
     return () => clearInterval(intervalId);
   }, []);
 
@@ -303,14 +306,14 @@ export default function BookRidePage() {
         const response = await fetch('/api/operator/settings/pricing');
         if (!response.ok) {
           console.warn('Failed to fetch surge pricing setting, defaulting to normal fares.');
-          setIsOperatorSurgeEnabled(false); 
+          setIsOperatorSurgeEnabled(false);
           return;
         }
         const data = await response.json();
         setIsOperatorSurgeEnabled(data.enableSurgePricing || false);
       } catch (error) {
         console.error('Error fetching surge pricing setting:', error);
-        setIsOperatorSurgeEnabled(false); 
+        setIsOperatorSurgeEnabled(false);
       } finally {
         setIsLoadingSurgeSetting(false);
       }
@@ -356,7 +359,7 @@ export default function BookRidePage() {
               if (accuracy > 500) {
                 setGeolocationFetchStatus('error_accuracy_poor');
                 setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
-                setShowGpsSuggestionAlert(false); 
+                setShowGpsSuggestionAlert(false);
                 return;
               }
 
@@ -368,19 +371,19 @@ export default function BookRidePage() {
 
                     if (accuracy <= 20) {
                       setGeolocationFetchStatus('success');
-                      setShowGpsSuggestionAlert(true); 
-                    } else { 
+                      setShowGpsSuggestionAlert(true);
+                    } else {
                       setGeolocationFetchStatus('error_accuracy_moderate');
-                      setShowGpsSuggestionAlert(false); 
+                      setShowGpsSuggestionAlert(false);
                     }
                   } else {
                     setGeolocationFetchStatus('error_geocoding');
-                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy }); 
+                    setSuggestedGpsPickup({ address: "", coords: currentCoords, accuracy });
                     setShowGpsSuggestionAlert(false);
                   }
                 });
               } else {
-                  setGeolocationFetchStatus('error_unavailable'); 
+                  setGeolocationFetchStatus('error_unavailable');
                   toast({ title: "Service Error", description: "Geocoder service not available.", variant: "destructive" });
               }
             },
@@ -513,8 +516,8 @@ export default function BookRidePage() {
     setEstimatedDistance(null);
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
-      setShowGpsSuggestionAlert(false); 
-      setGeolocationFetchStatus('idle'); 
+      setShowGpsSuggestionAlert(false);
+      setGeolocationFetchStatus('idle');
     }
 
     if (typeof formFieldNameOrStopIndex === 'number') {
@@ -585,7 +588,7 @@ export default function BookRidePage() {
       if (typeof formFieldNameOrStopIndex === 'string') {
         if (formFieldNameOrStopIndex === 'pickupLocation') {
           setPickupInputValue(prev => form.getValues('pickupLocation') || prev);
-          setPickupCoords(null); setShowPickupSuggestions(false); 
+          setPickupCoords(null); setShowPickupSuggestions(false);
           setShowGpsSuggestionAlert(false); setGeolocationFetchStatus('idle');
         } else {
           setDropoffInputValue(prev => form.getValues('dropoffLocation') || prev);
@@ -782,8 +785,8 @@ export default function BookRidePage() {
 
   useEffect(() => {
     let totalDistanceMiles = 0;
-    
-    if (pickupCoords && dropoffCoords && !isLoadingSurgeSetting) { 
+
+    if (pickupCoords && dropoffCoords && !isLoadingSurgeSetting) {
       let currentPoint = pickupCoords;
       for (const stopData of validStopsForFare) {
         if (stopData.coords) {
@@ -792,15 +795,21 @@ export default function BookRidePage() {
         }
       }
       totalDistanceMiles += getDistanceInMiles(currentPoint, dropoffCoords);
+
+      // If waitAndReturn is true, double the distance for the return trip.
+      if (watchedWaitAndReturn) {
+        totalDistanceMiles *= 2;
+      }
+
       setEstimatedDistance(parseFloat(totalDistanceMiles.toFixed(2)));
 
       const duration = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
       setEstimatedDurationMinutes(totalDistanceMiles > 0 ? parseFloat(duration.toFixed(0)) : null);
 
-      const potentialSurgeConditionsMet = Math.random() < 0.3; 
+      const potentialSurgeConditionsMet = Math.random() < 0.3;
       const actualSurgeIsActive = isOperatorSurgeEnabled && potentialSurgeConditionsMet;
       setIsSurgeActive(actualSurgeIsActive);
-      
+
       const surgeMultiplierToApply = actualSurgeIsActive ? SURGE_MULTIPLIER_VALUE : 1;
       setCurrentSurgeMultiplier(surgeMultiplierToApply);
 
@@ -819,17 +828,25 @@ export default function BookRidePage() {
       const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
       calculatedFareBeforeMultipliers += stopSurchargeAmount;
 
+      // Add waiting time cost if waitAndReturn is true (placeholder logic)
+      if (watchedWaitAndReturn) {
+        const MOCK_WAITING_TIME_MINUTES = 30; // Placeholder
+        const MOCK_WAITING_RATE_PER_MINUTE = 0.25; // Placeholder
+        calculatedFareBeforeMultipliers += MOCK_WAITING_TIME_MINUTES * MOCK_WAITING_RATE_PER_MINUTE;
+        // TODO: Implement actual waiting time input and dynamic calculation
+      }
+
       calculatedFareBeforeMultipliers = Math.max(calculatedFareBeforeMultipliers, MINIMUM_FARE);
 
       const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
 
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
 
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
 
       const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
       setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
@@ -841,7 +858,7 @@ export default function BookRidePage() {
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare]); 
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare, watchedWaitAndReturn]); // Added watchedWaitAndReturn
 
 
  useEffect(() => {
@@ -919,7 +936,7 @@ export default function BookRidePage() {
 
     setIsBooking(true);
 
-    const bookingPayload: any = { 
+    const bookingPayload: any = {
       passengerId: user.id,
       passengerName: user.name || "Passenger",
       pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
@@ -928,11 +945,12 @@ export default function BookRidePage() {
       vehicleType: values.vehicleType,
       passengers: values.passengers,
       fareEstimate: fareEstimate,
-      isSurgeApplied: isSurgeActive, 
-      surgeMultiplier: currentSurgeMultiplier, 
+      isSurgeApplied: isSurgeActive,
+      surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsForFare.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
       driverNotes: values.driverNotes,
+      waitAndReturn: values.waitAndReturn, // Include waitAndReturn
       promoCode: values.promoCode,
       paymentMethod: values.paymentMethod,
     };
@@ -954,7 +972,7 @@ export default function BookRidePage() {
       }
 
       const result = await response.json();
-      
+
       let toastDescription = `Ride ID: ${result.bookingId}. `;
       if (values.bookingType === 'asap' && !scheduledPickupAt) {
           toastDescription += `We'll notify you when your driver is on the way. `;
@@ -966,15 +984,18 @@ export default function BookRidePage() {
       } else {
           toastDescription += `Payment: Card (Pay driver directly).`;
       }
-      
-      toast({ 
-        title: "Booking Confirmed!", 
-        description: toastDescription, 
-        variant: "default", 
-        duration: 7000 
+      if (values.waitAndReturn) {
+        toastDescription += ` Wait & Return requested.`;
+      }
+
+      toast({
+        title: "Booking Confirmed!",
+        description: toastDescription,
+        variant: "default",
+        duration: 7000
       });
-      
-      setShowConfirmationDialog(false); 
+
+      setShowConfirmationDialog(false);
       form.reset();
       setPickupInputValue("");
       setDropoffInputValue("");
@@ -1427,7 +1448,7 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    if (showGpsSuggestionAlert) return null; 
+    if (showGpsSuggestionAlert) return null;
 
     switch (geolocationFetchStatus) {
         case 'fetching':
@@ -1444,7 +1465,7 @@ export default function BookRidePage() {
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. <strong>Please enter your pickup address manually.</strong></p>;
         case 'error_geocoding':
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. <strong>Please enter your pickup address manually.</strong></p>;
-        case 'success': 
+        case 'success':
              if (suggestedGpsPickup && suggestedGpsPickup.accuracy <=20) {
                 return <p className="text-xs text-green-600 mt-1 flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" />GPS location was used for pickup.</p>;
              }
@@ -1458,7 +1479,7 @@ export default function BookRidePage() {
 const handleProceedToConfirmation = async () => {
     const pickupValid = await form.trigger("pickupLocation");
     const dropoffValid = await form.trigger("dropoffLocation");
-    await form.trigger("stops"); 
+    await form.trigger("stops");
 
     if (!pickupValid || !dropoffValid) {
       toast({
@@ -1468,7 +1489,7 @@ const handleProceedToConfirmation = async () => {
       });
       return;
     }
-    
+
     if (!pickupCoords || !dropoffCoords) {
       toast({
         title: "Location Coordinates Missing",
@@ -1814,6 +1835,43 @@ const handleProceedToConfirmation = async () => {
 
                   <FormField
                     control={form.control}
+                    name="waitAndReturn"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base flex items-center gap-2">
+                            <RefreshCwIcon className="w-5 h-5 text-primary" />
+                            Wait & Return Journey?
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            Driver will wait and take you back to the original pickup or a specified return point. (Fare will adjust)
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            aria-label="Wait and Return toggle"
+                          />
+                        </FormControl>
+                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {watchedWaitAndReturn && (
+                    <Alert variant="default" className="bg-blue-50 border-blue-300 text-blue-700">
+                        <Info className="h-5 w-5" />
+                        <ShadAlertTitle className="font-semibold">Wait & Return Selected</ShadAlertTitle>
+                        <AlertDescription>
+                          The fare estimate will be updated to include the return journey and a standard waiting time.
+                          Actual waiting charges may vary. You can specify return details in notes.
+                        </AlertDescription>
+                    </Alert>
+                  )}
+
+
+                  <FormField
+                    control={form.control}
                     name="bookingType"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
@@ -1971,9 +2029,9 @@ const handleProceedToConfirmation = async () => {
                     )}
                   />
 
-                  <Button 
-                    type="button" 
-                    onClick={handleProceedToConfirmation} 
+                  <Button
+                    type="button"
+                    onClick={handleProceedToConfirmation}
                     className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3 mt-8"
                     disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords || isLoadingSurgeSetting}
                   >
@@ -1989,8 +2047,8 @@ const handleProceedToConfirmation = async () => {
                           Please review your ride details and confirm payment.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="py-4 overflow-y-auto"> 
-                        <Card className="w-full text-center shadow-md mb-4"> 
+                      <div className="py-4 overflow-y-auto">
+                        <Card className="w-full text-center shadow-md mb-4">
                           <CardHeader className="p-3">
                             <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
                               <DollarSign className="w-5 h-5 text-primary" /> Fare Estimate
@@ -2011,6 +2069,7 @@ const handleProceedToConfirmation = async () => {
                                   </p>
                                 )}
                                 {!isSurgeActive && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
+                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 mt-1">(Includes Wait & Return)</p>}
                                  <p className="text-xs text-muted-foreground mt-1">
                                     Estimates may vary based on real-time conditions.
                                 </p>
@@ -2078,10 +2137,10 @@ const handleProceedToConfirmation = async () => {
                         <DialogClose asChild>
                           <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
                         </DialogClose>
-                        <Button 
+                        <Button
                           type="button"
                           onClick={() => form.handleSubmit(handleBookRide)()}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground" 
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
                           disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
                         >
                           {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}

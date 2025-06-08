@@ -1,4 +1,3 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -28,9 +27,10 @@ interface BookingPayload {
   customerPhoneNumber?: string;
   bookedByOperatorId?: string;
   driverNotes?: string;
+  waitAndReturn?: boolean; // Added waitAndReturn
   promoCode?: string;
   paymentMethod: "card" | "cash";
-  preferredOperatorId?: string; // Added preferredOperatorId
+  preferredOperatorId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
       status: 'pending_assignment',
       bookingTimestamp: serverTimestamp(),
       paymentMethod: bookingData.paymentMethod,
+      waitAndReturn: bookingData.waitAndReturn || false, // Store waitAndReturn status
     };
 
     if (bookingData.scheduledPickupAt) {
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
     if (bookingData.promoCode && bookingData.promoCode.trim() !== "") {
         newBooking.promoCode = bookingData.promoCode.trim();
     }
-    if (bookingData.preferredOperatorId) { // Store preferredOperatorId
+    if (bookingData.preferredOperatorId) {
         newBooking.preferredOperatorId = bookingData.preferredOperatorId;
     }
 
