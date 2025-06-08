@@ -25,7 +25,7 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 
 interface ActiveDriverRide {
   id: string;
-  passengerId: string; // Added passengerId
+  passengerId: string; 
   passengerName: string;
   passengerAvatar?: string;
   pickupLocation: { address: string; latitude: number; longitude: number; doorOrFlat?: string; };
@@ -53,6 +53,8 @@ interface ActiveDriverRide {
   driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
   driverVehicleDetails?: string;
+  waitAndReturn?: boolean;
+  estimatedAdditionalWaitTimeMinutes?: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -64,31 +66,41 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (!db) {
+      console.error("API Error in /api/driver/active-ride GET: Firestore (db) is not initialized.");
+      return NextResponse.json({ message: 'Server configuration error: Firestore not initialized.' }, { status: 500 });
+    }
+
     const bookingsRef = collection(db, 'bookings');
-    // Define statuses that indicate an active ride for a driver
-    const activeDriverStatuses = ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress'];
+    // Define statuses that indicate an active ride for a driver comprehensively
+    const activeDriverStatuses = [
+      'driver_assigned', // Driver is assigned and en route
+      'arrived_at_pickup', // Driver has arrived at pickup
+      'in_progress', // Ride is ongoing
+      'pending_driver_wait_and_return_approval', // Driver needs to act on W&R request
+      'in_progress_wait_and_return' // Ride is ongoing with W&R active
+    ];
 
     const q = query(
       bookingsRef,
       where('driverId', '==', driverId),
       where('status', 'in', activeDriverStatuses),
-      orderBy('bookingTimestamp', 'desc'), // Get the most recent active ride if multiple somehow exist
+      orderBy('bookingTimestamp', 'desc'), 
       limit(1)
     );
 
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      return NextResponse.json(null, { status: 200 }); // No active ride found for this driver
+      return NextResponse.json(null, { status: 200 }); 
     }
 
     const doc = querySnapshot.docs[0];
     const data = doc.data();
 
-    // Map Firestore data to the ActiveDriverRide interface, ensuring all fields are handled
     const activeRide: ActiveDriverRide = {
       id: doc.id,
-      passengerId: data.passengerId, // Ensure passengerId is mapped
+      passengerId: data.passengerId, 
       passengerName: data.passengerName || 'N/A',
       passengerAvatar: data.passengerAvatar,
       pickupLocation: data.pickupLocation,
@@ -103,7 +115,7 @@ export async function GET(request: NextRequest) {
       passengerCount: data.passengers || 1,
       passengerPhone: data.passengerPhone,
       passengerRating: data.passengerRating,
-      notes: data.driverNotes || data.notes, // Prefer driverNotes if available
+      notes: data.driverNotes || data.notes, 
       driverId: data.driverId,
       bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
       scheduledPickupAt: data.scheduledPickupAt || null,
@@ -115,20 +127,38 @@ export async function GET(request: NextRequest) {
       rideStartedAt: data.rideStartedAt ? serializeTimestamp(data.rideStartedAt as Timestamp | undefined) : null,
       driverCurrentLocation: data.driverCurrentLocation,
       driverEtaMinutes: data.driverEtaMinutes,
-      driverVehicleDetails: data.driverVehicleDetails || `${data.vehicleType || 'Vehicle'} - Reg N/A`, // Provide fallback
+      driverVehicleDetails: data.driverVehicleDetails || `${data.vehicleType || 'Vehicle'} - Reg N/A`,
+      waitAndReturn: data.waitAndReturn,
+      estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes
     };
 
     return NextResponse.json(activeRide, { status: 200 });
 
   } catch (error) {
-    console.error('Error fetching driver active ride:', error);
-    let errorMessage = 'Internal Server Error';
+    console.error(`Error in /api/driver/active-ride for driverId ${driverId}:`, error); 
+
+    let errorMessage = 'An unknown error occurred while fetching the active ride.';
+    let errorDetails = error instanceof Error ? error.message : String(error);
+    let statusCode = 500;
+
     if (error instanceof Error) {
       errorMessage = error.message;
-      if ((error as any).code === 'failed-precondition') {
-        errorMessage = `Query requires a Firestore index. Please check Firestore console for index creation suggestions. Details: ${error.message}`;
+      const firebaseError = error as any; // Type assertion for Firebase specific error codes
+      if (firebaseError.code === 'failed-precondition') {
+        errorMessage = `Query requires a Firestore index. Please check Firestore console. Details: ${error.message}`;
+      } else if (firebaseError.code) {
+        errorMessage = `Firebase error (${firebaseError.code}): ${error.message}`;
       }
     }
-    return NextResponse.json({ message: 'Failed to fetch active ride for driver', details: errorMessage }, { status: 500 });
+    
+    if (!(error instanceof Error)) {
+        try {
+            console.error("Full non-Error object received in /api/driver/active-ride catch block:", JSON.stringify(error, null, 2));
+        } catch (e) {
+            console.error("Could not stringify non-Error object in /api/driver/active-ride catch block:", error);
+        }
+    }
+
+    return NextResponse.json({ message: 'Failed to fetch active ride for driver.', details: errorMessage, errorRaw: errorDetails }, { status: statusCode });
   }
 }
