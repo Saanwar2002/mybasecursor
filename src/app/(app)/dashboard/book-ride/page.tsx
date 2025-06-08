@@ -333,10 +333,10 @@ export default function BookRidePage() {
         "10-15 mins",
     ];
     const vehicleTypes = [
-      "Standard Cars available",
-      "Standard and Estate Cars available",
-      "High demand. Standard Cars available",
-      "Limited availability. Longer wait for Minibus",
+      "Standard Cars available.",
+      "Standard & Estate Cars available.",
+      "High demand. Standard Cars available.",
+      "Limited availability. Expect longer wait for Minibus."
     ];
     const timer = setTimeout(() => {
       const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
@@ -1901,10 +1901,18 @@ const handleProceedToConfirmation = async () => {
                             <SelectItem value="estate">Estate Car</SelectItem>
                             <SelectItem value="minibus_6">Minibus (6 people)</SelectItem>
                             <SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
-                            <SelectItem value="pet_friendly_car" className="text-green-600 dark:text-green-400 font-medium">Pet Friendly Car</SelectItem>
-                            <SelectItem value="minibus_6_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">Pet Friendly Minibus (6 ppl)</SelectItem>
-                            <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">Pet Friendly Minibus (8 ppl)</SelectItem>
-                            <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">Wheelchair Accessible</SelectItem>
+                            <SelectItem value="pet_friendly_car" className="text-green-600 dark:text-green-400 font-medium">
+                              <span className="flex items-center gap-2"><Dog className="w-4 h-4" />Pet Friendly Car</span>
+                            </SelectItem>
+                            <SelectItem value="minibus_6_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
+                               <span className="flex items-center gap-2"><Dog className="w-4 h-4" />Pet Friendly Minibus (6 ppl)</span>
+                            </SelectItem>
+                            <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
+                               <span className="flex items-center gap-2"><Dog className="w-4 h-4" />Pet Friendly Minibus (8 ppl)</span>
+                            </SelectItem>
+                            <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">
+                              <span className="flex items-center gap-2"><Wheelchair className="w-4 h-4" />Wheelchair Accessible</span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
