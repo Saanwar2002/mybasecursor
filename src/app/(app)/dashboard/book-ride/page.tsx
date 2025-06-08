@@ -246,9 +246,11 @@ export default function BookRidePage() {
   const [isWaitTimeDialogOpen, setIsWaitTimeDialogOpen] = useState(false);
   const [estimatedWaitMinutesInput, setEstimatedWaitMinutesInput] = useState<string>("10");
   const [calculatedChargedWaitMinutes, setCalculatedChargedWaitMinutes] = useState<number>(0);
+  const waitTimeInputRef = useRef<HTMLInputElement>(null);
 
   const [isPriorityFeeDialogOpen, setIsPriorityFeeDialogOpen] = useState(false);
   const [priorityFeeInput, setPriorityFeeInput] = useState<string>("2.00");
+  const priorityFeeInputRef = useRef<HTMLInputElement>(null);
 
 
   const form = useForm<BookingFormValues>({
@@ -303,6 +305,18 @@ export default function BookRidePage() {
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
+
+  useEffect(() => {
+    if (isWaitTimeDialogOpen && waitTimeInputRef.current) {
+      waitTimeInputRef.current.focus();
+    }
+  }, [isWaitTimeDialogOpen]);
+
+  useEffect(() => {
+    if (isPriorityFeeDialogOpen && priorityFeeInputRef.current) {
+      priorityFeeInputRef.current.focus();
+    }
+  }, [isPriorityFeeDialogOpen]);
 
   useEffect(() => {
     setIsCheckingAvailability(true);
@@ -2363,6 +2377,7 @@ const handleProceedToConfirmation = async () => {
             <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
             <Input
               id="wait-time-input"
+              ref={waitTimeInputRef}
               type="number"
               min="0"
               value={estimatedWaitMinutesInput}
@@ -2394,6 +2409,7 @@ const handleProceedToConfirmation = async () => {
             <Label htmlFor="priority-fee-input">Extra Amount (£)</Label>
             <Input
               id="priority-fee-input"
+              ref={priorityFeeInputRef}
               type="number"
               min="0.50" 
               step="0.50"
@@ -2416,3 +2432,4 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
+
