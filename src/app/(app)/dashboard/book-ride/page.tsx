@@ -32,7 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Switch } from "@/components/ui/switch";
@@ -324,7 +324,7 @@ export default function BookRidePage() {
 
   useEffect(() => {
     setIsCheckingAvailability(true);
-    setAvailabilityStatusMessage("Checking availability in your area..."); // Initial message
+    setAvailabilityStatusMessage("Checking availability...");
 
     const timer = setTimeout(() => {
       const waitTimes = [
@@ -334,21 +334,18 @@ export default function BookRidePage() {
         "10-15 mins"
       ];
       const vehicleTypes = [
-        "Std Cars avail.",
-        "Std & Estate avail.",
-        "High demand. Std avail.",
-        "Ltd avail. Minibus wait."
+        "Standard Cars available.",
+        "Standard & Estate Cars available.",
+        "High demand. Standard Cars available.",
+        "Limited availability. Expect longer wait for Minibus."
       ];
       const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
       const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-      setAvailabilityStatusMessage(
-        `Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`
-      );
+      setAvailabilityStatusMessage(`Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`);
       setIsCheckingAvailability(false);
     }, 1500);
 
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -365,13 +362,80 @@ export default function BookRidePage() {
 
 
   useEffect(() => {
-    // Removed: This useEffect was for fetching surge settings, which was commented out previously.
+    setIsLoadingSurgeSetting(true);
+    fetch('/api/operator/settings/pricing') // Assuming settings are global for now
+        .then(res => {
+            if (!res.ok) throw new Error("Failed to fetch surge settings");
+            return res.json();
+        })
+        .then(data => setIsOperatorSurgeEnabled(data.enableSurgePricing || false))
+        .catch(err => {
+            console.warn("Could not load surge pricing settings from operator, defaulting to false:", err.message);
+            setIsOperatorSurgeEnabled(false);
+            // No toast for this one, as it's a background setting that passengers don't need to see if it fails to load
+        })
+        .finally(() => setIsLoadingSurgeSetting(false));
   }, []);
 
 
   useEffect(() => {
-    // Removed: This useEffect was for fetching Google Maps API and geolocation, previously commented out.
-  }, []);
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+        console.warn("Google Maps API Key missing. Address autocomplete and geolocation will not work.");
+        toast({ title: "Configuration Error", description: "Maps API key missing. Address search disabled.", variant: "destructive" });
+        return;
+    }
+    const loader = new Loader({
+      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+      version: "weekly",
+      libraries: ["places", "marker", "geocoding"], 
+    });
+
+    loader.load().then((google) => {
+      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+      const mapDivForPlaces = document.createElement('div'); // Dummy div for PlacesService
+      placesServiceRef.current = new google.maps.places.PlacesService(mapDivForPlaces);
+      geocoderRef.current = new google.maps.Geocoder();
+      autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+
+      if (navigator.geolocation) {
+        setGeolocationFetchStatus("fetching");
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+            setGeolocationFetchStatus("success");
+            if (geocoderRef.current) {
+                geocoderRef.current.geocode({ location: currentCoords }, (results, status) => {
+                    if (status === "OK" && results && results[0]) {
+                        setSuggestedGpsPickup({ address: results[0].formatted_address, coords: currentCoords, accuracy: position.coords.accuracy });
+                        setShowGpsSuggestionAlert(true);
+                    } else {
+                        console.warn("Geocoding failed for current location:", status);
+                        setShowGpsSuggestionAlert(false);
+                        setGeolocationFetchStatus("error_geocoding");
+                    }
+                });
+            }
+          },
+          (error) => {
+            console.warn("Geolocation error:", error);
+            let fetchErrorStatus: GeolocationFetchStatus = "error_unavailable";
+            if (error.code === error.PERMISSION_DENIED) fetchErrorStatus = "error_permission";
+            else if (error.code === error.POSITION_UNAVAILABLE) fetchErrorStatus = "error_unavailable";
+            else if (error.code === error.TIMEOUT) fetchErrorStatus = "error_unavailable"; // Also treat timeout as unavailable
+            setGeolocationFetchStatus(fetchErrorStatus);
+            setShowGpsSuggestionAlert(false);
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        );
+      } else {
+        setGeolocationFetchStatus("error_unavailable");
+        setShowGpsSuggestionAlert(false);
+      }
+    }).catch(e => {
+        console.error("Failed to load Google Maps API for address search:", e);
+        toast({ title: "Error", description: "Could not load address search functionality.", variant: "destructive"});
+    });
+  }, [toast]);
 
   const handleApplyGpsSuggestion = () => {
     if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) {
@@ -388,16 +452,39 @@ export default function BookRidePage() {
   };
 
   const fetchUserFavoriteLocations = useCallback(async () => {
-    // Removed: Previously commented out logic for fetching favorites.
+    if (!user) return;
+    setIsLoadingFavorites(true);
+    try {
+      const response = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
+      if (!response.ok) throw new Error('Failed to fetch favorites');
+      const data = await response.json();
+      setFavoriteLocations(data);
+    } catch (error) {
+      toast({ title: "Error", description: "Could not load favorite locations.", variant: "destructive" });
+    } finally {
+      setIsLoadingFavorites(false);
+    }
   }, [user, toast]);
 
   const fetchUserSavedRoutes = useCallback(async () => {
-    // Removed: Previously commented out logic for fetching saved routes.
+    if (!user) return;
+    setIsLoadingSavedRoutes(true);
+    try {
+      const response = await fetch(`/api/users/saved-routes/list?userId=${user.id}`);
+      if (!response.ok) throw new Error('Failed to fetch saved routes');
+      const data = await response.json();
+      setSavedRoutes(data);
+    } catch (error) {
+      toast({ title: "Error", description: "Could not load saved routes.", variant: "destructive" });
+    } finally {
+      setIsLoadingSavedRoutes(false);
+    }
   }, [user, toast]);
 
 
   useEffect(() => {
-    // Removed: Calls to fetchUserFavoriteLocations and fetchUserSavedRoutes, previously commented out.
+    fetchUserFavoriteLocations();
+    fetchUserSavedRoutes();
   }, [fetchUserFavoriteLocations, fetchUserSavedRoutes]);
 
 
@@ -685,11 +772,21 @@ export default function BookRidePage() {
 
 
   const handleAddStop = () => {
-    // Removed: Previously commented out logic for adding stops.
+    append({ location: "", doorOrFlat: ""});
+    setStopAutocompleteData(prev => [...prev, {
+      fieldId: `stop-${Date.now()}`, // Unique ID for React key
+      inputValue: "",
+      suggestions: [],
+      showSuggestions: false,
+      isFetchingSuggestions: false,
+      isFetchingDetails: false,
+      coords: null
+    }]);
   };
 
   const handleRemoveStop = (index: number) => {
-    // Removed: Previously commented out logic for removing stops.
+    remove(index);
+    setStopAutocompleteData(prev => prev.filter((_, i) => i !== index));
   };
 
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
@@ -801,9 +898,6 @@ export default function BookRidePage() {
         label: 'P'
       });
     }
-    // The stops logic for map markers was commented out in the previous diagnostic step.
-    // Keeping it commented for now to ensure stability.
-    /*
     const currentFormStops = form.getValues('stops');
     currentFormStops?.forEach((formStop, index) => {
         const stopData = stopAutocompleteData[index];
@@ -811,11 +905,10 @@ export default function BookRidePage() {
              newMarkers.push({
                 position: stopData.coords,
                 title: `Stop ${index + 1}: ${formStop.location}`,
-                label: `S${index + 1}`
+                label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" }
             });
         }
     });
-    */
     if (dropoffCoords) {
       newMarkers.push({
         position: dropoffCoords,
@@ -976,19 +1069,128 @@ export default function BookRidePage() {
   }
 
   const handleSaveCurrentRoute = () => {
-    // Removed: Previously commented out logic for saving routes.
+    const pickup = form.getValues("pickupLocation");
+    const dropoff = form.getValues("dropoffLocation");
+    if (!pickup || !dropoff || !pickupCoords || !dropoffCoords) {
+      toast({ title: "Cannot Save Route", description: "Please ensure valid pickup and drop-off locations with coordinates are selected.", variant: "default"});
+      return;
+    }
+    const stopsFromForm = form.getValues("stops") || [];
+    const validStopsForSave = stopsFromForm.map((stop, index) => {
+      const stopData = stopAutocompleteData[index];
+      if (stop.location && stopData?.coords) {
+        return {
+          address: stop.location,
+          latitude: stopData.coords.lat,
+          longitude: stopData.coords.lng,
+          doorOrFlat: stop.doorOrFlat
+        };
+      }
+      return null;
+    }).filter(s => s !== null) as SavedRouteLocationPoint[];
+
+    if (stopsFromForm.length > 0 && validStopsForSave.length !== stopsFromForm.length) {
+      toast({ title: "Incomplete Stop Data", description: "One or more stops are missing valid coordinates. Please select from suggestions.", variant: "default"});
+      return;
+    }
+    
+    const defaultLabel = `${pickup.split(',')[0]} to ${dropoff.split(',')[0]}`;
+    setNewRouteLabel(defaultLabel);
+    setSaveRouteDialogOpen(true);
   };
 
   const submitSaveRoute = async () => {
-    // Removed: Previously commented out logic for submitting saved routes.
+    if (!user || !pickupCoords || !dropoffCoords || !newRouteLabel.trim()) {
+      toast({ title: "Error", description: "User, coordinates, or label missing.", variant: "destructive"});
+      return;
+    }
+    setIsSavingRoute(true);
+    const pickupDoorOrFlat = form.getValues("pickupDoorOrFlat");
+    const dropoffDoorOrFlat = form.getValues("dropoffDoorOrFlat");
+
+    const stopsToSave = (form.getValues("stops") || []).map((stop, index) => {
+        const stopData = stopAutocompleteData[index];
+        if (stop.location && stopData?.coords) {
+            return {
+                address: stop.location,
+                latitude: stopData.coords.lat,
+                longitude: stopData.coords.lng,
+                doorOrFlat: stop.doorOrFlat
+            };
+        }
+        return null;
+    }).filter(s => s !== null) as SavedRouteLocationPoint[];
+
+    try {
+      const response = await fetch('/api/users/saved-routes/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          label: newRouteLabel.trim(),
+          pickupLocation: { address: pickupInputValue, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: pickupDoorOrFlat },
+          dropoffLocation: { address: dropoffInputValue, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng, doorOrFlat: dropoffDoorOrFlat },
+          stops: stopsToSave,
+        }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const newRoute = await response.json();
+      setSavedRoutes(prev => [newRoute.route, ...prev]);
+      toast({ title: "Route Saved!", description: `"${newRouteLabel.trim()}" added to your saved routes.`});
+      setSaveRouteDialogOpen(false);
+      setNewRouteLabel("");
+    } catch (err) {
+      toast({ title: "Save Route Failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive"});
+    } finally {
+      setIsSavingRoute(false);
+    }
   };
 
   const handleApplySavedRoute = (route: SavedRoute) => {
-    // Removed: Previously commented out logic for applying saved routes.
+    form.setValue("pickupLocation", route.pickupLocation.address);
+    setPickupInputValue(route.pickupLocation.address);
+    setPickupCoords({lat: route.pickupLocation.latitude, lng: route.pickupLocation.longitude});
+    form.setValue("pickupDoorOrFlat", route.pickupLocation.doorOrFlat || "");
+
+    form.setValue("dropoffLocation", route.dropoffLocation.address);
+    setDropoffInputValue(route.dropoffLocation.address);
+    setDropoffCoords({lat: route.dropoffLocation.latitude, lng: route.dropoffLocation.longitude});
+    form.setValue("dropoffDoorOrFlat", route.dropoffLocation.doorOrFlat || "");
+
+    const newStopsData = route.stops?.map((stop, index) => ({
+      location: stop.address,
+      doorOrFlat: stop.doorOrFlat || ""
+    })) || [];
+    replace(newStopsData); // Replaces all existing stops
+
+    const newStopAutocomplete = (route.stops || []).map((stop, index) => ({
+        fieldId: `stop-applied-${index}-${Date.now()}`,
+        inputValue: stop.address,
+        coords: {lat: stop.latitude, lng: stop.longitude},
+        suggestions: [],
+        showSuggestions: false,
+        isFetchingSuggestions: false,
+        isFetchingDetails: false,
+    }));
+    setStopAutocompleteData(newStopAutocomplete);
+
+    toast({ title: "Route Applied", description: `"${route.label}" loaded into the form.` });
+    // Close any popovers for saved routes if open
   };
 
   const handleDeleteSavedRoute = async (routeId: string) => {
-    // Removed: Previously commented out logic for deleting saved routes.
+    if (!user) return;
+    setIsDeletingRouteId(routeId);
+    try {
+      const response = await fetch(`/api/users/saved-routes/remove?id=${routeId}&userId=${user.id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error(await response.text());
+      setSavedRoutes(prev => prev.filter(r => r.id !== routeId));
+      toast({ title: "Route Deleted", description: "The saved route has been removed."});
+    } catch (err) {
+      toast({ title: "Delete Failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive"});
+    } finally {
+      setIsDeletingRouteId(null);
+    }
   };
 
   const geocodeAiAddress = useCallback(async (
@@ -1049,20 +1251,139 @@ export default function BookRidePage() {
   }, [form, toast]);
 
   const playSound = useCallback(async (type: 'start' | 'stop') => {
-    // Removed: Previously commented out logic for playing sounds.
+    if (!audioCtxRef.current) {
+        if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
+          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } else {
+            toast({ title: "Audio Error", description: "Web Audio API not supported by your browser.", variant: "destructive"});
+            return;
+        }
+    }
+    if (!audioCtxRef.current) return;
+
+    const oscillator = audioCtxRef.current.createOscillator();
+    const gainNode = audioCtxRef.current.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtxRef.current.destination);
+
+    oscillator.type = 'sine';
+    if (type === 'start') {
+        oscillator.frequency.setValueAtTime(440, audioCtxRef.current.currentTime); // A4
+        gainNode.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 0.2);
+    } else {
+        oscillator.frequency.setValueAtTime(330, audioCtxRef.current.currentTime); // E4
+        gainNode.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 0.2);
+    }
+    oscillator.start();
+    oscillator.stop(audioCtxRef.current.currentTime + 0.2);
   }, [toast]);
 
 
   useEffect(() => {
-    // Removed: Previously commented out logic for speech recognition.
-  }, [toast, form, geocodeAiAddress, playSound]);
+    if (typeof window !== 'undefined' && !('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        console.warn("Speech recognition not supported by this browser.");
+        return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = false;
+    recognitionRef.current.interimResults = false;
+    recognitionRef.current.lang = 'en-GB';
+
+    recognitionRef.current.onresult = async (event) => {
+      const transcript = event.results[0][0].transcript;
+      toast({ title: "Voice Input Received", description: `Processing: "${transcript}"`});
+      setIsProcessingAi(true);
+      try {
+        const parsedData = await parseBookingRequest({ userRequestText: transcript });
+        
+        if (parsedData.pickupAddress) {
+           await geocodeAiAddress(parsedData.pickupAddress, setPickupCoords, setPickupInputValue, "pickupLocation", "pickup");
+        }
+        if (parsedData.dropoffAddress) {
+           await geocodeAiAddress(parsedData.dropoffAddress, setDropoffCoords, setDropoffInputValue, "dropoffLocation", "dropoff");
+        }
+        if (parsedData.numberOfPassengers) form.setValue("passengers", parsedData.numberOfPassengers);
+        if (parsedData.requestedTime) {
+            form.setValue("driverNotes", `${form.getValues("driverNotes") || ""} (AI Time: ${parsedData.requestedTime})`.trim());
+        }
+        if (parsedData.additionalNotes) {
+             form.setValue("driverNotes", `${form.getValues("driverNotes") || ""} ${parsedData.additionalNotes}`.trim());
+        }
+        toast({ title: "AI Parsed Data Applied!", description: "Booking details updated from your voice input.", duration: 5000 });
+
+      } catch (error) {
+        toast({ title: "AI Parsing Error", description: error instanceof Error ? error.message : "Could not process voice input.", variant: "destructive"});
+      } finally {
+        setIsProcessingAi(false);
+      }
+    };
+
+    recognitionRef.current.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      let errorMsg = "Speech recognition error.";
+      if (event.error === 'no-speech') errorMsg = "No speech detected. Please try again.";
+      else if (event.error === 'audio-capture') errorMsg = "Audio capture error. Check microphone permissions.";
+      else if (event.error === 'not-allowed') errorMsg = "Microphone access denied.";
+      toast({ title: "Voice Input Error", description: errorMsg, variant: "destructive" });
+      setIsListening(false);
+      setIsProcessingAi(false);
+    };
+
+    recognitionRef.current.onend = () => {
+      if (isListening) { // Check if it ended naturally or was stopped
+        playSound('stop');
+      }
+      setIsListening(false);
+    };
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      }
+    };
+  }, [toast, form, geocodeAiAddress, playSound, isListening]);
 
  const handleMicMouseDown = async () => {
-    // Removed: Previously commented out logic for mic input.
+    if (!recognitionRef.current) {
+        toast({ title: "Voice Input Unavailable", description: "Speech recognition is not supported or initialized.", variant: "destructive" });
+        return;
+    }
+    if (isListening || isProcessingAi) return;
+
+    try {
+        // Check microphone permission
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (permissionStatus.state === 'denied') {
+            toast({ title: "Microphone Access Denied", description: "Please allow microphone access in your browser settings to use voice input.", variant: "destructive", duration: 7000});
+            return;
+        }
+        if (permissionStatus.state === 'prompt') {
+            toast({ title: "Microphone Permission", description: "Your browser will ask for microphone permission. Please allow it."});
+        }
+    } catch (err) {
+        console.warn("Permissions API not supported or errored:", err);
+        // Continue, as browser might still prompt if Permissions API is not there
+    }
+
+    setIsListening(true);
+    recognitionRef.current.start();
+    playSound('start');
   };
 
   const handleMicMouseUpOrLeave = () => {
-    // Removed: Previously commented out logic for mic input.
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      // onend will set isListening to false
+    }
   };
 
   const renderSuggestions = (
@@ -1136,14 +1457,28 @@ export default function BookRidePage() {
   const currentMapCenter = pickupCoords || huddersfieldCenter;
 
   const GeolocationFeedback = () => {
-    // Removed: Previously commented out JSX for geolocation feedback.
-    return null;
-};
+    let message = ""; let icon = <Wifi className="w-3 h-3"/>; let color = "text-muted-foreground";
+    switch(geolocationFetchStatus) {
+        case "fetching": message = "Getting location..."; icon = <Loader2 className="w-3 h-3 animate-spin"/>; color = "text-blue-500"; break;
+        case "success": message = "Location found."; icon = <CheckCircle2 className="w-3 h-3"/>; color = "text-green-500"; break;
+        case "error_permission": message = "Permission denied."; icon = <ShieldAlert className="w-3 h-3"/>; color = "text-red-500"; break;
+        case "error_accuracy_moderate": message = "Accuracy moderate."; icon = <AlertTriangle className="w-3 h-3"/>; color = "text-orange-500"; break;
+        case "error_accuracy_poor": message = "Accuracy poor."; icon = <AlertTriangle className="w-3 h-3"/>; color = "text-red-500"; break;
+        case "error_geocoding": message = "Cannot ID address."; icon = <AlertTriangle className="w-3 h-3"/>; color = "text-orange-500"; break;
+        case "error_unavailable": message = "GPS unavailable."; icon = <AlertTriangle className="w-3 h-3"/>; color = "text-red-500"; break;
+        case "idle": return null;
+        default: return null;
+    }
+    return (
+      <p className={`text-xs mt-1 flex items-center gap-1 ${color}`}>
+        {icon} {message}
+      </p>
+    );
+  };
 
 const handleProceedToConfirmation = async () => {
     const pickupValid = await form.trigger("pickupLocation");
     const dropoffValid = await form.trigger("dropoffLocation");
-    // Only trigger stops validation if there are stops
     if (form.getValues("stops") && form.getValues("stops").length > 0) {
       await form.trigger("stops");
     }
@@ -1242,6 +1577,47 @@ const handleProceedToConfirmation = async () => {
               <CardTitle className="text-3xl font-headline flex items-center gap-2"><Car className="w-8 h-8 text-primary" /> Book Your Ride</CardTitle>
               <CardDescription>Enter details, load a saved route, or use voice input (Beta). Add stops and schedule.</CardDescription>
             </div>
+            <div className="flex gap-2 mt-2 sm:mt-0">
+                 <Button
+                    type="button"
+                    onClick={handleSaveCurrentRoute}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                    disabled={!pickupCoords || !dropoffCoords}
+                    >
+                    <Save className="w-3.5 h-3.5" /> Save Route
+                </Button>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex items-center gap-1" disabled={isLoadingSavedRoutes || savedRoutes.length === 0}>
+                            <List className="w-3.5 h-3.5" /> Load Route
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0">
+                        <ScrollArea className="h-auto max-h-72">
+                            <div className="p-2">
+                                <p className="text-sm font-medium p-2">Your Saved Routes</p>
+                                {isLoadingSavedRoutes && <div className="p-2 text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading...</div>}
+                                {!isLoadingSavedRoutes && savedRoutes.length === 0 && <p className="p-2 text-sm text-muted-foreground">No routes saved yet.</p>}
+                                {!isLoadingSavedRoutes && savedRoutes.map(route => (
+                                <div key={route.id} className="p-2 hover:bg-muted rounded-md group">
+                                    <div className="flex justify-between items-start">
+                                        <div className="cursor-pointer" onClick={() => handleApplySavedRoute(route)}>
+                                            <p className="font-semibold text-sm">{route.label}</p>
+                                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{route.pickupLocation.address} to {route.dropoffLocation.address}</p>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive group-hover:opacity-100 opacity-0 transition-opacity" onClick={() => handleDeleteSavedRoute(route.id)} disabled={isDeletingRouteId === route.id}>
+                                            {isDeletingRouteId === route.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
+                                        </Button>
+                                    </div>
+                                </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </PopoverContent>
+                </Popover>
+            </div>
           </div>
           {operatorPreference && (
             <Alert variant="default" className="mt-3 bg-primary/10 border-primary/30">
@@ -1284,10 +1660,6 @@ const handleProceedToConfirmation = async () => {
                 </CardContent>
             </Card>
 
-            <div className="flex justify-center gap-4 mb-3">
-              {/* Save/Load Route buttons were previously commented out */}
-            </div>
-
             <div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
@@ -1309,7 +1681,14 @@ const handleProceedToConfirmation = async () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                        {/* Voice input button was previously commented out */}
+                         <Button type="button" variant={isListening ? "destructive" : "outline"} size="icon" 
+                            className={cn("h-7 w-7", isListening && "animate-pulse ring-2 ring-destructive ring-offset-2", isProcessingAi && "opacity-50 cursor-not-allowed")}
+                            onMouseDown={handleMicMouseDown} onMouseUp={handleMicMouseUpOrLeave} onMouseLeave={handleMicMouseUpOrLeave} onTouchStart={handleMicMouseDown} onTouchEnd={handleMicMouseUpOrLeave}
+                            disabled={isProcessingAi}
+                            aria-label="Use voice input for booking"
+                            >
+                            {isProcessingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                        </Button>
                     </div>
                     <FormField
                         control={form.control}
@@ -1352,13 +1731,60 @@ const handleProceedToConfirmation = async () => {
                             )}
                             </div>
                             <FormMessage />
-                            {/* GeolocationFeedback was previously commented out */}
+                            <GeolocationFeedback />
                         </FormItem>
                         )}
                     />
                   </div>
 
-                  {/* Stops fields were previously commented out for diagnosis */}
+                   {fields.map((item, index) => (
+                    <div key={item.id} className="space-y-2 p-3 border rounded-md bg-muted/50 relative">
+                      <div className="flex justify-between items-center mb-1">
+                        <FormLabel className="flex items-center gap-1"><StopMarkerIcon className="w-4 h-4 text-muted-foreground" /> Stop {index + 1}</FormLabel>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveStop(index)} className="text-destructive hover:text-destructive-foreground h-7 w-7 absolute top-1 right-1">
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                       <FormField control={form.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (
+                          <FormItem><FormControl><Input placeholder="Door/Flat/Unit (Optional)" {...field} className="h-9 text-sm bg-background"/></FormControl><FormMessage /></FormItem>
+                        )}/>
+                      <FormField
+                        control={form.control}
+                        name={`stops.${index}.location`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="relative flex items-center">
+                              <FormControl>
+                                <Input
+                                  placeholder={`Type stop ${index + 1} address`}
+                                  {...field}
+                                  value={stopAutocompleteData[index]?.inputValue || ""}
+                                  onChange={(e) => handleAddressInputChangeFactory(index)(e.target.value, field.onChange)}
+                                  onFocus={handleFocusFactory(index)}
+                                  onBlur={handleBlurFactory(index)}
+                                  autoComplete="off"
+                                  className="pr-10 bg-background"
+                                />
+                              </FormControl>
+                              {renderFavoriteLocationsPopover(handleFavoriteSelectFactory(index, field.onChange, `stops.${index}.doorOrFlat`), `stop-${index}`)}
+                               {stopAutocompleteData[index]?.showSuggestions && renderSuggestions(
+                                stopAutocompleteData[index].suggestions,
+                                stopAutocompleteData[index].isFetchingSuggestions,
+                                stopAutocompleteData[index].isFetchingDetails,
+                                stopAutocompleteData[index].inputValue,
+                                (sugg) => handleSuggestionClickFactory(index)(sugg, field.onChange),
+                                `stop-${index}`
+                              )}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" onClick={handleAddStop} className="w-full bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent flex items-center gap-1">
+                    <PlusCircle className="w-4 h-4"/> Add Stop
+                  </Button>
 
                   <div className="space-y-2">
                     <FormLabel className="flex items-center gap-1"><HomeIcon className="w-4 h-4 text-muted-foreground" /> Drop-off Location</FormLabel>
@@ -1407,8 +1833,62 @@ const handleProceedToConfirmation = async () => {
                         )}
                     />
                   </div>
-
-                  {/* Other FormFields were previously commented out */}
+                    <FormField
+                        control={form.control}
+                        name="bookingType"
+                        render={({ field }) => (
+                        <FormItem className="space-y-2">
+                            <FormLabel className="flex items-center gap-1"><CalendarClock className="w-4 h-4 text-muted-foreground" /> Booking Time</FormLabel>
+                            <FormControl>
+                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-1">
+                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="asap" /></FormControl><FormLabel className="font-normal">ASAP</FormLabel></FormItem>
+                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="scheduled" /></FormControl><FormLabel className="font-normal">Schedule Later</FormLabel></FormItem>
+                            </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    {watchedBookingType === 'scheduled' && (
+                        <div className="grid grid-cols-2 gap-4 p-3 border rounded-md bg-muted/30">
+                        <FormField
+                            control={form.control}
+                            name="desiredPickupDate"
+                            render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Pickup Date</FormLabel>
+                                <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
+                                    <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsDatePickerOpen(false); }} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus />
+                                </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="desiredPickupTime"
+                            render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Pickup Time</FormLabel>
+                                <FormControl>
+                                    <Input type="time" {...field} className="w-full"/>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        </div>
+                    )}
 
                   <FormField
                     control={form.control}
@@ -1459,7 +1939,101 @@ const handleProceedToConfirmation = async () => {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="driverNotes"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="flex items-center gap-1"><StickyNote className="w-4 h-4 text-muted-foreground" /> Notes for Driver (Optional)</FormLabel>
+                        <FormControl><Textarea placeholder="e.g., Ring bell twice, wait at side entrance." {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                  />
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
+                        <div className="space-y-0.5">
+                            <FormLabel className="text-base flex items-center gap-2">
+                                <RefreshCwIcon className="w-5 h-5 text-primary" />
+                                Wait & Return Journey?
+                            </FormLabel>
+                            <p className="text-xs text-muted-foreground">
+                                Adds {WAIT_AND_RETURN_SURCHARGE_PERCENTAGE * 100}% of one-way fare + waiting time.
+                            </p>
+                        </div>
+                        <FormControl>
+                            <Switch
+                            checked={watchedWaitAndReturn}
+                            onCheckedChange={(checked) => {
+                                form.setValue('waitAndReturn', checked);
+                                if (checked) setIsWaitTimeDialogOpen(true);
+                                else form.setValue('estimatedWaitTimeMinutes', undefined);
+                            }}
+                            aria-label="Toggle Wait and Return"
+                            className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-primary/30"
+                            />
+                        </FormControl>
+                    </FormItem>
+                    {watchedWaitAndReturn && (
+                         <Alert variant="default" className="bg-primary/10 border-primary/30">
+                            <Info className="h-5 w-5 text-primary"/>
+                            <ShadAlertTitle className="text-primary font-semibold">Wait & Return Details</ShadAlertTitle>
+                            <AlertDescription className="text-primary/90 text-sm">
+                                Estimated wait at destination: {watchedEstimatedWaitTimeMinutes || 0} mins.
+                                (First {FREE_WAITING_TIME_MINUTES_AT_DESTINATION} mins free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min).
+                                <Button type="button" variant="link" size="sm" onClick={() => setIsWaitTimeDialogOpen(true)} className="p-0 h-auto ml-1 text-primary/80 hover:text-primary">
+                                    (Edit Wait Time)
+                                </Button>
+                            </AlertDescription>
+                        </Alert>
+                    )}
 
+                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-orange-500/10">
+                        <div className="space-y-0.5">
+                            <FormLabel className="text-base flex items-center gap-2 text-orange-700 dark:text-orange-300">
+                                <Crown className="w-5 h-5" />
+                                Priority Pickup?
+                            </FormLabel>
+                            <p className="text-xs text-orange-600 dark:text-orange-400">
+                                Offer an extra fee to prioritize your booking during busy times.
+                            </p>
+                        </div>
+                        <FormControl>
+                            <Switch
+                            checked={watchedIsPriorityPickup}
+                            onCheckedChange={(checked) => {
+                                form.setValue('isPriorityPickup', checked);
+                                if (checked) setIsPriorityFeeDialogOpen(true);
+                                else form.setValue('priorityFeeAmount', undefined);
+                            }}
+                            aria-label="Toggle Priority Pickup"
+                            className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
+                            />
+                        </FormControl>
+                    </FormItem>
+                     {watchedIsPriorityPickup && (
+                         <Alert variant="default" className="bg-orange-500/10 border-orange-500/30">
+                            <Info className="h-5 w-5 text-orange-600"/>
+                            <ShadAlertTitle className="text-orange-700 dark:text-orange-300 font-semibold">Priority Fee Details</ShadAlertTitle>
+                            <AlertDescription className="text-orange-600 dark:text-orange-400 text-sm">
+                                Priority Fee: £{(watchedPriorityFeeAmount || 0).toFixed(2)}. This will be added to your fare.
+                                <Button type="button" variant="link" size="sm" onClick={() => setIsPriorityFeeDialogOpen(true)} className="p-0 h-auto ml-1 text-orange-700/80 dark:text-orange-300/80 hover:text-orange-700 dark:hover:text-orange-300">
+                                    (Edit Fee)
+                                </Button>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                  <FormField
+                    control={form.control}
+                    name="promoCode"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="flex items-center gap-1"><Ticket className="w-4 h-4 text-muted-foreground" /> Promo Code (Optional)</FormLabel>
+                        <FormControl><Input placeholder="e.g., FIRST RIDE" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
                   <FormField
                     control={form.control}
                     name="paymentMethod"
