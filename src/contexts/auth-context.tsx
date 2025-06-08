@@ -24,7 +24,7 @@ export interface User {
   phoneVerified?: boolean;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
   phoneVerificationDeadline?: string | null; 
-  acceptsPetFriendlyJobs?: boolean; // New field for drivers
+  acceptsPetFriendlyJobs?: boolean; 
 
   // Conceptual fields for Fair Ride Assignment (populated by backend)
   currentSessionId?: string | null;
@@ -37,7 +37,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loginWithEmail: (email: string, pass: string) => Promise<void>; 
-  loginAsGuest: (role: UserRole) => Promise<void>; // Added for guest login
+  loginAsGuest: (role: UserRole) => Promise<void>; 
   logout: () => void;
   loading: boolean;
   updateUserProfileInContext: (updatedProfileData: Partial<User>) => void;
@@ -96,7 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(userData);
           console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);
 
-          // Redirection logic moved to useEffect watching `user` and `loading`
         } else {
           console.error(`AuthContext.setUserContextAndRedirect: User ${firebaseUser.uid} profile NOT FOUND in Firestore.`);
           toast({ title: "Profile Error", description: "Your user profile is incomplete or not found. Logging out.", variant: "destructive" });
@@ -111,9 +110,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         if (!isInitialLoad || pathname !== '/login') router.push('/login');
       } finally {
-        if (!isGuestLogin) setLoading(false); // setLoading(false) for guest login is handled in loginAsGuest
+        if (!isGuestLogin) setLoading(false); 
       }
-    } else if (!isGuestLogin) { // Only set user to null if it's not a guest login flow that will set it
+    } else if (!isGuestLogin) { 
       console.log("AuthContext.setUserContextAndRedirect: No Firebase user provided. Setting context user to null.");
       setUser(null);
       setLoading(false);
@@ -155,10 +154,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email}`);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       console.log("AuthContext.loginWithEmail: signInWithEmailAndPassword SUCCESS for UID:", userCredential.user.uid);
-      // `onAuthStateChanged` will pick up the new user and call `setUserContextAndRedirect`
-      // For a more immediate feel, we could call it here too, but it might lead to double processing.
-      // Let's rely on onAuthStateChanged primarily.
-      // setLoading(false) will be handled by onAuthStateChanged's call to setUserContextAndRedirect
     } catch (error: any) {
       setLoading(false);
       console.error("AuthContext.loginWithEmail CAUGHT ERROR. Code:", error.code, "Message:", error.message);
@@ -204,12 +199,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     let guestUser: User | null = null;
     const baseGuestData = {
-      id: `guest-${role}-${Date.now().toString().slice(-6)}`, // More concise unique ID for session
+      id: `guest-${role}-${Date.now().toString().slice(-6)}`, 
       email: `guest.${role}@example.com`,
       phoneVerified: true,
       status: 'Active' as 'Active',
       phoneVerificationDeadline: null,
-      phoneNumber: `+155501${Math.floor(Math.random()*90)+10}` // mock phone for passenger
+      phoneNumber: `+155501${Math.floor(Math.random()*90)+10}` 
     };
 
     switch (role) {
@@ -224,8 +219,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           operatorCode: 'OP-GUEST',
           driverIdentifier: 'DR-GUEST',
           vehicleCategory: 'car',
-          customId: 'DR-GUEST', // drivers usually have customId as their driver ID
-          acceptsPetFriendlyJobs: Math.random() < 0.5, // Randomly assign for guest driver
+          customId: 'DR-GUEST', 
+          acceptsPetFriendlyJobs: Math.random() < 0.5, 
         };
         break;
       case 'operator':
@@ -233,7 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           ...baseGuestData,
           name: 'Guest Operator',
           role: 'operator',
-          customId: 'OP-GUEST', // operators often use customId for their operator code
+          customId: 'OP-GUEST', 
           operatorCode: 'OP-GUEST',
         };
         break;
@@ -247,7 +242,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (guestUser) {
-      setUser(guestUser); // This will trigger the useEffect for redirection
+      setUser(guestUser); 
       toast({ title: "Guest Login Successful", description: `Logged in as ${guestUser.name} (${guestUser.role})` });
     }
     setLoading(false); 
@@ -264,15 +259,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("AuthContext.logout: Attempting signOut.");
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null and setLoading to false.
-      // Explicit redirect happens in useEffect.
       toast({title: "Logged Out", description: "You have been successfully logged out."});
     } catch (error) {
       console.error("AuthContext.logout: Error signing out:", error);
       toast({title: "Logout Error", description: "Failed to log out properly.", variant: "destructive"});
       setUser(null); 
       setLoading(false);
-      router.push('/login'); // Ensure redirect even on error
+      router.push('/login'); 
     }
   };
   

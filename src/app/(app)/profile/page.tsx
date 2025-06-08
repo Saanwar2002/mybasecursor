@@ -53,7 +53,6 @@ export default function ProfilePage() {
   const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   
-  // Local state for driver's pet friendly preference
   const [acceptsPetFriendlyJobs, setAcceptsPetFriendlyJobs] = useState(user?.acceptsPetFriendlyJobs || false);
 
 
@@ -197,7 +196,7 @@ export default function ProfilePage() {
                   Accept Pet Friendly Jobs?
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Enable this if you are willing to take pet friendly rides.
+                  Enable this if you are willing to take pet friendly rides (cars or minibuses).
                 </p>
               </div>
               <Switch

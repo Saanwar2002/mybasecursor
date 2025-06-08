@@ -96,7 +96,11 @@ const bookingFormSchema = z.object({
   bookingType: z.enum(["asap", "scheduled"], { required_error: "Please select a booking type."}),
   desiredPickupDate: z.date().optional(),
   desiredPickupTime: z.string().optional(),
-  vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8", "pet_friendly_car", "disable_wheelchair_access"], { required_error: "Please select a vehicle type." }),
+  vehicleType: z.enum([
+    "car", "estate", "minibus_6", "minibus_8", 
+    "pet_friendly_car", "disable_wheelchair_access",
+    "minibus_6_pet_friendly", "minibus_8_pet_friendly"
+  ], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
   waitAndReturn: z.boolean().default(false),
@@ -471,6 +475,7 @@ export default function BookRidePage() {
       }
     });
     return () => { isMounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
   const handleApplyGpsSuggestion = () => {
@@ -889,18 +894,17 @@ export default function BookRidePage() {
       }
       
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.2; // Example: 20% more
-      else if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; // Example: 50% more
-      else if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6; // Example: 60% more
-      else if (watchedVehicleType === "disable_wheelchair_access") vehicleMultiplier = 2.0; // Double for wheelchair access
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.2;
+      else if (watchedVehicleType === "minibus_6" || watchedVehicleType === "minibus_6_pet_friendly") vehicleMultiplier = 1.5;
+      else if (watchedVehicleType === "minibus_8" || watchedVehicleType === "minibus_8_pet_friendly") vehicleMultiplier = 1.6;
+      else if (watchedVehicleType === "disable_wheelchair_access") vehicleMultiplier = 2.0;
 
       const passengerCount = Number(watchedPassengers) || 1;
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
 
       let baseAdjustedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
       
-      // Apply specific surcharges after vehicle/passenger adjustments
-      if (watchedVehicleType === "pet_friendly_car") {
+      if (watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") {
         baseAdjustedFare += PET_FRIENDLY_SURCHARGE;
       }
       
@@ -1069,7 +1073,7 @@ export default function BookRidePage() {
       if (values.isPriorityPickup) {
           toastDescription += ` Priority Fee: £${(values.priorityFeeAmount || 0).toFixed(2)}.`;
       }
-      if (values.vehicleType === "pet_friendly_car") {
+      if (values.vehicleType === "pet_friendly_car" || values.vehicleType === "minibus_6_pet_friendly" || values.vehicleType === "minibus_8_pet_friendly") {
         toastDescription += ` Pet Friendly Surcharge: +£${PET_FRIENDLY_SURCHARGE.toFixed(2)}.`;
       }
       if (values.vehicleType === "disable_wheelchair_access") {
@@ -1896,7 +1900,7 @@ const handleProceedToConfirmation = async () => {
                       <Button
                           type="button"
                           onClick={handleAddStop}
-                          className="text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/80 focus-visible:ring-accent px-6 py-2 rounded-lg shadow-md"
+                          className="text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-accent px-6 py-2 rounded-lg shadow-md"
                       >
                           <PlusCircle className="mr-2 h-4 w-4" /> (+ Stop/Pickup)
                       </Button>
@@ -2195,6 +2199,12 @@ const handleProceedToConfirmation = async () => {
                             <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">
                                 <span className="flex items-center gap-1"><Wheelchair className="w-4 h-4"/> Wheelchair Access (+100%)</span>
                             </SelectItem>
+                             <SelectItem value="minibus_6_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
+                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (6 ppl) (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
+                            </SelectItem>
+                             <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
+                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (8 ppl) (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -2263,7 +2273,7 @@ const handleProceedToConfirmation = async () => {
                             ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
                               <>
                                 <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                {watchedVehicleType === "pet_friendly_car" && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
+                                {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
                                 {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access Surcharge Applied</p>}
                                 {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
                                   <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>

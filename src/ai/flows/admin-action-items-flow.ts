@@ -81,7 +81,7 @@ const prompt = ai.definePrompt({
     7.  id: 'dev-task-fair-assignment', category: 'Development Roadmap', label: 'Design & Implement Fair Ride Assignment Algorithm (Backend Task - track driver session earnings & time).', priority: 'high', iconName: 'Scale'
     8.  id: 'dev-task-operator-dispatch-mode', category: 'Development Roadmap', label: 'Develop Operator Setting for Manual/Auto Job Dispatch Mode.', priority: 'medium', iconName: 'Settings2'
     9.  id: 'dev-reminder-backend-dispatch-logic', category: 'Development Roadmap', label: 'Implement Backend Logic for Operator-Chosen Dispatch Modes (Manual/Auto).', priority: 'high', iconName: 'Route'
-    10. id: 'dev-task-pet-friendly-pref', category: 'Development Roadmap', label: 'Backend: Implement driver preference for Pet Friendly jobs & update assignment logic.', priority: 'medium', iconName: 'Dog'
+    10. id: 'dev-task-pet-friendly-pref', category: 'Development Roadmap', label: 'Backend: Implement driver preference for Pet Friendly jobs (all applicable vehicle types) & update assignment logic.', priority: 'medium', iconName: 'Dog'
     11. id: 'dev-task-wheelchair-vehicle-tracking', category: 'Development Roadmap', label: 'Backend: Implement vehicle capability tracking for Wheelchair Accessible rides & update assignment logic.', priority: 'high', iconName: 'Wheelchair'
 
 
