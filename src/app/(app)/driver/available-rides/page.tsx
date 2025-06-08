@@ -557,7 +557,7 @@ export default function AvailableRidesPage() {
 
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide, isLoading: boolean }) => (
     <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
-      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm"><span>Initiate Cancellation</span></Label>
+      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm">Initiate Cancellation</Label>
       <Switch id={`cancel-ride-switch-${ride.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoadingProp} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
     </div>
   );
@@ -702,14 +702,14 @@ export default function AvailableRidesPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle><span>Block {activeRide.passengerName}?</span></AlertDialogTitle>
+                        <AlertDialogTitle>Block {activeRide.passengerName}?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          <span>Are you sure you want to block this passenger? You will not be offered rides from them in the future. This action can be undone in your profile settings.</span>
+                          Are you sure you want to block this passenger? You will not be offered rides from them in the future. This action can be undone in your profile settings.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel><span>Cancel</span></AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBlockPassenger} className="bg-destructive hover:bg-destructive/90"><span>Block Passenger</span></AlertDialogAction>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleBlockPassenger} className="bg-destructive hover:bg-destructive/90">Block Passenger</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -737,43 +737,34 @@ export default function AvailableRidesPage() {
           </CardContent>
 
           <CardFooter className="p-3 border-t grid gap-2">
-             {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <span className="flex items-center justify-center"><Navigation className="mr-2"/> Navigate</span> </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}> <span className="flex items-center justify-center">{actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival</span> </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </> )}
-             {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <span className="flex items-center justify-center"><Navigation className="mr-2"/> Navigate</span> </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}> <span className="flex items-center justify-center">{actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride</span> </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
-             {(showInProgressStatus || showInProgressWRStatus) && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <span className="flex items-center justify-center"><Navigation className="mr-2"/> Navigate</span> </Button> <Button className="w-full bg-primary hover:bg-primary/80 text-base text-primary-foreground py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}> <span className="flex items-center justify-center">{actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride</span> </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
-             {(showCompletedStatus || showCancelledByDriverStatus) && ( <Button className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" onClick={() => { if(showCompletedStatus && driverRatingForPassenger > 0) { console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`); toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`}); } setDriverRatingForPassenger(0); setCurrentWaitingCharge(0); setIsCancelSwitchOn(false); fetchActiveRide(); }} disabled={activeRide ? actionLoading[activeRide.id] : false} > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />} Done</span> </Button> )}
+             {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </> )}
+             {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
+             {(showInProgressStatus || showInProgressWRStatus) && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-primary hover:bg-primary/80 text-base text-primary-foreground py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
+             {(showCompletedStatus || showCancelledByDriverStatus) && ( <Button className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" onClick={() => { if(showCompletedStatus && driverRatingForPassenger > 0) { console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`); toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`}); } setDriverRatingForPassenger(0); setCurrentWaitingCharge(0); setIsCancelSwitchOn(false); fetchActiveRide(); }} disabled={activeRide ? actionLoading[activeRide.id] : false} > {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />} Done </Button> )}
           </CardFooter>
         </Card>
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle><span>Are you sure you want to cancel this ride?</span></AlertDialogTitle>
-              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+              <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle>
+              <AlertDialogDescription>This action cannot be undone. The passenger will be notified.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel 
                 onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
                 disabled={activeRide ? actionLoading[activeRide.id] : false}
               >
-                <span>Keep Ride</span>
+                Keep Ride
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
                 disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               >
-                  <span className="flex items-center justify-center">
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                       <>
-                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                         <span>Cancelling...</span>
-                       </>
-                    ) : (
-                       <>
-                         <ShieldX className="mr-2 h-4 w-4" />
-                         <span>Confirm Cancel</span>
-                      </>
-                    )}
-                  </span>
+                {(activeRide && (actionLoading[activeRide.id] || false))
+                  ? `${(<Loader2 className="animate-spin mr-2 h-4 w-4" />)}Cancelling...`
+                  : `${(<ShieldX className="mr-2 h-4 w-4" />)}Confirm Cancel`
+                }
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -787,27 +778,25 @@ export default function AvailableRidesPage() {
     <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle><span>Are you sure you want to cancel this ride?</span></AlertDialogTitle>
-          <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+          <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle>
+          <AlertDialogDescription>This action cannot be undone. The passenger will be notified.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel 
             onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
             disabled={activeRide ? actionLoading[activeRide.id] : false}
           >
-            <span>Keep Ride</span>
+            Keep Ride
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
             disabled={!activeRide || (actionLoading[activeRide.id] || false)}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
-            <span className="flex items-center justify-center">
             {(activeRide && (actionLoading[activeRide.id] || false))
-              ? (<><Loader2 className="animate-spin mr-2 h-4 w-4" /><span>Cancelling...</span></>)
-              : (<><ShieldX className="mr-2 h-4 w-4" /><span>Confirm Cancel</span></>)
+              ? "Cancelling..."
+              : "Confirm Cancel"
             }
-            </span>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
