@@ -327,21 +327,23 @@ export default function BookRidePage() {
     setAvailabilityStatusMessage("Checking availability...");
 
     const waitTimes = [
-      "3-5 mins", "5-8 mins", "7-12 mins", "10-15 mins"
+        "3-5 mins",
+        "5-8 mins",
+        "7-12 mins",
+        "10-15 mins",
     ];
     const vehicleTypes = [
-      "Standard Cars available.",
-      "Standard & Estate Cars available.",
-      "High demand. Standard Cars available.",
-      "Limited availability. Expect longer wait for Minibus."
+        "Standard Cars available",
+        "Standard and Estate Cars available",
+        "High demand. Standard Cars available",
+        "Limited availability. Longer wait for Minibus",
     ];
     const timer = setTimeout(() => {
       const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
       const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-      setAvailabilityStatusMessage(\`Estimated wait: ~$\{randomWait}. $\{randomVehicles} (Mock)\`);
+      setAvailabilityStatusMessage("Estimated wait: ~" + randomWait + ". " + randomVehicles + " (Mock)");
       setIsCheckingAvailability(false);
     }, 1500);
-
     return () => clearTimeout(timer);
   }, []);
 
@@ -1688,7 +1690,7 @@ const handleProceedToConfirmation = async () => {
                         render={({ field }) => (
                         <FormItem className="mb-1">
                             <FormControl>
-                            <Input placeholder="Door/Flat/Unit (Optional)" {...field} className="h-9 text-sm" />
+                            <Input placeholder="Door/Flat/Unit (Optional)" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -1738,7 +1740,7 @@ const handleProceedToConfirmation = async () => {
                         </Button>
                       </div>
                        <FormField control={form.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (
-                          <FormItem><FormControl><Input placeholder="Door/Flat/Unit (Optional)" {...field} className="h-9 text-sm bg-background"/></FormControl><FormMessage /></FormItem>
+                          <FormItem><FormControl><Input placeholder="Door/Flat/Unit (Optional)" {...field} className="bg-background"/></FormControl><FormMessage /></FormItem>
                         )}/>
                       <FormField
                         control={form.control}
@@ -1786,7 +1788,7 @@ const handleProceedToConfirmation = async () => {
                         render={({ field }) => (
                         <FormItem className="mb-1">
                             <FormControl>
-                            <Input placeholder="Door/Flat/Unit (Optional)" {...field} className="h-9 text-sm" />
+                            <Input placeholder="Door/Flat/Unit (Optional)" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -1825,62 +1827,62 @@ const handleProceedToConfirmation = async () => {
                         )}
                     />
                   </div>
+                  <FormField
+                    control={form.control}
+                    name="bookingType"
+                    render={({ field }) => (
+                    <FormItem className="space-y-2">
+                        <FormLabel className="flex items-center gap-1"><CalendarClock className="w-4 h-4 text-muted-foreground" /> Booking Time</FormLabel>
+                        <FormControl>
+                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-1">
+                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="asap" /></FormControl><FormLabel className="font-normal">ASAP</FormLabel></FormItem>
+                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="scheduled" /></FormControl><FormLabel className="font-normal">Schedule Later</FormLabel></FormItem>
+                        </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                  />
+                  {watchedBookingType === 'scheduled' && (
+                    <div className="grid grid-cols-2 gap-4 p-3 border rounded-md bg-muted/30">
                     <FormField
                         control={form.control}
-                        name="bookingType"
+                        name="desiredPickupDate"
                         render={({ field }) => (
-                        <FormItem className="space-y-2">
-                            <FormLabel className="flex items-center gap-1"><CalendarClock className="w-4 h-4 text-muted-foreground" /> Booking Time</FormLabel>
+                        <FormItem className="flex flex-col">
+                            <FormLabel>Pickup Date</FormLabel>
+                            <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsDatePickerOpen(false); }} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus />
+                            </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="desiredPickupTime"
+                        render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                            <FormLabel>Pickup Time</FormLabel>
                             <FormControl>
-                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-1">
-                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="asap" /></FormControl><FormLabel className="font-normal">ASAP</FormLabel></FormItem>
-                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="scheduled" /></FormControl><FormLabel className="font-normal">Schedule Later</FormLabel></FormItem>
-                            </RadioGroup>
+                                <Input type="time" {...field} className="w-full"/>
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                         )}
                     />
-                    {watchedBookingType === 'scheduled' && (
-                        <div className="grid grid-cols-2 gap-4 p-3 border rounded-md bg-muted/30">
-                        <FormField
-                            control={form.control}
-                            name="desiredPickupDate"
-                            render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Pickup Date</FormLabel>
-                                <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                                <PopoverTrigger asChild>
-                                    <FormControl>
-                                    <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                    </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsDatePickerOpen(false); }} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus />
-                                </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="desiredPickupTime"
-                            render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Pickup Time</FormLabel>
-                                <FormControl>
-                                    <Input type="time" {...field} className="w-full"/>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        </div>
-                    )}
+                    </div>
+                  )}
 
                   <FormField
                     control={form.control}
@@ -1972,8 +1974,7 @@ const handleProceedToConfirmation = async () => {
                       </FormItem>
                     )}
                   />
-
-                    {watchedWaitAndReturn && (
+                  {watchedWaitAndReturn && (
                          <Alert variant="default" className="bg-primary/10 border-primary/30">
                             <Info className="h-5 w-5 text-primary"/>
                             <ShadAlertTitle className="text-primary font-semibold">Wait & Return Details</ShadAlertTitle>
@@ -1985,7 +1986,7 @@ const handleProceedToConfirmation = async () => {
                                 </Button>
                             </AlertDescription>
                         </Alert>
-                    )}
+                  )}
                   <FormField
                     control={form.control}
                     name="isPriorityPickup"
@@ -2016,19 +2017,18 @@ const handleProceedToConfirmation = async () => {
                       </FormItem>
                     )}
                   />
-                     {watchedIsPriorityPickup && (
+                  {watchedIsPriorityPickup && (
                          <Alert variant="default" className="bg-orange-500/10 border-orange-500/30">
                             <Info className="h-5 w-5 text-orange-600"/>
                             <ShadAlertTitle className="text-orange-700 dark:text-orange-300 font-semibold">Priority Fee Details</ShadAlertTitle>
                             <AlertDescription className="text-orange-600 dark:text-orange-400 text-sm">
-                                Priority Fee: £{(watchedPriorityFeeAmount || 0).toFixed(2)}. This will be added to your fare.
+                                Priority Fee: £{(watchedPriorityFeeAmount || 0).toFixed(2)}. This will be added to your total fare.
                                 <Button type="button" variant="link" size="sm" onClick={() => setIsPriorityFeeDialogOpen(true)} className="p-0 h-auto ml-1 text-orange-700/80 dark:text-orange-300/80 hover:text-orange-700 dark:hover:text-orange-300">
                                     (Edit Fee)
                                 </Button>
                             </AlertDescription>
                         </Alert>
-                    )}
-
+                  )}
                   <FormField
                     control={form.control}
                     name="promoCode"
@@ -2039,7 +2039,7 @@ const handleProceedToConfirmation = async () => {
                         <FormMessage />
                         </FormItem>
                     )}
-                    />
+                  />
                   <FormField
                     control={form.control}
                     name="paymentMethod"
@@ -2300,4 +2300,3 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
-
