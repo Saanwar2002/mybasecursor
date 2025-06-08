@@ -4,15 +4,15 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { auth, db } from '@/lib/firebase'; // Import db and auth
-import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut } from 'firebase/auth'; // Import Firebase Auth functions
-import { doc, getDoc, Timestamp } from 'firebase/firestore'; // Import Firestore functions
-import { useToast } from '@/hooks/use-toast'; // Assuming you have a toast hook
+import { auth, db } from '@/lib/firebase'; 
+import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut } from 'firebase/auth'; 
+import { doc, getDoc, Timestamp } from 'firebase/firestore'; 
+import { useToast } from '@/hooks/use-toast'; 
 
 export type UserRole = 'passenger' | 'driver' | 'operator' | 'admin';
 
 export interface User {
-  id: string; // This is firebaseUser.uid
+  id: string; 
   email: string;
   name: string;
   role: UserRole;
@@ -23,12 +23,12 @@ export interface User {
   phoneNumber?: string | null;
   phoneVerified?: boolean;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
-  phoneVerificationDeadline?: string | null; // ISO string or null
+  phoneVerificationDeadline?: string | null; 
 }
 
 interface AuthContextType {
   user: User | null;
-  loginWithEmail: (email: string, pass: string) => Promise<void>; // Specific to email/pass login
+  loginWithEmail: (email: string, pass: string) => Promise<void>; 
   logout: () => void;
   loading: boolean;
   updateUserProfileInContext: (updatedProfileData: Partial<User>) => void;
@@ -43,16 +43,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const setUserContextAndRedirect = async (firebaseUser: FirebaseUser | null, initialLoad: boolean = false) => {
+  const setUserContextAndRedirect = async (firebaseUser: FirebaseUser | null, isInitialLoad: boolean = false) => {
     if (firebaseUser) {
+      console.log(`AuthContext.setUserContextAndRedirect: Starting for UID ${firebaseUser.uid}. InitialLoad: ${isInitialLoad}`);
       try {
         if (!db) {
-          console.error("Firestore (db) is not initialized. Cannot fetch user profile.");
+          console.error("AuthContext.setUserContextAndRedirect: Firestore (db) is not initialized.");
           toast({ title: "Critical Error", description: "Database connection failed. Please contact support.", variant: "destructive" });
-          await signOut(auth); // Log out from Firebase Auth
+          if(auth) await signOut(auth);
           setUser(null);
           setLoading(false);
-          router.push('/login');
+          if (!isInitialLoad) router.push('/login'); // Avoid redirect loop on initial load if db fails early
           return;
         }
         const userDocRef = doc(db, "users", firebaseUser.uid);
@@ -70,38 +71,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             driverIdentifier: firestoreUser.driverIdentifier,
             vehicleCategory: firestoreUser.vehicleCategory,
             phoneNumber: firestoreUser.phoneNumber || firebaseUser.phoneNumber,
-            phoneVerified: firestoreUser.phoneVerified,
+            phoneVerified: firestoreUser.phoneVerified || false,
             status: firestoreUser.status || 'Active',
             phoneVerificationDeadline: firestoreUser.phoneVerificationDeadline
               ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
               : null,
           };
           setUser(userData);
-          console.log("AuthContext: User profile fetched and set:", userData);
+          console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);
 
-          if (!initialLoad) { // Only redirect if it's a manual login, not initial auth state check
+          if (!isInitialLoad) { // Only redirect on manual login/action, not initial auth state check causing redirect.
             if (userData.role === 'admin') router.push('/admin');
             else if (userData.role === 'operator') router.push('/operator');
             else if (userData.role === 'driver') router.push('/driver');
             else router.push('/dashboard');
           }
         } else {
-          console.error(`User ${firebaseUser.uid} authenticated with Firebase Auth but no profile found in Firestore.`);
+          console.error(`AuthContext.setUserContextAndRedirect: User ${firebaseUser.uid} profile NOT FOUND in Firestore.`);
           toast({ title: "Profile Error", description: "Your user profile is incomplete or not found. Logging out.", variant: "destructive" });
-          await signOut(auth); // Log out from Firebase Auth
+          if (auth) await signOut(auth);
           setUser(null);
-          router.push('/login');
+          if (!isInitialLoad || pathname !== '/login') router.push('/login');
         }
       } catch (error) {
-        console.error("Error fetching user profile from Firestore:", error);
+        console.error("AuthContext.setUserContextAndRedirect: Error fetching/setting profile:", error);
         toast({ title: "Login Error", description: "Could not retrieve your profile details. Logging out.", variant: "destructive" });
-        await signOut(auth); // Log out on error
+        if (auth) await signOut(auth);
         setUser(null);
-        router.push('/login');
+        if (!isInitialLoad || pathname !== '/login') router.push('/login');
       } finally {
         setLoading(false);
       }
     } else {
+      console.log("AuthContext.setUserContextAndRedirect: No Firebase user provided. Setting context user to null.");
       setUser(null);
       setLoading(false);
     }
@@ -109,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!auth) {
-      console.error("AuthContext: Firebase auth is not initialized. User state will not be monitored.");
+      console.warn("AuthContext: Firebase auth is not initialized. Auth state will not be monitored.");
       setLoading(false);
       if (!publicPaths.some(p => pathname.startsWith(p)) && pathname !== '/') {
         router.push('/login');
@@ -117,12 +119,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("AuthContext: onAuthStateChanged triggered. Firebase user:", firebaseUser ? firebaseUser.uid : "null");
-      await setUserContextAndRedirect(firebaseUser, true); // true indicates initial load
+      console.log("AuthContext: onAuthStateChanged event. Firebase user UID:", firebaseUser ? firebaseUser.uid : "null");
+      await setUserContextAndRedirect(firebaseUser, true);
     });
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // router and pathname removed to prevent re-running on navigation for auth state check
+  }, []); 
 
 
   const loginWithEmail = async (email: string, pass: string) => {
@@ -130,50 +132,89 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast({ title: "Error", description: "Authentication service not ready.", variant: "destructive" });
       throw new Error("Auth service not ready");
     }
+
+    console.log("AuthContext.loginWithEmail: Attempting explicit signOut before new login...");
+    try {
+      await signOut(auth);
+      console.log("AuthContext.loginWithEmail: Pre-login signOut successful or no user was signed in.");
+    } catch (signOutError) {
+      console.warn("AuthContext.loginWithEmail: Error during pre-emptive signOut (continuing with login):", signOutError);
+    }
+
     setLoading(true);
     try {
+      console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email}`);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-      // User profile fetching and redirection is handled by onAuthStateChanged listener
-      // or by calling setUserContextAndRedirect directly if preferred after signIn
-      await setUserContextAndRedirect(userCredential.user, false); // false indicates manual login
-      toast({ title: "Login Successful!", description: `Welcome back!` });
+      console.log("AuthContext.loginWithEmail: signInWithEmailAndPassword SUCCESS for UID:", userCredential.user.uid);
+      
+      // Call setUserContextAndRedirect. It handles its own loading state for profile fetch.
+      // onAuthStateChanged will also fire, but calling this ensures immediate profile fetch & redirect logic.
+      await setUserContextAndRedirect(userCredential.user, false); 
+      
+      // Success toast should only be shown if the entire process, including profile fetch, is successful.
+      // setUserContextAndRedirect handles errors internally and logs out if profile fetch fails.
+      // So, if we reach here, it means profile was likely okay (or user was logged out by it already).
+      // Check if user is set to current user, if so, profile fetch was good.
+      if (auth.currentUser && auth.currentUser.uid === userCredential.user.uid) {
+           toast({ title: "Login Successful!", description: `Welcome back!` });
+      } else {
+          console.warn("AuthContext.loginWithEmail: User state mismatch after profile fetch or user signed out by profile fetch error. No success toast.");
+      }
+
     } catch (error: any) {
-      setLoading(false);
-      console.error("Firebase login error in loginWithEmail:", error);
-      let errorMessage = "Failed to log in.";
-      if (error.code) {
+      setLoading(false); // Ensure loading is false if an error occurs here.
+      console.error("AuthContext.loginWithEmail CAUGHT ERROR. Code:", error.code, "Message:", error.message);
+      let specificErrorMessage = "An unexpected login error occurred.";
+      let errorSource = "Unknown";
+
+      if (error.code && typeof error.code === 'string' && error.code.startsWith('auth/')) {
+        errorSource = "Firebase Auth";
         switch (error.code) {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
           case 'auth/invalid-credential':
-            errorMessage = "Invalid email or password.";
+            specificErrorMessage = "Invalid email or password. Please try again.";
+            break;
+          case 'auth/invalid-email':
+            specificErrorMessage = "The email address provided is not valid.";
+            break;
+          case 'auth/user-disabled':
+            specificErrorMessage = "This user account has been disabled by an administrator.";
             break;
           default:
-            errorMessage = `Login error: ${error.message}`;
+            specificErrorMessage = error.message || "An unknown Firebase Auth error occurred.";
         }
+      } else if (error.message) {
+        errorSource = "Profile Fetch/Set or Other";
+        specificErrorMessage = `Login process error: ${error.message}`;
       }
-      toast({ title: "Login Failed", description: errorMessage, variant: "destructive" });
-      throw error; // Re-throw to be caught by the form
+      
+      console.log(`AuthContext.loginWithEmail: Displaying 'Login Failed' toast. Source: ${errorSource}, Message: ${specificErrorMessage}`);
+      toast({ title: "Login Failed", description: specificErrorMessage, variant: "destructive" });
+      // Do not re-throw the error from here for now to let this context handle the toast.
+      // throw error; 
     }
-    // setLoading(false) is handled by setUserContextAndRedirect
   };
 
   const logout = async () => {
     if (!auth) {
+      console.warn("AuthContext.logout: Auth service not initialized. Clearing local state.");
       setUser(null);
+      setLoading(false); // Ensure loading is false
       router.push('/login');
       return;
     }
+    console.log("AuthContext.logout: Attempting signOut.");
     try {
       await signOut(auth);
-      setUser(null); // onAuthStateChanged will also set user to null
-      router.push('/login');
+      // onAuthStateChanged will handle setting user to null and setLoading(false)
+      router.push('/login'); // Explicit redirect
       toast({title: "Logged Out", description: "You have been successfully logged out."});
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("AuthContext.logout: Error signing out:", error);
       toast({title: "Logout Error", description: "Failed to log out properly.", variant: "destructive"});
-      // Still attempt to clear local state and redirect
-      setUser(null);
+      setUser(null); // Force clear local state
+      setLoading(false);
       router.push('/login');
     }
   };
@@ -182,6 +223,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(currentUser => {
       if (currentUser) {
         const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id };
+        console.log("AuthContext.updateUserProfileInContext: User profile updated in context.", updatedUser);
         return updatedUser;
       }
       return null;
@@ -196,17 +238,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const isMarketingRoot = pathname === '/';
     const isPublicPath = publicPaths.some(p => pathname.startsWith(p)) || isMarketingRoot;
 
-    console.log("AuthContext Redirection Check: User:", user ? user.email : "null", "Path:", pathname, "IsPublic:", isPublicPath);
-
     if (!user && !isPublicPath) {
-      console.log("AuthContext: No user & not public path, redirecting to /login. Current:", pathname);
+      console.log(`AuthContext: Path protection. No user & not public path (${pathname}). Redirecting to /login.`);
       router.push('/login');
-    } else if (user && (isMarketingRoot || publicPaths.some(p => pathname.startsWith(p)))) {
-      console.log("AuthContext: User exists & on public/auth path, redirecting. Role:", user.role, "Current:", pathname);
+    } else if (user && (isPublicPath && pathname !== '/')) { // Allow user to be on '/' briefly before redirect if they landed there
+      console.log(`AuthContext: Path protection. User exists & on auth/public path (${pathname}). Redirecting based on role: ${user.role}.`);
       if (user.role === 'admin') router.push('/admin');
       else if (user.role === 'operator') router.push('/operator');
       else if (user.role === 'driver') router.push('/driver');
       else router.push('/dashboard');
+    } else if (user && isMarketingRoot) { // If user is on '/' (marketing root)
+        console.log(`AuthContext: Path protection. User exists & on marketing root path ('/'). Redirecting based on role: ${user.role}.`);
+        if (user.role === 'admin') router.push('/admin');
+        else if (user.role === 'operator') router.push('/operator');
+        else if (user.role === 'driver') router.push('/driver');
+        else router.push('/dashboard');
     }
   }, [user, loading, router, pathname]);
 
@@ -225,5 +271,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-    
