@@ -24,6 +24,7 @@ export interface User {
   phoneVerified?: boolean;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
   phoneVerificationDeadline?: string | null; 
+  acceptsPetFriendlyJobs?: boolean; // New field for drivers
 
   // Conceptual fields for Fair Ride Assignment (populated by backend)
   currentSessionId?: string | null;
@@ -84,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             phoneVerificationDeadline: firestoreUser.phoneVerificationDeadline
               ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
               : null,
+            acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
             // Initialize conceptual fields for fairness system (backend would populate these)
             currentSessionId: firestoreUser.currentSessionId || null,
             lastLoginAt: firestoreUser.lastLoginAt ? (firestoreUser.lastLoginAt as Timestamp).toDate().toISOString() : null,
@@ -223,6 +225,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           driverIdentifier: 'DR-GUEST',
           vehicleCategory: 'car',
           customId: 'DR-GUEST', // drivers usually have customId as their driver ID
+          acceptsPetFriendlyJobs: Math.random() < 0.5, // Randomly assign for guest driver
         };
         break;
       case 'operator':
@@ -327,4 +330,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

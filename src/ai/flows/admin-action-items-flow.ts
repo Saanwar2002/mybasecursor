@@ -18,7 +18,7 @@ const ActionItemSchema = z.object({
   category: z.string().describe("The general category of the task, e.g., 'User Management', 'System Health', 'Development Roadmap'."),
   label: z.string().describe("A concise description of the task to be done."),
   priority: z.enum(['high', 'medium', 'low']).describe("The priority of the task."),
-  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'MailCheck', 'CreditCard', 'ShieldCheck', 'Wifi', 'Scale', 'Settings2', 'Route') relevant to the task. If unsure, omit.")
+  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'MailCheck', 'CreditCard', 'ShieldCheck', 'Wifi', 'Scale', 'Settings2', 'Route', 'Dog', 'Wheelchair') relevant to the task. If unsure, omit.")
 });
 export type ActionItem = z.infer<typeof ActionItemSchema>;
 
@@ -69,7 +69,7 @@ const prompt = ai.definePrompt({
     - category: A brief category (e.g., "Operator Management", "System Monitoring", "Support", "Feature Development", "Strategic Planning", "Development Roadmap").
     - label: A clear, concise action item (e.g., "Review 7 pending operator applications", "Investigate 2 critical system alerts").
     - priority: 'high', 'medium', or 'low'.
-    - iconName: (Optional) Suggest a relevant Lucide icon name (e.g., Users, ShieldAlert, MessageSquare, Lightbulb, ClipboardList, ServerCog, MailCheck, CreditCard, ShieldCheck, Wifi, Scale, Settings2, Route). If unsure, omit it.
+    - iconName: (Optional) Suggest a relevant Lucide icon name (e.g., Users, ShieldAlert, MessageSquare, Lightbulb, ClipboardList, ServerCog, MailCheck, CreditCard, ShieldCheck, Wifi, Scale, Settings2, Route, Dog, Wheelchair). If unsure, omit it.
 
     Additionally, ALWAYS include the following Development Roadmap items. These are standing tasks/reminders for future development:
     1.  id: 'dev-task-scheduled-rides-form', category: 'Development Roadmap', label: 'Next Step: Build out the "Create Scheduled Ride" form (recurrence, locations, return journey).', priority: 'high', iconName: 'ClipboardList'
@@ -81,6 +81,8 @@ const prompt = ai.definePrompt({
     7.  id: 'dev-task-fair-assignment', category: 'Development Roadmap', label: 'Design & Implement Fair Ride Assignment Algorithm (Backend Task - track driver session earnings & time).', priority: 'high', iconName: 'Scale'
     8.  id: 'dev-task-operator-dispatch-mode', category: 'Development Roadmap', label: 'Develop Operator Setting for Manual/Auto Job Dispatch Mode.', priority: 'medium', iconName: 'Settings2'
     9.  id: 'dev-reminder-backend-dispatch-logic', category: 'Development Roadmap', label: 'Implement Backend Logic for Operator-Chosen Dispatch Modes (Manual/Auto).', priority: 'high', iconName: 'Route'
+    10. id: 'dev-task-pet-friendly-pref', category: 'Development Roadmap', label: 'Backend: Implement driver preference for Pet Friendly jobs & update assignment logic.', priority: 'medium', iconName: 'Dog'
+    11. id: 'dev-task-wheelchair-vehicle-tracking', category: 'Development Roadmap', label: 'Backend: Implement vehicle capability tracking for Wheelchair Accessible rides & update assignment logic.', priority: 'high', iconName: 'Wheelchair'
 
 
     Generate a list of 2-4 operational tasks based on the metrics, plus the development roadmap items mentioned above. Ensure the labels are actionable.

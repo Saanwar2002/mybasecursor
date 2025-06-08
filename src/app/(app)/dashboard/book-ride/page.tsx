@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -96,7 +96,7 @@ const bookingFormSchema = z.object({
   bookingType: z.enum(["asap", "scheduled"], { required_error: "Please select a booking type."}),
   desiredPickupDate: z.date().optional(),
   desiredPickupTime: z.string().optional(),
-  vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
+  vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8", "pet_friendly_car", "disable_wheelchair_access"], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
   waitAndReturn: z.boolean().default(false),
@@ -164,6 +164,7 @@ const PER_STOP_SURCHARGE = 0.50;
 const WAIT_AND_RETURN_SURCHARGE_PERCENTAGE = 0.70; 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION = 10;
 const WAITING_CHARGE_PER_MINUTE_AT_DESTINATION = 0.20;
+const PET_FRIENDLY_SURCHARGE = 2.00;
 
 
 function deg2rad(deg: number): number {
@@ -888,14 +889,21 @@ export default function BookRidePage() {
       }
       
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; 
-      if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
-      if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.2; // Example: 20% more
+      else if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5; // Example: 50% more
+      else if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6; // Example: 60% more
+      else if (watchedVehicleType === "disable_wheelchair_access") vehicleMultiplier = 2.0; // Double for wheelchair access
 
       const passengerCount = Number(watchedPassengers) || 1;
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
 
       let baseAdjustedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
+      
+      // Apply specific surcharges after vehicle/passenger adjustments
+      if (watchedVehicleType === "pet_friendly_car") {
+        baseAdjustedFare += PET_FRIENDLY_SURCHARGE;
+      }
+      
       baseAdjustedFare = Math.max(baseAdjustedFare, MINIMUM_FARE); 
       baseAdjustedFare = parseFloat(baseAdjustedFare.toFixed(2));
       setBaseFareEstimate(baseAdjustedFare > 0 ? baseAdjustedFare : null);
@@ -1012,7 +1020,7 @@ export default function BookRidePage() {
       stops: validStopsData,
       vehicleType: values.vehicleType,
       passengers: values.passengers,
-      fareEstimate: baseFareEstimate, // Send the base fare; backend might combine with priority fee or handle separately
+      fareEstimate: baseFareEstimate, 
       isPriorityPickup: values.isPriorityPickup,
       priorityFeeAmount: values.isPriorityPickup ? (values.priorityFeeAmount || 0) : 0,
       isSurgeApplied: isSurgeActive,
@@ -1060,6 +1068,12 @@ export default function BookRidePage() {
       }
       if (values.isPriorityPickup) {
           toastDescription += ` Priority Fee: £${(values.priorityFeeAmount || 0).toFixed(2)}.`;
+      }
+      if (values.vehicleType === "pet_friendly_car") {
+        toastDescription += ` Pet Friendly Surcharge: +£${PET_FRIENDLY_SURCHARGE.toFixed(2)}.`;
+      }
+      if (values.vehicleType === "disable_wheelchair_access") {
+        toastDescription += ` Wheelchair Access surcharge applied.`;
       }
 
 
@@ -1625,7 +1639,11 @@ const handleProceedToConfirmation = async () => {
   const handlePriorityFeeDialogConfirm = () => {
     const fee = parseFloat(priorityFeeInput);
     if (isNaN(fee) || fee <= 0) {
-      toast({ title: "Invalid Priority Fee", description: "Please enter a valid positive amount for the priority fee.", variant: "destructive"});
+      toast({ title: "Invalid Priority Fee", description: "Please enter a valid positive amount for the priority fee (min £0.50).", variant: "destructive"});
+      return;
+    }
+    if (fee < 0.50) {
+       toast({ title: "Priority Fee Too Low", description: "Minimum priority fee is £0.50.", variant: "destructive"});
       return;
     }
     form.setValue('isPriorityPickup', true);
@@ -1954,7 +1972,7 @@ const handleProceedToConfirmation = async () => {
                     control={form.control}
                     name="waitAndReturn"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-primary/5">
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base flex items-center gap-2">
                             <RefreshCwIcon className="w-5 h-5 text-primary" />
@@ -2171,6 +2189,12 @@ const handleProceedToConfirmation = async () => {
                             <SelectItem value="estate">Estate Car</SelectItem>
                             <SelectItem value="minibus_6">Minibus (6 people)</SelectItem>
                             <SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
+                            <SelectItem value="pet_friendly_car" className="text-green-600 dark:text-green-400 font-medium">
+                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Car (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
+                            </SelectItem>
+                            <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">
+                                <span className="flex items-center gap-1"><Wheelchair className="w-4 h-4"/> Wheelchair Access (+100%)</span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -2238,21 +2262,18 @@ const handleProceedToConfirmation = async () => {
                               </div>
                             ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
                               <>
+                                <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
+                                {watchedVehicleType === "pet_friendly_car" && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
+                                {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access Surcharge Applied</p>}
                                 {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
-                                  <>
-                                    <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                    <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
-                                  </>
-                                ) : (
-                                    baseFareEstimate === totalFareEstimate && !isSurgeActive && <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                )}
+                                  <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
+                                ) : null}
                                 <p className="text-3xl font-bold text-primary">Total: £{totalFareEstimate.toFixed(2)}</p>
                                 {isSurgeActive && (
                                   <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
                                     <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
                                   </p>
                                 )}
-                                {!isSurgeActive && !watchedIsPriorityPickup && baseFareEstimate !== totalFareEstimate && <p className="text-xs text-muted-foreground">(Adjusted Fare)</p>}
                                  {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">(Includes Wait & Return Surcharges)</p>}
                                  <p className="text-xs text-muted-foreground mt-1">
                                     Estimates may vary based on real-time conditions.
@@ -2406,7 +2427,7 @@ const handleProceedToConfirmation = async () => {
         <DialogContent className="sm:max-w-sm">
           <ShadDialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-300"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
           <ShadDialogDescription>
-            Offer an extra amount to prioritize your booking. This will be added to your total fare.
+            Offer an extra amount to prioritize your booking. This will be added to your total fare. Minimum £0.50.
           </ShadDialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="priority-fee-input">Extra Amount (£)</Label>
@@ -2435,4 +2456,3 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
-

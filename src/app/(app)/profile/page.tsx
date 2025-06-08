@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, KeyRound, AlertTriangle, Users, UserX, Car as CarIcon, Trash2, CreditCard } from "lucide-react";
+import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, KeyRound, AlertTriangle, Users, UserX, Car as CarIcon, Trash2, CreditCard, Dog } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +15,8 @@ import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 interface StoredPinUser extends User {
   pin: string;
@@ -50,6 +52,9 @@ export default function ProfilePage() {
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
   const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
+  
+  // Local state for driver's pet friendly preference
+  const [acceptsPetFriendlyJobs, setAcceptsPetFriendlyJobs] = useState(user?.acceptsPetFriendlyJobs || false);
 
 
   const pinForm = useForm<z.infer<typeof pinSetupSchema>>({
@@ -62,6 +67,7 @@ export default function ProfilePage() {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phoneNumber || (user.role === 'driver' ? "555-0101" : ""));
+      setAcceptsPetFriendlyJobs(user.acceptsPetFriendlyJobs || false);
 
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
@@ -105,6 +111,10 @@ export default function ProfilePage() {
     if (name !== user.name) updatedDetails.name = name;
     if (email !== user.email) updatedDetails.email = email;
     if (phone !== user.phoneNumber) updatedDetails.phoneNumber = phone;
+    if (user.role === 'driver' && acceptsPetFriendlyJobs !== user.acceptsPetFriendlyJobs) {
+        updatedDetails.acceptsPetFriendlyJobs = acceptsPetFriendlyJobs;
+    }
+
 
     if (Object.keys(updatedDetails).length > 0) { updateUserProfileInContext(updatedDetails); }
     setIsEditing(false);
@@ -178,6 +188,37 @@ export default function ProfilePage() {
           <div> <Label htmlFor="name" className="flex items-center gap-1"><UserCircle className="w-4 h-4 text-muted-foreground" /> Name</Label> {isEditing ? (<Input id="name" value={name} onChange={(e) => setName(e.target.value)} />) : (<p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.name}</p>)} </div>
           <div> <Label htmlFor="email" className="flex items-center gap-1"><Mail className="w-4 h-4 text-muted-foreground" /> Email</Label> <p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.email}</p> {isEditing && <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed here. Contact support if needed.</p>} </div>
           <div> <Label htmlFor="phone" className="flex items-center gap-1"><Phone className="w-4 h-4 text-muted-foreground" /> Phone Number</Label> {isEditing ? (<Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={user.role === 'passenger' ? "Required for passengers" : "Optional"} />) : (<p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.phoneNumber || "Not set"}</p>)} {user.phoneVerified === false && user.phoneVerificationDeadline && (<p className="text-sm text-orange-600 mt-1">Phone not verified. Please verify by {new Date(user.phoneVerificationDeadline).toLocaleDateString()}. (Verification UI not yet implemented)</p>)} {user.phoneVerified === true && (<p className="text-sm text-green-600 mt-1">Phone verified.</p>)} </div>
+          
+          {user.role === 'driver' && isEditing && (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
+              <div className="space-y-0.5">
+                <Label className="text-base flex items-center gap-2 text-foreground">
+                  <Dog className="w-5 h-5 text-primary" />
+                  Accept Pet Friendly Jobs?
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Enable this if you are willing to take pet friendly rides.
+                </p>
+              </div>
+              <Switch
+                checked={acceptsPetFriendlyJobs}
+                onCheckedChange={setAcceptsPetFriendlyJobs}
+                aria-label="Accept Pet Friendly Jobs toggle"
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
+              />
+            </FormItem>
+          )}
+          {user.role === 'driver' && !isEditing && (
+             <div className="p-3 border rounded-md bg-muted/50">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Dog className="w-5 h-5 text-primary" /> Pet Friendly Jobs: 
+                  <span className={cn("font-semibold", acceptsPetFriendlyJobs ? "text-green-600" : "text-red-600")}>
+                    {acceptsPetFriendlyJobs ? "Allowed" : "Not Allowed"}
+                  </span>
+                </p>
+             </div>
+          )}
+
           {isEditing && (<Button onClick={handleSaveProfile} className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">Save Profile Changes</Button>)}
         </CardContent>
         <CardFooter className="border-t pt-6"> <div className="flex items-center gap-2 text-sm text-muted-foreground"> <Shield className="w-5 h-5 text-green-500" /> Your information is kept secure. </div> </CardFooter>
