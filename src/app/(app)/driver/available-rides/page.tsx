@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown } from "lucide-react"; // Added Crown
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -57,10 +57,10 @@ interface ActiveRide {
   dropoffLocation: LocationPoint;
   stops?: Array<LocationPoint>;
   estimatedTime?: string;
-  fareEstimate: number; // Should be base fare if priorityFeeAmount is present
-  priorityFeeAmount?: number; // New
-  isPriorityPickup?: boolean; // New
-  status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver' | 'pending_driver_wait_and_return_approval' | 'in_progress_wait_and_return'; 
+  fareEstimate: number;
+  priorityFeeAmount?: number;
+  isPriorityPickup?: boolean;
+  status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver' | 'pending_driver_wait_and_return_approval' | 'in_progress_wait_and_return';
   pickupCoords?: { lat: number; lng: number };
   dropoffCoords?: { lat: number; lng: number };
   distanceMiles?: number;
@@ -83,8 +83,9 @@ interface ActiveRide {
   driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
   driverVehicleDetails?: string;
-  waitAndReturn?: boolean; 
-  estimatedAdditionalWaitTimeMinutes?: number; 
+  waitAndReturn?: boolean;
+  estimatedAdditionalWaitTimeMinutes?: number;
+  dispatchMethod?: RideOffer['dispatchMethod']; // Added to ActiveRide as well
 }
 
 
@@ -305,17 +306,19 @@ export default function AvailableRidesPage() {
     let mockOffer: RideOffer;
     const distance = parseFloat((Math.random() * 10 + 2).toFixed(1));
     const paymentMethod: 'card' | 'cash' = Math.random() < 0.5 ? 'card' : 'cash';
-    const isPriority = Math.random() < 0.4; // 40% chance of being priority
-    const priorityFee = isPriority ? parseFloat((Math.random() * 3 + 1).toFixed(2)) : undefined; // Random fee between 1.00 and 4.00
+    const isPriority = Math.random() < 0.4;
+    const priorityFee = isPriority ? parseFloat((Math.random() * 3 + 1).toFixed(2)) : undefined;
+    const dispatchMethods: RideOffer['dispatchMethod'][] = ['auto_system', 'manual_operator', 'priority_override'];
+    const randomDispatchMethod = dispatchMethods[Math.floor(Math.random() * dispatchMethods.length)];
 
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) {
       const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001";
-      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-mismatch-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee };
+      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-mismatch-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) {
-      mockOffer = { id: `mock-offer-match-${Date.now()}`, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-match-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee };
+      mockOffer = { id: `mock-offer-match-${Date.now()}`, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-match-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     } else {
-      mockOffer = { id: `mock-offer-general-${Date.now()}`, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-general-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee };
+      mockOffer = { id: `mock-offer-general-${Date.now()}`, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-general-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     }
 
     if (mockOffer.requiredOperatorId && currentDriverOperatorPrefix && mockOffer.requiredOperatorId !== currentDriverOperatorPrefix) {
@@ -338,24 +341,21 @@ export default function AvailableRidesPage() {
 
     setActionLoading(prev => ({ ...prev, [offerToAccept.id]: true }));
     try {
-      // Prepare payload for updating the booking
-      const updatePayload: any = { // Use `any` type for flexibility with optional fields
+      const updatePayload: any = {
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
-        status: 'driver_assigned', 
-        vehicleType: driverUser.vehicleCategory || 'Car', 
-        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`, 
+        status: 'driver_assigned',
+        vehicleType: driverUser.vehicleCategory || 'Car',
+        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
+        dispatchMethod: offerToAccept.dispatchMethod, // Pass through the dispatch method
       };
 
-      // Include priority fields if they exist on the offer
       if (offerToAccept.isPriorityPickup !== undefined) {
         updatePayload.isPriorityPickup = offerToAccept.isPriorityPickup;
       }
       if (offerToAccept.priorityFeeAmount !== undefined) {
         updatePayload.priorityFeeAmount = offerToAccept.priorityFeeAmount;
       }
-      // The main fareEstimate on the booking will remain the base fare.
-      // The driver's app will calculate total earnings by adding priorityFeeAmount.
 
       const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
         method: 'POST',
@@ -374,12 +374,15 @@ export default function AvailableRidesPage() {
         throw new Error(errorText);
       }
 
-      await fetchActiveRide(); 
+      await fetchActiveRide();
 
-      setRideRequests([]); 
+      setRideRequests([]);
       let toastDesc = `En Route to Pickup for ${offerToAccept.passengerName}. Payment: ${offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
       if (offerToAccept.isPriorityPickup && offerToAccept.priorityFeeAmount) {
         toastDesc += ` Priority: +£${offerToAccept.priorityFeeAmount.toFixed(2)}.`;
+      }
+       if (offerToAccept.dispatchMethod) {
+        toastDesc += ` Dispatched: ${offerToAccept.dispatchMethod.replace('_', ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
 
@@ -387,7 +390,7 @@ export default function AvailableRidesPage() {
       console.error("Error accepting offer:", error);
       const message = error instanceof Error ? error.message : "Could not assign ride. Please try again.";
       toast({title: "Acceptance Failed", description: message, variant: "destructive"});
-      fetchActiveRide(); 
+      fetchActiveRide();
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
     }
@@ -418,16 +421,15 @@ export default function AvailableRidesPage() {
             setAckWindowSecondsLeft(null);
             break;
         case 'complete_ride':
-            // Calculate final fare including base, priority, and waiting charges
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             const finalFare = baseFare + priorityFee + currentWaitingCharge;
-            
-            toastTitle = "Ride Completed"; 
+
+            toastTitle = "Ride Completed";
             toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority & waiting): £${finalFare.toFixed(2)}.`;
-            
+
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
-            payload.finalFare = finalFare; // Send final calculated fare to backend
+            payload.finalFare = finalFare;
             break;
         case 'cancel_active':
             toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
@@ -437,7 +439,6 @@ export default function AvailableRidesPage() {
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
-            // Backend will recalculate fare including W&R surcharge and priority fee
             break;
         case 'decline_wait_and_return':
             toastTitle = "Wait & Return Declined"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been declined. Ride continues as normal.`;
@@ -453,9 +454,9 @@ export default function AvailableRidesPage() {
 
       if (!response.ok) {
         let errorMessageFromServer = `Action failed with status: ${response.status}`;
-        const errorDetailsText = await response.text(); 
+        const errorDetailsText = await response.text();
         try {
-          const errorDataJson = JSON.parse(errorDetailsText); 
+          const errorDataJson = JSON.parse(errorDetailsText);
           errorMessageFromServer = errorDataJson.message || errorDataJson.details || JSON.stringify(errorDataJson);
         } catch (jsonParseError) {
           console.error("Server returned non-JSON error response. Body:", errorDetailsText.substring(0, 500));
@@ -492,7 +493,7 @@ export default function AvailableRidesPage() {
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
         setTimeout(() => {
           setActiveRide(null);
-          fetchActiveRide(); 
+          fetchActiveRide();
         }, 3000);
       }
 
@@ -582,7 +583,7 @@ export default function AvailableRidesPage() {
     const showInProgressWRStatus = activeRide.status === 'in_progress_wait_and_return';
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
-    
+
     const baseFare = activeRide.fareEstimate || 0;
     const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
     let totalCalculatedFare = baseFare + priorityFee + currentWaitingCharge;
@@ -620,7 +621,7 @@ export default function AvailableRidesPage() {
               <Avatar className="h-12 w-12"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/48x48.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar>
               <div className="flex-1"> <p className="font-semibold text-base">{activeRide.passengerName}</p> {activeRide.passengerRating && ( <div className="flex items-center"> {[...Array(5)].map((_, i) => <Star key={i} className={cn("w-3.5 h-3.5", i < Math.round(activeRide.passengerRating!) ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />)} <span className="ml-1 text-xs text-muted-foreground">({activeRide.passengerRating.toFixed(1)})</span> </div> )} </div>
               {(!showCompletedStatus && !showCancelledByDriverStatus) && (
-                <Button asChild variant="outline" size="icon" className="h-9 w-9"> 
+                <Button asChild variant="outline" size="icon" className="h-9 w-9">
                     <Link href="/driver/chat"><ChatIcon className="w-4 h-4" /></Link>
                 </Button>
                )}

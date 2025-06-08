@@ -4,14 +4,14 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown } from "lucide-react"; // Added Crown
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle } from "lucide-react"; // Added Crown, AlertOctagon, CheckCircle
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge"; // Added Badge
+import { Badge } from "@/components/ui/badge";
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -24,15 +24,16 @@ export interface RideOffer {
   pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
   dropoffCoords: { lat: number; lng: number };
-  fareEstimate: number; // This should now be the BASE fare for the driver's calculation
+  fareEstimate: number;
   passengerCount: number;
   passengerName?: string;
   notes?: string;
   requiredOperatorId?: string;
   distanceMiles?: number;
   paymentMethod?: 'card' | 'cash';
-  isPriorityPickup?: boolean; // New field
-  priorityFeeAmount?: number; // New field
+  isPriorityPickup?: boolean;
+  priorityFeeAmount?: number;
+  dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override'; // Added
 }
 
 interface RideOfferModalProps {
@@ -85,15 +86,15 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   useEffect(() => {
     if (!isOpen) {
-      setCountdown(COUNTDOWN_SECONDS); 
+      setCountdown(COUNTDOWN_SECONDS);
       return;
     }
 
     if (countdown === 0) {
       if (rideDetails) {
-        onDecline(rideDetails.id); 
+        onDecline(rideDetails.id);
       }
-      onClose(); 
+      onClose();
       return;
     }
 
@@ -126,7 +127,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const mapCenter = useMemo(() => {
     if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
-    return { lat: 53.6450, lng: -1.7830 }; 
+    return { lat: 53.6450, lng: -1.7830 };
   }, [rideDetails]);
 
   if (!rideDetails) {
@@ -151,12 +152,27 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const totalFareForDriver = rideDetails.fareEstimate + (rideDetails.priorityFeeAmount || 0);
 
+  const getDispatchMethodText = () => {
+    if (!rideDetails.dispatchMethod) return null;
+    switch (rideDetails.dispatchMethod) {
+      case 'auto_system':
+        return { text: "Dispatched: System (Auto)", icon: CheckCircle, color: "text-green-600" };
+      case 'manual_operator':
+        return { text: "Dispatched by: Your Operator", icon: Briefcase, color: "text-blue-600" };
+      case 'priority_override':
+        return { text: "Dispatched: Priority Override", icon: AlertOctagon, color: "text-purple-600" };
+      default:
+        return null;
+    }
+  };
+  const dispatchInfo = getDispatchMethodText();
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent 
+      <DialogContent
         className={cn(
           "sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col",
-           "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] md:h-[calc(100vh-4rem)]" 
+           "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] md:h-[calc(100vh-4rem)]"
         )}
       >
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
@@ -172,14 +188,14 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             Review the details below and respond quickly before the timer runs out.
           </DialogDescription>
         </DialogHeader>
-        
-        <ScrollArea className="flex-1"> 
+
+        <ScrollArea className="flex-1">
           <div className="px-4 pt-2 pb-4">
             <div className="h-36 sm:h-48 w-full mb-3 rounded-md overflow-hidden border shrink-0">
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
                     center={mapCenter}
-                    zoom={10} 
+                    zoom={10}
                     markers={mapMarkers}
                     className="w-full h-full"
                     disableDefaultUI={true}
@@ -189,7 +205,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <Skeleton className="w-full h-full rounded-md" />
                 )}
             </div>
-            <div className="space-y-2.5"> 
+            <div className="space-y-2.5">
               {rideDetails.requiredOperatorId && (
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-lg text-center">
                   <p className="text-sm font-semibold text-purple-700 dark:text-purple-200 flex items-center justify-center gap-1">
@@ -197,20 +213,27 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   </p>
                 </div>
               )}
+               {dispatchInfo && (
+                <div className={`p-2 bg-muted/70 border border-border rounded-lg text-center`}>
+                  <p className={`text-sm font-medium ${dispatchInfo.color} flex items-center justify-center gap-1`}>
+                    <dispatchInfo.icon className="w-4 h-4"/> {dispatchInfo.text}
+                  </p>
+                </div>
+              )}
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
                 <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
-                  <MapPin className="w-4 h-4 text-primary shrink-0 mt-1" /> 
+                  <MapPin className="w-4 h-4 text-primary shrink-0 mt-1" />
                   <span><strong>Pickup:</strong> {rideDetails.pickupLocation}</span>
                 </p>
                 <p className="flex items-start gap-2 text-base md:text-lg font-semibold">
-                  <MapPin className="w-4 h-4 text-accent shrink-0 mt-1" /> 
+                  <MapPin className="w-4 h-4 text-accent shrink-0 mt-1" />
                   <span><strong>Dropoff:</strong> {rideDetails.dropoffLocation}</span>
                 </p>
               </div>
 
               <div className="space-y-1 text-base md:text-lg font-semibold">
                 <div className="flex justify-between items-center">
-                  <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" /> 
+                  <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" />
                     <strong>Total Est. Fare:</strong> ~£{totalFareForDriver.toFixed(2)}
                   </p>
                   <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
@@ -222,7 +245,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
                  {rideDetails.paymentMethod && (
                     <div className="flex items-center gap-1.5">
-                      {rideDetails.paymentMethod === 'card' ? 
+                      {rideDetails.paymentMethod === 'card' ?
                         <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" /> :
                         <Coins className="w-4 h-4 text-muted-foreground shrink-0" />
                       }
