@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity } from 'lucide-react'; // Added UserX
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock } from 'lucide-react'; // Added CalendarClock, UserX
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -18,6 +18,7 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/ai-search', label: 'AI Taxi Search', icon: Sparkles, roles: ['passenger'] },
   { href: '/dashboard/track-ride', label: 'My Active Ride', icon: MapPin, roles: ['passenger'] },
   { href: '/dashboard/my-rides', label: 'Rides History', icon: History, roles: ['passenger'] },
+  { href: '/dashboard/scheduled-rides', label: 'Scheduled Rides', icon: CalendarClock, roles: ['passenger'] },
   { href: '/dashboard/favorites', label: 'Favorites', icon: Star, roles: ['passenger'] },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle, roles: ['passenger'] },
   
