@@ -363,7 +363,7 @@ export default function BookRidePage() {
 
   useEffect(() => {
     setIsLoadingSurgeSetting(true);
-    fetch('/api/operator/settings/pricing') // Assuming settings are global for now
+    fetch('/api/operator/settings/pricing') 
         .then(res => {
             if (!res.ok) throw new Error("Failed to fetch surge settings");
             return res.json();
@@ -372,7 +372,6 @@ export default function BookRidePage() {
         .catch(err => {
             console.warn("Could not load surge pricing settings from operator, defaulting to false:", err.message);
             setIsOperatorSurgeEnabled(false);
-            // No toast for this one, as it's a background setting that passengers don't need to see if it fails to load
         })
         .finally(() => setIsLoadingSurgeSetting(false));
   }, []);
@@ -387,12 +386,12 @@ export default function BookRidePage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["places", "marker", "geocoding"], 
+      libraries: ["places", "marker", "geocoding", "maps"], 
     });
 
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      const mapDivForPlaces = document.createElement('div'); // Dummy div for PlacesService
+      const mapDivForPlaces = document.createElement('div'); 
       placesServiceRef.current = new google.maps.places.PlacesService(mapDivForPlaces);
       geocoderRef.current = new google.maps.Geocoder();
       autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
@@ -421,7 +420,7 @@ export default function BookRidePage() {
             let fetchErrorStatus: GeolocationFetchStatus = "error_unavailable";
             if (error.code === error.PERMISSION_DENIED) fetchErrorStatus = "error_permission";
             else if (error.code === error.POSITION_UNAVAILABLE) fetchErrorStatus = "error_unavailable";
-            else if (error.code === error.TIMEOUT) fetchErrorStatus = "error_unavailable"; // Also treat timeout as unavailable
+            else if (error.code === error.TIMEOUT) fetchErrorStatus = "error_unavailable"; 
             setGeolocationFetchStatus(fetchErrorStatus);
             setShowGpsSuggestionAlert(false);
           },
@@ -774,7 +773,7 @@ export default function BookRidePage() {
   const handleAddStop = () => {
     append({ location: "", doorOrFlat: ""});
     setStopAutocompleteData(prev => [...prev, {
-      fieldId: `stop-${Date.now()}`, // Unique ID for React key
+      fieldId: `stop-${Date.now()}`, 
       inputValue: "",
       suggestions: [],
       showSuggestions: false,
@@ -1161,7 +1160,7 @@ export default function BookRidePage() {
       location: stop.address,
       doorOrFlat: stop.doorOrFlat || ""
     })) || [];
-    replace(newStopsData); // Replaces all existing stops
+    replace(newStopsData); 
 
     const newStopAutocomplete = (route.stops || []).map((stop, index) => ({
         fieldId: `stop-applied-${index}-${Date.now()}`,
@@ -1175,7 +1174,6 @@ export default function BookRidePage() {
     setStopAutocompleteData(newStopAutocomplete);
 
     toast({ title: "Route Applied", description: `"${route.label}" loaded into the form.` });
-    // Close any popovers for saved routes if open
   };
 
   const handleDeleteSavedRoute = async (routeId: string) => {
@@ -1268,11 +1266,11 @@ export default function BookRidePage() {
 
     oscillator.type = 'sine';
     if (type === 'start') {
-        oscillator.frequency.setValueAtTime(440, audioCtxRef.current.currentTime); // A4
+        oscillator.frequency.setValueAtTime(440, audioCtxRef.current.currentTime); 
         gainNode.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 0.2);
     } else {
-        oscillator.frequency.setValueAtTime(330, audioCtxRef.current.currentTime); // E4
+        oscillator.frequency.setValueAtTime(330, audioCtxRef.current.currentTime); 
         gainNode.gain.setValueAtTime(0.1, audioCtxRef.current.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 0.2);
     }
@@ -1336,7 +1334,7 @@ export default function BookRidePage() {
     };
 
     recognitionRef.current.onend = () => {
-      if (isListening) { // Check if it ended naturally or was stopped
+      if (isListening) { 
         playSound('stop');
       }
       setIsListening(false);
@@ -1360,7 +1358,6 @@ export default function BookRidePage() {
     if (isListening || isProcessingAi) return;
 
     try {
-        // Check microphone permission
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
         if (permissionStatus.state === 'denied') {
             toast({ title: "Microphone Access Denied", description: "Please allow microphone access in your browser settings to use voice input.", variant: "destructive", duration: 7000});
@@ -1371,7 +1368,6 @@ export default function BookRidePage() {
         }
     } catch (err) {
         console.warn("Permissions API not supported or errored:", err);
-        // Continue, as browser might still prompt if Permissions API is not there
     }
 
     setIsListening(true);
@@ -1382,7 +1378,6 @@ export default function BookRidePage() {
   const handleMicMouseUpOrLeave = () => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
-      // onend will set isListening to false
     }
   };
 
@@ -1910,14 +1905,14 @@ const handleProceedToConfirmation = async () => {
                             <SelectItem value="pet_friendly_car" className="text-green-600 dark:text-green-400 font-medium">
                                 <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Car (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
                             </SelectItem>
-                            <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">
-                                <span className="flex items-center gap-1"><Wheelchair className="w-4 h-4"/> Wheelchair Access (+100%)</span>
-                            </SelectItem>
                              <SelectItem value="minibus_6_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
                                 <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (6 ppl) (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
                             </SelectItem>
                              <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
                                 <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (8 ppl) (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
+                            </SelectItem>
+                            <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">
+                                <span className="flex items-center gap-1"><Wheelchair className="w-4 h-4"/> Wheelchair Access (+100%)</span>
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -2294,3 +2289,4 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
+
