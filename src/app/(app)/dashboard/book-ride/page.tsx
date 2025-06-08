@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -18,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon } from 'lucide-react'; // Added RefreshCwIcon
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -98,7 +99,7 @@ const bookingFormSchema = z.object({
   vehicleType: z.enum(["car", "estate", "minibus_6", "minibus_8"], { required_error: "Please select a vehicle type." }),
   passengers: z.coerce.number().min(1, "At least 1 passenger.").max(10, "Max 10 passengers."),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
-  waitAndReturn: z.boolean().default(false), // Added Wait & Return field
+  waitAndReturn: z.boolean().default(false),
   promoCode: z.string().optional(),
   paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
 }).superRefine((data, ctx) => {
@@ -143,6 +144,9 @@ const BOOKING_FEE = 0.75;
 const MINIMUM_FARE = 4.00;
 const SURGE_MULTIPLIER_VALUE = 1.5;
 const PER_STOP_SURCHARGE = 0.50;
+const WAIT_AND_RETURN_SURCHARGE_PERCENTAGE = 0.70; // 70% extra for return leg
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION = 10;
+const WAITING_CHARGE_PER_MINUTE_AT_DESTINATION = 0.20;
 
 
 function deg2rad(deg: number): number {
@@ -236,7 +240,7 @@ export default function BookRidePage() {
       vehicleType: "car",
       passengers: 1,
       driverNotes: "",
-      waitAndReturn: false, // Default for waitAndReturn
+      waitAndReturn: false,
       promoCode: "",
       paymentMethod: "card",
     },
@@ -248,7 +252,7 @@ export default function BookRidePage() {
   });
 
   const watchedPaymentMethod = form.watch("paymentMethod");
-  const watchedWaitAndReturn = form.watch("waitAndReturn"); // Watch the new field
+  const watchedWaitAndReturn = form.watch("waitAndReturn");
 
   const [pickupInputValue, setPickupInputValue] = useState("");
   const [pickupSuggestions, setPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
@@ -784,27 +788,32 @@ export default function BookRidePage() {
 
 
   useEffect(() => {
-    let totalDistanceMiles = 0;
+    let oneWayDistanceMiles = 0;
 
     if (pickupCoords && dropoffCoords && !isLoadingSurgeSetting) {
       let currentPoint = pickupCoords;
       for (const stopData of validStopsForFare) {
         if (stopData.coords) {
-          totalDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
+          oneWayDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
           currentPoint = stopData.coords;
         }
       }
-      totalDistanceMiles += getDistanceInMiles(currentPoint, dropoffCoords);
+      oneWayDistanceMiles += getDistanceInMiles(currentPoint, dropoffCoords);
 
-      // If waitAndReturn is true, double the distance for the return trip.
+      let totalDistanceForDisplay = oneWayDistanceMiles;
       if (watchedWaitAndReturn) {
-        totalDistanceMiles *= 2;
+        totalDistanceForDisplay *= 2; // Display round trip distance
       }
+      setEstimatedDistance(parseFloat(totalDistanceForDisplay.toFixed(2)));
 
-      setEstimatedDistance(parseFloat(totalDistanceMiles.toFixed(2)));
+      const oneWayDurationMinutes = (oneWayDistanceMiles / AVERAGE_SPEED_MPH) * 60;
+      let totalDurationForDisplay = oneWayDurationMinutes;
+       if (watchedWaitAndReturn) {
+        totalDurationForDisplay = (oneWayDistanceMiles * 2 / AVERAGE_SPEED_MPH) * 60; // Duration for round trip
+        // Note: Actual waiting time is not included in this duration estimate
+      }
+      setEstimatedDurationMinutes(totalDistanceForDisplay > 0 ? parseFloat(totalDurationForDisplay.toFixed(0)) : null);
 
-      const duration = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
-      setEstimatedDurationMinutes(totalDistanceMiles > 0 ? parseFloat(duration.toFixed(0)) : null);
 
       const potentialSurgeConditionsMet = Math.random() < 0.3;
       const actualSurgeIsActive = isOperatorSurgeEnabled && potentialSurgeConditionsMet;
@@ -815,41 +824,34 @@ export default function BookRidePage() {
 
       let calculatedFareBeforeMultipliers = 0;
 
-      if (totalDistanceMiles <= 0) {
+      if (oneWayDistanceMiles <= 0) {
         calculatedFareBeforeMultipliers = 0;
       } else {
-        const estimatedTripDurationMinutesFareCalc = (totalDistanceMiles / AVERAGE_SPEED_MPH) * 60;
-        const timeFare = estimatedTripDurationMinutesFareCalc * PER_MINUTE_RATE;
-        const distanceBasedFare = (totalDistanceMiles * PER_MILE_RATE) + (totalDistanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
-        const subTotal = BASE_FARE + timeFare + distanceBasedFare;
-        calculatedFareBeforeMultipliers = subTotal + BOOKING_FEE;
+        const timeFareOneWay = oneWayDurationMinutes * PER_MINUTE_RATE;
+        const distanceBasedFareOneWay = (oneWayDistanceMiles * PER_MILE_RATE) + (oneWayDistanceMiles > 0 ? FIRST_MILE_SURCHARGE : 0);
+        const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
+        calculatedFareBeforeMultipliers = BASE_FARE + timeFareOneWay + distanceBasedFareOneWay + stopSurchargeAmount + BOOKING_FEE;
       }
-
-      const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
-      calculatedFareBeforeMultipliers += stopSurchargeAmount;
-
-      // Add waiting time cost if waitAndReturn is true (placeholder logic)
-      if (watchedWaitAndReturn) {
-        const MOCK_WAITING_TIME_MINUTES = 30; // Placeholder
-        const MOCK_WAITING_RATE_PER_MINUTE = 0.25; // Placeholder
-        calculatedFareBeforeMultipliers += MOCK_WAITING_TIME_MINUTES * MOCK_WAITING_RATE_PER_MINUTE;
-        // TODO: Implement actual waiting time input and dynamic calculation
-      }
-
-      calculatedFareBeforeMultipliers = Math.max(calculatedFareBeforeMultipliers, MINIMUM_FARE);
-
-      const fareWithSurge = calculatedFareBeforeMultipliers * surgeMultiplierToApply;
-
+      
       let vehicleMultiplier = 1.0;
-      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0;
+      if (watchedVehicleType === "estate") vehicleMultiplier = 1.0; // No change for estate in this version
       if (watchedVehicleType === "minibus_6") vehicleMultiplier = 1.5;
       if (watchedVehicleType === "minibus_8") vehicleMultiplier = 1.6;
 
       const passengerCount = Number(watchedPassengers) || 1;
-      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
+      const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; // 10% extra per passenger beyond the first
 
-      const finalCalculatedFare = fareWithSurge * vehicleMultiplier * passengerAdjustment;
-      setFareEstimate(parseFloat(finalCalculatedFare.toFixed(2)));
+      let adjustedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
+      adjustedFare = Math.max(adjustedFare, MINIMUM_FARE); // Apply minimum fare to the adjusted one-way cost
+
+      if (watchedWaitAndReturn) {
+        const returnSurcharge = adjustedFare * WAIT_AND_RETURN_SURCHARGE_PERCENTAGE;
+        adjustedFare += returnSurcharge;
+        // Free 10 mins waiting is noted in UI, actual charges for >10min would be added by driver/system later.
+      }
+
+      const fareWithSurge = adjustedFare * surgeMultiplierToApply;
+      setFareEstimate(parseFloat(fareWithSurge.toFixed(2)));
 
     } else {
       setFareEstimate(null);
@@ -858,7 +860,7 @@ export default function BookRidePage() {
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare, watchedWaitAndReturn]); // Added watchedWaitAndReturn
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare, watchedWaitAndReturn]);
 
 
  useEffect(() => {
@@ -950,7 +952,7 @@ export default function BookRidePage() {
       stopSurchargeTotal: validStopsForFare.length * PER_STOP_SURCHARGE,
       scheduledPickupAt,
       driverNotes: values.driverNotes,
-      waitAndReturn: values.waitAndReturn, // Include waitAndReturn
+      waitAndReturn: values.waitAndReturn,
       promoCode: values.promoCode,
       paymentMethod: values.paymentMethod,
     };
@@ -1844,7 +1846,7 @@ const handleProceedToConfirmation = async () => {
                             Wait & Return Journey?
                           </FormLabel>
                           <FormDescription className="text-xs">
-                            Driver will wait and take you back to the original pickup or a specified return point. (Fare will adjust)
+                            Adds 70% to one-way fare for return. Includes 10 min free waiting.
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -1863,8 +1865,8 @@ const handleProceedToConfirmation = async () => {
                         <Info className="h-5 w-5" />
                         <ShadAlertTitle className="font-semibold">Wait & Return Selected</ShadAlertTitle>
                         <AlertDescription>
-                          The fare estimate will be updated to include the return journey and a standard waiting time.
-                          Actual waiting charges may vary. You can specify return details in notes.
+                          Fare estimate updated: 70% surcharge for return leg, plus 10 minutes free waiting at destination.
+                          Additional waiting time charged at £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)} per minute.
                         </AlertDescription>
                     </Alert>
                   )}
@@ -2069,7 +2071,7 @@ const handleProceedToConfirmation = async () => {
                                   </p>
                                 )}
                                 {!isSurgeActive && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
-                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 mt-1">(Includes Wait & Return)</p>}
+                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 mt-1">(Includes 70% Wait & Return Surcharge)</p>}
                                  <p className="text-xs text-muted-foreground mt-1">
                                     Estimates may vary based on real-time conditions.
                                 </p>
