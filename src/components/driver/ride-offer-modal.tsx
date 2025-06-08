@@ -4,13 +4,14 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins } from "lucide-react"; // Added CreditCard, Coins
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown } from "lucide-react"; // Added Crown
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge"; // Added Badge
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -23,13 +24,15 @@ export interface RideOffer {
   pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
   dropoffCoords: { lat: number; lng: number };
-  fareEstimate: number;
+  fareEstimate: number; // This should now be the BASE fare for the driver's calculation
   passengerCount: number;
   passengerName?: string;
   notes?: string;
   requiredOperatorId?: string;
   distanceMiles?: number;
   paymentMethod?: 'card' | 'cash';
+  isPriorityPickup?: boolean; // New field
+  priorityFeeAmount?: number; // New field
 }
 
 interface RideOfferModalProps {
@@ -146,6 +149,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     return "bg-green-600";
   };
 
+  const totalFareForDriver = rideDetails.fareEstimate + (rideDetails.priorityFeeAmount || 0);
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent 
@@ -157,6 +162,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
           <DialogTitle className="text-xl md:text-xl font-headline text-primary flex items-center gap-2">
             <Car className="w-6 h-6" /> New Ride Offer!
+            {rideDetails.isPriorityPickup && (
+                <Badge variant="outline" className="ml-auto text-xs border-orange-500 text-orange-600 bg-orange-500/10 py-0.5 px-1.5 flex items-center gap-1">
+                    <Crown className="w-3 h-3"/> Priority
+                </Badge>
+            )}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground pt-1">
             Review the details below and respond quickly before the timer runs out.
@@ -200,9 +210,16 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
               <div className="space-y-1 text-base md:text-lg font-semibold">
                 <div className="flex justify-between items-center">
-                  <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Fare:</strong> ~£{rideDetails.fareEstimate.toFixed(2)}</p>
+                  <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" /> 
+                    <strong>Total Est. Fare:</strong> ~£{totalFareForDriver.toFixed(2)}
+                  </p>
                   <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
                 </div>
+                {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && (
+                    <p className="text-sm text-orange-600 dark:text-orange-400 font-medium flex items-center gap-1.5">
+                        <Crown className="w-3.5 h-3.5"/> Includes +£{rideDetails.priorityFeeAmount.toFixed(2)} priority fee
+                    </p>
+                )}
                  {rideDetails.paymentMethod && (
                     <div className="flex items-center gap-1.5">
                       {rideDetails.paymentMethod === 'card' ? 

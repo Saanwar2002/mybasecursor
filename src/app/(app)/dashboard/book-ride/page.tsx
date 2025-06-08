@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,7 +31,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
@@ -101,6 +101,8 @@ const bookingFormSchema = z.object({
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
   waitAndReturn: z.boolean().default(false),
   estimatedWaitTimeMinutes: z.number().int().min(0).optional(),
+  isPriorityPickup: z.boolean().optional().default(false),
+  priorityFeeAmount: z.number().min(0, "Priority fee cannot be negative.").optional(),
   promoCode: z.string().optional(),
   paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
 }).superRefine((data, ctx) => {
@@ -125,6 +127,13 @@ const bookingFormSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: "Estimated wait time is required for Wait & Return journeys.",
         path: ["estimatedWaitTimeMinutes"],
+    });
+  }
+  if (data.isPriorityPickup && (data.priorityFeeAmount === undefined || data.priorityFeeAmount <= 0)) {
+    ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A positive Priority Fee amount is required if Priority Pickup is selected.",
+        path: ["priorityFeeAmount"],
     });
   }
 });
@@ -179,7 +188,8 @@ function getDistanceInMiles(
 }
 
 export default function BookRidePage() {
-  const [fareEstimate, setFareEstimate] = useState<number | null>(null);
+  const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
+  const [totalFareEstimate, setTotalFareEstimate] = useState<number | null>(null);
   const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
   const [estimatedDurationMinutes, setEstimatedDurationMinutes] = useState<number | null>(null);
 
@@ -237,6 +247,9 @@ export default function BookRidePage() {
   const [estimatedWaitMinutesInput, setEstimatedWaitMinutesInput] = useState<string>("10");
   const [calculatedChargedWaitMinutes, setCalculatedChargedWaitMinutes] = useState<number>(0);
 
+  const [isPriorityFeeDialogOpen, setIsPriorityFeeDialogOpen] = useState(false);
+  const [priorityFeeInput, setPriorityFeeInput] = useState<string>("2.00");
+
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -254,6 +267,8 @@ export default function BookRidePage() {
       driverNotes: "",
       waitAndReturn: false,
       estimatedWaitTimeMinutes: undefined,
+      isPriorityPickup: false,
+      priorityFeeAmount: undefined,
       promoCode: "",
       paymentMethod: "card",
     },
@@ -267,6 +282,8 @@ export default function BookRidePage() {
   const watchedPaymentMethod = form.watch("paymentMethod");
   const watchedWaitAndReturn = form.watch("waitAndReturn");
   const watchedEstimatedWaitTimeMinutes = form.watch("estimatedWaitTimeMinutes");
+  const watchedIsPriorityPickup = form.watch("isPriorityPickup");
+  const watchedPriorityFeeAmount = form.watch("priorityFeeAmount");
 
 
   const [pickupInputValue, setPickupInputValue] = useState("");
@@ -439,7 +456,7 @@ export default function BookRidePage() {
       }
     });
     return () => { isMounted = false; };
-  }, []); // Empty dependency array to ensure it runs once on mount
+  }, []); 
 
   const handleApplyGpsSuggestion = () => {
     if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) {
@@ -539,7 +556,8 @@ export default function BookRidePage() {
     formOnChange: (value: string) => void,
   ) => {
     formOnChange(inputValue);
-    setFareEstimate(null);
+    setBaseFareEstimate(null);
+    setTotalFareEstimate(null);
     setEstimatedDistance(null);
     setEstimatedDurationMinutes(null);
     if (formFieldNameOrStopIndex === 'pickupLocation') {
@@ -863,30 +881,38 @@ export default function BookRidePage() {
       const passengerCount = Number(watchedPassengers) || 1;
       const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1; 
 
-      let adjustedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
-      adjustedFare = Math.max(adjustedFare, MINIMUM_FARE); 
+      let baseAdjustedFare = calculatedFareBeforeMultipliers * vehicleMultiplier * passengerAdjustment;
+      baseAdjustedFare = Math.max(baseAdjustedFare, MINIMUM_FARE); 
+      baseAdjustedFare = parseFloat(baseAdjustedFare.toFixed(2));
+      setBaseFareEstimate(baseAdjustedFare > 0 ? baseAdjustedFare : null);
+
+      let finalCalculatedFare = baseAdjustedFare;
 
       if (watchedWaitAndReturn) {
-        const returnSurcharge = adjustedFare * WAIT_AND_RETURN_SURCHARGE_PERCENTAGE;
-        adjustedFare += returnSurcharge;
+        const returnSurcharge = baseAdjustedFare * WAIT_AND_RETURN_SURCHARGE_PERCENTAGE;
+        finalCalculatedFare += returnSurcharge;
         
         const prePaidWaitMinutes = form.getValues('estimatedWaitTimeMinutes') || 0;
         const chargeableWaitTimeForEstimate = Math.max(0, prePaidWaitMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION);
         const waitingChargeForEstimate = chargeableWaitTimeForEstimate * WAITING_CHARGE_PER_MINUTE_AT_DESTINATION;
-        adjustedFare += waitingChargeForEstimate;
+        finalCalculatedFare += waitingChargeForEstimate;
       }
+      
+      const currentPriorityFee = watchedIsPriorityPickup && watchedPriorityFeeAmount ? watchedPriorityFeeAmount : 0;
+      finalCalculatedFare += currentPriorityFee;
 
-      const fareWithSurge = adjustedFare * surgeMultiplierToApply;
-      setFareEstimate(parseFloat(fareWithSurge.toFixed(2)));
+      const fareWithSurge = finalCalculatedFare * surgeMultiplierToApply;
+      setTotalFareEstimate(parseFloat(fareWithSurge.toFixed(2)));
 
     } else {
-      setFareEstimate(null);
+      setBaseFareEstimate(null);
+      setTotalFareEstimate(null);
       setEstimatedDistance(null);
       setEstimatedDurationMinutes(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
     }
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare, watchedWaitAndReturn, watchedEstimatedWaitTimeMinutes, calculatedChargedWaitMinutes]);
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, watchedStops, watchedVehicleType, watchedPassengers, form, isOperatorSurgeEnabled, isLoadingSurgeSetting, validStopsForFare, watchedWaitAndReturn, watchedEstimatedWaitTimeMinutes, calculatedChargedWaitMinutes, watchedIsPriorityPickup, watchedPriorityFeeAmount]);
 
 
  useEffect(() => {
@@ -949,8 +975,8 @@ export default function BookRidePage() {
         }
     }
 
-    if (fareEstimate === null) {
-        toast({ title: "Fare Not Calculated", description: "Could not calculate fare. Ensure addresses are valid.", variant: "destructive" });
+    if (baseFareEstimate === null) { // Use baseFareEstimate to check if initial calculation ran
+        toast({ title: "Fare Not Calculated", description: "Could not calculate base fare. Ensure addresses are valid.", variant: "destructive" });
         return;
     }
 
@@ -972,7 +998,9 @@ export default function BookRidePage() {
       stops: validStopsData,
       vehicleType: values.vehicleType,
       passengers: values.passengers,
-      fareEstimate: fareEstimate,
+      fareEstimate: baseFareEstimate, // Send the base fare; backend might combine with priority fee or handle separately
+      isPriorityPickup: values.isPriorityPickup,
+      priorityFeeAmount: values.isPriorityPickup ? values.priorityFeeAmount : 0,
       isSurgeApplied: isSurgeActive,
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsForFare.length * PER_STOP_SURCHARGE,
@@ -1016,6 +1044,10 @@ export default function BookRidePage() {
       if (values.waitAndReturn) {
         toastDescription += ` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.`;
       }
+      if (values.isPriorityPickup) {
+          toastDescription += ` Priority Fee: £${(values.priorityFeeAmount || 0).toFixed(2)}.`;
+      }
+
 
       toast({
         title: "Booking Confirmed!",
@@ -1031,7 +1063,8 @@ export default function BookRidePage() {
       setPickupCoords(null);
       setDropoffCoords(null);
       setStopAutocompleteData([]);
-      setFareEstimate(null);
+      setBaseFareEstimate(null);
+      setTotalFareEstimate(null);
       setEstimatedDistance(null);
       setEstimatedDurationMinutes(null);
       setIsSurgeActive(false);
@@ -1044,6 +1077,7 @@ export default function BookRidePage() {
       setSuggestedGpsPickup(null);
       setCalculatedChargedWaitMinutes(0);
       setEstimatedWaitMinutesInput("10");
+      setPriorityFeeInput("2.00");
 
 
     } catch (error) {
@@ -1493,7 +1527,7 @@ export default function BookRidePage() {
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Your location accuracy ({accPoor}m) is too low. <strong>Please enter your pickup address manually.</strong></p>;
         case 'error_accuracy_moderate':
             const accMod = suggestedGpsPickup?.accuracy?.toFixed(0) || 'N/A';
-            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. <strong>Please enter your pickup address manually.</strong></p>;
+            return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Location found (Accuracy: {accMod}m), but not precise enough. <strong>Please carefully verify or enter your pickup address manually.</strong></p>;
         case 'error_geocoding':
             return <p className="text-xs text-orange-600 mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" />Could not find an address for your current location. <strong>Please enter your pickup address manually.</strong></p>;
         case 'success': 
@@ -1573,6 +1607,24 @@ const handleProceedToConfirmation = async () => {
     setCalculatedChargedWaitMinutes(0);
     setIsWaitTimeDialogOpen(false);
   };
+
+  const handlePriorityFeeDialogConfirm = () => {
+    const fee = parseFloat(priorityFeeInput);
+    if (isNaN(fee) || fee <= 0) {
+      toast({ title: "Invalid Priority Fee", description: "Please enter a valid positive amount for the priority fee.", variant: "destructive"});
+      return;
+    }
+    form.setValue('isPriorityPickup', true);
+    form.setValue('priorityFeeAmount', parseFloat(fee.toFixed(2)));
+    setIsPriorityFeeDialogOpen(false);
+  };
+
+  const handlePriorityFeeDialogCancel = () => {
+    form.setValue('isPriorityPickup', false);
+    form.setValue('priorityFeeAmount', undefined);
+    setIsPriorityFeeDialogOpen(false);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -1668,12 +1720,14 @@ const handleProceedToConfirmation = async () => {
             <div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
-                {showGpsSuggestionAlert && suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20 && (
+                {showGpsSuggestionAlert && suggestedGpsPickup && (
                   <Alert variant="default" className="bg-green-50 border-green-300">
                     <LocateFixed className="h-5 w-5 text-green-600" />
-                    <ShadAlertTitle className="text-green-700">Use Current Location for Pickup?</ShadAlertTitle>
+                    <ShadAlertTitle className="text-green-700 font-semibold">Confirm GPS Pickup Location</ShadAlertTitle>
                     <AlertDescription className="text-green-600">
-                      {suggestedGpsPickup.address} (Accuracy: {suggestedGpsPickup.accuracy.toFixed(0)}m)
+                      {suggestedGpsPickup.address} (Accuracy: {suggestedGpsPickup.accuracy.toFixed(0)}m).
+                      <br />
+                      Please **carefully verify** if this is your exact pickup spot. If not, dismiss this and enter your address manually below.
                       <div className="mt-2 space-x-2">
                         <Button type="button" size="sm" onClick={handleApplyGpsSuggestion} className="bg-green-600 hover:bg-green-700 text-white">Use this</Button>
                         <Button type="button" size="sm" variant="outline" onClick={() => {setShowGpsSuggestionAlert(false); setGeolocationFetchStatus('idle');}}>Dismiss</Button>
@@ -1933,6 +1987,48 @@ const handleProceedToConfirmation = async () => {
                         </AlertDescription>
                     </Alert>
                   )}
+                  
+                   <FormField
+                    control={form.control}
+                    name="isPriorityPickup"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-orange-500/10">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base flex items-center gap-2 text-orange-700 dark:text-orange-300">
+                            <Crown className="w-5 h-5" />
+                            Priority Pickup?
+                          </FormLabel>
+                          <FormDescription className="text-xs text-orange-600 dark:text-orange-400">
+                            Offer an extra fee to get a driver faster.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(isChecked) => {
+                              if (isChecked) {
+                                setIsPriorityFeeDialogOpen(true);
+                              } else {
+                                field.onChange(false);
+                                form.setValue('priorityFeeAmount', undefined);
+                              }
+                            }}
+                            aria-label="Priority Pickup toggle"
+                          />
+                        </FormControl>
+                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                   {watchedIsPriorityPickup && watchedPriorityFeeAmount !== undefined && (
+                    <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300">
+                        <AlertCircle className="h-5 w-5" />
+                        <ShadAlertTitle className="font-semibold">Priority Pickup Active</ShadAlertTitle>
+                        <AlertDescription>
+                          You've offered an extra <strong>£{watchedPriorityFeeAmount.toFixed(2)}</strong> for priority service. This will be added to your fare.
+                        </AlertDescription>
+                    </Alert>
+                  )}
 
 
                   <FormField
@@ -2107,33 +2203,39 @@ const handleProceedToConfirmation = async () => {
                   <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
                     <DialogContent className="sm:max-w-md grid grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh]">
                       <DialogHeader>
-                        <DialogTitle className="text-2xl font-headline">Confirm Your Booking</DialogTitle>
-                        <DialogDescription>
+                        <ShadDialogTitle className="text-2xl font-headline">Confirm Your Booking</ShadDialogTitle>
+                        <ShadDialogDescription>
                           Please review your ride details and confirm payment.
-                        </DialogDescription>
+                        </ShadDialogDescription>
                       </DialogHeader>
                       <div className="py-4 overflow-y-auto">
                         <Card className="w-full text-center shadow-md mb-4">
                           <CardHeader className="p-3">
                             <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
-                              <DollarSign className="w-5 h-5 text-primary" /> Fare Estimate
+                              <DollarSign className="w-5 h-5 text-primary" /> Fare Details
                             </CardTitle>
                           </CardHeader>
-                          <CardContent className="p-3 pt-0">
+                          <CardContent className="p-3 pt-0 space-y-1">
                             {anyFetchingDetails && pickupCoords ? (
                               <div className="flex flex-col items-center justify-center space-y-1">
                                   <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
                                   <p className="text-lg font-bold text-muted-foreground">Calculating...</p>
                               </div>
-                            ) : fareEstimate !== null ? (
+                            ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
                               <>
-                                <p className="text-3xl font-bold text-primary">£{fareEstimate.toFixed(2)}</p>
+                                {watchedIsPriorityPickup && watchedPriorityFeeAmount && (
+                                  <>
+                                    <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
+                                    <p className="text-sm text-orange-600">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
+                                  </>
+                                )}
+                                <p className="text-3xl font-bold text-primary">Total: £{totalFareEstimate.toFixed(2)}</p>
                                 {isSurgeActive && (
                                   <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
                                     <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
                                   </p>
                                 )}
-                                {!isSurgeActive && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
+                                {!isSurgeActive && !watchedIsPriorityPickup && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
                                  {watchedWaitAndReturn && <p className="text-xs text-blue-500 mt-1">(Includes Wait & Return Surcharges)</p>}
                                  <p className="text-xs text-muted-foreground mt-1">
                                     Estimates may vary based on real-time conditions.
@@ -2206,7 +2308,7 @@ const handleProceedToConfirmation = async () => {
                           type="button"
                           onClick={() => form.handleSubmit(handleBookRide)()}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                          disabled={!fareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
+                          disabled={!totalFareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
                         >
                           {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                           {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
@@ -2224,12 +2326,10 @@ const handleProceedToConfirmation = async () => {
 
       <Dialog open={saveRouteDialogOpen} onOpenChange={setSaveRouteDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Save Current Route</DialogTitle>
-            <DialogDescription>
-              Enter a label for this route (e.g., Home to Work, Airport Trip).
-            </DialogDescription>
-          </DialogHeader>
+          <ShadDialogTitle>Save Current Route</ShadDialogTitle>
+          <ShadDialogDescription>
+            Enter a label for this route (e.g., Home to Work, Airport Trip).
+          </ShadDialogDescription>
           <div className="py-4">
             <Label htmlFor="routeLabel" className="sr-only">Route Label</Label>
             <Input
@@ -2254,13 +2354,11 @@ const handleProceedToConfirmation = async () => {
 
       <Dialog open={isWaitTimeDialogOpen} onOpenChange={setIsWaitTimeDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</DialogTitle>
-            <DialogDescription>
-              How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
-              (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
-            </DialogDescription>
-          </DialogHeader>
+          <ShadDialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</ShadDialogTitle>
+          <ShadDialogDescription>
+            How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
+            (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
+          </ShadDialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
             <Input
@@ -2285,7 +2383,36 @@ const handleProceedToConfirmation = async () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isPriorityFeeDialogOpen} onOpenChange={setIsPriorityFeeDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <ShadDialogTitle className="flex items-center gap-2 text-orange-600"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
+          <ShadDialogDescription>
+            Offer an extra amount to prioritize your booking. This will be added to your total fare.
+          </ShadDialogDescription>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="priority-fee-input">Extra Amount (£)</Label>
+            <Input
+              id="priority-fee-input"
+              type="number"
+              min="0.50" 
+              step="0.50"
+              value={priorityFeeInput}
+              onChange={(e) => setPriorityFeeInput(e.target.value)}
+              placeholder="e.g., 2.00"
+            />
+             <FormMessage>{form.formState.errors.priorityFeeAmount?.message}</FormMessage>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>
+              Cancel Priority
+            </Button>
+            <Button type="button" onClick={handlePriorityFeeDialogConfirm} className="bg-orange-500 hover:bg-orange-600 text-white">
+              Set Priority Fee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

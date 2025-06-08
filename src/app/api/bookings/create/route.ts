@@ -20,7 +20,9 @@ interface BookingPayload {
   stops: LocationPoint[];
   vehicleType: string;
   passengers: number;
-  fareEstimate: number;
+  fareEstimate: number; // This will now represent the base fare
+  isPriorityPickup?: boolean;
+  priorityFeeAmount?: number;
   isSurgeApplied: boolean;
   surgeMultiplier: number;
   stopSurchargeTotal: number;
@@ -29,7 +31,7 @@ interface BookingPayload {
   bookedByOperatorId?: string;
   driverNotes?: string;
   waitAndReturn?: boolean;
-  estimatedWaitTimeMinutes?: number; // Added field for estimated wait time
+  estimatedWaitTimeMinutes?: number; 
   promoCode?: string;
   paymentMethod: "card" | "cash";
   preferredOperatorId?: string;
@@ -54,6 +56,9 @@ export async function POST(request: NextRequest) {
     }
     if (bookingData.waitAndReturn && (bookingData.estimatedWaitTimeMinutes === undefined || bookingData.estimatedWaitTimeMinutes < 0)) {
         return NextResponse.json({ message: 'Estimated wait time is required and must be non-negative for Wait & Return journeys.' }, { status: 400 });
+    }
+    if (bookingData.isPriorityPickup && (bookingData.priorityFeeAmount === undefined || bookingData.priorityFeeAmount <= 0)) {
+        return NextResponse.json({ message: 'A positive Priority Fee amount is required if Priority Pickup is selected.' }, { status: 400 });
     }
 
 
@@ -86,7 +91,9 @@ export async function POST(request: NextRequest) {
       })),
       vehicleType: bookingData.vehicleType,
       passengers: bookingData.passengers,
-      fareEstimate: bookingData.fareEstimate,
+      fareEstimate: bookingData.fareEstimate, // Base fare
+      isPriorityPickup: bookingData.isPriorityPickup || false,
+      priorityFeeAmount: bookingData.isPriorityPickup ? (bookingData.priorityFeeAmount || 0) : 0,
       isSurgeApplied: bookingData.isSurgeApplied,
       surgeMultiplier: bookingData.surgeMultiplier,
       stopSurchargeTotal: bookingData.stopSurchargeTotal,

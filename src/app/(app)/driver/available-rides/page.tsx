@@ -1,9 +1,10 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw } from "lucide-react"; // Added RefreshCw, UserX
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown } from "lucide-react"; // Added Crown
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -56,8 +57,10 @@ interface ActiveRide {
   dropoffLocation: LocationPoint;
   stops?: Array<LocationPoint>;
   estimatedTime?: string;
-  fareEstimate: number;
-  status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver' | 'pending_driver_wait_and_return_approval' | 'in_progress_wait_and_return'; // Added W&R statuses
+  fareEstimate: number; // Should be base fare if priorityFeeAmount is present
+  priorityFeeAmount?: number; // New
+  isPriorityPickup?: boolean; // New
+  status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver' | 'pending_driver_wait_and_return_approval' | 'in_progress_wait_and_return'; 
   pickupCoords?: { lat: number; lng: number };
   dropoffCoords?: { lat: number; lng: number };
   distanceMiles?: number;
@@ -80,8 +83,8 @@ interface ActiveRide {
   driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
   driverVehicleDetails?: string;
-  waitAndReturn?: boolean; // Added
-  estimatedAdditionalWaitTimeMinutes?: number; // Added
+  waitAndReturn?: boolean; 
+  estimatedAdditionalWaitTimeMinutes?: number; 
 }
 
 
@@ -302,14 +305,17 @@ export default function AvailableRidesPage() {
     let mockOffer: RideOffer;
     const distance = parseFloat((Math.random() * 10 + 2).toFixed(1));
     const paymentMethod: 'card' | 'cash' = Math.random() < 0.5 ? 'card' : 'cash';
+    const isPriority = Math.random() < 0.4; // 40% chance of being priority
+    const priorityFee = isPriority ? parseFloat((Math.random() * 3 + 1).toFixed(2)) : undefined; // Random fee between 1.00 and 4.00
+
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) {
       const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001";
-      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-mismatch-${Date.now()}`};
+      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-mismatch-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee };
     } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) {
-      mockOffer = { id: `mock-offer-match-${Date.now()}`, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-match-${Date.now()}` };
+      mockOffer = { id: `mock-offer-match-${Date.now()}`, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-match-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee };
     } else {
-      mockOffer = { id: `mock-offer-general-${Date.now()}`, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-general-${Date.now()}` };
+      mockOffer = { id: `mock-offer-general-${Date.now()}`, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-general-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee };
     }
 
     if (mockOffer.requiredOperatorId && currentDriverOperatorPrefix && mockOffer.requiredOperatorId !== currentDriverOperatorPrefix) {
@@ -333,16 +339,24 @@ export default function AvailableRidesPage() {
     setActionLoading(prev => ({ ...prev, [offerToAccept.id]: true }));
     try {
       // Prepare payload for updating the booking
-      const updatePayload = {
+      const updatePayload: any = { // Use `any` type for flexibility with optional fields
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
-        // driverAvatar: driverUser.avatarUrl, // If you have avatar for driver
-        status: 'driver_assigned', // This status should be recognized by fetchActiveRide
-        vehicleType: driverUser.vehicleCategory || 'Car', // Use driver's vehicle type
-        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`, // Use customId for Reg, fallback if not present
+        status: 'driver_assigned', 
+        vehicleType: driverUser.vehicleCategory || 'Car', 
+        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`, 
       };
 
-      // Make the API call to assign the driver to the booking
+      // Include priority fields if they exist on the offer
+      if (offerToAccept.isPriorityPickup !== undefined) {
+        updatePayload.isPriorityPickup = offerToAccept.isPriorityPickup;
+      }
+      if (offerToAccept.priorityFeeAmount !== undefined) {
+        updatePayload.priorityFeeAmount = offerToAccept.priorityFeeAmount;
+      }
+      // The main fareEstimate on the booking will remain the base fare.
+      // The driver's app will calculate total earnings by adding priorityFeeAmount.
+
       const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -360,17 +374,20 @@ export default function AvailableRidesPage() {
         throw new Error(errorText);
       }
 
-      // Instead of setting activeRide directly, call fetchActiveRide to get the latest state
       await fetchActiveRide(); 
 
-      setRideRequests([]); // Clear pending offers
-      toast({title: "Ride Accepted!", description: `En Route to Pickup for ${offerToAccept.passengerName}. Payment: ${offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`});
+      setRideRequests([]); 
+      let toastDesc = `En Route to Pickup for ${offerToAccept.passengerName}. Payment: ${offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
+      if (offerToAccept.isPriorityPickup && offerToAccept.priorityFeeAmount) {
+        toastDesc += ` Priority: +£${offerToAccept.priorityFeeAmount.toFixed(2)}.`;
+      }
+      toast({title: "Ride Accepted!", description: toastDesc});
 
     } catch(error) {
       console.error("Error accepting offer:", error);
       const message = error instanceof Error ? error.message : "Could not assign ride. Please try again.";
       toast({title: "Acceptance Failed", description: message, variant: "destructive"});
-      fetchActiveRide(); // Re-fetch to ensure UI consistency
+      fetchActiveRide(); 
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
     }
@@ -401,10 +418,16 @@ export default function AvailableRidesPage() {
             setAckWindowSecondsLeft(null);
             break;
         case 'complete_ride':
-            const finalFare = activeRide.fareEstimate + currentWaitingCharge;
-            toastTitle = "Ride Completed"; toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare £${finalFare.toFixed(2)}.`;
+            // Calculate final fare including base, priority, and waiting charges
+            const baseFare = activeRide.fareEstimate || 0;
+            const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
+            const finalFare = baseFare + priorityFee + currentWaitingCharge;
+            
+            toastTitle = "Ride Completed"; 
+            toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority & waiting): £${finalFare.toFixed(2)}.`;
+            
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
-            payload.finalFare = finalFare;
+            payload.finalFare = finalFare; // Send final calculated fare to backend
             break;
         case 'cancel_active':
             toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
@@ -414,7 +437,7 @@ export default function AvailableRidesPage() {
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
-            // Backend will recalculate fare
+            // Backend will recalculate fare including W&R surcharge and priority fee
             break;
         case 'decline_wait_and_return':
             toastTitle = "Wait & Return Declined"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been declined. Ride continues as normal.`;
@@ -460,6 +483,8 @@ export default function AvailableRidesPage() {
           fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
           waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
           estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
+          isPriorityPickup: serverData.isPriorityPickup ?? prev.isPriorityPickup,
+          priorityFeeAmount: serverData.priorityFeeAmount ?? prev.priorityFeeAmount,
         };
       });
 
@@ -557,14 +582,24 @@ export default function AvailableRidesPage() {
     const showInProgressWRStatus = activeRide.status === 'in_progress_wait_and_return';
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
-    const finalFare = activeRide.fareEstimate + currentWaitingCharge;
+    
+    const baseFare = activeRide.fareEstimate || 0;
+    const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
+    let totalCalculatedFare = baseFare + priorityFee + currentWaitingCharge;
 
-    let displayedFare = `£${finalFare.toFixed(2)}`;
+    let displayedFare = `£${totalCalculatedFare.toFixed(2)}`;
+    if (activeRide.isPriorityPickup && activeRide.priorityFeeAmount) {
+        displayedFare = `£${totalCalculatedFare.toFixed(2)} (Base: £${baseFare.toFixed(2)} + Prio: £${priorityFee.toFixed(2)} + Wait: £${currentWaitingCharge.toFixed(2)})`;
+    } else if (currentWaitingCharge > 0) {
+        displayedFare = `£${totalCalculatedFare.toFixed(2)} (incl. £${currentWaitingCharge.toFixed(2)} wait)`;
+    }
+
+
     if (activeRide.waitAndReturn && activeRide.status === 'in_progress_wait_and_return' && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined) {
         const waitingChargeForDisplay = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
-        displayedFare = `£${activeRide.fareEstimate.toFixed(2)} (W&R, incl. £${waitingChargeForDisplay.toFixed(2)} wait)`;
-    } else if (showCompletedStatus && currentWaitingCharge > 0) {
-        displayedFare = `£${finalFare.toFixed(2)} (incl. £${currentWaitingCharge.toFixed(2)} wait)`;
+        const wrBaseWithPriority = (baseFare + priorityFee) * 1.70;
+        totalCalculatedFare = wrBaseWithPriority + waitingChargeForDisplay;
+        displayedFare = `£${totalCalculatedFare.toFixed(2)} (W&R: Base £${baseFare.toFixed(2)} + Prio £${priorityFee.toFixed(2)} + Wait £${waitingChargeForDisplay.toFixed(2)})`;
     }
 
 
@@ -590,6 +625,15 @@ export default function AvailableRidesPage() {
                 </Button>
                )}
             </div>
+            {activeRide.isPriorityPickup && (
+                <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 my-1">
+                    <Crown className="h-5 w-5" />
+                    <ShadAlertTitle className="font-semibold">Priority Booking!</ShadAlertTitle>
+                    <ShadAlertDescription>
+                        Passenger offered an extra <strong>£{(activeRide.priorityFeeAmount || 0).toFixed(2)}</strong> for priority.
+                    </ShadAlertDescription>
+                </Alert>
+            )}
             {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center mt-1"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
 
             {showArrivedAtPickupStatus && (
@@ -620,7 +664,7 @@ export default function AvailableRidesPage() {
                     <ShadAlertDescription className="text-current text-xs">
                         Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.
                         <br />
-                        New estimated total fare (if accepted): ~£{(activeRide.fareEstimate * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER)).toFixed(2)}.
+                        New estimated total fare (if accepted): ~£{((baseFare + priorityFee) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER)).toFixed(2)}.
                         <div className="flex gap-2 mt-2">
                             <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={actionLoading[activeRide.id]}>Accept W&R</Button>
                             <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={actionLoading[activeRide.id]}>Decline W&R</Button>
@@ -706,5 +750,3 @@ export default function AvailableRidesPage() {
   const mapContainerClasses = cn( "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } );
   return ( <div className="flex flex-col h-full space-y-2"> <div className={mapContainerClasses}> <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} /> </div> <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} /> <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Are you sure you want to cancel this ride?</AlertDialogTitle> <AlertDialogDescription> This action cannot be undone. The passenger will be notified. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>Keep Ride</AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={activeRide ? actionLoading[activeRide.id] : false} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" > <span className="flex items-center justify-center">{(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Confirm Cancel</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog> </div> );
 }
-
-
