@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -557,7 +557,7 @@ export default function AvailableRidesPage() {
 
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide, isLoading: boolean }) => (
     <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
-      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm">Initiate Cancellation</Label>
+      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm"><span>Initiate Cancellation</span></Label>
       <Switch id={`cancel-ride-switch-${ride.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoadingProp} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
     </div>
   );
@@ -761,12 +761,19 @@ export default function AvailableRidesPage() {
                 disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               >
-                <span>
-                  {(activeRide && (actionLoading[activeRide.id] || false))
-                    ? "Cancelling..."
-                    : "Confirm Cancel"
-                  }
-                </span>
+                  <span className="flex items-center justify-center">
+                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                       <>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </>
+                    ) : (
+                       <>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </>
+                    )}
+                  </span>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -795,10 +802,10 @@ export default function AvailableRidesPage() {
             disabled={!activeRide || (actionLoading[activeRide.id] || false)}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
-            <span>
+            <span className="flex items-center justify-center">
             {(activeRide && (actionLoading[activeRide.id] || false))
-              ? "Cancelling..."
-              : "Confirm Cancel"
+              ? (<><Loader2 className="animate-spin mr-2 h-4 w-4" /><span>Cancelling...</span></>)
+              : (<><ShieldX className="mr-2 h-4 w-4" /><span>Confirm Cancel</span></>)
             }
             </span>
           </AlertDialogAction>
@@ -807,3 +814,5 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
+    
