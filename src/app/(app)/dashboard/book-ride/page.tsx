@@ -432,16 +432,18 @@ export default function BookRidePage() {
   }, [toast]);
 
   const handleApplyGpsSuggestion = () => {
-    if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 20) {
+    if (suggestedGpsPickup) { // Button will be disabled by gpsStyles.buttonDisabled if accuracy is poor
       form.setValue('pickupLocation', suggestedGpsPickup.address);
       setPickupInputValue(suggestedGpsPickup.address);
       setPickupCoords(suggestedGpsPickup.coords);
       setShowPickupSuggestions(false);
       setShowGpsSuggestionAlert(false);
       setGeolocationFetchStatus('success');
-      toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
-    } else if (suggestedGpsPickup) {
-        toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
+      let toastDescription = `Pickup set to: ${suggestedGpsPickup.address}.`;
+      if (suggestedGpsPickup.accuracy > 20 && suggestedGpsPickup.accuracy <= 75) {
+        toastDescription += ` (Moderate accuracy: ${suggestedGpsPickup.accuracy.toFixed(0)}m. Please double check.)`;
+      }
+      toast({ title: "GPS Location Applied", description: toastDescription});
     }
   };
 
@@ -1015,10 +1017,10 @@ export default function BookRidePage() {
       if (values.isPriorityPickup) {
           toastDescription += ` Priority Fee: £${(values.priorityFeeAmount || 0).toFixed(2)}.`;
       }
-      if (values.vehicleType === "pet_friendly_car" || values.vehicleType === "minibus_6_pet_friendly" || values.vehicleType === "minibus_8_pet_friendly") {
+      if (watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") {
         toastDescription += ` Pet Friendly Surcharge: +£${PET_FRIENDLY_SURCHARGE.toFixed(2)}.`;
       }
-      if (values.vehicleType === "disable_wheelchair_access") {
+      if (watchedVehicleType === "disable_wheelchair_access") {
         toastDescription += ` Wheelchair Access surcharge applied.`;
       }
 
@@ -1557,6 +1559,52 @@ const handleProceedToConfirmation = async () => {
     setIsPriorityFeeDialogOpen(false);
   };
 
+  const getGpsAlertStyles = (accuracy: number | undefined) => {
+    if (accuracy === undefined) { // Default or while fetching
+      return {
+        alertClass: "bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700",
+        iconClass: "text-blue-600 dark:text-blue-400",
+        titleClass: "text-blue-700 dark:text-blue-300 font-semibold",
+        descriptionClass: "text-blue-600 dark:text-blue-400",
+        buttonClass: "bg-blue-600 hover:bg-blue-700 text-white",
+        buttonDisabled: true, // Disable until accuracy is known
+        message: "Confirm GPS Pickup Location"
+      };
+    }
+    if (accuracy <= 20) { // Good
+      return {
+        alertClass: "bg-green-50 border-green-300 dark:bg-green-900/30 dark:border-green-700",
+        iconClass: "text-green-600 dark:text-green-400",
+        titleClass: "text-green-700 dark:text-green-300 font-semibold",
+        descriptionClass: "text-green-600 dark:text-green-400",
+        buttonClass: "bg-green-600 hover:bg-green-700 text-white",
+        buttonDisabled: false,
+        message: "GPS Location Accurate"
+      };
+    } else if (accuracy <= 75) { // Moderate
+      return {
+        alertClass: "bg-yellow-50 border-yellow-400 dark:bg-yellow-800/30 dark:border-yellow-700",
+        iconClass: "text-yellow-600 dark:text-yellow-400",
+        titleClass: "text-yellow-700 dark:text-yellow-300 font-semibold",
+        descriptionClass: "text-yellow-600 dark:text-yellow-400",
+        buttonClass: "bg-yellow-500 hover:bg-yellow-600 text-white",
+        buttonDisabled: false,
+        message: "GPS Location - Moderate Accuracy"
+      };
+    } else { // Poor
+      return {
+        alertClass: "bg-red-50 border-red-400 dark:bg-red-800/30 dark:border-red-700",
+        iconClass: "text-red-600 dark:text-red-400",
+        titleClass: "text-red-700 dark:text-red-300 font-semibold",
+        descriptionClass: "text-red-600 dark:text-red-400",
+        buttonClass: "bg-red-600 hover:bg-red-700 text-white",
+        buttonDisabled: true,
+        message: "GPS Location - Low Accuracy"
+      };
+    }
+  };
+  const gpsStyles = getGpsAlertStyles(suggestedGpsPickup?.accuracy);
+
 
   return (
     <div className="space-y-6">
@@ -1654,19 +1702,21 @@ const handleProceedToConfirmation = async () => {
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
                 {showGpsSuggestionAlert && suggestedGpsPickup && (
-                  <Alert variant="default" className="bg-green-50 border-green-300 dark:bg-green-900/30 dark:border-green-700">
-                    <LocateFixed className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    <ShadAlertTitle className="text-green-700 dark:text-green-300 font-semibold">Confirm GPS Pickup Location</ShadAlertTitle>
-                    <AlertDescription className="text-green-600 dark:text-green-400">
-                      {suggestedGpsPickup.address} (Accuracy: {suggestedGpsPickup.accuracy.toFixed(0)}m).
-                      <br />
-                      Please **carefully verify** if this is your exact pickup spot. If not, dismiss this and enter your address manually below.
-                      <div className="mt-2 space-x-2">
-                        <Button type="button" size="sm" onClick={handleApplyGpsSuggestion} className="bg-green-600 hover:bg-green-700 text-white">Use this</Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => {setShowGpsSuggestionAlert(false); setGeolocationFetchStatus('idle');}}>Dismiss</Button>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
+                    <Alert variant="default" className={gpsStyles.alertClass}>
+                        <LocateFixed className={`h-5 w-5 ${gpsStyles.iconClass}`} />
+                        <ShadAlertTitle className={gpsStyles.titleClass}>{gpsStyles.message}</ShadAlertTitle>
+                        <AlertDescription className={gpsStyles.descriptionClass}>
+                        Address: {suggestedGpsPickup.address} (Accuracy: {suggestedGpsPickup.accuracy.toFixed(0)}m).
+                        <br />
+                        Please **carefully verify** if this is your exact pickup spot.
+                        {gpsStyles.buttonDisabled && " Accuracy is too low to use this suggestion directly. Please enter manually."}
+                        {!gpsStyles.buttonDisabled && " If not your exact spot, dismiss and enter manually."}
+                        <div className="mt-2 space-x-2">
+                            <Button type="button" size="sm" onClick={handleApplyGpsSuggestion} className={gpsStyles.buttonClass} disabled={gpsStyles.buttonDisabled}>Use this</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => {setShowGpsSuggestionAlert(false); setGeolocationFetchStatus('idle');}}>Dismiss</Button>
+                        </div>
+                        </AlertDescription>
+                    </Alert>
                 )}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -1975,22 +2025,22 @@ const handleProceedToConfirmation = async () => {
                             </AlertDescription>
                         </Alert>
                   )}
-                   <FormField
+                  <FormField
                     control={form.control}
                     name="isPriorityPickup"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-orange-500/10">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-orange-500/10">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base flex items-center gap-2 text-orange-700 dark:text-orange-300">
+                            <FormLabel className="text-base flex items-center gap-2 text-orange-700 dark:text-orange-300">
                             <Crown className="w-5 h-5" />
                             Priority Pickup?
-                          </FormLabel>
-                          <p className="text-xs text-orange-600 dark:text-orange-400">
+                            </FormLabel>
+                            <p className="text-xs text-orange-600 dark:text-orange-400">
                             Offer an extra fee to prioritize your booking during busy times.
-                          </p>
+                            </p>
                         </div>
                         <FormControl>
-                          <Switch
+                            <Switch
                             checked={field.value}
                             onCheckedChange={(checked) => {
                                 field.onChange(checked);
@@ -1999,12 +2049,12 @@ const handleProceedToConfirmation = async () => {
                             }}
                             aria-label="Toggle Priority Pickup"
                             className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
-                          />
+                            />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
+                        </FormItem>
                     )}
-                  />
+                    />
                   {watchedIsPriorityPickup && (
                          <Alert variant="default" className="bg-orange-500/10 border-orange-500/30">
                             <Info className="h-5 w-5 text-orange-600"/>
@@ -2288,4 +2338,5 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
+
 
