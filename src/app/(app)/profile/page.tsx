@@ -6,10 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, KeyRound, AlertTriangle, Users, UserX, Car as CarIcon, Trash2 } from "lucide-react";
+import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, KeyRound, AlertTriangle, Users, UserX, Car as CarIcon, Trash2, CreditCard } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import Image from 'next/image';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -49,7 +48,7 @@ export default function ProfilePage() {
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
-  const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null); // Renamed from error
+  const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
 
 
@@ -77,7 +76,7 @@ export default function ProfilePage() {
   const fetchBlockedUsers = useCallback(async () => {
     if (!user) return;
     setIsLoadingBlockedUsers(true);
-    setErrorBlockedUsers(null); // Clear previous errors
+    setErrorBlockedUsers(null);
     try {
       const response = await fetch(`/api/users/blocks?userId=${user.id}`);
       if (!response.ok) {
@@ -89,7 +88,7 @@ export default function ProfilePage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not load blocked users."
       toast({ title: "Error", description: message, variant: "destructive" });
-      setErrorBlockedUsers(message); // Set the error state
+      setErrorBlockedUsers(message);
       setBlockedUsers([]);
     } finally {
       setIsLoadingBlockedUsers(false);
@@ -140,7 +139,7 @@ export default function ProfilePage() {
         throw new Error(errorData.message || "Failed to unblock user.");
       }
       toast({ title: "User Unblocked", description: `${blockedUserName} has been removed from your block list.` });
-      fetchBlockedUsers(); // Refresh the list
+      fetchBlockedUsers();
     } catch (error) {
       toast({ title: "Unblocking Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
     } finally {
@@ -231,8 +230,23 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {user.role === 'passenger' && <Card> <CardHeader><CardTitle>Payment Methods (Placeholder)</CardTitle></CardHeader> <CardContent> <Image src="https://placehold.co/300x100.png?text=Add+Payment+Method" data-ai-hint="credit card payment" alt="Payment methods" width={300} height={100} /> <p className="text-muted-foreground mt-2">Secure payment gateway integration via Stripe (Test Mode).</p> </CardContent> </Card> }
+      {user.role === 'passenger' && 
+        <Card>
+          <CardHeader><CardTitle className="text-xl flex items-center gap-2"><CreditCard className="w-5 h-5 text-muted-foreground"/>Payment Methods</CardTitle></CardHeader>
+          <CardContent className="flex flex-col items-center text-center">
+            <CreditCard className="w-16 h-16 text-primary mb-4 opacity-50" />
+            <p className="text-muted-foreground mb-3">
+              Securely manage your payment methods here.
+            </p>
+            <Button disabled className="bg-primary/80 hover:bg-primary/70">
+              Add Payment Method (Coming Soon)
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Integration with Stripe (Test Mode) is planned for future updates.
+            </p>
+          </CardContent>
+        </Card>
+      }
     </div>
   );
 }
-
