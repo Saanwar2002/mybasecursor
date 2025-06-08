@@ -8,7 +8,7 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase } from 'lucide-react';
+import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase, Bell } from 'lucide-react';
 import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,8 +21,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-// import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
-// import * as LucideIcons from 'lucide-react';
+import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow';
+import type { ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
+import * as LucideIcons from 'lucide-react';
 
 interface TaskItem {
   id: string;
@@ -47,15 +48,15 @@ interface TaskCategory {
   tasks?: TaskItem[];
 }
 
-// const DefaultAiTaskIcon = Lightbulb;
+const DefaultAiTaskIcon = Lightbulb;
 
-// const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
-//   switch (priority) {
-//     case 'high': return 'font-bold text-destructive';
-//     case 'medium': return 'font-semibold text-orange-600 dark:text-orange-400';
-//     default: return '';
-//   }
-// };
+const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
+  switch (priority) {
+    case 'high': return 'font-bold text-destructive';
+    case 'medium': return 'font-semibold text-orange-600 dark:text-orange-400';
+    default: return '';
+  }
+};
 
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -64,8 +65,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
-  // const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
-  // const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
+  const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
+  const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('sidebarState') !== 'collapsed'; 
@@ -81,7 +82,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const toggleSidebar = () => setIsSidebarExpanded(!isSidebarExpanded);
 
-  /*
+
   useEffect(() => {
     if (user?.role === 'admin') {
       setIsLoadingAdminTasks(true);
@@ -124,8 +125,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
         })
         .finally(() => setIsLoadingAdminTasks(false));
     }
-  }, [user?.role]); // eslint-disable-next-line react-hooks/exhaustive-deps
-  */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]);
 
 
   if (loading) {
@@ -237,7 +238,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             {renderNavItems(navItems, false, isMobileView)}
           </nav>
         </ScrollArea>
-        {/* 
+        
         {user.role === 'admin' && shouldShowLabels && (
           <Card className="m-2 bg-card/50">
             <CardHeader className="p-3">
@@ -262,7 +263,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                             <ul className="space-y-1 pl-1">
                               {category.tasks.map(task => (
                                 <li key={task.id} className="flex items-center space-x-1.5">
-                                  <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {}} className="w-3.5 h-3.5" />
+                                  <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {
+                                      // Mock toggle completion
+                                      setAdminToDoList(prev => prev.map(cat => ({
+                                          ...cat,
+                                          tasks: cat.tasks?.map(t => t.id === task.id ? {...t, completed: !t.completed} : t)
+                                      })));
+                                  }} className="w-3.5 h-3.5" />
                                   <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
                                     <span>{task.label}</span>
                                   </Label>
@@ -274,12 +281,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       </AccordionItem>
                     ))}
                   </Accordion>
-                ) : (<p className="text-muted-foreground text-center">No urgent admin tasks from AI.</p>)
+                ) : (<p className="text-muted-foreground text-center text-xs py-2">No urgent admin tasks from AI.</p>)
               }
             </CardContent>
           </Card>
         )}
-        */}
       </>
     );
   };
@@ -335,7 +341,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-              <LogOut className="h-4 w-4 mr-2" /> Logout
+               <span className="flex items-center gap-2 w-full">
+                <LogOut className="h-4 w-4" /> Logout
+               </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
