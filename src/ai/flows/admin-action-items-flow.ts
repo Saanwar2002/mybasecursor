@@ -2,7 +2,7 @@
 'use server';
 /**
  * @fileOverview An AI flow to suggest actionable to-do items for platform administrators
- * based on simulated current platform metrics.
+ * based on simulated current platform metrics and predefined development tasks.
  *
  * - getAdminActionItems - Simulates fetching or generating admin tasks based on system state.
  * - AdminActionItemsInput - Input type for the action items flow.
@@ -15,10 +15,10 @@ import { z } from 'genkit';
 
 const ActionItemSchema = z.object({
   id: z.string().describe("A unique identifier for the action item, e.g., 'review-op-apps'."),
-  category: z.string().describe("The general category of the task, e.g., 'User Management', 'System Health', 'Feature Review'."),
+  category: z.string().describe("The general category of the task, e.g., 'User Management', 'System Health', 'Development Roadmap'."),
   label: z.string().describe("A concise description of the task to be done."),
   priority: z.enum(['high', 'medium', 'low']).describe("The priority of the task."),
-  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert') relevant to the task. If unsure, omit.")
+  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog') relevant to the task. If unsure, omit.")
 });
 export type ActionItem = z.infer<typeof ActionItemSchema>;
 
@@ -45,34 +45,45 @@ const prompt = ai.definePrompt({
   input: { schema: AdminActionItemsInputSchema },
   output: { schema: AdminActionItemsOutputSchema },
   prompt: `
-    You are an AI assistant for the TaxiNow platform administrator. Your role is to suggest a short list of 2 to 4 actionable to-do items based on the current platform status.
-    Prioritize tasks that seem most urgent or impactful.
+    You are an AI assistant for the TaxiNow platform administrator. Your role is to suggest a short list of 2 to 4 actionable operational to-do items based on the current platform status, AND to include standing development roadmap items.
+    Prioritize operational tasks that seem most urgent or impactful.
 
-    Current Platform Status:
+    Current Platform Status (for operational tasks):
     - Pending Operator Approvals: {{{pendingOperatorApprovals}}}
     - Active System Alerts: {{{activeSystemAlerts}}}
     - Unresolved High-Priority Support Tickets: {{{unresolvedSupportTickets}}}
     - New Feature Feedback Items: {{{recentFeatureFeedbackCount}}}
     - Current Platform Load: {{{platformLoadPercentage}}}%
 
-    Consider the following when generating tasks:
+    Consider the following when generating operational tasks:
     - If pendingOperatorApprovals > 0, suggest reviewing them. This is usually 'high' priority if count > 3.
     - If activeSystemAlerts > 0, suggest investigating system alerts. Priority depends on the number (e.g., >1 is 'high').
     - If unresolvedSupportTickets > 0, suggest addressing support tickets. Priority 'high' if count > 5.
     - If recentFeatureFeedbackCount > 5, suggest reviewing feedback. Priority 'medium'.
     - If platformLoadPercentage > 80, suggest monitoring system performance. Priority 'high'.
     - If platformLoadPercentage > 60 but <=80, suggest checking performance logs. Priority 'medium'.
-    - Also, consider adding a general task like "Plan next marketing campaign" or "Review Q2 growth strategy" if other metrics are low, to ensure proactive work.
     - If all metrics are very low (e.g., 0 pending, 0 alerts, few tickets), suggest a proactive/strategic task like "Review platform security protocols" or "Brainstorm new feature ideas".
 
     For each task, provide:
     - id: a short, kebab-case unique identifier (e.g., 'review-ops', 'check-alerts').
-    - category: A brief category (e.g., "Operator Management", "System Monitoring", "Support", "Feature Development", "Strategic Planning").
+    - category: A brief category (e.g., "Operator Management", "System Monitoring", "Support", "Feature Development", "Strategic Planning", "Development Roadmap").
     - label: A clear, concise action item (e.g., "Review 7 pending operator applications", "Investigate 2 critical system alerts").
     - priority: 'high', 'medium', or 'low'.
-    - iconName: (Optional) Suggest a relevant Lucide icon name (e.g., Users, ShieldAlert, MessageSquare, Lightbulb). If unsure, omit it.
+    - iconName: (Optional) Suggest a relevant Lucide icon name (e.g., Users, ShieldAlert, MessageSquare, Lightbulb, ClipboardList, ServerCog). If unsure, omit it.
 
-    Generate a list of 2 to 4 diverse and relevant tasks. Ensure the labels are actionable.
+    Additionally, ALWAYS include the following two Development Roadmap items:
+    1.  id: 'dev-task-scheduled-rides-form'
+        category: 'Development Roadmap'
+        label: 'Next Step: Build out the "Create Scheduled Ride" form (recurrence, locations, return journey).'
+        priority: 'high'
+        iconName: 'ClipboardList'
+    2.  id: 'dev-reminder-backend-automation'
+        category: 'Development Roadmap'
+        label: 'Reminder: Server-side automation (Cloud Function/job) for scheduled bookings is a backend task.'
+        priority: 'medium'
+        iconName: 'ServerCog'
+
+    Generate a list of 2-4 operational tasks based on the metrics, plus the 2 development roadmap items mentioned above. Ensure the labels are actionable.
   `,
 });
 
@@ -87,4 +98,5 @@ const getAdminActionItemsFlow = ai.defineFlow(
     return output || { actionItems: [] }; // Ensure a default empty array if AI returns nothing
   }
 );
+
   
