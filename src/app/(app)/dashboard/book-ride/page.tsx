@@ -381,7 +381,7 @@ export default function BookRidePage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places"], 
+      libraries: ["geocoding", "maps", "marker", "places"],
     });
 
     loader.load().then((google) => {
@@ -432,7 +432,7 @@ export default function BookRidePage() {
   }, [toast]);
 
   const handleApplyGpsSuggestion = () => {
-    if (suggestedGpsPickup) { // Button will be disabled by gpsStyles.buttonDisabled if accuracy is poor
+    if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 75) { 
       form.setValue('pickupLocation', suggestedGpsPickup.address);
       setPickupInputValue(suggestedGpsPickup.address);
       setPickupCoords(suggestedGpsPickup.coords);
@@ -1560,18 +1560,18 @@ const handleProceedToConfirmation = async () => {
   };
 
   const getGpsAlertStyles = (accuracy: number | undefined) => {
-    if (accuracy === undefined) { // Default or while fetching
+    if (accuracy === undefined) { 
       return {
         alertClass: "bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700",
         iconClass: "text-blue-600 dark:text-blue-400",
         titleClass: "text-blue-700 dark:text-blue-300 font-semibold",
         descriptionClass: "text-blue-600 dark:text-blue-400",
         buttonClass: "bg-blue-600 hover:bg-blue-700 text-white",
-        buttonDisabled: true, // Disable until accuracy is known
+        buttonDisabled: true, 
         message: "Confirm GPS Pickup Location"
       };
     }
-    if (accuracy <= 20) { // Good
+    if (accuracy <= 20) { 
       return {
         alertClass: "bg-green-50 border-green-300 dark:bg-green-900/30 dark:border-green-700",
         iconClass: "text-green-600 dark:text-green-400",
@@ -1581,7 +1581,7 @@ const handleProceedToConfirmation = async () => {
         buttonDisabled: false,
         message: "GPS Location Accurate"
       };
-    } else if (accuracy <= 75) { // Moderate
+    } else if (accuracy <= 75) { 
       return {
         alertClass: "bg-yellow-50 border-yellow-400 dark:bg-yellow-800/30 dark:border-yellow-700",
         iconClass: "text-yellow-600 dark:text-yellow-400",
@@ -1591,7 +1591,7 @@ const handleProceedToConfirmation = async () => {
         buttonDisabled: false,
         message: "GPS Location - Moderate Accuracy"
       };
-    } else { // Poor
+    } else { 
       return {
         alertClass: "bg-red-50 border-red-400 dark:bg-red-800/30 dark:border-red-700",
         iconClass: "text-red-600 dark:text-red-400",
@@ -2025,7 +2025,7 @@ const handleProceedToConfirmation = async () => {
                             </AlertDescription>
                         </Alert>
                   )}
-                  <FormField
+                   <FormField
                     control={form.control}
                     name="isPriorityPickup"
                     render={({ field }) => (
@@ -2051,7 +2051,7 @@ const handleProceedToConfirmation = async () => {
                             className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
                             />
                         </FormControl>
-                        <FormMessage />
+                        {/* No FormMessage here as it's handled by the main form's superRefine */}
                         </FormItem>
                     )}
                     />
@@ -2322,7 +2322,7 @@ const handleProceedToConfirmation = async () => {
               onChange={(e) => setPriorityFeeInput(e.target.value)}
               placeholder="e.g., 2.00"
             />
-             <FormMessage>{form.formState.errors.priorityFeeAmount?.message}</FormMessage>
+            {/* Removed FormMessage as it caused context error */}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>
@@ -2338,5 +2338,6 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
+
 
 
