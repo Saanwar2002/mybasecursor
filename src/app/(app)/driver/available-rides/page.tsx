@@ -771,12 +771,19 @@ export default function AvailableRidesPage() {
                 disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               >
-                <span>
-                  {(activeRide && (actionLoading[activeRide.id] || false))
-                    ? "Cancelling..."
-                    : "Confirm Cancel"
-                  }
-                </span>
+                  <span className="flex items-center justify-center">
+                    {activeRide && (actionLoading[activeRide.id] || false) ? (
+                       <>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </>
+                    ) : (
+                       <>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </>
+                    )}
+                  </span>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -805,11 +812,17 @@ export default function AvailableRidesPage() {
             disabled={!activeRide || (actionLoading[activeRide.id] || false)}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
+            <span className="flex items-center justify-center">
+            {activeRide && (actionLoading[activeRide.id] || false) ? (
+              <Loader2 className="animate-spin mr-2 h-4 w-4" />
+            ) : (
+              <ShieldX className="mr-2 h-4 w-4" />
+            )}
             <span>
-            {(activeRide && (actionLoading[activeRide.id] || false))
+            {activeRide && (actionLoading[activeRide.id] || false)
               ? "Cancelling..."
-              : "Confirm Cancel"
-            }
+              : "Confirm Cancel"}
+            </span>
             </span>
           </AlertDialogAction>
         </AlertDialogFooter>
