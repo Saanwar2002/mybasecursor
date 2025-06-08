@@ -87,14 +87,14 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     const loader = new Loader({
       apiKey: apiKeyToUse,
       version: "weekly",
-      libraries: ["places", "marker", "maps"],
+      libraries: ["places", "marker", "maps", "geocoding"], // Added "geocoding"
     });
 
     loader.load().then((googleInstance) => {
       if (isMounted) {
         if (googleInstance && googleInstance.maps && googleInstance.maps.Map) {
            setIsSdkLoaded(true);
-           console.log("GoogleMapDisplay: SDK loaded successfully.");
+           console.log("GoogleMapDisplay: SDK loaded successfully with geocoding.");
         } else {
            const errorMsg = `Google Maps SDK loaded, but 'google.maps.Map' is not available. API Key used from: ${apiKeySource}. Check API key permissions for "Maps JavaScript API" in Google Cloud Console.`;
            setMapError(errorMsg);
@@ -111,7 +111,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     });
     return () => { isMounted = false; };
-  }, []); // Removed dependencies to ensure it only runs once on mount
+  }, []); 
 
   useEffect(() => {
     if (!isSdkLoaded || !mapRef.current || typeof google === 'undefined' || !google.maps) { 
@@ -139,8 +139,6 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
       mapInstanceRef.current = new google.maps.Map(mapRef.current, mapOptions);
     } else if (mapInstanceRef.current) {
-      // Only update options if they have changed, avoid re-creating the map unnecessarily.
-      // For fitBoundsToMarkers, the logic below will handle center/zoom adjustments.
       if (!fitBoundsToMarkers || !markers || markers.length < 1) {
         const currentMapCenter = mapInstanceRef.current.getCenter();
         if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
@@ -152,11 +150,9 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     }
 
-    // Clear existing markers
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
-    // Add new markers
     if (markers && markers.length > 0 && mapInstanceRef.current && google.maps && google.maps.Marker && google.maps.LatLngBounds) {
       const bounds = new google.maps.LatLngBounds();
       markers.forEach(markerData => {
@@ -184,13 +180,12 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
         if (markers.length === 1) {
             mapInstanceRef.current.setCenter(bounds.getCenter());
-            mapInstanceRef.current.setZoom(zoom); // Use default zoom for single marker unless specified otherwise
+            mapInstanceRef.current.setZoom(zoom); 
         } else {
-            mapInstanceRef.current.fitBounds(bounds, 60); // Padding of 60px
+            mapInstanceRef.current.fitBounds(bounds, 60); 
         }
       }
     } else if (mapInstanceRef.current && (!markers || markers.length === 0)) {
-      // If no markers or fitBounds is false, ensure map is centered and zoomed as per props
        const currentMapCenter = mapInstanceRef.current.getCenter();
         if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
           mapInstanceRef.current.setCenter(center);
@@ -200,9 +195,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         }
     }
 
-  }, [isSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers]); // Added dependencies that control map instance re-creation or updates
+  }, [isSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers]);
 
-  // Cleanup markers on unmount
   useEffect(() => {
     return () => {
       currentMarkersRef.current.forEach(marker => marker.setMap(null));
