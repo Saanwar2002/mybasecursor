@@ -253,7 +253,7 @@ export function RegisterForm() {
             userProfile.operatorCode,
             userProfile.driverIdentifier
           );
-          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''}` }); {/* Updated App Name */}
+          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''}` });
           setIsSubmitting(false);
         }
 
