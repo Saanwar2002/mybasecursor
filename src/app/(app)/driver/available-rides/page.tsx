@@ -750,7 +750,10 @@ export default function AvailableRidesPage() {
               <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>
+              <AlertDialogCancel 
+                onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
+                disabled={activeRide ? actionLoading[activeRide.id] : false}
+              >
                 <span>Keep Ride</span>
               </AlertDialogCancel>
               <AlertDialogAction
@@ -759,7 +762,10 @@ export default function AvailableRidesPage() {
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               >
                 <span>
-                {(activeRide && (actionLoading[activeRide.id] || false)) ? "Cancelling..." : "Confirm Cancel"}
+                  {(activeRide && (actionLoading[activeRide.id] || false))
+                    ? "Cancelling..."
+                    : "Confirm Cancel"
+                  }
                 </span>
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -778,7 +784,10 @@ export default function AvailableRidesPage() {
           <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>
+          <AlertDialogCancel 
+            onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
+            disabled={activeRide ? actionLoading[activeRide.id] : false}
+          >
             <span>Keep Ride</span>
           </AlertDialogCancel>
           <AlertDialogAction
@@ -787,7 +796,10 @@ export default function AvailableRidesPage() {
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >
             <span>
-            {(activeRide && (actionLoading[activeRide.id] || false)) ? "Cancelling..." : "Confirm Cancel"}
+            {(activeRide && (actionLoading[activeRide.id] || false))
+              ? "Cancelling..."
+              : "Confirm Cancel"
+            }
             </span>
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -795,4 +807,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
