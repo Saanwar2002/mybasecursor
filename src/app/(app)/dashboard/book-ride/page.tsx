@@ -1014,7 +1014,7 @@ export default function BookRidePage() {
       passengers: values.passengers,
       fareEstimate: baseFareEstimate, // Send the base fare; backend might combine with priority fee or handle separately
       isPriorityPickup: values.isPriorityPickup,
-      priorityFeeAmount: values.isPriorityPickup ? values.priorityFeeAmount : 0,
+      priorityFeeAmount: values.isPriorityPickup ? (values.priorityFeeAmount || 0) : 0,
       isSurgeApplied: isSurgeActive,
       surgeMultiplier: currentSurgeMultiplier,
       stopSurchargeTotal: validStopsForFare.length * PER_STOP_SURCHARGE,
@@ -1735,10 +1735,10 @@ const handleProceedToConfirmation = async () => {
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleBookRide)} className="space-y-6">
                 {showGpsSuggestionAlert && suggestedGpsPickup && (
-                  <Alert variant="default" className="bg-green-50 border-green-300">
-                    <LocateFixed className="h-5 w-5 text-green-600" />
-                    <ShadAlertTitle className="text-green-700 font-semibold">Confirm GPS Pickup Location</ShadAlertTitle>
-                    <AlertDescription className="text-green-600">
+                  <Alert variant="default" className="bg-green-50 border-green-300 dark:bg-green-900/30 dark:border-green-700">
+                    <LocateFixed className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <ShadAlertTitle className="text-green-700 dark:text-green-300 font-semibold">Confirm GPS Pickup Location</ShadAlertTitle>
+                    <AlertDescription className="text-green-600 dark:text-green-400">
                       {suggestedGpsPickup.address} (Accuracy: {suggestedGpsPickup.accuracy.toFixed(0)}m).
                       <br />
                       Please **carefully verify** if this is your exact pickup spot. If not, dismiss this and enter your address manually below.
@@ -1985,7 +1985,7 @@ const handleProceedToConfirmation = async () => {
                     )}
                   />
                   {watchedWaitAndReturn && (
-                    <Alert variant="default" className="bg-blue-50 border-blue-300 text-blue-700">
+                    <Alert variant="default" className="bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300">
                         <Timer className="h-5 w-5" />
                         <ShadAlertTitle className="font-semibold">Wait & Return Details</ShadAlertTitle>
                         <AlertDescription>
@@ -2237,11 +2237,13 @@ const handleProceedToConfirmation = async () => {
                               </div>
                             ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
                               <>
-                                {watchedIsPriorityPickup && watchedPriorityFeeAmount && (
+                                {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
                                   <>
                                     <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                    <p className="text-sm text-orange-600">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
+                                    <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
                                   </>
+                                ) : (
+                                    baseFareEstimate === totalFareEstimate && !isSurgeActive && <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
                                 )}
                                 <p className="text-3xl font-bold text-primary">Total: £{totalFareEstimate.toFixed(2)}</p>
                                 {isSurgeActive && (
@@ -2249,8 +2251,8 @@ const handleProceedToConfirmation = async () => {
                                     <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
                                   </p>
                                 )}
-                                {!isSurgeActive && !watchedIsPriorityPickup && <p className="text-xs text-muted-foreground">(Normal Fare)</p>}
-                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 mt-1">(Includes Wait & Return Surcharges)</p>}
+                                {!isSurgeActive && !watchedIsPriorityPickup && baseFareEstimate !== totalFareEstimate && <p className="text-xs text-muted-foreground">(Adjusted Fare)</p>}
+                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">(Includes Wait & Return Surcharges)</p>}
                                  <p className="text-xs text-muted-foreground mt-1">
                                     Estimates may vary based on real-time conditions.
                                 </p>
@@ -2401,7 +2403,7 @@ const handleProceedToConfirmation = async () => {
 
       <Dialog open={isPriorityFeeDialogOpen} onOpenChange={setIsPriorityFeeDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <ShadDialogTitle className="flex items-center gap-2 text-orange-600"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
+          <ShadDialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-300"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
           <ShadDialogDescription>
             Offer an extra amount to prioritize your booking. This will be added to your total fare.
           </ShadDialogDescription>
@@ -2432,4 +2434,3 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
-
