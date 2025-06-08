@@ -324,22 +324,33 @@ export default function BookRidePage() {
 
   useEffect(() => {
     setIsCheckingAvailability(true);
-    setAvailabilityStatusMessage("Checking availability in your area...");
+    setAvailabilityStatusMessage("Checking availability in your area..."); // Initial message
+
     const timer = setTimeout(() => {
-      const waitTimes = ["3-5 min", "5-8 min", "7-12 min", "10-15 min"];
+      const waitTimes = [
+        "3-5 mins",
+        "5-8 mins",
+        "7-12 mins",
+        "10-15 mins"
+      ];
       const vehicleTypes = [
-        "Standard Cars available.",
-        "Standard & Estate Cars available.",
-        "High demand. Standard Cars available.",
-        "Limited availability. Expect longer wait for Minibus." 
+        "Std Cars avail.",
+        "Std & Estate avail.",
+        "High demand. Std avail.",
+        "Ltd avail. Minibus wait."
       ];
       const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
       const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-      setAvailabilityStatusMessage(\`Estimated wait: ~$\{randomWait}. $\{randomVehicles} (Mock)\`);
+      setAvailabilityStatusMessage(
+        `Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`
+      );
       setIsCheckingAvailability(false);
     }, 1500);
+
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   useEffect(() => {
     const busynessLevels: Array<'idle' | 'moderate' | 'high'> = ['idle', 'moderate', 'high'];
@@ -370,9 +381,9 @@ export default function BookRidePage() {
       setShowPickupSuggestions(false);
       setShowGpsSuggestionAlert(false);
       setGeolocationFetchStatus('success');
-      toast({ title: "GPS Location Applied", description: \`Pickup set to: $\{suggestedGpsPickup.address}\`});
+      toast({ title: "GPS Location Applied", description: `Pickup set to: ${suggestedGpsPickup.address}`});
     } else if (suggestedGpsPickup) {
-        toast({ title: "Cannot Apply Suggestion", description: \`Location accuracy ($\{suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.\`, variant: "default"});
+        toast({ title: "Cannot Apply Suggestion", description: `Location accuracy (${suggestedGpsPickup.accuracy.toFixed(0)}m) is not high enough. Please type or select.`, variant: "default"});
     }
   };
 
@@ -516,7 +527,7 @@ export default function BookRidePage() {
         const stopIndex = formFieldNameOrStopIndex;
         setStopAutocompleteData(prev => prev.map((item, idx) =>
           idx === stopIndex
-          ? { ...item, inputValue: form.getValues(\`stops.$\${stopIndex}.location\`) || item.inputValue, coords: null, showSuggestions: false }
+          ? { ...item, inputValue: form.getValues(`stops.${stopIndex}.location`) || item.inputValue, coords: null, showSuggestions: false }
           : item
         ));
       }
@@ -566,7 +577,7 @@ export default function BookRidePage() {
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
             });
-            toast({ title: "Location Selected", description: \`$\{addressText} coordinates captured.\`});
+            toast({ title: "Location Selected", description: `${addressText} coordinates captured.`});
           } else {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
             setCoordsFunc(null);
@@ -637,7 +648,7 @@ export default function BookRidePage() {
   const handleFavoriteSelectFactory = (
     formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number,
     formOnChange: (value: string) => void,
-    doorOrFlatFormFieldName?: \`pickupDoorOrFlat\` | \`dropoffDoorOrFlat\` | \`stops.$\${number}.doorOrFlat\`
+    doorOrFlatFormFieldName?: `pickupDoorOrFlat` | `dropoffDoorOrFlat` | `stops.${number}.doorOrFlat`
   ) => (fav: FavoriteLocation) => {
     formOnChange(fav.address);
     const newCoords = { lat: fav.latitude, lng: fav.longitude };
@@ -664,7 +675,7 @@ export default function BookRidePage() {
       setDropoffCoords(newCoords);
       setShowDropoffSuggestions(false);
     }
-    toast({ title: "Favorite Applied", description: \`$\{fav.label}: $\{fav.address} selected.\` });
+    toast({ title: "Favorite Applied", description: `${fav.label}: ${fav.address} selected.` });
   };
 
   const watchedVehicleType = form.watch("vehicleType");
@@ -683,7 +694,7 @@ export default function BookRidePage() {
 
   const anyFetchingDetails = isFetchingPickupDetails || isFetchingDropoffDetails || stopAutocompleteData.some(s => s.isFetchingDetails);
   const validStopsForFare = stopAutocompleteData.filter((stopData, index) => {
-    const formStopValue = form.getValues(\`stops.$\${index}.location\`);
+    const formStopValue = form.getValues(`stops.${index}.location`);
     return stopData.coords && formStopValue && formStopValue.trim() !== "";
   });
 
@@ -786,7 +797,7 @@ export default function BookRidePage() {
     if (pickupCoords) {
       newMarkers.push({
         position: pickupCoords,
-        title: \`Pickup: $\{form.getValues('pickupLocation')}\`,
+        title: `Pickup: ${form.getValues('pickupLocation')}`,
         label: 'P'
       });
     }
@@ -799,8 +810,8 @@ export default function BookRidePage() {
         if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
              newMarkers.push({
                 position: stopData.coords,
-                title: \`Stop $\{index + 1}: $\{formStop.location}\`,
-                label: \`S$\{index + 1}\`
+                title: `Stop ${index + 1}: ${formStop.location}`,
+                label: `S${index + 1}`
             });
         }
     });
@@ -808,7 +819,7 @@ export default function BookRidePage() {
     if (dropoffCoords) {
       newMarkers.push({
         position: dropoffCoords,
-        title: \`Dropoff: $\{form.getValues('dropoffLocation')}\`,
+        title: `Dropoff: ${form.getValues('dropoffLocation')}`,
         label: 'D'
     });
     }
@@ -832,7 +843,7 @@ export default function BookRidePage() {
         const stopDoorOrFlatInput = values.stops?.[i]?.doorOrFlat;
         const stopData = stopAutocompleteData[i];
         if (stopLocationInput && stopLocationInput.trim() !== "" && !stopData?.coords) {
-            toast({ title: \`Missing Stop $\{i + 1} Details\`, description: \`Select a valid location for stop $\{i+1} or remove it.\`, variant: "destructive" });
+            toast({ title: `Missing Stop ${i + 1} Details`, description: `Select a valid location for stop ${i+1} or remove it.`, variant: "destructive" });
             return;
         }
         if (stopData?.coords && stopLocationInput && stopLocationInput.trim() !== "") {
@@ -895,33 +906,33 @@ export default function BookRidePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || \`Booking failed with status $\{response.status}\`);
+        throw new Error(errorData.message || `Booking failed with status ${response.status}`);
       }
 
       const result = await response.json();
 
-      let toastDescription = \`Ride ID: $\{result.bookingId}. \`;
+      let toastDescription = `Ride ID: ${result.bookingId}. `;
       if (values.bookingType === 'asap' && !scheduledPickupAt) {
-          toastDescription += \`We'll notify you when your driver is on the way. \`;
+          toastDescription += `We'll notify you when your driver is on the way. `;
       } else {
-          toastDescription += \`Your driver will be assigned shortly for the scheduled time. \`;
+          toastDescription += `Your driver will be assigned shortly for the scheduled time. `;
       }
       if (values.paymentMethod === 'cash') {
-          toastDescription += \`Payment: Cash to driver.\`;
+          toastDescription += `Payment: Cash to driver.`;
       } else {
-          toastDescription += \`Payment: Card (Pay driver directly).\`;
+          toastDescription += `Payment: Card (Pay driver directly).`;
       }
       if (values.waitAndReturn) {
-        toastDescription += \` Wait & Return with ~$\{values.estimatedWaitTimeMinutes} min wait.\`;
+        toastDescription += ` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.`;
       }
       if (values.isPriorityPickup) {
-          toastDescription += \` Priority Fee: £$\{(values.priorityFeeAmount || 0).toFixed(2)}.\`;
+          toastDescription += ` Priority Fee: £${(values.priorityFeeAmount || 0).toFixed(2)}.`;
       }
       if (values.vehicleType === "pet_friendly_car" || values.vehicleType === "minibus_6_pet_friendly" || values.vehicleType === "minibus_8_pet_friendly") {
-        toastDescription += \` Pet Friendly Surcharge: +£$\{PET_FRIENDLY_SURCHARGE.toFixed(2)}.\`;
+        toastDescription += ` Pet Friendly Surcharge: +£${PET_FRIENDLY_SURCHARGE.toFixed(2)}.`;
       }
       if (values.vehicleType === "disable_wheelchair_access") {
-        toastDescription += \` Wheelchair Access surcharge applied.\`;
+        toastDescription += ` Wheelchair Access surcharge applied.`;
       }
 
 
@@ -991,7 +1002,7 @@ export default function BookRidePage() {
       setCoordsFunc(null);
       form.setValue(formField, addressString);
       setInputValueFunc(addressString);
-      toast({ title: \`AI Geocoding Failed for $\{locationType}\`, description: \`Address services not ready or no address provided for "$\{addressString}". Original text kept.\`, variant: "default" });
+      toast({ title: `AI Geocoding Failed for ${locationType}`, description: `Address services not ready or no address provided for "${addressString}". Original text kept.`, variant: "default" });
       return;
     }
 
@@ -1014,12 +1025,12 @@ export default function BookRidePage() {
                     setShowGpsSuggestionAlert(false);
                     setGeolocationFetchStatus('idle');
                   }
-                  toast({ title: \`AI $\{locationType} applied\`, description: \`Set to: $\{finalAddress}\` });
+                  toast({ title: `AI ${locationType} applied`, description: `Set to: ${finalAddress}` });
                 } else {
                   setCoordsFunc(null);
                   form.setValue(formField, addressString);
                   setInputValueFunc(addressString);
-                  toast({ title: \`AI Geocoding Failed\`, description: \`Could not get details for $\{locationType}: "$\{addressString}". Original text kept.\`, variant: "default" });
+                  toast({ title: `AI Geocoding Failed`, description: `Could not get details for ${locationType}: "${addressString}". Original text kept.`, variant: "default" });
                 }
                 autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
                 resolve();
@@ -1029,7 +1040,7 @@ export default function BookRidePage() {
             setCoordsFunc(null);
             form.setValue(formField, addressString);
             setInputValueFunc(addressString);
-            toast({ title: \`AI Geocoding Failed\`, description: \`Could not find $\{locationType}: "$\{addressString}". Original text kept.\`, variant: "default" });
+            toast({ title: `AI Geocoding Failed`, description: `Could not find ${locationType}: "${addressString}". Original text kept.`, variant: "default" });
             resolve();
           }
         }
@@ -1079,7 +1090,7 @@ export default function BookRidePage() {
         )}
         {!isFetchingSuggestions && !isFetchingDetails && suggestions.map((suggestionItem) => (
           <div
-            key={\`$\{fieldKey}-$\{suggestionItem.place_id}\`}
+            key={`${fieldKey}-${suggestionItem.place_id}`}
             className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm"
             onMouseDown={() => onSuggestionClick(suggestionItem)}
           >
@@ -1108,7 +1119,7 @@ export default function BookRidePage() {
             {!isLoadingFavorites && favoriteLocations.length === 0 && <p className="p-2 text-sm text-muted-foreground">No favorites saved yet.</p>}
             {!isLoadingFavorites && favoriteLocations.map(fav => (
               <div
-                key={\`$\{triggerKey}-fav-$\${fav.id}\`}
+                key={`${triggerKey}-fav-${fav.id}`}
                 className="p-2 text-sm hover:bg-muted cursor-pointer rounded-md"
                 onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }}
               >
@@ -1161,8 +1172,8 @@ const handleProceedToConfirmation = async () => {
         for (let i = 0; i < stopFields.length; i++) {
             if (stopFields[i].location && stopFields[i].location.trim() !== "" && !stopAutocompleteData[i]?.coords) {
                  toast({
-                    title: \`Incomplete Stop $\{i + 1}\`,
-                    description: \`Please select stop $\{i+1} from suggestions or remove it.\`,
+                    title: `Incomplete Stop ${i + 1}`,
+                    description: `Please select stop ${i+1} from suggestions or remove it.`,
                     variant: "destructive",
                  });
                  return;
@@ -1417,16 +1428,16 @@ const handleProceedToConfirmation = async () => {
                             <SelectItem value="minibus_6">Minibus (6 people)</SelectItem>
                             <SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
                             <SelectItem value="pet_friendly_car" className="text-green-600 dark:text-green-400 font-medium">
-                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Car (+£$\{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
+                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Car (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
                             </SelectItem>
                             <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">
                                 <span className="flex items-center gap-1"><Wheelchair className="w-4 h-4"/> Wheelchair Access (+100%)</span>
                             </SelectItem>
                              <SelectItem value="minibus_6_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
-                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (6 ppl) (+£$\{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
+                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (6 ppl) (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
                             </SelectItem>
                              <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
-                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (8 ppl) (+£$\{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
+                                <span className="flex items-center gap-1"><Dog className="w-4 h-4"/> Pet Friendly Minibus (8 ppl) (+£{PET_FRIENDLY_SURCHARGE.toFixed(2)})</span>
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -1515,7 +1526,7 @@ const handleProceedToConfirmation = async () => {
                             ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
                               <>
                                 <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £$\{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
+                                {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
                                 {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access Surcharge Applied</p>}
                                 {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
                                   <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
@@ -1647,7 +1658,7 @@ const handleProceedToConfirmation = async () => {
           <ShadDialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</ShadDialogTitle>
           <ShadDialogDescription>
             How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
-            (10 minutes free, then £$\{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
+            (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
           </ShadDialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
@@ -1708,5 +1719,4 @@ const handleProceedToConfirmation = async () => {
     </div>
   );
 }
-
     
