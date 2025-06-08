@@ -49,6 +49,7 @@ export default function ProfilePage() {
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
+  const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null); // Renamed from error
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
 
 
@@ -76,6 +77,7 @@ export default function ProfilePage() {
   const fetchBlockedUsers = useCallback(async () => {
     if (!user) return;
     setIsLoadingBlockedUsers(true);
+    setErrorBlockedUsers(null); // Clear previous errors
     try {
       const response = await fetch(`/api/users/blocks?userId=${user.id}`);
       if (!response.ok) {
@@ -85,7 +87,9 @@ export default function ProfilePage() {
       const data: BlockedUserDisplay[] = await response.json();
       setBlockedUsers(data);
     } catch (error) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Could not load blocked users.", variant: "destructive" });
+      const message = error instanceof Error ? error.message : "Could not load blocked users."
+      toast({ title: "Error", description: message, variant: "destructive" });
+      setErrorBlockedUsers(message); // Set the error state
       setBlockedUsers([]);
     } finally {
       setIsLoadingBlockedUsers(false);
@@ -184,9 +188,9 @@ export default function ProfilePage() {
         <CardHeader> <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-muted-foreground"/>Manage Blocked Users</CardTitle> <CardDescription>Review and manage users you have blocked.</CardDescription> </CardHeader>
         <CardContent>
           {isLoadingBlockedUsers && <div className="flex items-center justify-center p-4"><Loader2 className="mr-2 h-5 w-5 animate-spin"/>Loading blocked users...</div>}
-          {!isLoadingBlockedUsers && error && <p className="text-destructive">Error loading blocked users: {error}</p>}
-          {!isLoadingBlockedUsers && !error && blockedUsers.length === 0 && <p className="text-muted-foreground">You haven't blocked any users.</p>}
-          {!isLoadingBlockedUsers && !error && blockedUsers.length > 0 && (
+          {!isLoadingBlockedUsers && errorBlockedUsers && <p className="text-destructive">Error loading blocked users: {errorBlockedUsers}</p>}
+          {!isLoadingBlockedUsers && !errorBlockedUsers && blockedUsers.length === 0 && <p className="text-muted-foreground">You haven't blocked any users.</p>}
+          {!isLoadingBlockedUsers && !errorBlockedUsers && blockedUsers.length > 0 && (
             <div className="space-y-3">
               {blockedUsers.map((blocked) => (
                 <div key={blocked.blockId} className="flex items-center justify-between p-3 border rounded-md bg-card hover:shadow-sm">
@@ -231,3 +235,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
