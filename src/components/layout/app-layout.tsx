@@ -223,7 +223,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
             <Link href="/" className="flex items-center" aria-label="MyBase Home">
-              <MyBaseLogoIcon className="h-10 w-28 md:w-32 shrink-0" />
+              <MyBaseLogoIcon className="h-10 w-28 md:w-32 shrink-0" priority />
             </Link>
           )}
           {!isMobileView && ( 
@@ -306,7 +306,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
               <Avatar>
-                <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile small" />
+                <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile small"/>
                 <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
             </Button>
@@ -319,11 +319,23 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild><Link href="/profile"><UserCircle className="mr-2" /> Profile</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/settings"><Settings className="mr-2" /> Settings</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/profile">
+                <span className="flex items-center gap-2 w-full">
+                  <UserCircle className="h-4 w-4" /> Profile
+                </span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <span className="flex items-center gap-2 w-full">
+                  <Settings className="h-4 w-4" /> Settings
+                </span>
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-              <LogOut className="mr-2" /> Logout
+              <LogOut className="h-4 w-4 mr-2" /> Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
