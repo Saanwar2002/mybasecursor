@@ -49,12 +49,11 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   useEffect(() => {
     let isMounted = true;
 
-    // Log environment variables seen by the component
     console.log("GoogleMapDisplay ENV CHECK (mounted): NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:", process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
     console.log("GoogleMapDisplay ENV CHECK (mounted): NEXT_PUBLIC_FIREBASE_API_KEY:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
 
     const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    const firebaseApiKeyForMapsFallback = process.env.NEXT_PUBLIC_FIREBASE_API_KEY; // Use this for the second check if primary maps key is missing
+    const firebaseApiKeyForMapsFallback = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     let apiKeyToUse: string | undefined = undefined;
     let apiKeySource: string = "unknown";
 
@@ -87,7 +86,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     const loader = new Loader({
       apiKey: apiKeyToUse,
       version: "weekly",
-      libraries: ["places", "marker", "maps", "geocoding"], // Added "geocoding"
+      libraries: ["geocoding", "maps", "marker", "places"],
     });
 
     loader.load().then((googleInstance) => {

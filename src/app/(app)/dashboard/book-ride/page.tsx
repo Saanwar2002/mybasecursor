@@ -386,7 +386,7 @@ export default function BookRidePage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["places", "marker", "geocoding", "maps"], 
+      libraries: ["geocoding", "maps", "marker", "places"], 
     });
 
     loader.load().then((google) => {
@@ -1945,7 +1945,7 @@ const handleProceedToConfirmation = async () => {
                         </FormItem>
                     )}
                   />
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-primary/5">
                         <div className="space-y-0.5">
                             <FormLabel className="text-base flex items-center gap-2">
                                 <RefreshCwIcon className="w-5 h-5 text-primary" />
@@ -2289,4 +2289,3 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
-
