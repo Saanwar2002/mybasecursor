@@ -341,7 +341,9 @@ export default function BookRidePage() {
     const timer = setTimeout(() => {
       const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
       const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-      setAvailabilityStatusMessage("Estimated wait: ~" + randomWait + ". " + randomVehicles + " (Mock)");
+      setAvailabilityStatusMessage(
+        "Estimated wait: ~" + randomWait + ". " + randomVehicles + " (Mock)"
+      );
       setIsCheckingAvailability(false);
     }, 1500);
     return () => clearTimeout(timer);
@@ -1901,18 +1903,10 @@ const handleProceedToConfirmation = async () => {
                             <SelectItem value="estate">Estate Car</SelectItem>
                             <SelectItem value="minibus_6">Minibus (6 people)</SelectItem>
                             <SelectItem value="minibus_8">Minibus (8 people)</SelectItem>
-                            <SelectItem value="pet_friendly_car" className="text-green-600 dark:text-green-400 font-medium">
-                              <span className="flex items-center gap-2"><Dog className="w-4 h-4" />Pet Friendly Car</span>
-                            </SelectItem>
-                            <SelectItem value="minibus_6_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
-                               <span className="flex items-center gap-2"><Dog className="w-4 h-4" />Pet Friendly Minibus (6 ppl)</span>
-                            </SelectItem>
-                            <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">
-                               <span className="flex items-center gap-2"><Dog className="w-4 h-4" />Pet Friendly Minibus (8 ppl)</span>
-                            </SelectItem>
-                            <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">
-                              <span className="flex items-center gap-2"><Wheelchair className="w-4 h-4" />Wheelchair Accessible</span>
-                            </SelectItem>
+                            <SelectItem value="pet_friendly_car" className="text-green-600 dark:text-green-400 font-medium">Pet Friendly Car</SelectItem>
+                            <SelectItem value="minibus_6_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">Pet Friendly Minibus (6 ppl)</SelectItem>
+                            <SelectItem value="minibus_8_pet_friendly" className="text-green-600 dark:text-green-400 font-medium">Pet Friendly Minibus (8 ppl)</SelectItem>
+                            <SelectItem value="disable_wheelchair_access" className="text-blue-600 dark:text-blue-400 font-medium">Wheelchair Accessible</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -1944,7 +1938,7 @@ const handleProceedToConfirmation = async () => {
                         </FormItem>
                     )}
                   />
-                <FormField
+                  <FormField
                     control={form.control}
                     name="waitAndReturn"
                     render={({ field }) => (
@@ -1987,7 +1981,7 @@ const handleProceedToConfirmation = async () => {
                             </AlertDescription>
                         </Alert>
                   )}
-                 <FormField
+                  <FormField
                     control={form.control}
                     name="isPriorityPickup"
                     render={({ field }) => (
