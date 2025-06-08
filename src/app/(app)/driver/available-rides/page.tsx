@@ -702,14 +702,14 @@ export default function AvailableRidesPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Block {activeRide.passengerName}?</AlertDialogTitle>
+                        <AlertDialogTitle><span>Block {activeRide.passengerName}?</span></AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to block this passenger? You will not be offered rides from them in the future. This action can be undone in your profile settings.
+                          <span>Are you sure you want to block this passenger? You will not be offered rides from them in the future. This action can be undone in your profile settings.</span>
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBlockPassenger} className="bg-destructive hover:bg-destructive/90">Block Passenger</AlertDialogAction>
+                        <AlertDialogCancel><span>Cancel</span></AlertDialogCancel>
+                        <AlertDialogAction onClick={handleBlockPassenger} className="bg-destructive hover:bg-destructive/90"><span>Block Passenger</span></AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -753,8 +753,24 @@ export default function AvailableRidesPage() {
               <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>
                 <span>Keep Ride</span>
               </AlertDialogCancel>
-              <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={!activeRide || (actionLoading[activeRide.id] || false)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" >
-                <span>Confirm Cancel</span>
+              <AlertDialogAction 
+                onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} 
+                disabled={!activeRide || (actionLoading[activeRide.id] || false)} 
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
+              >
+                <span className="flex items-center justify-center">
+                  {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                     <span className="flex items-center justify-center">
+                       <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                       <span>Cancelling...</span>
+                     </span>
+                  ) : (
+                     <span className="flex items-center justify-center">
+                       <ShieldX className="mr-2 h-4 w-4" />
+                       <span>Confirm Cancel</span>
+                    </span>
+                  )}
+                </span>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -764,6 +780,39 @@ export default function AvailableRidesPage() {
   }
 
   const mapContainerClasses = cn( "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } );
-  return ( <div className="flex flex-col h-full space-y-2"> <div className={mapContainerClasses}> <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} /> </div> <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} /> <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle><span>Are you sure you want to cancel this ride?</span></AlertDialogTitle> <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}><span>Keep Ride</span></AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={activeRide ? actionLoading[activeRide.id] : false} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" > <span>Confirm Cancel</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog> </div> );
+  return ( <div className="flex flex-col h-full space-y-2"> <div className={mapContainerClasses}> <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} /> </div> <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} /> 
+    <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle><span>Are you sure you want to cancel this ride?</span></AlertDialogTitle>
+          <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? actionLoading[activeRide.id] : false}>
+            <span>Keep Ride</span>
+          </AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} 
+            disabled={!activeRide || (actionLoading[activeRide.id] || false)} 
+            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
+          >
+             <span className="flex items-center justify-center">
+              {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                 <span className="flex items-center justify-center">
+                   <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                   <span>Cancelling...</span>
+                 </span>
+              ) : (
+                 <span className="flex items-center justify-center">
+                   <ShieldX className="mr-2 h-4 w-4" />
+                   <span>Confirm Cancel</span>
+                </span>
+              )}
+            </span>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </div> );
 }
 
