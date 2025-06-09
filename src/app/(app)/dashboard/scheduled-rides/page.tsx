@@ -212,7 +212,7 @@ export default function ScheduledRidesPage() {
                            <p><strong>Stops:</strong> {schedule.stops.map(s => `${s.address}${s.doorOrFlat ? ` (${s.doorOrFlat})` : ''}`).join('; ') || "None"}</p>
                         )}
                         <p><strong>To:</strong> {schedule.dropoffLocation?.address || "N/A"} {schedule.dropoffLocation?.doorOrFlat && `(${schedule.dropoffLocation.doorOrFlat})`}</p>
-                        <p><strong>Days:</strong> {schedule.daysOfWeek.join(', ')} at {schedule.pickupTime}</p>
+                        <p><strong>Days:</strong> {schedule.daysOfWeek.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ')} at {schedule.pickupTime}</p>
                         
                         <p><strong>Vehicle:</strong> {schedule.vehicleType}</p>
                         <p><strong>Passengers:</strong> {schedule.passengers}</p>
