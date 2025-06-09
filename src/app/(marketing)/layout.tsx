@@ -7,11 +7,10 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <PublicHeader />
-      <main className="flex-grow container mx-auto px-4 pt-0 pb-8 flex justify-center items-center"> {/* Changed pt-2 to pt-0 */}
+      <main className="flex-grow container mx-auto px-4 pt-8 pb-8 flex flex-col items-center"> {/* Changed pt-0 to pt-8 and justify-center to flex-col items-center */}
         {children}
       </main>
       <PublicFooter />
     </div>
   );
 }
-
