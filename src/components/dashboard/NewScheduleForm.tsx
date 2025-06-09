@@ -33,7 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
-import { useRouter } from 'next/navigation'; // Added for redirect
+import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 
@@ -109,7 +109,7 @@ const scheduledRideFormSchema = z.object({
 
 type ScheduledRideFormValues = z.infer<typeof scheduledRideFormSchema>;
 
-export function NewScheduleForm() { // Renamed component
+export function NewScheduleForm() {
   const { toast } = useToast();
   const { user } = useAuth();
   const router = useRouter();
@@ -345,30 +345,71 @@ export function NewScheduleForm() { // Renamed component
   async function onSubmit(values: ScheduledRideFormValues) {
     if (!user) { toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" }); return; }
     if (!pickupCoords || !dropoffCoords) { toast({ title: "Missing Location Details", description: "Ensure pickup/dropoff are selected from suggestions.", variant: "destructive" }); return; }
+    
     const validStopsData = [];
     for (let i = 0; i < (values.stops?.length || 0); i++) {
-        if (values.stops?.[i]?.location.trim() && !stopAutocompleteData[i]?.coords) { toast({ title: `Stop ${i+1} Error`, description: `Select stop ${i+1} from suggestions.`, variant: "destructive" }); return; }
-        if (stopAutocompleteData[i]?.coords && values.stops?.[i]?.location.trim()) validStopsData.push({ address: values.stops?.[i]?.location, latitude: stopAutocompleteData[i].coords!.lat, longitude: stopAutocompleteData[i].coords!.lng, doorOrFlat: values.stops?.[i]?.doorOrFlat });
+      const stopValue = values.stops?.[i];
+      const stopAutocomplete = stopAutocompleteData[i];
+        if (stopValue?.location?.trim() && !stopAutocomplete?.coords) { 
+            toast({ title: `Stop ${i+1} Error`, description: `Select stop ${i+1} from suggestions.`, variant: "destructive" }); 
+            return; 
+        }
+        if (stopAutocomplete?.coords && stopValue?.location?.trim()) {
+            validStopsData.push({ 
+                address: stopValue.location, 
+                latitude: stopAutocomplete.coords.lat, 
+                longitude: stopAutocomplete.coords.lng, 
+                doorOrFlat: stopValue.doorOrFlat 
+            });
+        }
     }
+    
     setIsSubmitting(true);
+    console.log("NewScheduleForm.tsx: Attempting to create REAL scheduled booking with payload. User:", user);
     const payload = {
       ...values,
       passengerId: user.id,
-      passengerName: user.name,
+      passengerName: user.name, // Make sure user.name is available
       pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
       dropoffLocation: { address: values.dropoffLocation, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat },
       stops: validStopsData,
-      isActive: true, // Default to active
+      isActive: true,
     };
+
+    console.log("NewScheduleForm.tsx: Payload to be sent:", JSON.stringify(payload, null, 2));
+
     try {
-      console.log("Attempting to create scheduled booking with payload:", payload);
-      const response = await fetch('/api/scheduled-bookings/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || `Failed to create: ${response.status}`); }
+      console.log("NewScheduleForm.tsx: PRE-FETCH to /api/scheduled-bookings/create");
+      const response = await fetch('/api/scheduled-bookings/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      console.log("NewScheduleForm.tsx: POST-FETCH. Response status:", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `Request failed with status ${response.status}` }));
+        console.error("NewScheduleForm.tsx: API error response data:", errorData);
+        throw new Error(errorData.message || `Failed to create schedule: ${response.status}`);
+      }
       const result = await response.json();
-      toast({ title: "Schedule Created!", description: `"${result.data.label}" saved (ID: ${result.id}). Mock API used.` });
+      console.log("NewScheduleForm.tsx: API success. Result:", result);
+      toast({
+        title: "Schedule Creation API Called!",
+        description: `Schedule "${result.data.label}" (ID: ${result.id}) submitted to backend.`,
+        duration: 7000,
+      });
       router.push('/dashboard/scheduled-rides');
-    } catch (error) { console.error("Schedule creation error:", error); toast({ title: "Schedule Creation Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
-    } finally { setIsSubmitting(false); }
+    } catch (error) {
+      console.error("NewScheduleForm.tsx: Schedule creation error in try-catch:", error);
+      toast({
+        title: "Schedule Creation Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred making the API call.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const dayItems: {id: z.infer<typeof daysOfWeekEnum>; label: string}[] = [
