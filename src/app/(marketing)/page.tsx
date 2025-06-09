@@ -6,7 +6,7 @@ import Link from 'next/link';
 export default function LandingPage() {
   console.log("Minimal Marketing LandingPage rendering...");
   return (
-    <div className="container mx-auto px-4 py-10 text-center border-2 border-blue-500">
+    <div className="container mx-auto px-4 py-10 text-center"> {/* Removed blue border */}
       <h1 className="text-5xl font-bold text-primary mb-6">MyBase Minimal Landing</h1>
       <p className="text-xl text-muted-foreground mb-8">
         This is a test to see if basic styling and routing works.

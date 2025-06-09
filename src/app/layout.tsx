@@ -13,7 +13,7 @@ export default function RootLayout({
   console.log("RootLayout rendering...");
   return (
     <html lang="en" suppressHydrationWarning>
-      <body style={{ border: '5px solid green', minHeight: '100vh' }}> {/* Added green border for RootLayout check */}
+      <body> {/* Removed inline style for green border */}
         <ThemeInitializer>
           <AuthProvider>
             {children}
