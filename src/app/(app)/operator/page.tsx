@@ -167,7 +167,14 @@ export default function OperatorDashboardPage() {
             </Button>
           </div>
           <div className="flex-shrink-0">
-            <Image src="https://placehold.co/300x200.png" alt="Operator control panel" data-ai-hint="control panel city" width={300} height={200} className="rounded-lg shadow-md" />
+            <Image 
+              src="https://placehold.co/300x200.png" 
+              alt="Operator control panel" 
+              data-ai-hint="control panel city" 
+              width={300} 
+              height={200} 
+              className="rounded-lg shadow-md object-cover" 
+            />
           </div>
         </CardContent>
       </Card>

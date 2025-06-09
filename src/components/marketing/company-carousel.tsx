@@ -117,8 +117,8 @@ export function CompanyCarousel() {
                 <Image
                   src={slide.imageUrl}
                   alt={slide.title}
-                  layout="fill"
-                  objectFit="cover"
+                  fill={true}
+                  style={{objectFit: "cover"}}
                   data-ai-hint={slide.imageHint}
                   priority={index === 0}
                 />
