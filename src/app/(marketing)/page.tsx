@@ -51,6 +51,9 @@ export default function LandingPage() {
             <Button size="lg" variant="outline" className="text-lg px-8 py-3 border-primary text-primary hover:bg-primary/10 shadow-md hover:shadow-lg transition-shadow" asChild>
               <Link href="/register?role=driver">Drive for MyBase</Link>
             </Button>
+            <Button size="lg" variant="secondary" className="text-lg px-8 py-3 shadow-md hover:shadow-lg transition-shadow" asChild>
+              <Link href="/login">Log In</Link>
+            </Button>
           </div>
         </div>
       </section>
