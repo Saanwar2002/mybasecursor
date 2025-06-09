@@ -38,7 +38,7 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-2 items-center gap-8 md:gap-16">
           <div className="space-y-6 text-center md:text-left">
             
-            <Image src="/mybase-logo.png" alt="MyBase Logo" width={240} height={60} className="mx-auto md:mx-0 mb-4" priority data-ai-hint="logo brand" />
+            <Image src="/mybase-logo.png" alt="MyBase Logo" width={300} height={75} className="mx-auto md:mx-0 mb-4" priority data-ai-hint="logo brand" />
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground tracking-tight">
               Welcome to MyBase
             </h1>
