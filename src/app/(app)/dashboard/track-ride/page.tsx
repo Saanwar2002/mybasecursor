@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw } from "lucide-react"; // Added RefreshCw
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'; // Ensured React is imported
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -80,8 +80,8 @@ interface ActiveRide {
   driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
   driverVehicleDetails?: string;
-  waitAndReturn?: boolean; // Added
-  estimatedAdditionalWaitTimeMinutes?: number; // Added
+  waitAndReturn?: boolean; 
+  estimatedAdditionalWaitTimeMinutes?: number; 
 }
 
 const formatDate = (timestamp?: SerializedTimestamp | string | null, isoString?: string | null): string => {
@@ -89,21 +89,21 @@ const formatDate = (timestamp?: SerializedTimestamp | string | null, isoString?:
     try {
       const date = parseISO(isoString);
       if (!isValid(date)) return 'Scheduled N/A';
-      return format(date, "MMM do, yyyy \'at\' p");
+      return format(date, "MMM do, yyyy 'at' p");
     } catch (e) { return 'Scheduled N/A'; }
   }
    if (!timestamp) return 'N/A';
   if (typeof timestamp === 'string') {
     try {
       const date = new Date(timestamp);
-      return isNaN(date.getTime()) ? 'N/A (Invalid ISO str)' : format(date, "MMM do, yyyy \'at\' p");
+      return isNaN(date.getTime()) ? 'N/A (Invalid ISO str)' : format(date, "MMM do, yyyy 'at' p");
     } catch (e) { return 'N/A (ISO Parse Err)';}
   }
   if (typeof timestamp === 'object' && '_seconds' in timestamp && '_nanoseconds' in timestamp) {
      try {
       const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
       if (!isValid(date)) return 'Invalid Date Obj';
-      return format(date, "MMM do, yyyy \'at\' p");
+      return format(date, "MMM do, yyyy 'at' p");
     } catch (e) { return 'Date Conversion Err'; }
   }
   return 'N/A (Unknown format)';
@@ -468,7 +468,7 @@ export default function MyActiveRidePage() {
         throw new Error(errorData.message || "Failed to request Wait & Return.");
       }
       const updatedBooking = await response.json();
-      setActiveRide(updatedBooking.booking); // Update local state with backend response
+      setActiveRide(updatedBooking.booking); 
       toast({ title: "Wait & Return Requested", description: "Your request has been sent to the driver for confirmation." });
       setIsWRRequestDialogOpen(false);
     } catch (error) {
@@ -522,7 +522,7 @@ export default function MyActiveRidePage() {
     if (!activeRide) return [];
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     if (activeRide.driverCurrentLocation) {
-        markers.push({ position: activeRide.driverCurrentLocation, title: "Driver\'s Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+        markers.push({ position: activeRide.driverCurrentLocation, title: "Driver's Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
     }
 
     if (activeRide.pickupLocation) {
@@ -572,7 +572,7 @@ export default function MyActiveRidePage() {
   let fareDisplay = `£${(activeRide?.fareEstimate ?? 0).toFixed(2)}`;
   if (activeRide?.status === 'in_progress_wait_and_return' || activeRide?.waitAndReturn) {
     const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * WAITING_CHARGE_PER_MINUTE_PASSENGER;
-    const waitAndReturnBaseFare = (activeRide.fareEstimate || 0) * 1.70; // Assuming fareEstimate before W&R was one-way base
+    const waitAndReturnBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
     fareDisplay = `£${(waitAndReturnBaseFare + additionalWaitCharge).toFixed(2)} (W&R)`;
   }
 
@@ -739,22 +739,24 @@ export default function MyActiveRidePage() {
                 <AlertDialogAction
                   onClick={() => { 
                     if (activeRide) { handleInitiateCancelRide(); } 
-                    setShowCancelConfirmationDialog(false); // Close dialog after action
+                    setShowCancelConfirmationDialog(false); 
                   }}
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                    <span className="flex items-center justify-center">
-                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                      <span>Cancelling...</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center">
-                      <ShieldX className="mr-2 h-4 w-4" />
-                      <span>Confirm Cancel</span>
-                    </span>
-                  )}
+                  <span className="flex items-center justify-center">
+                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                      <React.Fragment>
+                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                        <span>Cancelling...</span>
+                      </React.Fragment>
+                    ) : (
+                      <React.Fragment>
+                        <ShieldX className="mr-2 h-4 w-4" />
+                        <span>Confirm Cancel</span>
+                      </React.Fragment>
+                    )}
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -832,4 +834,5 @@ export default function MyActiveRidePage() {
 
 
     
+
 
