@@ -1,5 +1,7 @@
+
 "use client";
 
+import React from 'react'; // Ensure React is imported
 import Link from 'next/link';
 // Image import might be needed if you restore an image logo
 // import Image from 'next/image'; 
