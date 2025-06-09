@@ -2,14 +2,11 @@
 
 export function PublicFooter() {
   return (
-    <footer style={{ border: '2px solid green', padding: '10px', margin: '10px', backgroundColor: 'lightgreen' }}>
-      <h1 style={{ fontSize: '20px', color: 'green' }}>PUBLIC FOOTER HERE</h1>
-      {/*
+    <footer className="py-8 bg-muted/50 border-t">
       <div className="container mx-auto text-center text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} MyBase. All rights reserved.</p> 
-        <p className="text-sm mt-1">ONE APP MANY CHOICES.</p> 
+        <p className="text-sm">&copy; {new Date().getFullYear()} MyBase. All rights reserved.</p>
+        <p className="text-xs mt-1">Your Journey, Simplified.</p>
       </div>
-      */}
     </footer>
   );
 }
