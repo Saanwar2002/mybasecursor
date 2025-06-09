@@ -8,7 +8,7 @@ export default function RootLayout({
 }: Readonly<{
   children: ReactNode;
 }>) {
-  console.log("RootLayout rendering (ULTRA-SIMPLIFIED for manifest debug)...");
+  // console.log("RootLayout rendering (ULTRA-SIMPLIFIED for manifest debug)..."); // Removed
   return (
     <html lang="en" suppressHydrationWarning>
       <body style={{ border: '5px solid limegreen', padding: '10px', margin: '10px' }}>

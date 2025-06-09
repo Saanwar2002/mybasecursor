@@ -1,7 +1,7 @@
-import React from 'react';
+// import React from 'react'; // Not strictly needed for simple JSX
 
 export default function MarketingPage() {
-  console.log("MarketingPage rendering (ULTRA-SIMPLIFIED for manifest debug)...");
+  // console.log("MarketingPage rendering (ULTRA-SIMPLIFIED for manifest debug)..."); // Removed
   return (
     <div style={{ border: '5px solid purple', padding: '10px', margin: '10px' }}>
       <h1 style={{ fontSize: '24px', color: 'purple', fontWeight: 'bold' }}>ULTRA-SIMPLIFIED MARKETING PAGE CONTENT</h1>
