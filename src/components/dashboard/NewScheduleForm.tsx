@@ -26,7 +26,7 @@ import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader';
 import { useAuth } from '@/contexts/auth-context';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, addDays, set } from "date-fns";
+import { format, addDays, set, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +36,8 @@ import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/compone
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import type { ScheduledBooking } from '@/app/(app)/dashboard/scheduled-rides/page';
+
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -85,11 +87,13 @@ const scheduledRideFormSchema = z.object({
   daysOfWeek: z.array(daysOfWeekEnum).min(1, { message: "Select at least one day for the schedule."}),
   pickupTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Invalid time format (HH:MM)."}),
   isReturnJourneyScheduled: z.boolean().default(false),
-  returnPickupTime: z.string().optional(),
+  returnPickupTime: z.string().optional().nullable(),
   isWaitAndReturnOutbound: z.boolean().default(false),
-  estimatedWaitTimeMinutesOutbound: z.number().int().min(0).optional(),
-  driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional(),
+  estimatedWaitTimeMinutesOutbound: z.number().int().min(0).optional().nullable(),
+  driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional().nullable(),
   paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
+  // Fields for edit mode that are not directly part of the form but needed for submission
+  isActive: z.boolean().optional(), // For sending existing status during edit
 }).superRefine((data, ctx) => {
   if (data.isReturnJourneyScheduled && (!data.returnPickupTime || !data.returnPickupTime.match(/^([01]\d|2[0-3]):([0-5]\d)$/))) {
     ctx.addIssue({
@@ -98,7 +102,7 @@ const scheduledRideFormSchema = z.object({
       path: ["returnPickupTime"],
     });
   }
-  if (data.isWaitAndReturnOutbound && (data.estimatedWaitTimeMinutesOutbound === undefined || data.estimatedWaitTimeMinutesOutbound < 0)) {
+  if (data.isWaitAndReturnOutbound && (data.estimatedWaitTimeMinutesOutbound === undefined || data.estimatedWaitTimeMinutesOutbound === null || data.estimatedWaitTimeMinutesOutbound < 0)) {
     ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Estimated wait time (outbound) is required for Wait & Return.",
@@ -109,7 +113,12 @@ const scheduledRideFormSchema = z.object({
 
 type ScheduledRideFormValues = z.infer<typeof scheduledRideFormSchema>;
 
-export function NewScheduleForm() {
+interface NewScheduleFormProps {
+  initialData?: ScheduledBooking | null;
+  isEditMode?: boolean;
+}
+
+export function NewScheduleForm({ initialData, isEditMode = false }: NewScheduleFormProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const router = useRouter();
@@ -142,25 +151,75 @@ export function NewScheduleForm() {
 
   const form = useForm<ScheduledRideFormValues>({
     resolver: zodResolver(scheduledRideFormSchema),
-    defaultValues: {
+    defaultValues: initialData ? {
+        label: initialData.label,
+        pickupDoorOrFlat: initialData.pickupLocation.doorOrFlat || "",
+        pickupLocation: initialData.pickupLocation.address,
+        dropoffDoorOrFlat: initialData.dropoffLocation.doorOrFlat || "",
+        dropoffLocation: initialData.dropoffLocation.address,
+        stops: initialData.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || "" })) || [],
+        vehicleType: initialData.vehicleType as any, // Assuming type compatibility
+        passengers: initialData.passengers,
+        daysOfWeek: initialData.daysOfWeek as any[], // Assuming type compatibility
+        pickupTime: initialData.pickupTime,
+        isReturnJourneyScheduled: initialData.isReturnJourneyScheduled,
+        returnPickupTime: initialData.returnPickupTime || "",
+        isWaitAndReturnOutbound: initialData.isWaitAndReturnOutbound,
+        estimatedWaitTimeMinutesOutbound: initialData.estimatedWaitTimeMinutesOutbound === null ? undefined : initialData.estimatedWaitTimeMinutesOutbound,
+        driverNotes: initialData.driverNotes || "",
+        paymentMethod: initialData.paymentMethod,
+        isActive: initialData.isActive,
+    } : {
       label: "",
-      pickupDoorOrFlat: "",
-      pickupLocation: "",
-      dropoffDoorOrFlat: "",
-      dropoffLocation: "",
-      stops: [],
-      vehicleType: "car",
-      passengers: 1,
-      daysOfWeek: [],
-      pickupTime: "09:00",
-      isReturnJourneyScheduled: false,
-      returnPickupTime: "",
-      isWaitAndReturnOutbound: false,
-      estimatedWaitTimeMinutesOutbound: 10,
-      driverNotes: "",
-      paymentMethod: "card",
+      pickupDoorOrFlat: "", pickupLocation: "",
+      dropoffDoorOrFlat: "", dropoffLocation: "",
+      stops: [], vehicleType: "car", passengers: 1, daysOfWeek: [], pickupTime: "09:00",
+      isReturnJourneyScheduled: false, returnPickupTime: "",
+      isWaitAndReturnOutbound: false, estimatedWaitTimeMinutesOutbound: 10,
+      driverNotes: "", paymentMethod: "card", isActive: true,
     },
   });
+  
+  useEffect(() => {
+    if (isEditMode && initialData) {
+        form.reset({
+            label: initialData.label,
+            pickupDoorOrFlat: initialData.pickupLocation.doorOrFlat || "",
+            pickupLocation: initialData.pickupLocation.address,
+            dropoffDoorOrFlat: initialData.dropoffLocation.doorOrFlat || "",
+            dropoffLocation: initialData.dropoffLocation.address,
+            stops: initialData.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || "" })) || [],
+            vehicleType: initialData.vehicleType as any,
+            passengers: initialData.passengers,
+            daysOfWeek: initialData.daysOfWeek as any[],
+            pickupTime: initialData.pickupTime,
+            isReturnJourneyScheduled: initialData.isReturnJourneyScheduled,
+            returnPickupTime: initialData.returnPickupTime || "",
+            isWaitAndReturnOutbound: initialData.isWaitAndReturnOutbound,
+            estimatedWaitTimeMinutesOutbound: initialData.estimatedWaitTimeMinutesOutbound === null ? undefined : initialData.estimatedWaitTimeMinutesOutbound,
+            driverNotes: initialData.driverNotes || "",
+            paymentMethod: initialData.paymentMethod,
+            isActive: initialData.isActive,
+        });
+        setPickupInputValue(initialData.pickupLocation.address);
+        setPickupCoords({ lat: initialData.pickupLocation.latitude, lng: initialData.pickupLocation.longitude });
+        setDropoffInputValue(initialData.dropoffLocation.address);
+        setDropoffCoords({ lat: initialData.dropoffLocation.latitude, lng: initialData.dropoffLocation.longitude });
+        
+        const initialStopsData: AutocompleteData[] = (initialData.stops || []).map((stop, index) => ({
+            fieldId: `stop-${index}-${Date.now()}`, // Unique ID for key
+            inputValue: stop.address,
+            coords: { lat: stop.latitude, lng: stop.longitude },
+            suggestions: [],
+            showSuggestions: false,
+            isFetchingSuggestions: false,
+            isFetchingDetails: false,
+        }));
+        setStopAutocompleteData(initialStopsData);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, isEditMode, form.reset]); // form.reset added to dependencies
+
 
   const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
@@ -321,7 +380,7 @@ export function NewScheduleForm() {
     toast({ title: "Favorite Applied", description: `${fav.label}: ${fav.address} selected.` });
   };
   
-  const handleAddStop = () => { append({ location: "" }); setStopAutocompleteData(prev => [...prev, { fieldId: `stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null }]); };
+  const handleAddStop = () => { append({ location: "", doorOrFlat: "" }); setStopAutocompleteData(prev => [...prev, { fieldId: `stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null }]); };
   const handleRemoveStop = (index: number) => { remove(index); setStopAutocompleteData(prev => prev.filter((_, i) => i !== index)); };
 
   interface MapMarker { position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; }
@@ -343,6 +402,8 @@ export function NewScheduleForm() {
   const renderFavoriteLocationsPopover = ( onSelectFavorite: (fav: FavoriteLocation) => void, triggerKey: string ) => ( <Popover><PopoverTrigger asChild><Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-accent" aria-label="Select from favorites"><Star className="h-4 w-4" /></Button></PopoverTrigger><PopoverContent className="w-80 p-0"><ScrollArea className="h-auto max-h-60"><div className="p-2"><p className="text-sm font-medium p-2">Your Favorites</p>{isLoadingFavorites && <div className="p-2 text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading...</div>}{!isLoadingFavorites && favoriteLocations.length === 0 && <p className="p-2 text-sm text-muted-foreground">No favorites.</p>}{!isLoadingFavorites && favoriteLocations.map(fav => ( <div key={`${triggerKey}-fav-${fav.id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-md" onClick={() => { onSelectFavorite(fav); (document.activeElement as HTMLElement)?.blur(); }}><p className="font-semibold">{fav.label}</p><p className="text-xs text-muted-foreground">{fav.address}</p></div>))}</div></ScrollArea></PopoverContent></Popover> );
 
   async function onSubmit(values: ScheduledRideFormValues) {
+    console.log("NewScheduleForm.tsx: onSubmit triggered. isEditMode:", isEditMode, "initialData ID:", initialData?.id);
+    console.log("NewScheduleForm.tsx: Form values submitted:", JSON.stringify(values, null, 2));
     if (!user) { toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" }); return; }
     if (!pickupCoords || !dropoffCoords) { toast({ title: "Missing Location Details", description: "Ensure pickup/dropoff are selected from suggestions.", variant: "destructive" }); return; }
     
@@ -365,46 +426,55 @@ export function NewScheduleForm() {
     }
     
     setIsSubmitting(true);
-    console.log("NewScheduleForm.tsx: Attempting to create REAL scheduled booking with payload. User:", user);
-    const payload = {
+    
+    const submissionPayload: any = {
       ...values,
-      passengerId: user.id,
-      passengerName: user.name, // Make sure user.name is available
+      passengerId: user.id, // Always send current user's ID for ownership/verification
+      passengerName: user.name, 
       pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
       dropoffLocation: { address: values.dropoffLocation, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat },
       stops: validStopsData,
-      isActive: true,
+      // Ensure isActive is present if editing, or defaults to true for new schedules
+      isActive: isEditMode && initialData ? initialData.isActive : true, 
     };
+     if (values.returnPickupTime === "") submissionPayload.returnPickupTime = null;
+     if (values.driverNotes === "") submissionPayload.driverNotes = null;
+     if (values.estimatedWaitTimeMinutesOutbound === undefined) submissionPayload.estimatedWaitTimeMinutesOutbound = null;
 
-    console.log("NewScheduleForm.tsx: Payload to be sent:", JSON.stringify(payload, null, 2));
+
+    const apiPath = isEditMode && initialData?.id 
+      ? `/api/scheduled-bookings/${initialData.id}` 
+      : '/api/scheduled-bookings/create';
+    const method = isEditMode ? 'PUT' : 'POST';
+
+    console.log(`NewScheduleForm.tsx: ${method} to ${apiPath}. Payload:`, JSON.stringify(submissionPayload, null, 2));
 
     try {
-      console.log("NewScheduleForm.tsx: PRE-FETCH to /api/scheduled-bookings/create");
-      const response = await fetch('/api/scheduled-bookings/create', {
-        method: 'POST',
+      const response = await fetch(apiPath, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(submissionPayload),
       });
-      console.log("NewScheduleForm.tsx: POST-FETCH. Response status:", response.status);
+      console.log(`NewScheduleForm.tsx: ${method} response status:`, response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: `Request failed with status ${response.status}` }));
-        console.error("NewScheduleForm.tsx: API error response data:", errorData);
-        throw new Error(errorData.message || `Failed to create schedule: ${response.status}`);
+        console.error(`NewScheduleForm.tsx: API error response data (${method}):`, errorData);
+        throw new Error(errorData.message || `Failed to ${isEditMode ? 'update' : 'create'} schedule: ${response.status}`);
       }
       const result = await response.json();
-      console.log("NewScheduleForm.tsx: API success. Result:", result);
+      console.log(`NewScheduleForm.tsx: API success (${method}). Result:`, result);
       toast({
-        title: "Schedule Creation API Called!",
-        description: `Schedule "${result.data.label}" (ID: ${result.id}) submitted to backend.`,
+        title: `Schedule ${isEditMode ? 'Updated' : 'Created'}!`,
+        description: `Schedule "${result.data.label}" (ID: ${result.data.id}) ${isEditMode ? 'updated' : 'submitted'}.`,
         duration: 7000,
       });
       router.push('/dashboard/scheduled-rides');
     } catch (error) {
-      console.error("NewScheduleForm.tsx: Schedule creation error in try-catch:", error);
+      console.error(`NewScheduleForm.tsx: Schedule ${isEditMode ? 'update' : 'creation'} error in try-catch:`, error);
       toast({
-        title: "Schedule Creation Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred making the API call.",
+        title: `Schedule ${isEditMode ? 'Update' : 'Creation'} Failed`,
+        description: error instanceof Error ? error.message : `An unknown error occurred. Method: ${method}, Path: ${apiPath}`,
         variant: "destructive",
       });
     } finally {
@@ -453,7 +523,7 @@ export function NewScheduleForm() {
         </div>
 
         <FormField control={form.control} name="vehicleType" render={({ field }) => (
-            <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4" /> Vehicle Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle" /></SelectTrigger></FormControl><SelectContent>
+            <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4" /> Vehicle Type</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle" /></SelectTrigger></FormControl><SelectContent>
                 <SelectItem value="car">Car (Standard)</SelectItem><SelectItem value="estate">Estate Car</SelectItem><SelectItem value="minibus_6">Minibus (6)</SelectItem><SelectItem value="minibus_8">Minibus (8)</SelectItem>
                 <SelectItem value="pet_friendly_car">Pet Friendly Car</SelectItem><SelectItem value="minibus_6_pet_friendly">Pet Friendly Minibus (6)</SelectItem><SelectItem value="minibus_8_pet_friendly">Pet Friendly Minibus (8)</SelectItem>
                 <SelectItem value="disable_wheelchair_access">Wheelchair Accessible</SelectItem>
@@ -492,7 +562,7 @@ export function NewScheduleForm() {
         )} />
         {watchedIsReturnJourneyScheduled && (
             <FormField control={form.control} name="returnPickupTime" render={({ field }) => (
-                <FormItem className="ml-6 p-3 border-l-2 border-primary/30"><FormLabel>Return Pickup Time (HH:MM)</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem className="ml-6 p-3 border-l-2 border-primary/30"><FormLabel>Return Pickup Time (HH:MM)</FormLabel><FormControl><Input type="time" {...field} value={field.value || ""} /></FormControl><FormMessage /></FormItem>
             )} />
         )}
         
@@ -505,15 +575,15 @@ export function NewScheduleForm() {
         )} />
         {watchedIsWaitAndReturnOutbound && (
             <FormField control={form.control} name="estimatedWaitTimeMinutesOutbound" render={({ field }) => (
-                <FormItem className="ml-6 p-3 border-l-2 border-accent/30"><FormLabel>Est. Wait Time at Outbound Destination (mins)</FormLabel><FormControl><Input type="number" min="0" {...field} onChange={e => field.onChange(parseInt(e.target.value,10) || 0)}/></FormControl><FormMessage /></FormItem>
+                <FormItem className="ml-6 p-3 border-l-2 border-accent/30"><FormLabel>Est. Wait Time at Outbound Destination (mins)</FormLabel><FormControl><Input type="number" min="0" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value === "" ? null : parseInt(e.target.value,10) || 0)}/></FormControl><FormMessage /></FormItem>
             )} />
         )}
 
         <FormField control={form.control} name="driverNotes" render={({ field }) => (
-            <FormItem><FormLabel className="flex items-center gap-1"><StickyNote className="w-4 h-4" /> Notes for Driver (Optional)</FormLabel><FormControl><Textarea placeholder="e.g., Specific entrance, contact on arrival." {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel className="flex items-center gap-1"><StickyNote className="w-4 h-4" /> Notes for Driver (Optional)</FormLabel><FormControl><Textarea placeholder="e.g., Specific entrance, contact on arrival." {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="paymentMethod" render={({ field }) => (
-            <FormItem className="space-y-2"><FormLabel className="text-base">Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-2">
+            <FormItem className="space-y-2"><FormLabel className="text-base">Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-2">
                 <FormItem className="flex items-center space-x-1"><FormControl><RadioGroupItem value="card" /></FormControl><FormLabel className="font-normal flex items-center gap-1"><CreditCard className="w-4 h-4 text-blue-500" /> Card</FormLabel></FormItem>
                 <FormItem className="flex items-center space-x-1"><FormControl><RadioGroupItem value="cash" /></FormControl><FormLabel className="font-normal flex items-center gap-1"><Coins className="w-4 h-4 text-green-500" /> Cash</FormLabel></FormItem>
             </RadioGroup></FormControl><FormMessage /></FormItem>
@@ -522,14 +592,15 @@ export function NewScheduleForm() {
         <div className="text-center my-4">
             <p className="text-sm text-muted-foreground">Estimated Fare (One Way): <span className="font-semibold">Placeholder £XX.XX</span></p>
             {watchedIsReturnJourneyScheduled && <p className="text-sm text-muted-foreground">Estimated Fare (Return): <span className="font-semibold">Placeholder £YY.YY</span></p>}
-            <p className="text-xs text-muted-foreground">Actual fare may vary based on final distance and time. This is a mock estimate.</p>
+            <p className="text-xs text-muted-foreground">Actual fare may vary. This is a mock estimate.</p>
         </div>
 
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-          {isSubmitting ? 'Saving Schedule...' : 'Save Schedule'}
+          {isSubmitting ? (isEditMode ? 'Saving Changes...' : 'Saving Schedule...') : (isEditMode ? 'Save Changes' : 'Save Schedule')}
         </Button>
       </form>
     </Form>
   );
 }
+

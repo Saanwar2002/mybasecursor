@@ -26,7 +26,7 @@ interface FirestoreTimestamp {
   _nanoseconds: number;
 }
 
-interface LocationPoint {
+export interface LocationPoint { // Exported for use in NewScheduleForm
   address: string;
   latitude: number;
   longitude: number;
@@ -43,21 +43,21 @@ export interface ScheduledBooking {
   stops?: LocationPoint[];
   vehicleType: string;
   passengers: number;
-  driverNotes?: string;
+  driverNotes?: string | null; // Made nullable
   paymentMethod: "card" | "cash";
   daysOfWeek: Array<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'>;
   pickupTime: string; // e.g., "08:30"
   isReturnJourneyScheduled: boolean;
-  returnPickupTime?: string; // e.g., "17:00"
+  returnPickupTime?: string | null; // Made nullable
   isWaitAndReturnOutbound?: boolean;
-  estimatedWaitTimeMinutesOutbound?: number;
+  estimatedWaitTimeMinutesOutbound?: number | null; // Made nullable
   isActive: boolean;
   pausedDates?: string[]; // Array of "YYYY-MM-DD"
   nextRunDate?: string; // "YYYY-MM-DD"
   createdAt: string; // ISO string from API
   updatedAt: string; // ISO string from API
-  estimatedFareOneWay?: number;
-  estimatedFareReturn?: number;
+  estimatedFareOneWay?: number | null; // Made nullable
+  estimatedFareReturn?: number | null; // Made nullable
 }
 
 export default function ScheduledRidesPage() {
@@ -137,7 +137,6 @@ export default function ScheduledRidesPage() {
       const response = await fetch(`/api/scheduled-bookings/${scheduleId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        // Send passengerId in body for verification, though ideally backend uses authenticated user
         body: JSON.stringify({ passengerId: user.id, isActive: !schedule.isActive }),
       });
       if (!response.ok) {
@@ -199,20 +198,25 @@ export default function ScheduledRidesPage() {
           {!isLoading && !error && scheduledBookings.length > 0 && (
             <div className="space-y-4">
               {scheduledBookings.map((schedule) => {
-                console.log("ScheduledRidesPage: Mapping schedule item:", schedule); // Keep this for debugging rendering passes
+                console.log("ScheduledRidesPage: Mapping schedule item:", schedule); 
                 return (
                   <Card key={schedule.id} className="shadow-md hover:shadow-lg transition-shadow p-4">
                     <CardTitle className="text-lg font-semibold">{schedule.label || "No Label"}</CardTitle>
                     <CardDescription className="text-xs">
                         ID: {schedule.id} | Status: {schedule.isActive ? "Active" : "Paused"}
+                         | Next Run: {schedule.nextRunDate || "N/A"}
                     </CardDescription>
                     <CardContent className="text-sm pt-2 px-0 pb-0 space-y-1">
                         <p><strong>From:</strong> {schedule.pickupLocation?.address || "N/A"}</p>
                         <p><strong>To:</strong> {schedule.dropoffLocation?.address || "N/A"}</p>
+                        {schedule.stops && schedule.stops.length > 0 && (
+                           <p><strong>Stops:</strong> {schedule.stops.map(s => s.address).join(', ') || "None"}</p>
+                        )}
                         <p><strong>Days:</strong> {schedule.daysOfWeek.join(', ')} at {schedule.pickupTime}</p>
+                        {schedule.isReturnJourneyScheduled && <p><strong>Return Time:</strong> {schedule.returnPickupTime || "N/A"}</p>}
                         <p><strong>Vehicle:</strong> {schedule.vehicleType}</p>
                         <p><strong>Passengers:</strong> {schedule.passengers}</p>
-                        {schedule.isReturnJourneyScheduled && <p><strong>Return Time:</strong> {schedule.returnPickupTime || "N/A"}</p>}
+                        {schedule.isWaitAndReturnOutbound && <p><strong>Wait & Return (Outbound):</strong> Yes, ~{schedule.estimatedWaitTimeMinutesOutbound} mins</p>}
                     </CardContent>
                     <CardFooter className="border-t pt-3 mt-3 pb-0 px-0 flex justify-end gap-2">
                         <Button 
@@ -225,8 +229,10 @@ export default function ScheduledRidesPage() {
                             {actionLoading[`toggle-${schedule.id}`] ? <Loader2 className="h-3 w-3 animate-spin" /> : (schedule.isActive ? <Pause className="h-3 w-3 mr-1"/> : <Play className="h-3 w-3 mr-1"/>)}
                             {schedule.isActive ? 'Pause' : 'Resume'}
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground hover:text-primary" disabled>
-                            <Edit className="h-3 w-3 mr-1"/> Edit (Soon)
+                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground hover:text-primary" asChild>
+                            <Link href={`/dashboard/scheduled-rides/edit/${schedule.id}`}>
+                                <Edit className="h-3 w-3 mr-1"/> Edit
+                            </Link>
                         </Button>
                         <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -277,3 +283,4 @@ export default function ScheduledRidesPage() {
     </div>
   );
 }
+
