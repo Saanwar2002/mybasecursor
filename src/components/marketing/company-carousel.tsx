@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Target, Users, TrendingUp, ShieldCheck, Smartphone, Car } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Users, Smartphone, ShieldCheck, Car } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ const slidesData: CarouselSlide[] = [
     title: "Welcome to MyBase",
     description: "Your journey starts here. Experience the best taxi service in Huddersfield with MyBase. Fast, reliable, and always here for you.",
     icon: Car,
-    imageUrl: "/images/carousel/MyBase Taxis main.jpg",
+    imageUrl: "https://placehold.co/600x300/3B82F6/FFFFFF.png?text=Welcome+To+MyBase", // Example: Blue background
     imageHint: "taxi car street"
   },
   {
@@ -32,7 +32,7 @@ const slidesData: CarouselSlide[] = [
     title: "Safety Features",
     description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
     icon: ShieldCheck,
-    imageUrl: "/images/carousel/Slide10.JPG",
+    imageUrl: "https://placehold.co/600x300/10B981/FFFFFF.png?text=Safety+First", // Example: Green background
     imageHint: "driver car interior"
   },
   {
@@ -40,7 +40,7 @@ const slidesData: CarouselSlide[] = [
     title: "Your Huddersfield, Your MyBase",
     description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
-    imageUrl: "https://placehold.co/600x300/22C55E/FFFFFF.png",
+    imageUrl: "https://placehold.co/600x300/F59E0B/FFFFFF.png?text=Community+Focus", // Example: Amber background
     imageHint: "Huddersfield landmark"
   },
   {
@@ -48,17 +48,9 @@ const slidesData: CarouselSlide[] = [
     title: "Smart Rides with MyBase",
     description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
     icon: Smartphone,
-    imageUrl: "https://placehold.co/600x300/B08BCD/FFFFFF.png?text=600%20x%20300",
+    imageUrl: "https://placehold.co/600x300/8B5CF6/FFFFFF.png?text=Smart+Tech", // Example: Purple background
     imageHint: "smartphone app interface"
   },
-  // { // Temporarily removed for diagnosis
-  //   id: 'original-mission',
-  //   title: "Our Mission at MyBase",
-  //   description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
-  //   icon: Target,
-  //   imageUrl: "https://placehold.co/600x300/0EA5E9/FFFFFF.png?text=Our%20Mission",
-  //   imageHint: "team planning office"
-  // },
 ];
 
 export function CompanyCarousel() {
@@ -86,11 +78,8 @@ export function CompanyCarousel() {
   }, [currentIndex]);
 
   const currentSlide = slidesData[currentIndex];
-  // const IconComponent = currentSlide.icon; // IconComponent is not used
 
   if (!currentSlide) {
-    // Handle case where slidesData might be empty or currentIndex is out of bounds
-    // Though with the logic above for prev/next, this should be rare.
     return (
       <Card className="w-full max-w-3xl mx-auto shadow-xl overflow-hidden border-2 border-primary/20">
         <CardHeader className="text-center pb-3 pt-4 bg-primary/5">
