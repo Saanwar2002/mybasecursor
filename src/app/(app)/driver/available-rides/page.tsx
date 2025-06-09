@@ -218,8 +218,8 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
-    if (!activeRide) setIsLoading(true);
-    setError(null);
+    if (!activeRide && !error) setIsLoading(true); // Only show full load if no ride and no prior error
+    // setError(null); // Don't clear global error on poll, only on manual retry
 
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
@@ -229,16 +229,23 @@ export default function AvailableRidesPage() {
       }
       const data: ActiveRide | null = await response.json();
       setActiveRide(data); 
-      if (data?.pickupLocation) {
+      if (data?.driverCurrentLocation) { // Use driver's actual current location if available for map center
+        setDriverLocation(data.driverCurrentLocation);
+      } else if (data?.pickupLocation) {
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
+      if (data && error) setError(null); // Clear error if data is successfully fetched
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
       console.error("Error in fetchActiveRide:", message);
+      // Only set global error if there isn't already an active ride displayed
+      if (!activeRide) setError(message);
+      // Optionally toast non-critical polling errors differently or less frequently
+      // toast({ title: "Polling Error", description: "Could not refresh ride status.", variant: "default", duration: 3000 });
     } finally {
-      setIsLoading(false);
+      if (!activeRide) setIsLoading(false);
     }
-  }, [driverUser?.id, activeRide]); 
+  }, [driverUser?.id, activeRide, error, toast]); 
 
  useEffect(() => {
     if (waitingTimerIntervalRef.current) {
@@ -294,7 +301,7 @@ export default function AvailableRidesPage() {
       };
       updateTimers();
       waitingTimerIntervalRef.current = setInterval(updateTimers, 1000);
-    } else if (activeRide?.status !== 'arrived_at_pickup') {
+    } else if (activeRide?.status !== 'arrived_at_pickup') { // Ensure timers are cleared if not in this status
       setAckWindowSecondsLeft(null);
       setFreeWaitingSecondsLeft(null);
       setExtraWaitingSeconds(null);
@@ -367,7 +374,7 @@ export default function AvailableRidesPage() {
     }
 
     if (mockOffer.requiredOperatorId && currentDriverOperatorPrefix && mockOffer.requiredOperatorId !== currentDriverOperatorPrefix) {
-      toast({ title: "Offer Skipped", description: `An offer restricted to ${mockOffer.requiredOperatorId} was received, but it\'s not for your operator group (${currentDriverOperatorPrefix}).`, variant: "default", duration: 7000, }); return;
+      toast({ title: "Offer Skipped", description: `An offer restricted to ${mockOffer.requiredOperatorId} was received, but it's not for your operator group (${currentDriverOperatorPrefix}).`, variant: "default", duration: 7000, }); return;
     }
     if (mockOffer.requiredOperatorId && !currentDriverOperatorPrefix) { toast({ title: "Offer Skipped", description: `An offer restricted to ${mockOffer.requiredOperatorId} was received, but your operator details are not clear.`, variant: "default", duration: 7000, }); return; }
 
@@ -392,23 +399,18 @@ export default function AvailableRidesPage() {
     
     setActionLoading(prev => ({ ...prev, [offerToAccept.id]: true }));
     try {
-      // Include all offer details in the payload for the backend to create/assign
       const updatePayload: any = {
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        // Include all details from offerToAccept
         offerDetails: { ...offerToAccept },
-        // Explicitly pass priority and dispatchMethod if they exist on the offer
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
       };
 
-
-      // The bookingId in the URL will be the mock-offer-id
       const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -422,7 +424,6 @@ export default function AvailableRidesPage() {
             throw new Error("Server returned success but booking data was missing in response.");
         }
       } else {
-        // Attempt to get more detailed error if !response.ok
         const clonedResponse = response.clone();
         let errorDetailsText = `Server responded with status: ${response.status}.`;
         try {
@@ -441,26 +442,26 @@ export default function AvailableRidesPage() {
       
       const serverBooking = updatedBookingDataFromServer.booking;
       const newActiveRide: ActiveRide = {
-        id: serverBooking.id, // Use the ID from the server (newly created or updated)
-        passengerId: serverBooking.passengerId || offerToAccept.passengerId || 'N/A',
-        passengerName: serverBooking.passengerName || offerToAccept.passengerName || 'Passenger',
+        id: serverBooking.id, 
+        passengerId: serverBooking.passengerId,
+        passengerName: serverBooking.passengerName,
         passengerAvatar: serverBooking.passengerAvatar,
-        pickupLocation: serverBooking.pickupLocation || { address: offerToAccept.pickupLocation, latitude: offerToAccept.pickupCoords.lat, longitude: offerToAccept.pickupCoords.lng },
-        dropoffLocation: serverBooking.dropoffLocation || { address: offerToAccept.dropoffLocation, latitude: offerToAccept.dropoffCoords.lat, longitude: offerToAccept.dropoffCoords.lng },
+        pickupLocation: serverBooking.pickupLocation,
+        dropoffLocation: serverBooking.dropoffLocation,
         stops: serverBooking.stops,
-        fareEstimate: serverBooking.fareEstimate ?? offerToAccept.fareEstimate,
-        passengerCount: serverBooking.passengers ?? offerToAccept.passengerCount,
-        status: serverBooking.status || 'driver_assigned', 
-        driverId: serverBooking.driverId || driverUser.id,
-        driverName: serverBooking.driverName || driverUser.name || "Driver",
-        driverVehicleDetails: serverBooking.driverVehicleDetails || `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        notes: serverBooking.driverNotes || serverBooking.notes || offerToAccept.notes,
-        paymentMethod: serverBooking.paymentMethod || offerToAccept.paymentMethod,
-        requiredOperatorId: serverBooking.requiredOperatorId || offerToAccept.requiredOperatorId,
-        isPriorityPickup: serverBooking.isPriorityPickup ?? offerToAccept.isPriorityPickup,
-        priorityFeeAmount: serverBooking.priorityFeeAmount ?? offerToAccept.priorityFeeAmount,
-        vehicleType: serverBooking.vehicleType || driverUser.vehicleCategory || 'Car',
-        dispatchMethod: serverBooking.dispatchMethod || offerToAccept.dispatchMethod,
+        fareEstimate: serverBooking.fareEstimate,
+        passengerCount: serverBooking.passengers,
+        status: serverBooking.status, 
+        driverId: serverBooking.driverId,
+        driverName: serverBooking.driverName,
+        driverVehicleDetails: serverBooking.driverVehicleDetails,
+        notes: serverBooking.driverNotes || serverBooking.notes,
+        paymentMethod: serverBooking.paymentMethod,
+        requiredOperatorId: serverBooking.requiredOperatorId,
+        isPriorityPickup: serverBooking.isPriorityPickup,
+        priorityFeeAmount: serverBooking.priorityFeeAmount,
+        vehicleType: serverBooking.vehicleType,
+        dispatchMethod: serverBooking.dispatchMethod,
         bookingTimestamp: serverBooking.bookingTimestamp,
         scheduledPickupAt: serverBooking.scheduledPickupAt,
         notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp,
@@ -472,8 +473,9 @@ export default function AvailableRidesPage() {
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
       
-      setActiveRide(newActiveRide);
-      setRideRequests([]);
+      setActiveRide(newActiveRide); // OPTIMISTIC UPDATE
+      setRideRequests([]); // Clear other offers
+
       let toastDesc = `En Route to Pickup for ${newActiveRide.passengerName}. Payment: ${newActiveRide.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
       if (newActiveRide.isPriorityPickup && newActiveRide.priorityFeeAmount) {
         toastDesc += ` Priority: +£${newActiveRide.priorityFeeAmount.toFixed(2)}.`;
@@ -490,9 +492,9 @@ export default function AvailableRidesPage() {
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
       setTimeout(() => {
-        fetchActiveRide(); 
+        // fetchActiveRide(); // Fetch again to ensure sync, but not strictly necessary if POST returns full data
         setIsPollingEnabled(true); 
-      }, 3000); 
+      }, 3000); // Delay before re-enabling polling
     }
   };
 
@@ -513,14 +515,14 @@ export default function AvailableRidesPage() {
     switch(actionType) {
         case 'notify_arrival':
             toastTitle = "Passenger Notified"; toastMessage = `Passenger ${activeRide.passengerName} has been notified of your arrival.`;
-            payload.notifiedPassengerArrivalTimestamp = true; // Signal to backend to set timestamp
+            payload.notifiedPassengerArrivalTimestamp = true; 
             break;
         case 'start_ride':
             toastTitle = "Ride Started"; toastMessage = `Ride with ${activeRide.passengerName} is now in progress.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null);
             setAckWindowSecondsLeft(null);
-            payload.rideStartedAt = true; // Signal to backend
+            payload.rideStartedAt = true; 
             break;
         case 'complete_ride':
             const baseFare = activeRide.fareEstimate || 0;
@@ -532,7 +534,7 @@ export default function AvailableRidesPage() {
 
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             payload.finalFare = finalFare;
-            payload.completedAt = true; // Signal to backend
+            payload.completedAt = true; 
             break;
         case 'cancel_active':
             toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
@@ -542,14 +544,14 @@ export default function AvailableRidesPage() {
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
-            payload.waitAndReturn = true; // This might already be set if passenger requested
+            payload.waitAndReturn = true; 
             payload.status = 'in_progress_wait_and_return';
             break;
         case 'decline_wait_and_return':
             toastTitle = "Wait & Return Declined"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been declined. Ride continues as normal.`;
-            payload.status = 'in_progress'; // Revert status if it was pending approval
-            payload.waitAndReturn = false; // Ensure it's explicitly false
-            payload.estimatedAdditionalWaitTimeMinutes = null; // Clear this if declining
+            payload.status = 'in_progress'; 
+            payload.waitAndReturn = false; 
+            payload.estimatedAdditionalWaitTimeMinutes = null; 
             break;
     }
 
@@ -619,22 +621,28 @@ export default function AvailableRidesPage() {
     }
   };
 
-  const getMapMarkersForActiveRide = (): Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> => {
-    if (!activeRide) return []; const markers = [];
-    markers.push({ position: driverLocation, title: "Your Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+  const memoizedMapMarkers = useMemo(() => {
+    if (!activeRide) return [];
+    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    if (activeRide.driverCurrentLocation) { // Driver's actual location if available
+        markers.push({ position: activeRide.driverCurrentLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+    } else { // Fallback to general driver location if specific one isn't pushed by backend
+        markers.push({ position: driverLocation, title: "Your Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+    }
     if (activeRide.pickupLocation) { markers.push({ position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude}, title: `Pickup: ${activeRide.pickupLocation.address}`, label: { text: "P", color: "white", fontWeight: "bold"} }); }
     if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) { markers.push({ position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude}, title: `Dropoff: ${activeRide.dropoffLocation.address}`, label: { text: "D", color: "white", fontWeight: "bold" } }); }
     activeRide.stops?.forEach((stop, index) => { if(stop.latitude && stop.longitude) { markers.push({ position: {lat: stop.latitude, lng: stop.longitude}, title: `Stop ${index+1}: ${stop.address}`, label: { text: `S${index+1}`, color: "white", fontWeight: "bold" } }); } });
     return markers;
-  };
+  }, [activeRide, driverLocation]);
 
-  const getMapCenterForActiveRide = (): google.maps.LatLngLiteral => {
+  const memoizedMapCenter = useMemo(() => {
+    if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
     if (activeRide?.status === 'driver_assigned' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
     if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
     if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
     return driverLocation;
-  };
+  }, [activeRide, driverLocation]);
 
   const handleCancelSwitchChange = (checked: boolean) => { setIsCancelSwitchOn(checked); if (checked) { setShowCancelConfirmationDialog(true); } };
 
@@ -730,7 +738,7 @@ export default function AvailableRidesPage() {
       <div className="flex flex-col h-full">
         {(!showCompletedStatus && !showCancelledByDriverStatus && ( 
         <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
-            <GoogleMapDisplay center={getMapCenterForActiveRide()} zoom={15} markers={getMapMarkersForActiveRide()} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
+            <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button
