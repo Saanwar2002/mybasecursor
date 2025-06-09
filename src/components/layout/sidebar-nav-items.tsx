@@ -24,7 +24,7 @@ export const navItems: NavItem[] = [
   
   // Driver
   { href: '/driver', label: 'Driver Dashboard', icon: LayoutDashboard, roles: ['driver'] },
-  { href: '/driver/available-rides', label: 'Available Rides', icon: Car, roles: ['driver'] },
+  { href: '/driver/available-rides', label: 'Available For Rides', icon: Car, roles: ['driver'] },
   { href: '/driver/earnings', label: 'Earnings', icon: DollarSign, roles: ['driver'] },
   { href: '/driver/ride-history', label: 'Ride History', icon: History, roles: ['driver'] },
   { href: '/driver/chat', label: 'Chat', icon: MessageCircle, roles: ['driver'] },
