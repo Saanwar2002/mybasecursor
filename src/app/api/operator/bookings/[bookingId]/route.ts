@@ -1,87 +1,199 @@
 
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-// import type { NextRequest } from 'next/server'; // Intentionally commented out for extreme simplification
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { z } from 'zod';
+
+// Helper to serialize Timestamp for the response
+function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
+  if (!timestamp) return null;
+  if (timestamp instanceof Timestamp) {
+    return {
+      _seconds: timestamp.seconds,
+      _nanoseconds: timestamp.nanoseconds,
+    };
+  }
+  // Handle cases where it might already be an object like { seconds: ..., nanoseconds: ... } from other parts of app
+  if (typeof timestamp === 'object' && timestamp !== null && ('_seconds'in timestamp || 'seconds' in timestamp)) {
+     return {
+      _seconds: (timestamp as any)._seconds ?? (timestamp as any).seconds,
+      _nanoseconds: (timestamp as any)._nanoseconds ?? (timestamp as any).nanoseconds ?? 0,
+    };
+  }
+  return null;
+}
+
+
+const bookingUpdateSchema = z.object({
+  driverId: z.string().optional(),
+  driverName: z.string().optional(),
+  status: z.string().optional(), // More specific statuses can be an enum later
+  vehicleType: z.string().optional(),
+  driverVehicleDetails: z.string().optional(),
+  // Add other fields that might be updated by the operator/driver action
+  action: z.string().optional(), // For actions like 'notify_arrival', 'start_ride', etc.
+  finalFare: z.number().optional(),
+  notifiedPassengerArrivalTimestamp: z.boolean().optional(), // Special handling for this
+  rideStartedAt: z.boolean().optional(), // Special handling for this
+  completedAt: z.boolean().optional(), // Special handling for this
+  passengerAcknowledgedArrivalTimestamp: z.boolean().optional(), // Special handling
+  isPriorityPickup: z.boolean().optional(),
+  priorityFeeAmount: z.number().optional(),
+  dispatchMethod: z.string().optional(),
+  waitAndReturn: z.boolean().optional(),
+  estimatedAdditionalWaitTimeMinutes: z.number().min(0).optional().nullable(),
+});
+
+export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 interface PostContext {
   params: {
-    bookingId?: string; // Make bookingId optional in type for safety
+    bookingId: string;
   };
 }
 
-export async function POST(request: any, context: PostContext) { // Using `any` for request as a diagnostic step
-  console.log("!!!! API POST /api/operator/bookings/[bookingId] - SIMPLIFIED HANDLER v4 (request: any, context: PostContext) ENTERED !!!!");
-  let bookingIdFromContext: string | undefined = undefined;
+export async function POST(request: NextRequest, context: PostContext) {
+  const { bookingId } = context.params;
+  console.log(`API POST /api/operator/bookings/${bookingId}: Handler entered.`);
+
+  if (!db) {
+    console.error(`API POST Error /api/operator/bookings/${bookingId}: Firestore (db) is not initialized.`);
+    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized. Booking update failed.' }, { status: 500 });
+  }
+
+  if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
+    return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
+  }
 
   try {
-    if (context && context.params && typeof context.params.bookingId === 'string' && context.params.bookingId.trim() !== '') {
-      bookingIdFromContext = context.params.bookingId;
-      console.log(`SIMPLIFIED v4: Successfully extracted bookingId: ${bookingIdFromContext} from context.params`);
-      
-      return NextResponse.json({
-        message: `Simplified test response v4 for bookingId: ${bookingIdFromContext}`,
-        bookingIdReceived: bookingIdFromContext,
-        status: "ok_from_simplified_handler_v4"
-      }, { status: 200 });
+    const payload = await request.json();
+    console.log(`API POST /api/operator/bookings/${bookingId}: Received payload:`, JSON.stringify(payload, null, 2));
+    const parsedPayload = bookingUpdateSchema.safeParse(payload);
 
-    } else {
-      const errorMessage = 'Booking ID missing or invalid in request path context (v4).';
-      console.error(`SIMPLIFIED v4 CRITICAL: ${errorMessage} Context object:`, context ? JSON.stringify(context, null, 2) : "context is undefined/null");
-      
-      // Attempt to get it from the request URL as a last resort if context.params is not working as expected
-      // This is highly unconventional for App Router API routes but is for extreme debugging.
-      if (request && request.nextUrl && typeof request.nextUrl.pathname === 'string') {
-        const urlParts = request.nextUrl.pathname.split('/');
-        const bookingIdFromUrl = urlParts[urlParts.length -1]; // Last segment
-        if (bookingIdFromUrl && bookingIdFromUrl !== '[bookingId]' && !bookingIdFromUrl.includes('route.js')) { // Defensive check
-            console.warn(`SIMPLIFIED v4: Fallback - Extracted bookingId from URL: ${bookingIdFromUrl}`);
-            return NextResponse.json({
-                message: `Simplified test response v4 (URL Fallback) for bookingId: ${bookingIdFromUrl}`,
-                bookingIdReceived: bookingIdFromUrl,
-                status: "ok_from_simplified_handler_v4_url_fallback"
-            }, { status: 200 });
-        } else {
-             console.error(`SIMPLIFIED v4: Fallback from URL also failed or gave placeholder. Path: ${request.nextUrl.pathname}`);
-        }
-      }
-
-      return NextResponse.json({
-        message: "Simplified test response v4 - ERROR.",
-        error: errorMessage,
-        bookingIdReceived: "ExtractionFailed",
-        status: "error_extracting_bookingId_from_context_v4"
-      }, { status: 400 });
+    if (!parsedPayload.success) {
+      console.error(`API POST /api/operator/bookings/${bookingId}: Payload validation failed.`, parsedPayload.error.format());
+      return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
     }
 
+    const updateDataFromPayload = parsedPayload.data;
+    const bookingRef = doc(db, 'bookings', bookingId);
+    const bookingSnap = await getDoc(bookingRef);
+
+    if (!bookingSnap.exists()) {
+      console.warn(`API POST /api/operator/bookings/${bookingId}: Booking not found.`);
+      return NextResponse.json({ message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
+    }
+
+    const updatePayloadFirestore: any = { ...updateDataFromPayload };
+    delete updatePayloadFirestore.action; // 'action' is for logic, not direct storage here
+
+    // Handle specific timestamp updates based on boolean flags in payload
+    if (updateDataFromPayload.notifiedPassengerArrivalTimestamp === true) {
+      updatePayloadFirestore.notifiedPassengerArrivalTimestamp = Timestamp.now();
+      // Remove the boolean flag after converting to timestamp
+      delete updatePayloadFirestore.notifiedPassengerArrivalTimestamp;
+      updatePayloadFirestore.notifiedPassengerArrivalTimestampActual = Timestamp.now();
+    }
+    if (updateDataFromPayload.passengerAcknowledgedArrivalTimestamp === true) {
+      updatePayloadFirestore.passengerAcknowledgedArrivalTimestamp = Timestamp.now();
+      delete updatePayloadFirestore.passengerAcknowledgedArrivalTimestamp;
+      updatePayloadFirestore.passengerAcknowledgedArrivalTimestampActual = Timestamp.now();
+
+    }
+    if (updateDataFromPayload.rideStartedAt === true) {
+      updatePayloadFirestore.rideStartedAt = Timestamp.now();
+      delete updatePayloadFirestore.rideStartedAt;
+      updatePayloadFirestore.rideStartedAtActual = Timestamp.now();
+    }
+    if (updateDataFromPayload.completedAt === true) {
+      updatePayloadFirestore.completedAt = Timestamp.now();
+      delete updatePayloadFirestore.completedAt;
+      updatePayloadFirestore.completedAtActual = Timestamp.now();
+    }
+    
+    // Handle null explicitly for estimatedAdditionalWaitTimeMinutes
+    if (updateDataFromPayload.estimatedAdditionalWaitTimeMinutes === null) {
+      updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = null;
+    } else if (updateDataFromPayload.estimatedAdditionalWaitTimeMinutes !== undefined) {
+      updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = updateDataFromPayload.estimatedAdditionalWaitTimeMinutes;
+    }
+
+
+    updatePayloadFirestore.updatedAt = Timestamp.now();
+
+    console.log(`API POST /api/operator/bookings/${bookingId}: Updating Firestore with:`, JSON.stringify(updatePayloadFirestore, null, 2));
+    await updateDoc(bookingRef, updatePayloadFirestore);
+
+    const updatedBookingSnap = await getDoc(bookingRef);
+    const updatedData = updatedBookingSnap.data();
+
+    if (!updatedData) {
+        console.error(`API POST /api/operator/bookings/${bookingId}: Failed to retrieve updated document after update.`);
+        return NextResponse.json({ message: 'Failed to confirm booking update.' }, { status: 500 });
+    }
+    
+    // Ensure all relevant timestamps from updatedData are serialized for the response
+    const responseData = {
+        id: updatedBookingSnap.id,
+        ...updatedData,
+        bookingTimestamp: serializeTimestamp(updatedData.bookingTimestamp as Timestamp | undefined),
+        scheduledPickupAt: updatedData.scheduledPickupAt || null,
+        updatedAt: serializeTimestamp(updatedData.updatedAt as Timestamp | undefined),
+        notifiedPassengerArrivalTimestamp: serializeTimestamp(updatedData.notifiedPassengerArrivalTimestampActual as Timestamp | undefined),
+        passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedData.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
+        rideStartedAt: serializeTimestamp(updatedData.rideStartedAtActual as Timestamp | undefined),
+        completedAt: serializeTimestamp(updatedData.completedAtActual as Timestamp | undefined),
+    };
+
+    console.log(`API POST /api/operator/bookings/${bookingId}: Update successful. Returning:`, JSON.stringify(responseData, null, 2));
+    return NextResponse.json({ message: 'Booking updated successfully', booking: responseData }, { status: 200 });
+
   } catch (error: any) {
-    console.error(`!!! UNHANDLED CRITICAL ERROR IN SIMPLIFIED API POST v4 /api/operator/bookings/[bookingId=${bookingIdFromContext || 'UNKNOWN'}] !!!`, error);
-    return NextResponse.json({
-        error: true,
-        message: "A severe unexpected server error occurred in the simplified request handler v4.",
-        bookingIdAttempted: bookingIdFromContext || "ExtractionFailedOrNotReached",
-        errorName: error?.name || "UnknownError",
-        errorMessageFromCatch: error?.message || "No specific error message in catch.",
-    }, { status: 500 });
+    console.error(`API POST Error /api/operator/bookings/${bookingId}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error during booking update.';
+    return NextResponse.json({ message: 'Failed to update booking', details: errorMessage, errorRaw: error.toString() }, { status: 500 });
   }
 }
 
-// GET handler (if it was present before, keep it or ensure it's also simplified/correct)
-// Example:
+// GET handler
 interface GetContext {
   params: {
     bookingId: string;
   };
 }
-export async function GET(request: any, context: GetContext) {
+export async function GET(request: NextRequest, context: GetContext) {
   const { bookingId } = context.params;
+  console.log(`API GET /api/operator/bookings/${bookingId}: Handler entered.`);
+  
+  if (!db) {
+    console.error(`API GET Error /api/operator/bookings/${bookingId}: Firestore (db) is not initialized.`);
+    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500 });
+  }
+   if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
+    return NextResponse.json({ error: true, message: 'A valid Booking ID path parameter is required for GET.' }, { status: 400 });
+  }
   try {
-    if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
-      return NextResponse.json({ error: true, message: 'A valid Booking ID path parameter is required for GET.' }, { status: 400 });
+    const bookingRef = doc(db, 'bookings', bookingId);
+    const bookingSnap = await getDoc(bookingRef);
+    if (!bookingSnap.exists()) {
+      return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
     }
-    // Dummy GET response for testing the route file itself
-    return NextResponse.json({ message: `GET request received for booking ID: ${bookingId}`, bookingId }, { status: 200 });
-
+    const data = bookingSnap.data();
+     const responseData = {
+        id: bookingSnap.id,
+        ...data,
+        bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
+        scheduledPickupAt: data.scheduledPickupAt || null,
+        updatedAt: serializeTimestamp(data.updatedAt as Timestamp | undefined),
+        notifiedPassengerArrivalTimestamp: serializeTimestamp(data.notifiedPassengerArrivalTimestampActual as Timestamp | undefined),
+        passengerAcknowledgedArrivalTimestamp: serializeTimestamp(data.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
+        rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
+        completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
+    };
+    return NextResponse.json({ booking: responseData }, { status: 200 });
   } catch (error: any) {
-    console.error(`Error in simplified GET /api/operator/bookings/[bookingId=${bookingId || 'UNKNOWN'}]`, error);
-    return NextResponse.json({ error: true, message: "Error in simplified GET handler." }, { status: 500 });
+    console.error(`Error in GET /api/operator/bookings/${bookingId || 'UNKNOWN'}`, error);
+    return NextResponse.json({ error: true, message: "Error in GET handler." }, { status: 500 });
   }
 }
