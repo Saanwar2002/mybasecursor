@@ -10,10 +10,10 @@ export default function RootLayout({
 }: Readonly<{
   children: ReactNode;
 }>) {
-  console.log("RootLayout rendering...");
+  console.log("RootLayout rendering (minimal for 404 debug)...");
   return (
     <html lang="en" suppressHydrationWarning>
-      <body> {/* Removed inline style for green border */}
+      <body className="border-2 border-purple-500"> {/* Minimal body, added diagnostic border */}
         <ThemeInitializer>
           <AuthProvider>
             {children}
