@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyCarousel } from '@/components/marketing/company-carousel';
-import { PassengerReviewsCarousel } from '@/components/marketing/PassengerReviewsCarousel'; // Added import
+import { PassengerReviewsCarousel } from '@/components/marketing/PassengerReviewsCarousel';
 
 const features = [
   {
@@ -52,7 +52,7 @@ export default function LandingPage() {
                   <UserPlus className="mr-2 h-5 w-5" /> Get Started - Sign Up
                 </Link>
               </Button>
-              <Button variant="outline" size="lg" className="w-full sm:w-auto text-base" asChild>
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto text-base" asChild>
                 <Link href="/login">
                   <LogIn className="mr-2 h-5 w-5" /> Already have an account?
                 </Link>
