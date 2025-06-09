@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   Timestamp,
   getDoc,
-  // orderBy, // Removed orderBy from here
+  orderBy, // Re-added orderBy
 } from 'firebase/firestore';
 import { z } from 'zod';
 import type { UserRole } from '@/contexts/auth-context';
@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Removed orderBy('createdAt', 'desc')
-    const q = query(collection(db, 'userBlocks'), where('blockerId', '==', userId));
+    // Re-added orderBy('createdAt', 'desc')
+    const q = query(collection(db, 'userBlocks'), where('blockerId', '==', userId), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
 
     const blockedUsersDisplay: BlockedUserDisplay[] = [];
@@ -126,8 +126,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Sort in application code after fetching
-    blockedUsersDisplay.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Removed manual JavaScript sort as Firestore will handle it now
+    // blockedUsersDisplay.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return NextResponse.json(blockedUsersDisplay, { status: 200 });
 

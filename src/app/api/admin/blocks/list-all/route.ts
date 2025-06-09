@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import {
   collection,
   query,
-  // orderBy, // Removed orderBy
+  orderBy, // Re-added orderBy
   getDocs,
   doc,
   getDoc,
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const blocksRef = collection(db, 'userBlocks');
-    // Removed orderBy('createdAt', 'desc') to avoid index error temporarily
-    const q = query(blocksRef); 
+    // Re-added orderBy('createdAt', 'desc')
+    const q = query(blocksRef, orderBy('createdAt', 'desc')); 
     const querySnapshot = await getDocs(q);
 
     const allBlocks: UserBlock[] = [];
@@ -76,9 +76,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Manually sort in application code after fetching if order is important for display
-    // This is less efficient than DB sorting but avoids index issues for now
-    allBlocks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Removed manual JavaScript sort as Firestore will handle it now
+    // allBlocks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
     return NextResponse.json({ blocks: allBlocks }, { status: 200 });
@@ -88,7 +87,7 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     if (error instanceof Error && (error as any).code === 'failed-precondition') {
         return NextResponse.json({
-            message: 'Query requires a Firestore index for userBlocks collection (orderBy createdAt). Please check console for link.',
+            message: 'Query requires a Firestore index. Please check console for link.',
             details: errorMessage
         }, { status: 500});
     }
