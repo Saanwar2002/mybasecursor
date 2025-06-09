@@ -1,4 +1,6 @@
 
+"use client"; // Add this line
+
 export function PublicFooter() {
   return (
     <footer className="py-8 px-6 border-t mt-auto bg-muted/50">
