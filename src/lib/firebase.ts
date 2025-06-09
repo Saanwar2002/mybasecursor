@@ -4,7 +4,7 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 
 // Fallback Firebase configuration (using user-confirmed working key for Maps as API key fallback)
-const FALLBACK_API_KEY = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; // Updated to user-confirmed working key
+const FALLBACK_API_KEY = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4";
 const FALLBACK_AUTH_DOMAIN = "taxinow-vvp38.firebaseapp.com";
 const FALLBACK_PROJECT_ID = "taxinow-vvp38";
 const FALLBACK_STORAGE_BUCKET = "taxinow-vvp38.firebasestorage.app";
@@ -22,13 +22,18 @@ const firebaseConfigFromEnv = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Helper to ensure env var is non-empty before using it over fallback
+const getEffectiveConfigValue = (envValue: string | undefined, fallbackValue: string): string => {
+  return (envValue && envValue.trim() !== "") ? envValue : fallbackValue;
+};
+
 const firebaseConfig = {
-  apiKey: firebaseConfigFromEnv.apiKey || FALLBACK_API_KEY,
-  authDomain: firebaseConfigFromEnv.authDomain || FALLBACK_AUTH_DOMAIN,
-  projectId: firebaseConfigFromEnv.projectId || FALLBACK_PROJECT_ID,
-  storageBucket: firebaseConfigFromEnv.storageBucket || FALLBACK_STORAGE_BUCKET,
-  messagingSenderId: firebaseConfigFromEnv.messagingSenderId || FALLBACK_MESSAGING_SENDER_ID,
-  appId: firebaseConfigFromEnv.appId || FALLBACK_APP_ID,
+  apiKey: getEffectiveConfigValue(firebaseConfigFromEnv.apiKey, FALLBACK_API_KEY),
+  authDomain: getEffectiveConfigValue(firebaseConfigFromEnv.authDomain, FALLBACK_AUTH_DOMAIN),
+  projectId: getEffectiveConfigValue(firebaseConfigFromEnv.projectId, FALLBACK_PROJECT_ID),
+  storageBucket: getEffectiveConfigValue(firebaseConfigFromEnv.storageBucket, FALLBACK_STORAGE_BUCKET),
+  messagingSenderId: getEffectiveConfigValue(firebaseConfigFromEnv.messagingSenderId, FALLBACK_MESSAGING_SENDER_ID),
+  appId: getEffectiveConfigValue(firebaseConfigFromEnv.appId, FALLBACK_APP_ID),
 };
 
 const criticalConfigKeys: Array<keyof typeof firebaseConfig> = ['apiKey', 'authDomain', 'projectId'];
@@ -36,22 +41,15 @@ let firebaseConfigError = false;
 
 console.log("Firebase Init Script: Debugging resolved configuration values:");
 for (const key of criticalConfigKeys) {
-  const envValue = firebaseConfigFromEnv[key];
-  const fallbackValue = 
-    key === 'apiKey' ? FALLBACK_API_KEY :
-    key === 'authDomain' ? FALLBACK_AUTH_DOMAIN :
-    key === 'projectId' ? FALLBACK_PROJECT_ID : 'N/A_FALLBACK_FOR_THIS_KEY_TYPE';
-  
   const resolvedValue = firebaseConfig[key];
-  const source = resolvedValue === envValue && envValue ? "Environment Variable" : "Fallback Value";
-
+  // Source determination logic can be simplified or removed if not strictly necessary for this debug step
+  // const source = (firebaseConfigFromEnv[key] && firebaseConfigFromEnv[key]!.trim() !== "") ? "Environment Variable" : "Fallback Value";
+  
   if (!resolvedValue || resolvedValue.trim() === "") {
     console.error(`Firebase Config FATAL ERROR: Critical key '${key}' is MISSING or EMPTY.`);
-    console.error(`  Attempted to use value from env: [${envValue || 'NOT_SET'}]`);
-    console.error(`  Attempted to use fallback value: [${fallbackValue || 'NOT_SET'}]`);
     firebaseConfigError = true;
   } else {
-    console.log(`  OK: ${key}: ${resolvedValue.substring(0, 10)}... (Source: ${source})`);
+    console.log(`  OK: ${key}: Using value (Source determined by effective config logic)`);
   }
 }
 
