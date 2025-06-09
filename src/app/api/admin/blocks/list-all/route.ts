@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import {
   collection,
   query,
-  orderBy,
+  // orderBy, // Removed orderBy
   getDocs,
   doc,
   getDoc,
@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const blocksRef = collection(db, 'userBlocks');
-    const q = query(blocksRef, orderBy('createdAt', 'desc')); // Order by most recent
+    // Removed orderBy('createdAt', 'desc') to avoid index error temporarily
+    const q = query(blocksRef); 
     const querySnapshot = await getDocs(q);
 
     const allBlocks: UserBlock[] = [];
@@ -74,6 +75,11 @@ export async function GET(request: NextRequest) {
         createdAt: (blockData.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
       });
     }
+
+    // Manually sort in application code after fetching if order is important for display
+    // This is less efficient than DB sorting but avoids index issues for now
+    allBlocks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
 
     return NextResponse.json({ blocks: allBlocks }, { status: 200 });
 
