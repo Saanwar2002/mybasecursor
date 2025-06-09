@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp } from 'firebase/firestore'; // Added addDoc, collection, serverTimestamp
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { z } from 'zod';
 
 // Helper to serialize Timestamp for the response
@@ -43,7 +43,7 @@ const offerDetailsSchema = z.object({
   requiredOperatorId: z.string().optional(),
   distanceMiles: z.number().optional(),
   paymentMethod: z.enum(['card', 'cash']).optional(),
-  passengerId: z.string(),
+  passengerId: z.string(), // This is crucial for creating the booking
   isPriorityPickup: z.boolean().optional(),
   priorityFeeAmount: z.number().optional(),
   dispatchMethod: z.enum(['auto_system', 'manual_operator', 'priority_override']).optional(),
@@ -62,10 +62,10 @@ const bookingUpdateSchema = z.object({
   rideStartedAt: z.boolean().optional(), 
   completedAt: z.boolean().optional(), 
   passengerAcknowledgedArrivalTimestamp: z.boolean().optional(), 
-  offerDetails: offerDetailsSchema.optional(), // Added to receive mock offer details
-  isPriorityPickup: z.boolean().optional(),
-  priorityFeeAmount: z.number().optional(),
-  dispatchMethod: z.string().optional(),
+  offerDetails: offerDetailsSchema.optional(),
+  isPriorityPickup: z.boolean().optional(), // Can also be at root level
+  priorityFeeAmount: z.number().optional(), // Can also be at root level
+  dispatchMethod: z.string().optional(), // Can also be at root level
   waitAndReturn: z.boolean().optional(),
   estimatedAdditionalWaitTimeMinutes: z.number().min(0).optional().nullable(),
 });
@@ -79,34 +79,54 @@ interface PostContext {
 }
 
 export async function POST(request: NextRequest, context: PostContext) {
-  const bookingIdFromPath = context.params.bookingId;
-  console.log(`API POST /api/operator/bookings/${bookingIdFromPath}: Handler entered. Extracted bookingId: ${bookingIdFromPath}`);
-
-  if (!db) {
-    console.error(`API POST Error /api/operator/bookings/${bookingIdFromPath}: Firestore (db) is not initialized.`);
-    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized. Booking update failed.' }, { status: 500 });
+  let bookingIdForHandler: string = "UNKNOWN_BOOKING_ID_CONTEXT_ERROR";
+  try {
+    if (!context || !context.params || typeof context.params.bookingId !== 'string' || context.params.bookingId.trim() === '') {
+        console.error("API POST /api/operator/bookings/[bookingId]: Critical error - bookingId not found in context.params. Context:", JSON.stringify(context, null, 2));
+        return NextResponse.json({ message: 'Booking ID is missing in the request path or context is malformed.' }, { status: 400 });
+    }
+    bookingIdForHandler = context.params.bookingId;
+    console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handler entered. Extracted bookingId: ${bookingIdForHandler}`);
+  } catch (contextError: any) {
+    console.error("API POST /api/operator/bookings/[bookingId]: Error processing context parameters:", contextError);
+    return NextResponse.json({ message: 'Failed to process request parameters.', details: contextError.message || String(contextError) }, { status: 500 });
   }
 
-  if (!bookingIdFromPath || typeof bookingIdFromPath !== 'string' || bookingIdFromPath.trim() === '') {
-    return NextResponse.json({ message: 'A valid Booking ID path parameter is required.' }, { status: 400 });
+  if (!db) {
+    console.error(`API POST Error /api/operator/bookings/${bookingIdForHandler}: Firestore (db) is not initialized.`);
+    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized. Booking update failed.' }, { status: 500 });
   }
 
   try {
     const payload = await request.json();
-    console.log(`API POST /api/operator/bookings/${bookingIdFromPath}: Received payload:`, JSON.stringify(payload, null, 2));
+    console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Received raw payload:`, JSON.stringify(payload, null, 2));
+    
     const parsedPayload = bookingUpdateSchema.safeParse(payload);
 
     if (!parsedPayload.success) {
-      console.error(`API POST /api/operator/bookings/${bookingIdFromPath}: Payload validation failed.`, parsedPayload.error.format());
+      console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Top-level payload validation failed. Errors:`, JSON.stringify(parsedPayload.error.format(), null, 2));
       return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
     }
 
     const updateDataFromPayload = parsedPayload.data;
+    console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: RAW payload.offerDetails:`, JSON.stringify(payload.offerDetails, null, 2));
+    console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: ZOD PARSED updateDataFromPayload.offerDetails:`, JSON.stringify(updateDataFromPayload.offerDetails, null, 2));
+    
+    // Add specific check for offerDetails parsing outcome if it's optional and might be undefined
+    if (payload.offerDetails && !updateDataFromPayload.offerDetails && bookingIdForHandler.startsWith('mock-offer-')) {
+        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: offerDetails was present in raw payload but UNDEFINED after Zod parsing. This suggests the offerDetailsSchema did not match the provided offerDetails object.`);
+        const offerDetailsParseResult = offerDetailsSchema.safeParse(payload.offerDetails);
+        if (!offerDetailsParseResult.success) {
+            console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Specific Zod errors for offerDetails field:`, JSON.stringify(offerDetailsParseResult.error.format(), null, 2));
+             return NextResponse.json({ message: 'Invalid structure for offerDetails field.', errors: offerDetailsParseResult.error.format() }, { status: 400 });
+        }
+    }
 
-    if (bookingIdFromPath.startsWith('mock-offer-')) {
-      // This is a mock offer being accepted, create a new booking
-      console.log(`API POST /api/operator/bookings/${bookingIdFromPath}: Handling as mock offer acceptance. Creating new booking.`);
+
+    if (bookingIdForHandler.startsWith('mock-offer-')) {
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as mock offer acceptance. Creating new booking.`);
       if (!updateDataFromPayload.offerDetails) {
+        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: updateDataFromPayload.offerDetails IS FALSY after Zod parsing, even after specific check.`);
         return NextResponse.json({ message: 'Offer details are required to create a booking from a mock offer.' }, { status: 400 });
       }
       const offer = updateDataFromPayload.offerDetails;
@@ -115,15 +135,14 @@ export async function POST(request: NextRequest, context: PostContext) {
         passengerName: offer.passengerName || 'Passenger',
         pickupLocation: { address: offer.pickupLocation, latitude: offer.pickupCoords.lat, longitude: offer.pickupCoords.lng },
         dropoffLocation: { address: offer.dropoffLocation, latitude: offer.dropoffCoords.lat, longitude: offer.dropoffCoords.lng },
-        // stops: offer.stops, // Assuming offerDetails might contain stops
         fareEstimate: offer.fareEstimate,
         passengers: offer.passengerCount,
         paymentMethod: offer.paymentMethod || 'card',
         notes: offer.notes,
         requiredOperatorId: offer.requiredOperatorId,
-        isPriorityPickup: offer.isPriorityPickup || false,
-        priorityFeeAmount: offer.priorityFeeAmount || 0,
-        dispatchMethod: offer.dispatchMethod || 'auto_system',
+        isPriorityPickup: offer.isPriorityPickup || updateDataFromPayload.isPriorityPickup || false,
+        priorityFeeAmount: offer.priorityFeeAmount || updateDataFromPayload.priorityFeeAmount || 0,
+        dispatchMethod: offer.dispatchMethod || updateDataFromPayload.dispatchMethod || 'auto_system',
         
         driverId: updateDataFromPayload.driverId,
         driverName: updateDataFromPayload.driverName,
@@ -136,7 +155,7 @@ export async function POST(request: NextRequest, context: PostContext) {
       };
       
       const docRef = await addDoc(collection(db, 'bookings'), newBookingData);
-      console.log(`API POST /api/operator/bookings/${bookingIdFromPath}: New booking created with ID: ${docRef.id} from mock offer.`);
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: New booking created with ID: ${docRef.id} from mock offer.`);
       
       const newBookingSnap = await getDoc(docRef);
       const newBookingSavedData = newBookingSnap.data();
@@ -150,18 +169,18 @@ export async function POST(request: NextRequest, context: PostContext) {
 
     } else {
       // This is an update to an existing booking
-      console.log(`API POST /api/operator/bookings/${bookingIdFromPath}: Handling as update to existing booking.`);
-      const bookingRef = doc(db, 'bookings', bookingIdFromPath);
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as update to existing booking.`);
+      const bookingRef = doc(db, 'bookings', bookingIdForHandler);
       const bookingSnap = await getDoc(bookingRef);
 
       if (!bookingSnap.exists()) {
-        console.warn(`API POST /api/operator/bookings/${bookingIdFromPath}: Booking not found for update.`);
-        return NextResponse.json({ message: `Booking with ID ${bookingIdFromPath} not found.` }, { status: 404 });
+        console.warn(`API POST /api/operator/bookings/${bookingIdForHandler}: Booking not found for update.`);
+        return NextResponse.json({ message: `Booking with ID ${bookingIdForHandler} not found.` }, { status: 404 });
       }
 
       const updatePayloadFirestore: any = { ...updateDataFromPayload };
       delete updatePayloadFirestore.action; 
-      delete updatePayloadFirestore.offerDetails; // Not needed for existing booking update
+      delete updatePayloadFirestore.offerDetails;
 
       if (updateDataFromPayload.notifiedPassengerArrivalTimestamp === true) {
         updatePayloadFirestore.notifiedPassengerArrivalTimestampActual = Timestamp.now();
@@ -187,14 +206,14 @@ export async function POST(request: NextRequest, context: PostContext) {
 
       updatePayloadFirestore.updatedAt = Timestamp.now();
 
-      console.log(`API POST /api/operator/bookings/${bookingIdFromPath}: Updating Firestore with:`, JSON.stringify(updatePayloadFirestore, null, 2));
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Updating Firestore with:`, JSON.stringify(updatePayloadFirestore, null, 2));
       await updateDoc(bookingRef, updatePayloadFirestore);
 
       const updatedBookingSnap = await getDoc(bookingRef);
       const updatedData = updatedBookingSnap.data();
 
       if (!updatedData) {
-          console.error(`API POST /api/operator/bookings/${bookingIdFromPath}: Failed to retrieve updated document after update.`);
+          console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Failed to retrieve updated document after update.`);
           return NextResponse.json({ message: 'Failed to confirm booking update.' }, { status: 500 });
       }
       
@@ -210,12 +229,12 @@ export async function POST(request: NextRequest, context: PostContext) {
           completedAt: serializeTimestamp(updatedData.completedAtActual as Timestamp | undefined),
       };
 
-      console.log(`API POST /api/operator/bookings/${bookingIdFromPath}: Update successful. Returning:`, JSON.stringify(responseData, null, 2));
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Update successful. Returning:`, JSON.stringify(responseData, null, 2));
       return NextResponse.json({ message: 'Booking updated successfully', booking: responseData }, { status: 200 });
     }
 
   } catch (error: any) {
-    console.error(`API POST Error /api/operator/bookings/${bookingIdFromPath}:`, error);
+    console.error(`API POST Error /api/operator/bookings/${bookingIdForHandler}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error during booking update.';
     return NextResponse.json({ message: 'Failed to update booking', details: errorMessage, errorRaw: error.toString() }, { status: 500 });
   }
@@ -263,3 +282,4 @@ export async function GET(request: NextRequest, context: GetContext) {
   }
 }
 
+    
