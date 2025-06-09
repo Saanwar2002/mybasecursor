@@ -24,7 +24,7 @@ const slidesData: CarouselSlide[] = [
     title: "Our Mission at MyBase",
     description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
     icon: Target,
-    imageUrl: "/images/carousel/Slide10.JPG", // Updated to match user's image
+    imageUrl: "/images/carousel/Slide10.JPG", 
     imageHint: "team planning office"
   },
   {
@@ -40,13 +40,13 @@ const slidesData: CarouselSlide[] = [
     title: "Smart Rides with MyBase",
     description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
     icon: Smartphone,
-    imageUrl: "/images/carousel/technology-slide.png",
+    imageUrl: "https://placehold.co/600x300/B08BCD/FFFFFF.png?text=600%20x%20300",
     imageHint: "smartphone app interface"
   },
   {
     id: 'safety',
-    title: "Ride with Confidence at MyBase",
-    description: "Your safety is paramount. MyBase ensures all vehicles are regularly checked and drivers are professionally vetted for your peace of mind.",
+    title: "Safety Features",
+    description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
     icon: ShieldCheck,
     imageUrl: "/images/carousel/safety-slide.png",
     imageHint: "driver car interior"
@@ -152,3 +152,4 @@ export function CompanyCarousel() {
     </Card>
   );
 }
+
