@@ -27,9 +27,9 @@ const formSchema = z.object({
 });
 
 export function LoginForm() {
-  const { loginWithEmail, loginAsGuest, loading: authLoading } = useAuth(); // Renamed loading to authLoading
+  const { loginWithEmail, loginAsGuest, loading: authLoading } = useAuth(); 
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Renamed to avoid conflict if any
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,31 +40,33 @@ export function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("LoginForm onSubmit with Firebase integration:", values);
-    setIsSubmitting(true);
+    console.log("LoginForm onSubmit triggered with Firebase integration:", values.email);
+    setIsSubmittingForm(true);
     try {
       await loginWithEmail(values.email, values.password);
       // Success toast and redirection are handled by AuthContext
     } catch (error) {
-      // Error toast is handled by AuthContext's loginWithEmail
-      console.error("LoginForm direct catch (should be rare if AuthContext handles well):", error);
+      // Error toast should ideally be handled by AuthContext's loginWithEmail
+      console.error("LoginForm direct catch from onSubmit (should be rare if AuthContext handles well):", error);
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingForm(false);
     }
   }
 
   const handleGuestLogin = async (role: UserRole) => {
-    setIsSubmitting(true);
+    console.log(`LoginForm handleGuestLogin triggered for role: ${role}`);
+    setIsSubmittingForm(true);
     try {
       await loginAsGuest(role);
     } catch (error) {
       toast({ title: "Guest Login Error", description: "Could not log in as guest.", variant: "destructive"});
+      console.error("LoginForm handleGuestLogin error:", error);
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingForm(false);
     }
   };
 
-  const isLoading = isSubmitting || authLoading;
+  const isLoading = isSubmittingForm || authLoading;
 
   return (
     <>
@@ -132,15 +134,19 @@ export function LoginForm() {
         </h3>
         <div className="grid grid-cols-2 gap-3">
           <Button variant="outline" size="sm" onClick={() => handleGuestLogin('passenger')} disabled={isLoading}>
+            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             <UserIcon className="mr-2 h-4 w-4" /> Passenger
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleGuestLogin('driver')} disabled={isLoading}>
+            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             <CarIcon className="mr-2 h-4 w-4" /> Driver
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleGuestLogin('operator')} disabled={isLoading}>
+            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             <BriefcaseIcon className="mr-2 h-4 w-4" /> Operator
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleGuestLogin('admin')} disabled={isLoading}>
+            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             <ShieldIcon className="mr-2 h-4 w-4" /> Admin
           </Button>
         </div>
