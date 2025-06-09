@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight, Target, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CompanyCarousel } from '@/components/marketing/company-carousel';
+// Removed CompanyCarousel import
 import { PassengerReviewsCarousel } from '@/components/marketing/PassengerReviewsCarousel';
 
 const features = [
@@ -92,7 +92,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Company Carousel Section (Its intended placement) */}
+      {/* Company Carousel Section - REMOVED */}
+      {/* 
       <section className="container mx-auto px-4">
         <div className="text-center mb-10 md:mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
@@ -104,6 +105,7 @@ export default function LandingPage() {
         </div>
         <CompanyCarousel />
       </section>
+      */}
 
     </div>
   );
