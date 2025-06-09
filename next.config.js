@@ -10,11 +10,7 @@ const nextConfig = {
       },
     ],
   },
-  experimental: {
-    // Attempt to disable the default Next.js development service worker
-    // by pointing it to a non-existent file.
-    devSwSrc: '/intentionally-non-existent-service-worker.js',
-  },
+  // Removed experimental.devSwSrc as it's not a valid option here
 };
 
 module.exports = nextConfig;
