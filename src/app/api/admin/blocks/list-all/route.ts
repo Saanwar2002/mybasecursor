@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import {
   collection,
   query,
-  orderBy, // Ensured orderBy is imported
+  // orderBy, // Removed orderBy
   getDocs,
   doc,
   getDoc,
@@ -27,12 +27,11 @@ interface UserBlock {
 // This is a simplified version. In a real app, you'd implement pagination.
 export async function GET(request: NextRequest) {
   // TODO: Implement robust admin authentication/authorization here.
-  // For example, verify an admin ID token or session.
 
   try {
     const blocksRef = collection(db, 'userBlocks');
-    // Re-added orderBy('createdAt', 'desc') to trigger index creation link if needed
-    const q = query(blocksRef, orderBy('createdAt', 'desc')); 
+    // Removed orderBy('createdAt', 'desc') to avoid index error. Sorting will be done client-side.
+    const q = query(blocksRef); 
     const querySnapshot = await getDocs(q);
 
     const allBlocks: UserBlock[] = [];
@@ -76,8 +75,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Manual JavaScript sort is removed as Firestore will handle it now (or error if index missing)
-    // allBlocks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Sort in JavaScript after fetching
+    allBlocks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
     return NextResponse.json({ blocks: allBlocks }, { status: 200 });
@@ -85,12 +84,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching all user blocks for admin:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (error instanceof Error && (error as any).code === 'failed-precondition') {
-        return NextResponse.json({
-            message: 'Query requires a Firestore index. Please check console for link.',
-            details: errorMessage
-        }, { status: 500});
-    }
+    // Removed check for 'failed-precondition' as orderBy is removed
     return NextResponse.json({ message: 'Failed to fetch all user blocks', details: errorMessage }, { status: 500 });
   }
 }

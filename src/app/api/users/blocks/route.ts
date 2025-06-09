@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   Timestamp,
   getDoc,
-  orderBy, // Ensured orderBy is imported
+  // orderBy, // Removed orderBy
 } from 'firebase/firestore';
 import { z } from 'zod';
 import type { UserRole } from '@/contexts/auth-context';
@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Re-added orderBy('createdAt', 'desc') to trigger index creation link if needed
-    const q = query(collection(db, 'userBlocks'), where('blockerId', '==', userId), orderBy('createdAt', 'desc'));
+    // Removed orderBy('createdAt', 'desc') to avoid index error. Sorting will be done client-side.
+    const q = query(collection(db, 'userBlocks'), where('blockerId', '==', userId));
     const querySnapshot = await getDocs(q);
 
     const blockedUsersDisplay: BlockedUserDisplay[] = [];
@@ -125,21 +125,16 @@ export async function GET(request: NextRequest) {
         createdAt: (blockData.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
       });
     }
-
-    // Manual JavaScript sort is removed as Firestore will handle it now (or error if index missing)
-    // blockedUsersDisplay.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    // Sort in JavaScript after fetching
+    blockedUsersDisplay.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return NextResponse.json(blockedUsersDisplay, { status: 200 });
 
   } catch (error) {
     console.error('Error fetching blocked users:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (error instanceof Error && (error as any).code === 'failed-precondition') {
-        return NextResponse.json({
-            message: 'Query requires a Firestore index. Please check the console for a link to create it.',
-            details: errorMessage
-        }, { status: 500});
-    }
+    // Removed check for 'failed-precondition' as orderBy is removed
     return NextResponse.json({ message: 'Failed to fetch blocked users', details: errorMessage }, { status: 500 });
   }
 }
