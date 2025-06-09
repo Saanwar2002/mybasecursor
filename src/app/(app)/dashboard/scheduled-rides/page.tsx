@@ -54,8 +54,8 @@ export interface ScheduledBooking {
   isActive: boolean;
   pausedDates?: string[]; // Array of "YYYY-MM-DD"
   nextRunDate?: string; // "YYYY-MM-DD"
-  createdAt?: FirestoreTimestamp | string; // Can be timestamp from Firestore or ISO string
-  updatedAt?: FirestoreTimestamp | string;
+  createdAt: string; // ISO string from API
+  updatedAt: string; // ISO string from API
   estimatedFareOneWay?: number;
   estimatedFareReturn?: number;
 }
@@ -70,9 +70,12 @@ export default function ScheduledRidesPage() {
 
   const fetchScheduledBookings = useCallback(async () => {
     if (!user?.id) {
+      console.log("ScheduledRidesPage: fetchScheduledBookings - No user ID, skipping fetch.");
       setIsLoading(false);
+      setScheduledBookings([]); // Clear bookings if no user
       return;
     }
+    console.log(`ScheduledRidesPage: Fetching schedules for passengerId: ${user.id}`);
     setIsLoading(true);
     setError(null);
     try {
@@ -82,11 +85,14 @@ export default function ScheduledRidesPage() {
         throw new Error(errorData.message || 'Failed to fetch scheduled bookings.');
       }
       const data = await response.json();
+      console.log("ScheduledRidesPage: Data received from API:", data);
       setScheduledBookings(data.schedules || []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(message);
+      console.error("ScheduledRidesPage: Error fetching schedules:", message);
       toast({ title: "Error Fetching Schedules", description: message, variant: "destructive" });
+      setScheduledBookings([]); // Clear bookings on error
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +128,7 @@ export default function ScheduledRidesPage() {
       const response = await fetch(`/api/scheduled-bookings/${schedule.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !schedule.isActive }),
+        body: JSON.stringify({ passengerId: user?.id, isActive: !schedule.isActive }), // Added passengerId for verification
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -259,4 +265,3 @@ export default function ScheduledRidesPage() {
     </div>
   );
 }
-

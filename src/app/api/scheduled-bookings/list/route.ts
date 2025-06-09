@@ -69,28 +69,44 @@ interface ScheduledBookingAPIResponse {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const passengerId = searchParams.get('passengerId');
+  console.log(`API /scheduled-bookings/list: Received request for passengerId: ${passengerId}`);
+
 
   if (!passengerId) {
+    console.log("API /scheduled-bookings/list: passengerId query parameter is missing.");
     return NextResponse.json({ message: 'passengerId query parameter is required.' }, { status: 400 });
   }
   
   try {
+    if (!db) { 
+      console.error("API /scheduled-bookings/list: Firestore (db) is not initialized!");
+      return NextResponse.json({ message: 'Database service not available.', details: "Firestore (db) is null." }, { status: 500 });
+    }
+
     const schedulesRef = collection(db, 'scheduledBookings');
-    // Removed orderBy('createdAt', 'desc') from the query to avoid index error
+    // Removed orderBy('createdAt', 'desc') from the query to avoid index error.
     const q = query(
       schedulesRef,
       where('passengerId', '==', passengerId)
     );
+    console.log(`API /scheduled-bookings/list: Querying Firestore for passengerId: ${passengerId}`);
     const querySnapshot = await getDocs(q);
+    console.log(`API /scheduled-bookings/list: Firestore query returned ${querySnapshot.size} documents.`);
     
+    if (querySnapshot.empty) {
+      console.log(`API /scheduled-bookings/list: No documents found for passengerId ${passengerId}. Returning empty array.`);
+    }
+
     const schedules: ScheduledBookingAPIResponse[] = querySnapshot.docs.map(doc => {
       const data = doc.data() as ScheduledBookingFirestoreData;
+      console.log(`API /scheduled-bookings/list: Processing doc ${doc.id}, raw createdAt:`, data.createdAt);
       
       let nextRunDateString: string | undefined = undefined;
       if (data.nextRunDate) {
         if (data.nextRunDate instanceof Timestamp) {
           nextRunDateString = data.nextRunDate.toDate().toISOString().split('T')[0];
         } else if (typeof data.nextRunDate === 'string') {
+          // Assuming it's already in YYYY-MM-DD format if it's a string
           nextRunDateString = data.nextRunDate;
         }
       }
@@ -116,8 +132,9 @@ export async function GET(request: NextRequest) {
         pausedDates: data.pausedDates || [],
         estimatedFareOneWay: data.estimatedFareOneWay,
         estimatedFareReturn: data.estimatedFareReturn,
-        createdAt: (data.createdAt as Timestamp)?.toDate().toISOString(),
-        updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString(),
+        // Robust timestamp conversion with fallback
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date(0).toISOString(),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : new Date(0).toISOString(),
         nextRunDate: nextRunDateString,
       };
       return responseItem;
@@ -125,6 +142,7 @@ export async function GET(request: NextRequest) {
     
     // Sort in JavaScript after fetching
     schedules.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    console.log(`API /scheduled-bookings/list: Returning ${schedules.length} schedules after mapping and sorting.`);
 
     return NextResponse.json({ schedules }, { status: 200 });
 
