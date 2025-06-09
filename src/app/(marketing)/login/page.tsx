@@ -2,6 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoginForm } from "@/components/auth/login-form"; // Restoring the actual login form
 import { LogIn } from "lucide-react";
 
 export default function LoginPage() {
@@ -12,11 +13,11 @@ export default function LoginPage() {
           <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
             <LogIn className="h-8 w-8" />
           </div>
-          <CardTitle className="text-3xl font-headline">Simple Login Page</CardTitle>
-          <CardDescription>This is a test to see if the login route works.</CardDescription>
+          <CardTitle className="text-3xl font-headline">Welcome Back to MyBase</CardTitle>
+          <CardDescription>Log in to access your account and continue your journey.</CardDescription>
         </CardHeader>
         <CardContent>
-          <p>If you see this, the /login route is loading!</p>
+          <LoginForm />
         </CardContent>
       </Card>
     </div>
