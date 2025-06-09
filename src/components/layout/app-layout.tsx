@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase, Bell } from 'lucide-react';
-// Removed MyBaseLogoIcon import
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -225,8 +224,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
             <Link href="/" className="flex items-center" aria-label="MyBase Home">
-              {/* Replaced MyBaseLogoIcon with Image */}
-              <Image src="/mybase-logo.png" alt="MyBase Logo" width={120} height={40} className="shrink-0" priority />
+              <Image src="https://placehold.co/120x36.png?text=MyBase" alt="MyBase Logo" width={120} height={36} className="shrink-0" priority data-ai-hint="logo wordmark" />
             </Link>
           )}
           {!isMobileView && ( 
@@ -266,7 +264,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                               {category.tasks.map(task => (
                                 <li key={task.id} className="flex items-center space-x-1.5">
                                   <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {
-                                      // Mock toggle completion
                                       setAdminToDoList(prev => prev.map(cat => ({
                                           ...cat,
                                           tasks: cat.tasks?.map(t => t.id === task.id ? {...t, completed: !t.completed} : t)

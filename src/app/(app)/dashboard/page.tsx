@@ -65,7 +65,7 @@ export default function PassengerDashboardPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-headline">Welcome, {user?.name || 'Passenger'}!</CardTitle>
-          <CardDescription>Manage your rides and explore MyBase features.</CardDescription> {/* Updated App Name */}
+          <CardDescription>Manage your rides and explore MyBase features.</CardDescription> 
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6">
           <div className="w-full space-y-4">
@@ -87,7 +87,7 @@ export default function PassengerDashboardPage() {
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="app_chooses" id="app_chooses" />
-                  <Label htmlFor="app_chooses" className="font-normal">Let MyBase find driver</Label> {/* Updated App Name */}
+                  <Label htmlFor="app_chooses" className="font-normal">Let MyBase find driver</Label> 
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="specific_operator" id="specific_operator" />
