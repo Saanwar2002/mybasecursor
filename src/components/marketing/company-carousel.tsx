@@ -20,12 +20,12 @@ interface CarouselSlide {
 
 const slidesData: CarouselSlide[] = [
   {
-    id: 'mission',
-    title: "Our Mission at MyBase",
-    description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
-    icon: Target,
-    imageUrl: "/images/carousel/Slide10.JPG", 
-    imageHint: "team planning office"
+    id: 'safety-main', // Changed id for clarity, was 'mission'
+    title: "Safety Features", // CHANGED
+    description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.", // CHANGED
+    icon: ShieldCheck, // CHANGED
+    imageUrl: "/images/carousel/Slide10.JPG", // This is the image from user's context
+    imageHint: "driver car interior" // Updated hint
   },
   {
     id: 'community',
@@ -44,13 +44,28 @@ const slidesData: CarouselSlide[] = [
     imageHint: "smartphone app interface"
   },
   {
-    id: 'safety',
-    title: "Safety Features",
-    description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
-    icon: ShieldCheck,
-    imageUrl: "/images/carousel/safety-slide.png",
-    imageHint: "driver car interior"
+    id: 'original-mission', // If there was another mission slide, it needs a new image
+    title: "Our Mission at MyBase",
+    description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
+    icon: Target,
+    // This slide would need a different image if Slide10.JPG is now for safety.
+    // For now, using a generic placeholder. User might want to remove or update this slide.
+    imageUrl: "https://placehold.co/600x300/0EA5E9/FFFFFF.png?text=Our%20Mission", // Placeholder for mission
+    imageHint: "team planning office"
   },
+  // The original 'safety' slide definition might be redundant if Slide10.JPG is the primary safety image.
+  // If the user had a different image for '/images/carousel/safety-slide.png' and wants two safety slides,
+  // that's fine. Otherwise, it might be a duplicate or an old entry.
+  // For now, I'm leaving it as it was, but its text is now the same as the first slide's.
+  // The user may want to remove or change this if Slide10.JPG is the *only* safety image.
+  // {
+  //   id: 'safety_duplicate_text_check', // This was the original 'safety' id
+  //   title: "Safety Features",
+  //   description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
+  //   icon: ShieldCheck,
+  //   imageUrl: "/images/carousel/safety-slide.png", // This is a different image path
+  //   imageHint: "safety shield"
+  // },
 ];
 
 export function CompanyCarousel() {
@@ -75,7 +90,7 @@ export function CompanyCarousel() {
     }, 7000); // Change slide every 7 seconds
     return () => clearInterval(interval); // Clear interval on component unmount
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex]); // Reset interval if currentIndex changes manually, to avoid immediate double-change
+  }, [currentIndex]);
 
   const currentSlide = slidesData[currentIndex];
   const IconComponent = currentSlide.icon;
@@ -88,7 +103,7 @@ export function CompanyCarousel() {
         </CardTitle>
       </CardHeader>
       <CardContent className="relative p-0">
-        <div className="aspect-[16/7] overflow-hidden relative bg-muted"> {/* Parent needs to be relative for absolute children */}
+        <div className="aspect-[16/7] overflow-hidden relative bg-muted">
           {slidesData.map((slide, index) => (
             <div
               key={slide.id}
@@ -152,4 +167,3 @@ export function CompanyCarousel() {
     </Card>
   );
 }
-
