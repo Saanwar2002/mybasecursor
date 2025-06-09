@@ -1,3 +1,4 @@
+
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -109,20 +110,17 @@ export async function POST(request: NextRequest, context: GetContext) {
   if (!context || !context.params || typeof context.params.bookingId !== 'string' || context.params.bookingId.trim() === '') {
     const contextErrorMsg = "Critical error: Booking ID missing, invalid, or context.params is not structured as expected in request path.";
     console.error("API POST Error:", contextErrorMsg, "Full context:", JSON.stringify(context, null, 2));
-    return new Response(JSON.stringify({ error: true, message: contextErrorMsg }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ error: true, message: contextErrorMsg }, { status: 400 });
   }
   bookingIdParam = context.params.bookingId;
   console.log(`API POST /api/operator/bookings/[bookingId] - Successfully extracted bookingId from context.params: ${bookingIdParam}`);
 
   try {
-    const bookingId = bookingIdParam; // Use the validated bookingIdParam
+    const bookingId = bookingIdParam; 
 
     if (!db) {
       console.error(`API POST Error /api/operator/bookings/${bookingId}: Firestore (db) is not initialized. This is a critical server configuration issue.`);
-      return new Response(JSON.stringify({ error: true, message: 'Server configuration error: Firestore (db) is not initialized. Cannot process booking update.' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized. Cannot process booking update.' }, { status: 500 });
     }
     console.log(`API POST /api/operator/bookings/${bookingId} - Firestore 'db' instance is available.`);
 
@@ -132,14 +130,14 @@ export async function POST(request: NextRequest, context: GetContext) {
       console.log(`API POST /api/operator/bookings/${bookingId} - Successfully parsed JSON body. Payload:`, JSON.stringify(body));
     } catch (jsonParseError: any) {
       console.error(`API POST Error /api/operator/bookings/${bookingId}: Failed to parse JSON body. Error:`, jsonParseError.message);
-      return new Response(JSON.stringify({ error: true, message: 'Invalid JSON request body.', details: String(jsonParseError.message || jsonParseError) }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return NextResponse.json({ error: true, message: 'Invalid JSON request body.', details: String(jsonParseError.message || jsonParseError) }, { status: 400 });
     }
     
     const parsedPayload = bookingUpdateSchema.safeParse(body);
 
     if (!parsedPayload.success) {
       console.log(`API POST /api/operator/bookings/${bookingId} - Payload validation failed:`, JSON.stringify(parsedPayload.error.format(), null, 2));
-      return new Response(JSON.stringify({ error: true, message: 'Invalid update payload.', errors: parsedPayload.error.format() }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      return NextResponse.json({ error: true, message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
     }
 
     const updateDataFromPayload = parsedPayload.data;
@@ -150,7 +148,7 @@ export async function POST(request: NextRequest, context: GetContext) {
 
     if (!bookingSnap.exists()) {
       console.log(`API POST /api/operator/bookings/${bookingId} - Booking document not found in Firestore.`);
-      return new Response(JSON.stringify({ error: true, message: `Booking with ID ${bookingId} not found.` }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+      return NextResponse.json({ error: true, message: `Booking with ID ${bookingId} not found.` }, { status: 404 });
     }
     const currentBookingData = bookingSnap.data();
     console.log(`API POST /api/operator/bookings/${bookingId} - Current booking status from Firestore: ${currentBookingData.status}`);
@@ -158,16 +156,15 @@ export async function POST(request: NextRequest, context: GetContext) {
     if (updateDataFromPayload.action === 'cancel_active' && 
         !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress', 'pending_driver_wait_and_return_approval', 'in_progress_wait_and_return'].includes(currentBookingData.status)) {
         console.log(`API POST /api/operator/bookings/${bookingId} - Invalid status for cancellation action: ${currentBookingData.status}`);
-        return new Response(JSON.stringify({ error: true, message: `Cannot cancel ride with status: ${currentBookingData.status}.`}), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        return NextResponse.json({ error: true, message: `Cannot cancel ride with status: ${currentBookingData.status}.`}, { status: 400 });
     }
     
     if (updateDataFromPayload.action === 'request_wait_and_return' && currentBookingData.status !== 'in_progress') {
-        return new Response(JSON.stringify({ error: true, message: `Can only request Wait & Return for rides currently 'in_progress'. Current status: ${currentBookingData.status}`}), { status: 400, headers: { 'Content-Type': 'application/json' }});
+        return NextResponse.json({ error: true, message: `Can only request Wait & Return for rides currently 'in_progress'. Current status: ${currentBookingData.status}`}, { status: 400 });
     }
     if ((updateDataFromPayload.action === 'accept_wait_and_return' || updateDataFromPayload.action === 'decline_wait_and_return') && currentBookingData.status !== 'pending_driver_wait_and_return_approval') {
-        return new Response(JSON.stringify({ error: true, message: `Cannot accept/decline Wait & Return unless status is 'pending_driver_wait_and_return_approval'. Current status: ${currentBookingData.status}`}), { status: 400, headers: { 'Content-Type': 'application/json' }});
+        return NextResponse.json({ error: true, message: `Cannot accept/decline Wait & Return unless status is 'pending_driver_wait_and_return_approval'. Current status: ${currentBookingData.status}`}, { status: 400 });
     }
-
 
     const updateData: { [key: string]: any } = { 
       operatorUpdatedAt: Timestamp.now(),
@@ -197,29 +194,29 @@ export async function POST(request: NextRequest, context: GetContext) {
             case 'cancel_active':
                 updateData.status = 'cancelled';
                 updateData.cancelledAt = Timestamp.now();
-                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver'; // Or 'operator' if operator initiates
+                updateData.cancelledBy = updateDataFromPayload.cancelledBy || 'driver'; 
                 break;
             case 'request_wait_and_return':
                 if (updateDataFromPayload.estimatedAdditionalWaitTimeMinutes === undefined) {
-                     return new Response(JSON.stringify({ error: true, message: 'estimatedAdditionalWaitTimeMinutes is required for request_wait_and_return action.'}), { status: 400, headers: { 'Content-Type': 'application/json' }});
+                     return NextResponse.json({ error: true, message: 'estimatedAdditionalWaitTimeMinutes is required for request_wait_and_return action.'}, { status: 400 });
                 }
                 updateData.status = 'pending_driver_wait_and_return_approval';
                 updateData.estimatedAdditionalWaitTimeMinutes = updateDataFromPayload.estimatedAdditionalWaitTimeMinutes;
-                updateData.waitAndReturn = true; // Tentatively set
+                updateData.waitAndReturn = true;
                 break;
             case 'accept_wait_and_return':
                 const originalFare = currentBookingData.fareEstimate || 0;
                 const requestedWait = currentBookingData.estimatedAdditionalWaitTimeMinutes || 0;
-                const chargeableWaitMinutes = Math.max(0, requestedWait - 10); // 10 mins free
+                const chargeableWaitMinutes = Math.max(0, requestedWait - 10); 
                 const waitingCharge = chargeableWaitMinutes * 0.20;
                 updateData.fareEstimate = parseFloat((originalFare * 1.70 + waitingCharge).toFixed(2));
                 updateData.status = 'in_progress_wait_and_return';
-                updateData.waitAndReturn = true; // Confirm
+                updateData.waitAndReturn = true;
                 break;
             case 'decline_wait_and_return':
-                updateData.status = 'in_progress'; // Revert to normal in_progress
-                updateData.estimatedAdditionalWaitTimeMinutes = deleteField(); // Remove requested time
-                updateData.waitAndReturn = false; // Ensure W&R is off
+                updateData.status = 'in_progress'; 
+                updateData.estimatedAdditionalWaitTimeMinutes = deleteField(); 
+                updateData.waitAndReturn = false; 
                 break;
         }
     } else {
@@ -296,11 +293,11 @@ export async function POST(request: NextRequest, context: GetContext) {
         completedAt: serializeTimestamp(updatedBookingDataResult.completedAt as Timestamp | undefined | null),
         cancelledAt: serializeTimestamp(updatedBookingDataResult.cancelledAt as Timestamp | undefined | null),
         cancelledBy: updatedBookingDataResult.cancelledBy,
-        waitAndReturn: updatedBookingDataResult.waitAndReturn, // Added
-        estimatedAdditionalWaitTimeMinutes: serializeTimestamp(updatedBookingDataResult.estimatedAdditionalWaitTimeMinutes as Timestamp | undefined | null), // Added
+        waitAndReturn: updatedBookingDataResult.waitAndReturn,
+        estimatedAdditionalWaitTimeMinutes: updatedBookingDataResult.estimatedAdditionalWaitTimeMinutes, // Keep as number
     };
 
-    console.log(`API POST /api/operator/bookings/${bookingId} - Successfully processed. Sending 200 response with payload:`, JSON.stringify(bookingResponseObject).substring(0,500));
+    console.log(`API POST /api/operator/bookings/${bookingId} - Successfully processed. Sending 200 response.`);
     return NextResponse.json({ message: 'Booking updated successfully', booking: bookingResponseObject }, { status: 200 });
 
   } catch (error: any) {
@@ -308,21 +305,15 @@ export async function POST(request: NextRequest, context: GetContext) {
     console.error(`!!! CRITICAL SERVER ERROR in API POST /api/operator/bookings/${bookingIdForError} !!!`);
     console.error("Error Name:", String(error.name || "UnknownErrorType"));
     console.error("Error Message:", String(error.message || "No specific message."));
-    console.error("Error Stack:", String(error.stack || "No stack available."));
-    try {
-      console.error("Full Error Object (attempting serialization):", JSON.stringify(error, Object.getOwnPropertyNames(error)));
-    } catch (serializationError) {
-      console.error("Full Error Object (raw, could not serialize):", error);
-    }
+    // Avoid stringifying potentially circular error objects directly in the response
     
-    return new Response(JSON.stringify({
+    return NextResponse.json({
         error: true,
         message: "A critical server error occurred. Please check server logs for more details.",
         errorCode: "API_POST_CRITICAL_FAILURE",
         bookingIdAttempted: bookingIdForError,
-    }), {
+    }, {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
     });
   }
 }
