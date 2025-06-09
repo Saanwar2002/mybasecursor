@@ -24,15 +24,15 @@ const slidesData: CarouselSlide[] = [
     title: "Our Mission at MyBase",
     description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
     icon: Target,
-    imageUrl: "https://placehold.co/600x300/A0B4E8/333333.png?text=Our+Mission", // Soft Blue BG, Dark Text
-    imageHint: "team planning route"
+    imageUrl: "https://placehold.co/600x300/A0B4E8/333333.png", // Soft Blue BG
+    imageHint: "team planning"
   },
   {
     id: 'community',
     title: "Your Huddersfield, Your MyBase",
     description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
-    imageUrl: "https://placehold.co/600x300/A0D2DB/333333.png?text=Community+Focus", // Light Teal BG, Dark Text
+    imageUrl: "https://placehold.co/600x300/A0D2DB/333333.png", // Light Teal BG
     imageHint: "Huddersfield landmark"
   },
   {
@@ -40,16 +40,16 @@ const slidesData: CarouselSlide[] = [
     title: "Smart Rides with MyBase",
     description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
     icon: Smartphone,
-    imageUrl: "https://placehold.co/600x300/B08BCD/FFFFFF.png?text=Smart+Technology", // Muted Purple BG, White Text
-    imageHint: "smartphone app taxi"
+    imageUrl: "https://placehold.co/600x300/B08BCD/FFFFFF.png", // Muted Purple BG
+    imageHint: "smartphone app"
   },
   {
     id: 'safety',
     title: "Ride with Confidence at MyBase",
     description: "Your safety is paramount. MyBase ensures all vehicles are regularly checked and drivers are professionally vetted for your peace of mind.",
     icon: ShieldCheck,
-    imageUrl: "https://placehold.co/600x300/B4CFE8/333333.png?text=Safety+First", // Light Blue BG, Dark Text
-    imageHint: "driver smiling car"
+    imageUrl: "https://placehold.co/600x300/B4CFE8/333333.png", // Light Blue BG
+    imageHint: "driver car"
   },
 ];
 
