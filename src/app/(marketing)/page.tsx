@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image'; 
 import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight, Target, Users } from 'lucide-react'; // Added Target, Users
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CompanyCarousel } from '@/components/marketing/company-carousel';
+// import { CompanyCarousel } from '@/components/marketing/company-carousel'; // Temporarily removed
 import { PassengerReviewsCarousel } from '@/components/marketing/PassengerReviewsCarousel';
 
 const features = [
@@ -102,7 +102,7 @@ export default function LandingPage() {
             A quick look into our values and commitment to you.
           </p>
         </div>
-        <CompanyCarousel /> 
+        {/* <CompanyCarousel /> */} {/* Temporarily commented out */}
       </section>
 
     </div>
