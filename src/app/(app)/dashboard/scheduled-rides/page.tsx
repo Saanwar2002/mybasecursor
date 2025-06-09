@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -216,7 +217,9 @@ export default function ScheduledRidesPage() {
                         <p><strong>Vehicle:</strong> {schedule.vehicleType}</p>
                         <p><strong>Passengers:</strong> {schedule.passengers}</p>
                         {schedule.isWaitAndReturnOutbound && <p><strong>Wait & Return (Outbound):</strong> Yes, ~{schedule.estimatedWaitTimeMinutesOutbound} mins</p>}
-                        {schedule.estimatedFareOneWay && <p className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Est. Outbound Fare:</strong> £{schedule.estimatedFareOneWay.toFixed(2)}</p>}
+                        {schedule.estimatedFareOneWay !== null && schedule.estimatedFareOneWay !== undefined && (
+                          <p className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Est. Outbound Fare:</strong> £{schedule.estimatedFareOneWay.toFixed(2)}</p>
+                        )}
 
 
                         {schedule.isReturnJourneyScheduled && (
@@ -226,7 +229,9 @@ export default function ScheduledRidesPage() {
                                 <p><strong>Return From:</strong> {schedule.dropoffLocation?.address || "N/A"} {schedule.dropoffLocation?.doorOrFlat && `(${schedule.dropoffLocation.doorOrFlat})`}</p>
                                 <p><strong>Return To:</strong> {schedule.pickupLocation?.address || "N/A"} {schedule.pickupLocation?.doorOrFlat && `(${schedule.pickupLocation.doorOrFlat})`}</p>
                                 <p><strong>Return Time:</strong> {schedule.returnPickupTime || "N/A"}</p>
-                                {schedule.estimatedFareReturn && <p className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Est. Return Fare:</strong> £{schedule.estimatedFareReturn.toFixed(2)}</p>}
+                                {schedule.estimatedFareReturn !== null && schedule.estimatedFareReturn !== undefined && (
+                                  <p className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Est. Return Fare:</strong> £{schedule.estimatedFareReturn.toFixed(2)}</p>
+                                )}
                             </>
                         )}
                     </CardContent>
@@ -295,3 +300,4 @@ export default function ScheduledRidesPage() {
     </div>
   );
 }
+
