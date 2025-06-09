@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import {
   collection,
   query,
-  orderBy, // Re-added orderBy
+  orderBy, // Ensured orderBy is imported
   getDocs,
   doc,
   getDoc,
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const blocksRef = collection(db, 'userBlocks');
-    // Re-added orderBy('createdAt', 'desc')
+    // Re-added orderBy('createdAt', 'desc') to trigger index creation link if needed
     const q = query(blocksRef, orderBy('createdAt', 'desc')); 
     const querySnapshot = await getDocs(q);
 
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Removed manual JavaScript sort as Firestore will handle it now
+    // Manual JavaScript sort is removed as Firestore will handle it now (or error if index missing)
     // allBlocks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
