@@ -183,8 +183,10 @@ export default function ProfilePage() {
           <div className="flex-1 text-center md:text-left"> <CardTitle className="text-2xl font-headline">{user.name}</CardTitle> <CardDescription className="capitalize flex items-center justify-center md:justify-start gap-1"> <Briefcase className="w-4 h-4" /> {user.role} </CardDescription> </div>
           <Button variant={isEditing ? "destructive" : "outline"} onClick={() => setIsEditing(!isEditing)}>
             <span className="flex items-center justify-center">
-              <Edit3 className="mr-2 h-4 w-4" />
-              {isEditing ? "Cancel Edit" : "Edit Profile"}
+              <React.Fragment>
+                <Edit3 className="mr-2 h-4 w-4" />
+                {isEditing ? <span>Cancel Edit</span> : <span>Edit Profile</span>}
+              </React.Fragment>
             </span>
           </Button>
         </CardHeader>
@@ -271,17 +273,19 @@ export default function ProfilePage() {
                     className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                   >
                     <span className="flex items-center justify-center">
+                      <React.Fragment>
                       {unblockingUserId === blocked.blockId ? (
-                        <React.Fragment>
+                        <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                             Unblocking...
-                        </React.Fragment>
+                        </>
                       ) : (
-                        <React.Fragment>
+                        <>
                             <Trash2 className="mr-2 h-4 w-4"/>
                             Unblock
-                        </React.Fragment>
+                        </>
                       )}
+                      </React.Fragment>
                     </span>
                   </Button>
                 </div>
@@ -296,6 +300,7 @@ export default function ProfilePage() {
         </CardFooter>
       </Card>
 
+      {/* PIN Section Removed
       <Card>
         <CardHeader> <CardTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-muted-foreground"/>Quick PIN Login (This Device Only)</CardTitle> <CardDescription>Set a 4-digit PIN for faster login on this device. This is a mock feature and not secure for production.</CardDescription> </CardHeader>
         <CardContent>
@@ -303,18 +308,21 @@ export default function ProfilePage() {
             {currentPin ? ( <div className="space-y-3"> <p>A PIN is currently set for this device: <span className="font-mono bg-muted px-2 py-1 rounded text-lg tracking-widest">{currentPin.split('').join(' • ')}</span> (Showing for demo, normally hidden)</p> <Button onClick={handleRemovePin} variant="destructive">Remove PIN for this Device</Button> </div> ) : ( <Form {...pinForm}> <form onSubmit={pinForm.handleSubmit(handleSetPin)} className="space-y-4"> <FormField control={pinForm.control} name="newPin" render={({ field }) => ( <FormItem> <FormLabel>New 4-Digit PIN</FormLabel> <FormControl> <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" /> </FormControl> <FormMessage /> </FormItem> )} /> <FormField control={pinForm.control} name="confirmNewPin" render={({ field }) => ( <FormItem> <FormLabel>Confirm New PIN</FormLabel> <FormControl> <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" /> </FormControl> <FormMessage /> </FormItem> )} /> 
             <Button type="submit" disabled={isSettingPin} className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <span className="flex items-center justify-center">
+                    <React.Fragment>
                     {isSettingPin ? (
-                        <React.Fragment>
+                        <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                             Setting PIN...
-                        </React.Fragment>
+                        </>
                     ) : (
                         "Set PIN for this Device"
                     )}
+                    </React.Fragment>
                 </span>
             </Button> </form> </Form> )}
         </CardContent>
       </Card>
+      */}
 
       {user.role === 'passenger' && 
         <Card>
