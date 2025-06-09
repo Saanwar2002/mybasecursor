@@ -24,7 +24,7 @@ const slidesData: CarouselSlide[] = [
     title: "Welcome to MyBase!",
     description: "Your premier taxi service for Huddersfield and beyond. Book easily, ride comfortably.",
     icon: Car,
-    imageUrl: "/images/carousel/MyBase Taxis main.jpg", 
+    imageUrl: "https://placehold.co/600x300/2563EB/FFFFFF.png?text=MyBase+Welcome",
     imageHint: "taxi car street"
   },
   {
