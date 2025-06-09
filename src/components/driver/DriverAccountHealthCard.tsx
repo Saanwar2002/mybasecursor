@@ -4,8 +4,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight } from "lucide-react";
-import { Progress } from "@/components/ui/progress"; // Assuming you have a Progress component
+import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone } from "lucide-react";
+import { Progress } from "@/components/ui/progress"; 
 import { Separator } from "@/components/ui/separator";
 
 interface HealthMetricProps {
@@ -41,6 +41,8 @@ export function DriverAccountHealthCard() {
   const averageRating = 4.7;
   const completionRate = 92; // Percentage
   const acceptanceRate = 88; // Percentage
+  const safetyScore = "98/100"; // Mock Driving Performance
+  const passengerBlocks = 1; // Mock Passenger Blocks
   const positiveFeedback = "Passengers consistently praise your friendly demeanor and safe driving.";
   const areaForImprovement = "Consider reducing waiting times at pickup locations where possible.";
 
@@ -95,6 +97,9 @@ export function DriverAccountHealthCard() {
         <HealthMetric label="Average Passenger Rating" value={`${averageRating.toFixed(1)}/5`} icon={Star} variant={averageRating >= 4.5 ? "positive" : averageRating >= 4.0 ? "neutral" : "negative"} />
         <HealthMetric label="Ride Completion Rate" value={completionRate} unit="%" icon={TrendingUp} variant={completionRate >= 90 ? "positive" : completionRate >= 80 ? "neutral" : "negative"}/>
         <HealthMetric label="Ride Acceptance Rate" value={acceptanceRate} unit="%" icon={CheckCircle} variant={acceptanceRate >= 85 ? "positive" : "neutral"}/>
+        <HealthMetric label="Safety Score (Last 30d)" value={safetyScore} icon={ShieldCheck} variant={safetyScore === "100/100" || safetyScore === "99/100" || safetyScore === "98/100" ? "positive" : "neutral"} />
+        <HealthMetric label="Passengers Who Blocked You" value={passengerBlocks} icon={UserX} variant={passengerBlocks === 0 ? "positive" : passengerBlocks <= 2 ? "neutral" : "negative"} />
+
 
         <Separator />
 
@@ -125,4 +130,3 @@ export function DriverAccountHealthCard() {
     </Card>
   );
 }
-
