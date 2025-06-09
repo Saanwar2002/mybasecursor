@@ -391,48 +391,65 @@ export default function AvailableRidesPage() {
         body: JSON.stringify(updatePayload),
       });
 
-      if (!response.ok) {
-        let errorBodyText = "";
-        try {
-          // Try to get text first, as it might be an HTML error page
-          errorBodyText = await response.text();
-        } catch (e) {
-          errorBodyText = "Failed to read error response body as text.";
-        }
-        
+      let updatedBookingDataFromServer;
+      if (response.ok) {
+        updatedBookingDataFromServer = await response.json();
+      } else {
+        // Attempt to read error body as text
+        const errorBodyText = await response.text();
         let errorJsonMessage = null;
         try {
-          // Then, try to parse the text as JSON
-          const parsedJson = JSON.parse(errorBodyText);
-          errorJsonMessage = parsedJson.message || parsedJson.details || JSON.stringify(parsedJson);
+            const parsedJson = JSON.parse(errorBodyText);
+            errorJsonMessage = parsedJson.message || parsedJson.details || JSON.stringify(parsedJson);
         } catch (e) {
-          // Not JSON, or error in parsing; use the text or a snippet
+          // Not JSON
         }
-        
-        const detailMessage = errorJsonMessage || errorBodyText.substring(0,200) + (errorBodyText.length > 200 ? '...' : '');
+        const detailMessage = errorJsonMessage || errorBodyText.substring(0, 500) + (errorBodyText.length > 500 ? '...' : '');
         const errorMessage = `Acceptance Failed. Status: ${response.status}. ${detailMessage}`;
         console.error("Raw server response from handleAcceptOffer if !response.ok:", errorBodyText);
         throw new Error(errorMessage);
       }
 
-      const updatedBookingData = await response.json(); // Original response, assuming it's JSON on success
-
-      await fetchActiveRide(); 
+      // Optimistically update UI
+      const newActiveRide: ActiveRide = {
+        id: offerToAccept.id,
+        passengerId: offerToAccept.passengerId || 'N/A',
+        passengerName: offerToAccept.passengerName || 'Passenger',
+        pickupLocation: { address: offerToAccept.pickupLocation, latitude: offerToAccept.pickupCoords.lat, longitude: offerToAccept.pickupCoords.lng },
+        dropoffLocation: { address: offerToAccept.dropoffLocation, latitude: offerToAccept.dropoffCoords.lat, longitude: offerToAccept.dropoffCoords.lng },
+        fareEstimate: offerToAccept.fareEstimate,
+        passengerCount: offerToAccept.passengerCount,
+        status: 'driver_assigned',
+        driverId: driverUser.id,
+        driverName: driverUser.name || "Driver",
+        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
+        notes: offerToAccept.notes,
+        paymentMethod: offerToAccept.paymentMethod,
+        requiredOperatorId: offerToAccept.requiredOperatorId,
+        isPriorityPickup: offerToAccept.isPriorityPickup,
+        priorityFeeAmount: offerToAccept.priorityFeeAmount,
+        vehicleType: driverUser.vehicleCategory || 'Car',
+        dispatchMethod: offerToAccept.dispatchMethod,
+        // Other fields can be fetched/updated by fetchActiveRide later
+      };
+      setActiveRide(newActiveRide);
+      
       setRideRequests([]);
-      let toastDesc = `En Route to Pickup for ${updatedBookingData?.booking?.passengerName || offerToAccept.passengerName}. Payment: ${updatedBookingData?.booking?.paymentMethod || offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
-      if (updatedBookingData?.booking?.isPriorityPickup && updatedBookingData?.booking?.priorityFeeAmount) {
-        toastDesc += ` Priority: +£${updatedBookingData.booking.priorityFeeAmount.toFixed(2)}.`;
+      let toastDesc = `En Route to Pickup for ${updatedBookingDataFromServer?.booking?.passengerName || offerToAccept.passengerName}. Payment: ${updatedBookingDataFromServer?.booking?.paymentMethod || offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
+      if (updatedBookingDataFromServer?.booking?.isPriorityPickup && updatedBookingDataFromServer?.booking?.priorityFeeAmount) {
+        toastDesc += ` Priority: +£${updatedBookingDataFromServer.booking.priorityFeeAmount.toFixed(2)}.`;
       }
-      if (updatedBookingData?.booking?.dispatchMethod) {
-        toastDesc += ` Dispatched: ${updatedBookingData.booking.dispatchMethod.replace('_', ' ')}.`;
+      if (updatedBookingDataFromServer?.booking?.dispatchMethod) {
+        toastDesc += ` Dispatched: ${updatedBookingDataFromServer.booking.dispatchMethod.replace('_', ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
+      // fetchActiveRide() will be called by the interval or if explicitly needed
 
     } catch(error) {
       console.error("Error in handleAcceptOffer process:", error);
       const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
       toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
-      fetchActiveRide(); // Refresh active ride state on failure too
+      fetchActiveRide(); 
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
     }
@@ -1037,3 +1054,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
