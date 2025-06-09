@@ -737,23 +737,24 @@ export default function MyActiveRidePage() {
                   <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => { if (activeRide) { handleInitiateCancelRide(); } }}
+                  onClick={() => { 
+                    if (activeRide) { handleInitiateCancelRide(); } 
+                    setShowCancelConfirmationDialog(false); // Close dialog after action
+                  }}
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                   <span className="flex items-center justify-center">
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                       <span className="flex items-center justify-center">
-                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                         <span>Cancelling...</span>
-                       </span>
-                    ) : (
-                       <span className="flex items-center justify-center">
-                         <ShieldX className="mr-2 h-4 w-4" />
-                         <span>Confirm Cancel</span>
-                      </span>
-                    )}
-                  </span>
+                  {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                      <span>Cancelling...</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      <ShieldX className="mr-2 h-4 w-4" />
+                      <span>Confirm Cancel</span>
+                    </span>
+                  )}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -831,3 +832,4 @@ export default function MyActiveRidePage() {
 
 
     
+
