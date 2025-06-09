@@ -8,16 +8,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { MessageSquareWarning, Trash2, Edit, Loader2, CheckCircle, Clock } from "lucide-react";
+import { MessageSquareWarning, Trash2, Edit, Loader2, CheckCircle, Clock, Briefcase } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from 'date-fns';
 
-// Using the same interface as Admin for now, as it's a mock
 interface SupportTicket {
   id: string;
   submitterId: string;
   submitterName: string;
-  submitterRole: 'driver' | 'passenger' | 'operator'; // For now, operators can see cross-role mock tickets
+  submitterRole: 'driver' | 'passenger' | 'operator';
+  driverOperatorCode?: string; // Added for drivers
   category: string;
   details: string;
   submittedAt: string; // ISO string
@@ -26,10 +26,13 @@ interface SupportTicket {
   assignedTo?: string; // Admin/Operator User ID
 }
 
+// For Operator view, we might filter these by their operator code in a real app.
+// For now, showing a mix.
 const mockTicketsForOperator: SupportTicket[] = [
-  { id: 'TICKET_OP001', submitterId: 'driverA1', submitterName: 'Driver Alex', submitterRole: 'driver', category: 'App Issue', details: 'GPS is sometimes inaccurate in city center for my assigned rides.', submittedAt: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'Pending' },
-  { id: 'TICKET_OP002', submitterId: 'driverB2', submitterName: 'Driver Beth', submitterRole: 'driver', category: 'Payment Query', details: 'My payout from last Friday is still pending.', submittedAt: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'In Progress', assignedTo: 'OperatorUser' },
-  { id: 'TICKET_OP003', submitterId: 'passengerC3', submitterName: 'Passenger Chris', submitterRole: 'passenger', category: 'General Feedback', details: 'Compliment for driver Alex (driverA1) - very professional service!', submittedAt: new Date(Date.now() - 86400000 * 4).toISOString(), status: 'Resolved' },
+  { id: 'TICKET_OP001', submitterId: 'driverA1', submitterName: 'Driver Alex', submitterRole: 'driver', driverOperatorCode: 'OP001', category: 'App Issue', details: 'GPS is sometimes inaccurate in city center for my assigned rides.', submittedAt: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'Pending' },
+  { id: 'TICKET_OP002', submitterId: 'driverB2', submitterName: 'Driver Beth', submitterRole: 'driver', driverOperatorCode: 'OP001', category: 'Payment Query', details: 'My payout from last Friday is still pending.', submittedAt: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'In Progress', assignedTo: 'OperatorUser' },
+  { id: 'TICKET_OP003', submitterId: 'passengerC3', submitterName: 'Passenger Chris', submitterRole: 'passenger', category: 'General Feedback', details: 'Compliment for driver Alex (driverA1 of OP001) - very professional service!', submittedAt: new Date(Date.now() - 86400000 * 4).toISOString(), status: 'Resolved' },
+  { id: 'TICKET_OP004', submitterId: 'driverD4', submitterName: 'Driver Dave', submitterRole: 'driver', driverOperatorCode: 'OP002', category: 'Vehicle Issue', details: 'My car requires unexpected maintenance.', submittedAt: new Date(Date.now() - 86400000 * 0.2).toISOString(), status: 'Pending' },
 ];
 
 const ticketStatusOptions: SupportTicket['status'][] = ['Pending', 'In Progress', 'Resolved', 'Closed'];
@@ -108,8 +111,10 @@ export default function OperatorSupportTicketsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ticket ID</TableHead>
+                  <TableHead>ID</TableHead>
                   <TableHead>Submitter</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Driver's Operator</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
@@ -121,9 +126,14 @@ export default function OperatorSupportTicketsPage() {
                 {tickets.map((ticket) => (
                   <TableRow key={ticket.id}>
                     <TableCell className="font-mono text-xs">{ticket.id}</TableCell>
+                    <TableCell>{ticket.submitterName}</TableCell>
+                    <TableCell className="capitalize">{ticket.submitterRole}</TableCell>
                     <TableCell>
-                      <div>{ticket.submitterName}</div>
-                      <div className="text-xs text-muted-foreground capitalize">{ticket.submitterRole}</div>
+                      {ticket.submitterRole === 'driver' && ticket.driverOperatorCode ? (
+                         <Badge variant="outline" className="text-xs flex items-center gap-1">
+                            <Briefcase className="w-3 h-3"/> {ticket.driverOperatorCode}
+                          </Badge>
+                      ) : 'N/A'}
                     </TableCell>
                     <TableCell>{ticket.category}</TableCell>
                     <TableCell className="text-xs">{format(parseISO(ticket.submittedAt), "PPpp")}</TableCell>
