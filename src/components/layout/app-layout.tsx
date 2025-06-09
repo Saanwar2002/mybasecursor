@@ -3,17 +3,18 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; // Added Image import
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase, Bell } from 'lucide-react';
-import { MyBaseLogoIcon } from '@/components/icons';
+// Removed MyBaseLogoIcon import
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
-import { Skeleton } from '@/components/ui/skeleton'; // Corrected import path
+import { Skeleton } from '@/components/ui/skeleton';
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -224,7 +225,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
             <Link href="/" className="flex items-center" aria-label="MyBase Home">
-              <MyBaseLogoIcon className="h-10 w-28 md:w-32 shrink-0" priority />
+              {/* Replaced MyBaseLogoIcon with Image */}
+              <Image src="/mybase-logo.png" alt="MyBase Logo" width={120} height={40} className="shrink-0" priority />
             </Link>
           )}
           {!isMobileView && ( 
@@ -359,4 +361,3 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-    
