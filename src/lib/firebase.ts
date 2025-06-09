@@ -42,8 +42,6 @@ let firebaseConfigError = false;
 console.log("Firebase Init Script: Debugging resolved configuration values:");
 for (const key of criticalConfigKeys) {
   const resolvedValue = firebaseConfig[key];
-  // Source determination logic can be simplified or removed if not strictly necessary for this debug step
-  // const source = (firebaseConfigFromEnv[key] && firebaseConfigFromEnv[key]!.trim() !== "") ? "Environment Variable" : "Fallback Value";
   
   if (!resolvedValue || resolvedValue.trim() === "") {
     console.error(`Firebase Config FATAL ERROR: Critical key '${key}' is MISSING or EMPTY.`);
@@ -54,12 +52,12 @@ for (const key of criticalConfigKeys) {
 }
 
 let app: FirebaseApp | null = null;
-let db: Firestore | null = null;
-let auth: Auth | null = null;
+let db: Firestore | null = null; // Initialize to null
+let auth: Auth | null = null;   // Initialize to null
 
 if (firebaseConfigError) {
   console.error(
-    "Firebase initialization has been SKIPPED due to missing critical configuration values. Subsequent Firebase operations will likely fail, leading to errors."
+    "Firebase initialization SKIPPED due to missing critical configuration values. 'db' and 'auth' will be null."
   );
 } else {
   try {
@@ -76,28 +74,27 @@ if (firebaseConfigError) {
           db = getFirestore(app);
           console.log("Firestore instance (db) obtained successfully.");
         } catch (dbError: any) {
-          console.error("Failed to initialize Firestore (db). Error Code:", dbError.code, "Message:", dbError.message);
-          console.error("Full Firestore initialization error object:", dbError);
-          db = null;
+          console.error("CRITICAL: Failed to initialize Firestore (db). Error Code:", dbError.code, "Message:", dbError.message);
+          // db remains null (already initialized to null above)
         }
 
         try {
           auth = getAuth(app);
           console.log("Firebase Auth instance obtained successfully.");
         } catch (authError: any) {
-          console.error("Failed to initialize Firebase Auth. Error Code:", authError.code, "Message:", authError.message);
-          console.error("Full Auth initialization error object:", authError);
-          auth = null;
+          console.error("CRITICAL: Failed to initialize Firebase Auth. Error Code:", authError.code, "Message:", authError.message);
+          // auth remains null (already initialized to null above)
         }
     } else {
-        console.error("Firebase app object is null after initialization/retrieval attempt. This should not happen if config check passed. Cannot proceed with db/auth initialization.");
-        db = null;
-        auth = null;
+        console.error("CRITICAL: Firebase app object is null after initialization/retrieval attempt. 'db' and 'auth' will be null.");
+        // db and auth remain null (already initialized to null above)
     }
   } catch (initError: any) {
     console.error("CRITICAL: Firebase app initializeApp() FAILED. Error Code:", initError.code, "Message:", initError.message);
-    console.error("Full initializeApp() error object:", initError);
-    app = null; db = null; auth = null;
+    // Ensure db and auth are null on any init error
+    app = null; 
+    db = null;
+    auth = null;
   }
 }
 

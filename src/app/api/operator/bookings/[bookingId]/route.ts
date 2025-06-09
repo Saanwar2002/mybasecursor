@@ -96,6 +96,9 @@ const bookingUpdateSchema = z.object({
   action: z.enum(['notify_arrival', 'acknowledge_arrival', 'start_ride', 'complete_ride', 'cancel_active', 'request_wait_and_return', 'accept_wait_and_return', 'decline_wait_and_return']).optional(),
   cancelledBy: z.string().optional(),
   estimatedAdditionalWaitTimeMinutes: z.number().int().min(0).optional(),
+  isPriorityPickup: z.boolean().optional(), // Added for completeness from client
+  priorityFeeAmount: z.number().optional(), // Added for completeness from client
+  dispatchMethod: z.enum(['auto_system', 'manual_operator', 'priority_override']).optional(), // Added from client
 }).min(1, { message: "At least one field or action must be provided for update." });
 
 
@@ -103,6 +106,15 @@ export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
 
 export async function POST(request: NextRequest, context: GetContext) {
   console.log("!!!! API POST /api/operator/bookings/[bookingId] - HANDLER ENTERED !!!!");
+  // Initial, very early logging of context
+  try {
+    console.log("Context received:", JSON.stringify(context, null, 2));
+  } catch (e) {
+    console.error("Could not stringify context:", e);
+    console.log("Raw context object:", context);
+  }
+  console.log("Is db initialized?", db ? "Yes" : "No, db is NULL!");
+
   let bookingIdForHandler: string | undefined;
 
   try {
@@ -130,8 +142,6 @@ export async function POST(request: NextRequest, context: GetContext) {
     let body;
     try {
       body = await request.json();
-      // Stringify only if debugging, avoid in production for large payloads
-      // console.log(`API POST /api/operator/bookings/${bookingIdForHandler} - Parsed JSON body. Payload:`, JSON.stringify(body));
     } catch (jsonParseError: any) {
       console.error(`API POST Error /api/operator/bookings/${bookingIdForHandler}: Failed to parse JSON body. Error:`, jsonParseError.message);
       return NextResponse.json({ error: true, message: 'Invalid JSON request body provided.', details: String(jsonParseError.message || jsonParseError) }, { status: 400 });
@@ -139,7 +149,8 @@ export async function POST(request: NextRequest, context: GetContext) {
     
     const parsedPayload = bookingUpdateSchema.safeParse(body);
     if (!parsedPayload.success) {
-      console.log(`API POST /api/operator/bookings/${bookingIdForHandler} - Payload validation failed (Zod):`, parsedPayload.error.issues); // Log issues instead of full format
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler} - Payload validation failed (Zod issues logged separately).`);
+      console.error("Zod Validation Errors:", parsedPayload.error.issues);
       return NextResponse.json({ error: true, message: 'Invalid update payload structure or content. Please check inputs.', details: "Validation failed (see server logs for specific Zod issues)." }, { status: 400 });
     }
     const updateDataFromPayload = parsedPayload.data;
@@ -155,7 +166,6 @@ export async function POST(request: NextRequest, context: GetContext) {
     const currentBookingData = bookingSnap.data();
     console.log(`API POST /api/operator/bookings/${bookingIdForHandler} - Current booking status: ${currentBookingData.status}`);
 
-    // Business logic for status checks and update payload construction
     if (updateDataFromPayload.action === 'cancel_active' && 
         !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'In Progress', 'pending_driver_wait_and_return_approval', 'in_progress_wait_and_return'].includes(currentBookingData.status)) {
         console.log(`API POST /api/operator/bookings/${bookingIdForHandler} - Invalid status for cancellation: ${currentBookingData.status}`);
@@ -185,7 +195,7 @@ export async function POST(request: NextRequest, context: GetContext) {
     } else {
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler} - Processing direct field updates.`);
       if (updateDataFromPayload.status) { const statusLower = updateDataFromPayload.status.toLowerCase(); if (statusLower === 'completed') updateData.status = 'completed'; else if (statusLower === 'cancelled') updateData.status = 'cancelled'; else updateData.status = updateDataFromPayload.status; }
-      const optionalFields: (keyof BookingUpdatePayload)[] = ['driverId', 'driverName', 'driverAvatar', 'vehicleType', 'driverVehicleDetails', 'fareEstimate', 'notes'];
+      const optionalFields: (keyof BookingUpdatePayload)[] = ['driverId', 'driverName', 'driverAvatar', 'vehicleType', 'driverVehicleDetails', 'fareEstimate', 'notes', 'isPriorityPickup', 'priorityFeeAmount', 'dispatchMethod'];
       for (const field of optionalFields) { const value = updateDataFromPayload[field]; if (value !== undefined) updateData[field] = value; }
       if ((updateData.status === 'Assigned' || updateData.status === 'driver_assigned') && updateDataFromPayload.driverId) updateData.driverAssignedAt = Timestamp.now();
       else if (updateData.status === 'completed' && !updateData.completedAt) updateData.completedAt = Timestamp.now();
@@ -228,6 +238,9 @@ export async function POST(request: NextRequest, context: GetContext) {
         cancelledBy: updatedBookingDataResult.cancelledBy,
         waitAndReturn: updatedBookingDataResult.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: updatedBookingDataResult.estimatedAdditionalWaitTimeMinutes,
+        isPriorityPickup: updatedBookingDataResult.isPriorityPickup, // ensure these are passed back
+        priorityFeeAmount: updatedBookingDataResult.priorityFeeAmount,
+        dispatchMethod: updatedBookingDataResult.dispatchMethod,
     };
 
     console.log(`API POST /api/operator/bookings/${bookingIdForHandler} - Successfully processed. Sending 200 response.`);
@@ -236,16 +249,18 @@ export async function POST(request: NextRequest, context: GetContext) {
   } catch (error: any) {
     const bookingIdForErrorLog = String(bookingIdForHandler || context?.params?.bookingId || 'UNKNOWN_BOOKING_ID_IN_CATCH');
     console.error(`!!! CRITICAL SERVER ERROR in API POST /api/operator/bookings/${bookingIdForErrorLog} !!!`);
-    console.error("Error Name:", String(error?.name || "UnknownErrorType"));
+    console.error("Error Type:", Object.prototype.toString.call(error));
     console.error("Error Message:", String(error?.message || "No specific message available."));
-    if (error.stack) console.error("Error Stack:", error.stack);
+    if (error.stack) {
+      console.error("Error Stack:", error.stack);
+    } else {
+      console.error("Full Error Object (if no stack):", error);
+    }
     
     return NextResponse.json({
         error: true,
-        message: "A critical server error occurred. Please check server logs for specific details.",
-        errorCode: "API_POST_CRITICAL_FAILURE",
+        message: "A critical server error occurred. Check server logs.",
         bookingIdAttempted: bookingIdForErrorLog,
-        errorHint: error instanceof Error ? error.constructor.name : "UnknownErrorObject"
     }, { status: 500 });
   }
 }
