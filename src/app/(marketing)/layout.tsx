@@ -1,10 +1,11 @@
+"use client"; // Added "use client"
 
 import type { ReactNode } from 'react';
 
 // Simplified layout for debugging 404
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col min-h-screen bg-background border-2 border-red-500">
+    <div className="flex flex-col min-h-screen bg-background"> {/* Removed diagnostic border */}
       <header className="py-4 px-6 border-b bg-card shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="text-lg font-bold text-primary">MyBase (Minimal Header)</div>
