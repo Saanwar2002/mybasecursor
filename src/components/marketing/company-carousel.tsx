@@ -24,7 +24,7 @@ const slidesData: CarouselSlide[] = [
     title: "Our Mission at MyBase",
     description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
     icon: Target,
-    imageUrl: "/images/carousel/mission-slide.jpg",
+    imageUrl: "/images/carousel/Slide10.JPG", // Updated to match user's image
     imageHint: "team planning office"
   },
   {
@@ -38,9 +38,9 @@ const slidesData: CarouselSlide[] = [
   {
     id: 'technology',
     title: "Smart Rides with MyBase",
-    description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform. designed for your convenience.",
+    description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
     icon: Smartphone,
-    imageUrl: "https://placehold.co/600x300/B08BCD/FFFFFF.png?text=600%20x%20300", // Specific image as per user request
+    imageUrl: "/images/carousel/technology-slide.png",
     imageHint: "smartphone app interface"
   },
   {
@@ -104,7 +104,7 @@ export function CompanyCarousel() {
                   layout="fill"
                   objectFit="cover"
                   data-ai-hint={slide.imageHint}
-                  priority={index === 0} 
+                  priority={index === 0}
                 />
               )}
               <div className="absolute inset-0 flex flex-col items-center justify-end text-center p-4 md:p-6 bg-gradient-to-t from-black/80 via-black/50 to-transparent">
