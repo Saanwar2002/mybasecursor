@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react"; // Added ShieldAlert
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -157,6 +157,7 @@ export default function AvailableRidesPage() {
   const waitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
+  const [isConfirmEmergencyOpen, setIsConfirmEmergencyOpen] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
 
@@ -177,9 +178,9 @@ export default function AvailableRidesPage() {
     gainNode.connect(audioCtxRef.current.destination);
 
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioCtxRef.current.currentTime); // A5 note
-    gainNode.gain.setValueAtTime(0.3, audioCtxRef.current.currentTime); // Volume
-    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 0.5); // Fade out
+    oscillator.frequency.setValueAtTime(880, audioCtxRef.current.currentTime); 
+    gainNode.gain.setValueAtTime(0.3, audioCtxRef.current.currentTime); 
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 0.5); 
     oscillator.start();
     oscillator.stop(audioCtxRef.current.currentTime + 0.5);
   }, [toast]);
@@ -227,7 +228,6 @@ export default function AvailableRidesPage() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
-      // setError(message); // Can be too noisy if it fails on interval
       console.error("Error in fetchActiveRide:", message);
     } finally {
       setIsLoading(false);
@@ -592,6 +592,13 @@ export default function AvailableRidesPage() {
     </div>
   );
 
+  const handleConfirmEmergency = () => {
+    toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified of an emergency. Stay safe.", variant: "destructive", duration: 10000 });
+    playBeep();
+    setIsConfirmEmergencyOpen(false); // Close this confirmation dialog
+    setIsSosDialogOpen(false); // Also close the main SOS dialog
+  };
+
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
@@ -644,11 +651,11 @@ export default function AvailableRidesPage() {
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute bottom-4 right-4 rounded-full h-14 w-14 shadow-lg z-20 animate-pulse"
+                  className="absolute bottom-4 right-4 rounded-full h-12 w-12 shadow-lg z-20 animate-pulse"
                   onClick={() => setIsSosDialogOpen(true)}
                   aria-label="SOS Panic Button"
                 >
-                  <ShieldAlert className="h-7 w-7" />
+                  <ShieldAlert className="h-6 w-6" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -663,9 +670,8 @@ export default function AvailableRidesPage() {
                     variant="destructive"
                     className="w-full"
                     onClick={() => {
-                      toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified of an emergency. Stay safe.", variant: "destructive", duration: 10000 });
-                      playBeep();
-                      setIsSosDialogOpen(false);
+                      setIsSosDialogOpen(false); // Close main SOS dialog first
+                      setIsConfirmEmergencyOpen(true); // Open confirmation dialog
                     }}
                   >
                     Emergency (Alert & Sound)
@@ -692,9 +698,28 @@ export default function AvailableRidesPage() {
                   </Button>
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel SOS</AlertDialogCancel>
+                  <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
                 </AlertDialogFooter>
               </AlertDialogContent>
+            </AlertDialog>
+            {/* Nested Dialog for Emergency Confirmation */}
+            <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will immediately alert your operator. Proceed with caution.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
+                            Yes, Confirm Emergency!
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
             </AlertDialog>
         </div> 
         ))}
@@ -890,11 +915,11 @@ export default function AvailableRidesPage() {
             <Button
                 variant="destructive"
                 size="icon"
-                className="absolute bottom-4 right-4 rounded-full h-14 w-14 shadow-lg z-20 animate-pulse"
+                className="absolute bottom-4 right-4 rounded-full h-12 w-12 shadow-lg z-20 animate-pulse"
                 onClick={() => setIsSosDialogOpen(true)}
                 aria-label="SOS Panic Button"
             >
-                <ShieldAlert className="h-7 w-7" />
+                <ShieldAlert className="h-6 w-6" />
             </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -905,17 +930,16 @@ export default function AvailableRidesPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-3 py-2">
-                <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => {
-                    toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified of an emergency. Stay safe.", variant: "destructive", duration: 10000 });
-                    playBeep();
-                    setIsSosDialogOpen(false);
-                }}
-                >
-                Emergency (Alert & Sound)
-                </Button>
+                 <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => {
+                      setIsSosDialogOpen(false);
+                      setIsConfirmEmergencyOpen(true);
+                    }}
+                  >
+                    Emergency (Alert & Sound)
+                  </Button>
                 <Button
                 variant="outline"
                 className="w-full"
@@ -938,8 +962,27 @@ export default function AvailableRidesPage() {
                 </Button>
             </div>
             <AlertDialogFooter>
-                <AlertDialogCancel>Cancel SOS</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
             </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        {/* Nested Dialog for Emergency Confirmation */}
+        <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                        <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will immediately alert your operator. Proceed with caution.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
+                        Yes, Confirm Emergency!
+                    </AlertDialogAction>
+                </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
     </div> 
@@ -980,3 +1023,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
