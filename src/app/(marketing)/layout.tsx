@@ -1,16 +1,19 @@
 
 import type { ReactNode } from 'react';
-import { PublicHeader } from '@/components/layout/public-header'; 
-import { PublicFooter } from '@/components/layout/public-footer'; 
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
+  console.log("Minimal MarketingLayout rendering...");
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <PublicHeader />
-      <main className="flex-grow container mx-auto px-4 pt-8 pb-8 flex flex-col items-center"> {/* Changed pt-0 to pt-8 and justify-center to flex-col items-center */}
+      <header className="p-4 bg-card border-b">
+        <h1 className="text-lg font-semibold text-primary">Minimal Marketing Header</h1>
+      </header>
+      <main className="flex-grow container mx-auto px-4 py-8">
         {children}
       </main>
-      <PublicFooter />
+      <footer className="p-4 bg-card border-t mt-auto">
+        <p className="text-center text-sm text-muted-foreground">Minimal Marketing Footer</p>
+      </footer>
     </div>
   );
 }

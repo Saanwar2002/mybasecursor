@@ -10,9 +10,10 @@ export default function RootLayout({
 }: Readonly<{
   children: ReactNode;
 }>) {
+  console.log("RootLayout rendering...");
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body style={{ border: '5px solid green', minHeight: '100vh' }}> {/* Added green border for RootLayout check */}
         <ThemeInitializer>
           <AuthProvider>
             {children}
