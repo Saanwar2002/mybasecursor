@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react"; // Added RefreshCw
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -159,6 +159,7 @@ export default function AvailableRidesPage() {
   const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
   const [isConfirmEmergencyOpen, setIsConfirmEmergencyOpen] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const rideRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
 
   const playBeep = useCallback(() => {
@@ -306,11 +307,24 @@ export default function AvailableRidesPage() {
   useEffect(() => {
     if (driverUser) {
       setIsLoading(true);
-      fetchActiveRide();
-      const rideRefreshInterval = setInterval(fetchActiveRide, 30000);
-      return () => clearInterval(rideRefreshInterval);
+      fetchActiveRide(); // Initial fetch
+      
+      // Clear any existing interval before setting a new one
+      if (rideRefreshIntervalIdRef.current) {
+        clearInterval(rideRefreshIntervalIdRef.current);
+      }
+      rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000); // Polls every 30 seconds
+      
+      return () => {
+        if (rideRefreshIntervalIdRef.current) {
+          clearInterval(rideRefreshIntervalIdRef.current);
+        }
+      };
     } else {
       setIsLoading(false);
+       if (rideRefreshIntervalIdRef.current) {
+        clearInterval(rideRefreshIntervalIdRef.current);
+      }
     }
   }, [driverUser, fetchActiveRide]);
 
@@ -395,22 +409,24 @@ export default function AvailableRidesPage() {
       if (response.ok) {
         updatedBookingDataFromServer = await response.json();
       } else {
-        // Attempt to read error body as text
-        const errorBodyText = await response.text();
-        let errorJsonMessage = null;
-        try {
-            const parsedJson = JSON.parse(errorBodyText);
-            errorJsonMessage = parsedJson.message || parsedJson.details || JSON.stringify(parsedJson);
-        } catch (e) {
-          // Not JSON
-        }
-        const detailMessage = errorJsonMessage || errorBodyText.substring(0, 500) + (errorBodyText.length > 500 ? '...' : '');
-        const errorMessage = `Acceptance Failed. Status: ${response.status}. ${detailMessage}`;
-        console.error("Raw server response from handleAcceptOffer if !response.ok:", errorBodyText);
-        throw new Error(errorMessage);
+          const clonedResponse = response.clone();
+          let errorDetailsText = `Server responded with status: ${response.status}.`;
+          try {
+              const errorDataJson = await response.json();
+              errorDetailsText = errorDataJson.message || errorDataJson.details || JSON.stringify(errorDataJson);
+          } catch (jsonParseError) {
+              try {
+                  const rawResponseText = await clonedResponse.text();
+                  errorDetailsText += ` Non-JSON response from server. Response text: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
+                  console.error("Raw non-JSON server response from handleAcceptOffer:", rawResponseText);
+              } catch (textReadError) {
+                  errorDetailsText += " Additionally, failed to read response body as text.";
+                  console.error("Failed to read response body as text after JSON parse failed:", textReadError);
+              }
+          }
+        throw new Error(errorDetailsText);
       }
 
-      // Optimistically update UI
       const newActiveRide: ActiveRide = {
         id: offerToAccept.id,
         passengerId: offerToAccept.passengerId || 'N/A',
@@ -419,7 +435,7 @@ export default function AvailableRidesPage() {
         dropoffLocation: { address: offerToAccept.dropoffLocation, latitude: offerToAccept.dropoffCoords.lat, longitude: offerToAccept.dropoffCoords.lng },
         fareEstimate: offerToAccept.fareEstimate,
         passengerCount: offerToAccept.passengerCount,
-        status: 'driver_assigned',
+        status: 'driver_assigned', // Optimistic status
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
@@ -430,7 +446,6 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         vehicleType: driverUser.vehicleCategory || 'Car',
         dispatchMethod: offerToAccept.dispatchMethod,
-        // Other fields can be fetched/updated by fetchActiveRide later
       };
       setActiveRide(newActiveRide);
       
@@ -443,13 +458,24 @@ export default function AvailableRidesPage() {
         toastDesc += ` Dispatched: ${updatedBookingDataFromServer.booking.dispatchMethod.replace('_', ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
-      // fetchActiveRide() will be called by the interval or if explicitly needed
+      
+      // Clear existing interval and restart it after a delay
+      if (rideRefreshIntervalIdRef.current) {
+        clearInterval(rideRefreshIntervalIdRef.current);
+      }
+      setTimeout(() => {
+        console.log("Restarting active ride fetch interval after 5s delay (post-acceptance).");
+        fetchActiveRide(); // Fetch immediately once after delay
+        rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
+      }, 5000); // 5-second delay
+
 
     } catch(error) {
       console.error("Error in handleAcceptOffer process:", error);
       const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
       toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
-      fetchActiveRide(); 
+      // Optionally, try to fetch active ride again to ensure state consistency
+      // fetchActiveRide(); 
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
     }
@@ -552,14 +578,16 @@ export default function AvailableRidesPage() {
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
         setTimeout(() => {
           setActiveRide(null);
-          fetchActiveRide();
+          // Restart polling after completion/cancellation
+          if (rideRefreshIntervalIdRef.current) clearInterval(rideRefreshIntervalIdRef.current);
+          rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
         }, 3000);
       }
 
     } catch(err) {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      fetchActiveRide();
+      fetchActiveRide(); // Attempt to resync state on failure
     } finally {
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
