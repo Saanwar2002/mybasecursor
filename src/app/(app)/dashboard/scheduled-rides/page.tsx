@@ -72,7 +72,7 @@ export default function ScheduledRidesPage() {
     if (!user?.id) {
       console.log("ScheduledRidesPage: fetchScheduledBookings - No user ID, skipping fetch.");
       setIsLoading(false);
-      setScheduledBookings([]); // Clear bookings if no user
+      setScheduledBookings([]); 
       return;
     }
     console.log(`ScheduledRidesPage: Fetching schedules for passengerId: ${user.id}`);
@@ -81,18 +81,18 @@ export default function ScheduledRidesPage() {
     try {
       const response = await fetch(`/api/scheduled-bookings/list?passengerId=${user.id}`);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch scheduled bookings.');
+        const errorData = await response.json().catch(() => ({ message: `API Error ${response.status}` }));
+        throw new Error(errorData.message || `Failed to fetch scheduled bookings: ${response.status}`);
       }
       const data = await response.json();
-      console.log("ScheduledRidesPage: Data received from API:", data);
+      console.log("ScheduledRidesPage: Data received from API:", data); 
       setScheduledBookings(data.schedules || []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(message);
       console.error("ScheduledRidesPage: Error fetching schedules:", message);
       toast({ title: "Error Fetching Schedules", description: message, variant: "destructive" });
-      setScheduledBookings([]); // Clear bookings on error
+      setScheduledBookings([]); 
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +113,7 @@ export default function ScheduledRidesPage() {
         throw new Error(errorData.message || 'Failed to delete schedule.');
       }
       toast({ title: "Schedule Deleted", description: "The scheduled ride has been removed." });
-      fetchScheduledBookings(); // Refresh list
+      fetchScheduledBookings(); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error.";
       toast({ title: "Delete Failed", description: message, variant: "destructive" });
@@ -128,14 +128,14 @@ export default function ScheduledRidesPage() {
       const response = await fetch(`/api/scheduled-bookings/${schedule.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passengerId: user?.id, isActive: !schedule.isActive }), // Added passengerId for verification
+        body: JSON.stringify({ passengerId: user?.id, isActive: !schedule.isActive }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update schedule status.');
       }
       toast({ title: "Schedule Updated", description: `Schedule "${schedule.label}" is now ${!schedule.isActive ? 'active' : 'paused'}.` });
-      fetchScheduledBookings(); // Refresh list
+      fetchScheduledBookings(); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error.";
       toast({ title: "Update Failed", description: message, variant: "destructive" });
@@ -143,6 +143,8 @@ export default function ScheduledRidesPage() {
       setActionLoading(prev => ({ ...prev, [`toggle-${schedule.id}`]: false }));
     }
   };
+
+  console.log("ScheduledRidesPage: Rendering with scheduledBookings state:", scheduledBookings);
 
 
   return (
@@ -186,66 +188,63 @@ export default function ScheduledRidesPage() {
           )}
           {!isLoading && !error && scheduledBookings.length > 0 && (
             <div className="space-y-4">
-              {scheduledBookings.map((schedule) => (
-                <Card key={schedule.id} className="shadow-md hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg font-semibold">{schedule.label}</CardTitle>
-                      <Button 
-                        variant={schedule.isActive ? "outline" : "default"}
-                        size="sm" 
-                        className={`h-8 px-2 text-xs ${schedule.isActive ? 'border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
-                        onClick={() => handleToggleActive(schedule)}
-                        disabled={actionLoading[`toggle-${schedule.id}`]}
-                      >
-                        {actionLoading[`toggle-${schedule.id}`] ? <Loader2 className="h-3 w-3 animate-spin" /> : (schedule.isActive ? <Pause className="h-3 w-3 mr-1"/> : <Play className="h-3 w-3 mr-1"/>)}
-                        {schedule.isActive ? 'Pause Schedule' : 'Resume Schedule'}
-                      </Button>
-                    </div>
+              {scheduledBookings.map((schedule) => {
+                console.log("ScheduledRidesPage: Mapping schedule item:", schedule);
+                return (
+                  <Card key={schedule.id} className="shadow-md hover:shadow-lg transition-shadow p-4">
+                    <CardTitle className="text-lg font-semibold">{schedule.label || "No Label"}</CardTitle>
                     <CardDescription className="text-xs">
-                      {schedule.daysOfWeek.join(', ')} at {schedule.pickupTime}
-                      {schedule.isReturnJourneyScheduled && schedule.returnPickupTime && ` (Return at ${schedule.returnPickupTime})`}
+                        ID: {schedule.id} | Status: {schedule.isActive ? "Active" : "Paused"}
                     </CardDescription>
-                  </CardHeader>
-                  <CardContent className="text-sm space-y-1 pt-0 pb-3">
-                    <p><strong>From:</strong> {schedule.pickupLocation.address}</p>
-                    <p><strong>To:</strong> {schedule.dropoffLocation.address}</p>
-                    <p><strong>Vehicle:</strong> {schedule.vehicleType} ({schedule.passengers} passengers)</p>
-                    {schedule.estimatedFareOneWay && <p><strong>Est. Fare (One Way):</strong> £{schedule.estimatedFareOneWay.toFixed(2)}</p>}
-                  </CardContent>
-                  <CardFooter className="border-t pt-3 pb-3 flex justify-end gap-2">
-                     <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground hover:text-primary" disabled>
-                        <Edit className="h-3 w-3 mr-1"/> Edit (Soon)
-                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="h-8 px-2 text-xs" disabled={actionLoading[schedule.id]}>
-                           {actionLoading[schedule.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3 mr-1"/>}
-                           Delete
+                    <CardContent className="text-sm pt-2 px-0 pb-0 space-y-1">
+                        <p><strong>From:</strong> {schedule.pickupLocation?.address || "N/A"}</p>
+                        <p><strong>To:</strong> {schedule.dropoffLocation?.address || "N/A"}</p>
+                        <p><strong>Days:</strong> {schedule.daysOfWeek.join(', ')} at {schedule.pickupTime}</p>
+                    </CardContent>
+                    <CardFooter className="border-t pt-3 mt-3 pb-0 px-0 flex justify-end gap-2">
+                        <Button 
+                            variant={schedule.isActive ? "outline" : "default"}
+                            size="sm" 
+                            className={`h-8 px-2 text-xs ${schedule.isActive ? 'border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
+                            onClick={() => handleToggleActive(schedule)}
+                            disabled={actionLoading[`toggle-${schedule.id}`]}
+                        >
+                            {actionLoading[`toggle-${schedule.id}`] ? <Loader2 className="h-3 w-3 animate-spin" /> : (schedule.isActive ? <Pause className="h-3 w-3 mr-1"/> : <Play className="h-3 w-3 mr-1"/>)}
+                            {schedule.isActive ? 'Pause' : 'Resume'}
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirm Delete</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete the scheduled ride "{schedule.label}"? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel disabled={actionLoading[schedule.id]}>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleDeleteSchedule(schedule.id)} 
-                            className="bg-destructive hover:bg-destructive/90"
-                            disabled={actionLoading[schedule.id]}
-                          >
-                            {actionLoading[schedule.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Schedule"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </CardFooter>
-                </Card>
-              ))}
+                        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground hover:text-primary" disabled>
+                            <Edit className="h-3 w-3 mr-1"/> Edit (Soon)
+                        </Button>
+                        <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm" className="h-8 px-2 text-xs" disabled={actionLoading[schedule.id]}>
+                            {actionLoading[schedule.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3 mr-1"/>}
+                            Delete
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Confirm Delete</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete the scheduled ride "{schedule.label}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel disabled={actionLoading[schedule.id]}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                                onClick={() => handleDeleteSchedule(schedule.id)} 
+                                className="bg-destructive hover:bg-destructive/90"
+                                disabled={actionLoading[schedule.id]}
+                            >
+                                {actionLoading[schedule.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Schedule"}
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                        </AlertDialog>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </CardContent>
