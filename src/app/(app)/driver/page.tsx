@@ -2,7 +2,7 @@
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Car, DollarSign, History, MessageCircle, Navigation, Bell, Users, ListChecks, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Switch } from "@/components/ui/switch";
@@ -11,6 +11,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; // Added import
 
 interface TaskItem {
   id: string;
@@ -117,8 +118,8 @@ export default function DriverDashboardPage() {
             </div>
             <CardDescription>Manage your rides, track earnings, and stay connected.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col md:flex-row items-center gap-6">
-            <div className="flex-1 space-y-4">
+          <CardContent className="flex flex-col items-start gap-6"> {/* Changed md:flex-row and items-center to items-start */}
+            <div className="w-full space-y-4"> {/* Changed flex-1 to w-full */}
               <p className="text-lg">You are currently <span className={isOnline ? "text-green-500 font-bold" : "text-red-500 font-bold"}>{isOnline ? "Online and available" : "Offline"}</span> for new ride offers.</p>
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Link href="/driver/available-rides">
@@ -126,18 +127,12 @@ export default function DriverDashboardPage() {
                 </Link>
               </Button>
             </div>
-            <div className="flex-shrink-0">
-              <Image 
-                src="https://placehold.co/300x200.png" 
-                alt="Driver in car" 
-                data-ai-hint="driver car navigation" 
-                width={300} 
-                height={200} 
-                className="rounded-lg shadow-md object-cover" 
-              />
-            </div>
+            {/* Removed the Image component and its div wrapper */}
           </CardContent>
         </Card>
+
+        {/* Account Health Card added here */}
+        <DriverAccountHealthCard />
 
         <div className="grid gap-6 md:grid-cols-2">
           {activeRide && (
