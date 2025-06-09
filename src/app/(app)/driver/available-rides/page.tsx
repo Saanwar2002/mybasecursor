@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react"; // Added ShieldAlert
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -85,7 +85,7 @@ interface ActiveRide {
   driverVehicleDetails?: string;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
-  dispatchMethod?: RideOffer['dispatchMethod']; // Added to ActiveRide as well
+  dispatchMethod?: RideOffer['dispatchMethod']; 
 }
 
 
@@ -155,6 +155,34 @@ export default function AvailableRidesPage() {
   const [extraWaitingSeconds, setExtraWaitingSeconds] = useState<number | null>(null);
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
   const waitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+
+  const playBeep = useCallback(() => {
+    if (!audioCtxRef.current) {
+      if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } else {
+        toast({ title: "Audio Error", description: "Web Audio API not supported.", variant: "destructive" });
+        return;
+      }
+    }
+    if (!audioCtxRef.current) return;
+
+    const oscillator = audioCtxRef.current.createOscillator();
+    const gainNode = audioCtxRef.current.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtxRef.current.destination);
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioCtxRef.current.currentTime); // A5 note
+    gainNode.gain.setValueAtTime(0.3, audioCtxRef.current.currentTime); // Volume
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtxRef.current.currentTime + 0.5); // Fade out
+    oscillator.start();
+    oscillator.stop(audioCtxRef.current.currentTime + 0.5);
+  }, [toast]);
 
 
   useEffect(() => {
@@ -347,7 +375,7 @@ export default function AvailableRidesPage() {
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        dispatchMethod: offerToAccept.dispatchMethod, // Pass through the dispatch method
+        dispatchMethod: offerToAccept.dispatchMethod, 
       };
 
       if (offerToAccept.isPriorityPickup !== undefined) {
@@ -600,7 +628,7 @@ export default function AvailableRidesPage() {
 
     if (activeRide.waitAndReturn && activeRide.status === 'in_progress_wait_and_return' && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined) {
         const waitingChargeForDisplay = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
-        const wrBaseWithPriority = (baseFare + priorityFee) * 1.70; // Assuming fareEstimate before W&R was one-way base
+        const wrBaseWithPriority = (baseFare + priorityFee) * 1.70; 
         totalCalculatedFare = wrBaseWithPriority + waitingChargeForDisplay;
         displayedFare = `£${totalCalculatedFare.toFixed(2)} (W&R: Base £${baseFare.toFixed(2)} + Prio £${priorityFee.toFixed(2)} + Wait £${waitingChargeForDisplay.toFixed(2)})`;
     }
@@ -608,7 +636,68 @@ export default function AvailableRidesPage() {
 
     return (
       <div className="flex flex-col h-full">
-        {(!showCompletedStatus && !showCancelledByDriverStatus && ( <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> <GoogleMapDisplay center={getMapCenterForActiveRide()} zoom={15} markers={getMapMarkersForActiveRide()} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} /> </div> ))}
+        {(!showCompletedStatus && !showCancelledByDriverStatus && ( 
+        <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
+            <GoogleMapDisplay center={getMapCenterForActiveRide()} zoom={15} markers={getMapMarkersForActiveRide()} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
+            <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute bottom-4 right-4 rounded-full h-14 w-14 shadow-lg z-20 animate-pulse"
+                  onClick={() => setIsSosDialogOpen(true)}
+                  aria-label="SOS Panic Button"
+                >
+                  <ShieldAlert className="h-7 w-7" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Select the type of assistance needed. Your current location will be shared with your operator.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-3 py-2">
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => {
+                      toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified of an emergency. Stay safe.", variant: "destructive", duration: 10000 });
+                      playBeep();
+                      setIsSosDialogOpen(false);
+                    }}
+                  >
+                    Emergency (Alert & Sound)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." });
+                      setIsSosDialogOpen(false);
+                    }}
+                  >
+                    Vehicle Breakdown
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      toast({ title: "Callback Requested", description: "Operator has been asked to call you back." });
+                      setIsSosDialogOpen(false);
+                    }}
+                  >
+                    Request Operator Callback
+                  </Button>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel SOS</AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+        </div> 
+        ))}
         <Card className={cn( "flex-1 flex flex-col rounded-t-xl z-10 shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] border-t-4 border-primary bg-card overflow-hidden", (showCompletedStatus || showCancelledByDriverStatus) ? "mt-0 rounded-b-xl" : "-mt-3" )}>
            <CardContent className="p-3 space-y-2 flex-1 overflow-y-auto">
             {showDriverAssignedStatus && ( <div className="flex justify-center mb-2"> <Badge variant="secondary" className="text-sm w-fit mx-auto bg-sky-500 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> En Route to Pickup </Badge> </div> )}
@@ -760,8 +849,8 @@ export default function AvailableRidesPage() {
               <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+              <AlertDialogCancel 
+                onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} 
                 disabled={activeRide ? actionLoading[activeRide.id] : false}
               >
                 <span>Keep Ride</span>
@@ -792,8 +881,69 @@ export default function AvailableRidesPage() {
     );
   }
 
-  const mapContainerClasses = cn( "h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } );
-  return ( <div className="flex flex-col h-full space-y-2"> <div className={mapContainerClasses}> <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} /> </div> <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+  const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } );
+  return ( <div className="flex flex-col h-full space-y-2"> 
+    <div className={mapContainerClasses}> 
+        <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} />
+        <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
+            <AlertDialogTrigger asChild>
+            <Button
+                variant="destructive"
+                size="icon"
+                className="absolute bottom-4 right-4 rounded-full h-14 w-14 shadow-lg z-20 animate-pulse"
+                onClick={() => setIsSosDialogOpen(true)}
+                aria-label="SOS Panic Button"
+            >
+                <ShieldAlert className="h-7 w-7" />
+            </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
+                <AlertDialogDescription>
+                Select the type of assistance needed. Your current location will be shared with your operator.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3 py-2">
+                <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => {
+                    toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified of an emergency. Stay safe.", variant: "destructive", duration: 10000 });
+                    playBeep();
+                    setIsSosDialogOpen(false);
+                }}
+                >
+                Emergency (Alert & Sound)
+                </Button>
+                <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                    toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." });
+                    setIsSosDialogOpen(false);
+                }}
+                >
+                Vehicle Breakdown
+                </Button>
+                <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                    toast({ title: "Callback Requested", description: "Operator has been asked to call you back." });
+                    setIsSosDialogOpen(false);
+                }}
+                >
+                Request Operator Callback
+                </Button>
+            </div>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel SOS</AlertDialogCancel>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    </div> 
+    <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
     <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}>
       <AlertDialogContent>
         <AlertDialogHeader>
