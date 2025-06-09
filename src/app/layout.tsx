@@ -1,25 +1,20 @@
-
 import type { ReactNode } from 'react';
 import './globals.css'; // Essential for Tailwind
-import { AuthProvider } from '@/contexts/auth-context';
-import { Toaster } from '@/components/ui/toaster';
-import { ThemeInitializer } from '@/components/theme-provider';
+
+// Removed AuthProvider, Toaster, ThemeInitializer for extreme debugging
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
-  console.log("RootLayout rendering (minimal for 404 debug)...");
+  console.log("RootLayout rendering (ULTRA-SIMPLIFIED for manifest debug)...");
   return (
     <html lang="en" suppressHydrationWarning>
-      <body> {/* Removed diagnostic border */}
-        <ThemeInitializer>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeInitializer>
+      <body style={{ border: '5px solid limegreen', padding: '10px', margin: '10px' }}>
+        <div style={{ fontSize: '24px', color: 'limegreen', fontWeight: 'bold', marginBottom: '10px' }}>ULTRA-SIMPLIFIED ROOT LAYOUT START</div>
+        {children}
+        <div style={{ fontSize: '24px', color: 'limegreen', fontWeight: 'bold', marginTop: '10px' }}>ULTRA-SIMPLIFIED ROOT LAYOUT END</div>
       </body>
     </html>
   );
