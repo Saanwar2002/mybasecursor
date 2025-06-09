@@ -114,7 +114,6 @@ export default function ProfilePage() {
         updatedDetails.acceptsPetFriendlyJobs = acceptsPetFriendlyJobs;
     }
 
-
     if (Object.keys(updatedDetails).length > 0) { updateUserProfileInContext(updatedDetails); }
     setIsEditing(false);
     toast({ title: "Profile Changes Applied (Mock)", description: "Your profile display has been updated." });
@@ -183,10 +182,8 @@ export default function ProfilePage() {
           <div className="flex-1 text-center md:text-left"> <CardTitle className="text-2xl font-headline">{user.name}</CardTitle> <CardDescription className="capitalize flex items-center justify-center md:justify-start gap-1"> <Briefcase className="w-4 h-4" /> {user.role} </CardDescription> </div>
           <Button variant={isEditing ? "destructive" : "outline"} onClick={() => setIsEditing(!isEditing)}>
             <span className="flex items-center justify-center">
-              <React.Fragment>
-                <Edit3 className="mr-2 h-4 w-4" />
-                {isEditing ? <span>Cancel Edit</span> : <span>Edit Profile</span>}
-              </React.Fragment>
+              <Edit3 className="mr-2 h-4 w-4" />
+              {isEditing ? <span>Cancel Edit</span> : <span>Edit Profile</span>}
             </span>
           </Button>
         </CardHeader>
@@ -232,7 +229,7 @@ export default function ProfilePage() {
               />
             </FormItem>
           )}
-          {user.role === 'driver' && !isEditing && (
+           {user.role === 'driver' && !isEditing && (
              <div className="p-3 border rounded-md bg-muted/50">
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Dog className="w-5 h-5 text-primary" /> Pet Friendly Jobs: 
@@ -246,6 +243,63 @@ export default function ProfilePage() {
           {isEditing && (<Button onClick={handleSaveProfile} className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">Save Profile Changes</Button>)}
         </CardContent>
         <CardFooter className="border-t pt-6"> <div className="flex items-center gap-2 text-sm text-muted-foreground"> <Shield className="w-5 h-5 text-green-500" /> Your information is kept secure. </div> </CardFooter>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-muted-foreground"/>Quick PIN Login (This Device Only)</CardTitle>
+          <CardDescription>Set a 4-digit PIN for faster login on this device. This is a mock feature and not secure for production.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Warning: Mock Feature</AlertTitle>
+                <AlertDescription>
+                    This PIN feature is for UI demonstration only. It stores the PIN in your browser and is **not secure**. Do not use real sensitive PINs.
+                </AlertDescription>
+            </Alert>
+            {currentPin ? (
+                <div className="space-y-3">
+                    <p>A PIN is currently set for this device: <span className="font-mono bg-muted px-2 py-1 rounded text-lg tracking-widest">{currentPin.split('').map(() => '•').join(' ')}</span></p>
+                    <Button onClick={handleRemovePin} variant="destructive">Remove PIN for this Device</Button>
+                </div>
+            ) : (
+                <Form {...pinForm}>
+                    <form onSubmit={pinForm.handleSubmit(handleSetPin)} className="space-y-4">
+                        <FormField control={pinForm.control} name="newPin" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>New 4-Digit PIN</FormLabel>
+                                <FormControl>
+                                    <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={pinForm.control} name="confirmNewPin" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Confirm New PIN</FormLabel>
+                                <FormControl>
+                                    <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <Button type="submit" disabled={isSettingPin} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                           <span className="flex items-center justify-center">
+                                {isSettingPin ? (
+                                    <React.Fragment>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                                        Setting PIN...
+                                    </React.Fragment>
+                                ) : (
+                                    "Set PIN for this Device"
+                                )}
+                            </span>
+                        </Button>
+                    </form>
+                </Form>
+            )}
+        </CardContent>
       </Card>
 
       <Card>
@@ -273,19 +327,17 @@ export default function ProfilePage() {
                     className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                   >
                     <span className="flex items-center justify-center">
-                      <React.Fragment>
                       {unblockingUserId === blocked.blockId ? (
-                        <>
+                        <React.Fragment>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                             Unblocking...
-                        </>
+                        </React.Fragment>
                       ) : (
-                        <>
+                        <React.Fragment>
                             <Trash2 className="mr-2 h-4 w-4"/>
                             Unblock
-                        </>
+                        </React.Fragment>
                       )}
-                      </React.Fragment>
                     </span>
                   </Button>
                 </div>
@@ -299,30 +351,6 @@ export default function ProfilePage() {
           </p>
         </CardFooter>
       </Card>
-
-      {/* PIN Section Removed
-      <Card>
-        <CardHeader> <CardTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-muted-foreground"/>Quick PIN Login (This Device Only)</CardTitle> <CardDescription>Set a 4-digit PIN for faster login on this device. This is a mock feature and not secure for production.</CardDescription> </CardHeader>
-        <CardContent>
-            <Alert variant="destructive" className="mb-4"> <AlertTriangle className="h-4 w-4" /> <AlertTitle>Warning: Mock Feature</AlertTitle> <AlertDescription> This PIN feature is for UI demonstration only. It stores the PIN in your browser and is **not secure**. Do not use real sensitive PINs. </AlertDescription> </Alert>
-            {currentPin ? ( <div className="space-y-3"> <p>A PIN is currently set for this device: <span className="font-mono bg-muted px-2 py-1 rounded text-lg tracking-widest">{currentPin.split('').join(' • ')}</span> (Showing for demo, normally hidden)</p> <Button onClick={handleRemovePin} variant="destructive">Remove PIN for this Device</Button> </div> ) : ( <Form {...pinForm}> <form onSubmit={pinForm.handleSubmit(handleSetPin)} className="space-y-4"> <FormField control={pinForm.control} name="newPin" render={({ field }) => ( <FormItem> <FormLabel>New 4-Digit PIN</FormLabel> <FormControl> <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" /> </FormControl> <FormMessage /> </FormItem> )} /> <FormField control={pinForm.control} name="confirmNewPin" render={({ field }) => ( <FormItem> <FormLabel>Confirm New PIN</FormLabel> <FormControl> <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" /> </FormControl> <FormMessage /> </FormItem> )} /> 
-            <Button type="submit" disabled={isSettingPin} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <span className="flex items-center justify-center">
-                    <React.Fragment>
-                    {isSettingPin ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            Setting PIN...
-                        </>
-                    ) : (
-                        "Set PIN for this Device"
-                    )}
-                    </React.Fragment>
-                </span>
-            </Button> </form> </Form> )}
-        </CardContent>
-      </Card>
-      */}
 
       {user.role === 'passenger' && 
         <Card>
@@ -344,3 +372,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
