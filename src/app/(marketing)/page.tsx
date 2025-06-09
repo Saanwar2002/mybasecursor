@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyCarousel } from '@/components/marketing/company-carousel';
+import { PassengerReviewsCarousel } from '@/components/marketing/PassengerReviewsCarousel'; // Added import
 
 const features = [
   {
@@ -58,16 +59,8 @@ export default function LandingPage() {
               </Button>
             </div>
           </div>
-          <div className="hidden md:block">
-            <Image
-              src="https://placehold.co/600x400.png" 
-              alt="MyBase taxi service illustration"
-              data-ai-hint="taxi city street car"
-              width={600}
-              height={400}
-              className="rounded-xl shadow-2xl object-cover"
-              priority 
-            />
+          <div className="hidden md:flex items-center justify-center"> {/* Updated to flex for centering */}
+            <PassengerReviewsCarousel /> {/* Replaced Image with Carousel */}
           </div>
         </div>
       </section>
