@@ -392,12 +392,15 @@ export default function AvailableRidesPage() {
       });
 
       if (!response.ok) {
-        let errorText = "Failed to accept ride.";
+        let errorText = `Failed to accept ride. Status: ${response.status}.`;
         try {
-            const errorData = await response.json();
-            errorText = errorData.message || `Server error: ${response.status}`;
+            const errorData = await response.json(); // Try to parse JSON first
+            errorText = errorData.message || errorData.details || JSON.stringify(errorData);
         } catch (e) {
-            errorText = `Failed to accept ride. Status: ${response.status}. Non-JSON response from server.`;
+            // If .json() fails, it's truly not JSON. Get the raw text.
+            const rawResponseText = await response.text();
+            errorText += ` Non-JSON response from server. Response text: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
+            console.error("Raw non-JSON server response from handleAcceptOffer:", rawResponseText);
         }
         throw new Error(errorText);
       }
@@ -418,7 +421,7 @@ export default function AvailableRidesPage() {
       console.error("Error accepting offer:", error);
       const message = error instanceof Error ? error.message : "Could not assign ride. Please try again.";
       toast({title: "Acceptance Failed", description: message, variant: "destructive"});
-      fetchActiveRide();
+      fetchActiveRide(); // Refresh active ride state on failure too
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
     }
@@ -595,8 +598,8 @@ export default function AvailableRidesPage() {
   const handleConfirmEmergency = () => {
     toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified of an emergency. Stay safe.", variant: "destructive", duration: 10000 });
     playBeep();
-    setIsConfirmEmergencyOpen(false); // Close this confirmation dialog
-    setIsSosDialogOpen(false); // Also close the main SOS dialog
+    setIsConfirmEmergencyOpen(false); 
+    setIsSosDialogOpen(false); 
   };
 
   if (isLoading && !activeRide) {
@@ -670,8 +673,8 @@ export default function AvailableRidesPage() {
                     variant="destructive"
                     className="w-full"
                     onClick={() => {
-                      setIsSosDialogOpen(false); // Close main SOS dialog first
-                      setIsConfirmEmergencyOpen(true); // Open confirmation dialog
+                      setIsSosDialogOpen(false); 
+                      setIsConfirmEmergencyOpen(true); 
                     }}
                   >
                     Emergency (Alert & Sound)
@@ -702,7 +705,7 @@ export default function AvailableRidesPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            {/* Nested Dialog for Emergency Confirmation */}
+            
             <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -966,7 +969,7 @@ export default function AvailableRidesPage() {
             </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-        {/* Nested Dialog for Emergency Confirmation */}
+        
         <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
