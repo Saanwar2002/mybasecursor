@@ -24,7 +24,7 @@ const slidesData: CarouselSlide[] = [
     title: "Your Journey Starts Here",
     description: "Experience the best taxi service in Huddersfield with MyBase. Fast, reliable, and always here for you.",
     icon: Car,
-    imageUrl: "/images/carousel/MyBase Taxis main.jpeg",
+    imageUrl: "/images/carousel/MyBase Taxis main.jpg", // Corrected extension
     imageHint: "taxi car street"
   },
   {
@@ -32,7 +32,7 @@ const slidesData: CarouselSlide[] = [
     title: "Safety Features",
     description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
     icon: ShieldCheck,
-    imageUrl: "/images/carousel/Slide10.JPG",
+    imageUrl: "/images/carousel/Slide10.JPG", // Assuming this is the safety image
     imageHint: "driver car interior"
   },
   {
@@ -40,7 +40,7 @@ const slidesData: CarouselSlide[] = [
     title: "Your Huddersfield, Your MyBase",
     description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
-    imageUrl: "/images/carousel/community-slide.jpg",
+    imageUrl: "https://placehold.co/600x300/22C55E/FFFFFF.png", // Greenish background
     imageHint: "Huddersfield landmark"
   },
   {
@@ -56,7 +56,7 @@ const slidesData: CarouselSlide[] = [
     title: "Our Mission at MyBase",
     description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
     icon: Target,
-    imageUrl: "https://placehold.co/600x300/0EA5E9/FFFFFF.png?text=Our%20Mission",
+    imageUrl: "https://placehold.co/600x300/0EA5E9/FFFFFF.png?text=Our%20Mission", // Blue background
     imageHint: "team planning office"
   },
 ];
