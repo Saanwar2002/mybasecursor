@@ -20,35 +20,35 @@ interface CarouselSlide {
 
 const slidesData: CarouselSlide[] = [
   {
-    id: 'welcome-mybase',
-    title: "Welcome to MyBase",
-    description: "Your journey starts here. Experience the best taxi service in Huddersfield with MyBase. Fast, reliable, and always here for you.",
+    id: 'welcome-mybase-main',
+    title: "Welcome to MyBase!",
+    description: "Your premier taxi service for Huddersfield and beyond. Book easily, ride comfortably.",
     icon: Car,
-    imageUrl: "https://placehold.co/600x300/3B82F6/FFFFFF.png?text=Welcome+To+MyBase", // Example: Blue background
+    imageUrl: "/images/carousel/MyBase Taxis main.jpg", 
     imageHint: "taxi car street"
   },
   {
-    id: 'safety-main',
+    id: 'safety-features',
     title: "Safety Features",
     description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
     icon: ShieldCheck,
-    imageUrl: "https://placehold.co/600x300/10B981/FFFFFF.png?text=Safety+First", // Example: Green background
-    imageHint: "driver car interior"
+    imageUrl: "https://placehold.co/600x300/10B981/FFFFFF.png?text=Safety+First",
+    imageHint: "driver car interior safety"
   },
   {
-    id: 'community',
+    id: 'community-focus',
     title: "Your Huddersfield, Your MyBase",
     description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
-    imageUrl: "https://placehold.co/600x300/F59E0B/FFFFFF.png?text=Community+Focus", // Example: Amber background
-    imageHint: "Huddersfield landmark"
+    imageUrl: "https://placehold.co/600x300/F59E0B/FFFFFF.png?text=Community+Focus",
+    imageHint: "Huddersfield landmark community"
   },
   {
-    id: 'technology',
+    id: 'smart-technology',
     title: "Smart Rides with MyBase",
     description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
     icon: Smartphone,
-    imageUrl: "https://placehold.co/600x300/8B5CF6/FFFFFF.png?text=Smart+Tech", // Example: Purple background
+    imageUrl: "https://placehold.co/600x300/8B5CF6/FFFFFF.png?text=Smart+Tech",
     imageHint: "smartphone app interface"
   },
 ];
@@ -68,12 +68,11 @@ export function CompanyCarousel() {
     );
   };
 
-  // Autoplay effect
   useEffect(() => {
     const interval = setInterval(() => {
       nextSlide();
-    }, 7000); // Change slide every 7 seconds
-    return () => clearInterval(interval); // Clear interval on component unmount
+    }, 7000); 
+    return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
@@ -89,7 +88,7 @@ export function CompanyCarousel() {
         </CardHeader>
         <CardContent className="relative p-0">
           <div className="aspect-[16/7] overflow-hidden relative bg-muted flex items-center justify-center">
-            <p className="text-muted-foreground">No slides to display.</p>
+            <p className="text-muted-foreground">Loading slides...</p>
           </div>
         </CardContent>
       </Card>
