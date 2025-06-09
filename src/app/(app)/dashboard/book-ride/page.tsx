@@ -284,6 +284,21 @@ export default function BookRidePage() {
     control: form.control,
     name: "stops",
   });
+  
+  const previousFieldsLengthRef = useRef(fields.length);
+
+  useEffect(() => {
+    if (fields.length > previousFieldsLengthRef.current) {
+      // A new stop was added
+      const newStopIndex = fields.length - 1;
+      // Delay slightly to ensure the input is rendered and focusable
+      setTimeout(() => {
+        form.setFocus(`stops.${newStopIndex}.location`);
+      }, 100);
+    }
+    previousFieldsLengthRef.current = fields.length;
+  }, [fields, form]);
+
 
   const watchedPaymentMethod = form.watch("paymentMethod");
   const watchedWaitAndReturn = form.watch("waitAndReturn");
@@ -778,7 +793,9 @@ export default function BookRidePage() {
       isFetchingDetails: false,
       coords: null
     }]);
+    // Focus will be handled by the useEffect hook watching `fields`
   };
+
 
   const handleRemoveStop = (index: number) => {
     remove(index);
@@ -2338,6 +2355,7 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
+
 
 
 
