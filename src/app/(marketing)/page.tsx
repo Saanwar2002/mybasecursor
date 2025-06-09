@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon';
+import { MyBaseLogoIcon } from '@/components/icons'; // Updated import path
 import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyCarousel } from '@/components/marketing/company-carousel';

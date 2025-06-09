@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { MyBaseLogoIcon } from '@/components/icons/my-base-logo-icon';
+import { MyBaseLogoIcon } from '@/components/icons'; // Updated import path
 
 export function PublicHeader() {
   return (
