@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { CalendarClock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { CreateScheduledRideForm } from "@/components/dashboard/create-scheduled-ride-form"; // Updated import
+import { CreateScheduledRideForm } from "@/components/dashboard/CreateScheduledRideForm"; // Updated import path
 
 export default function CreateScheduledRidePage() {
   return (
