@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -37,6 +36,7 @@ import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import type { ScheduledBooking } from '@/app/(app)/dashboard/scheduled-rides/page';
+import { Separator } from '@/components/ui/separator';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -92,8 +92,9 @@ const scheduledRideFormSchema = z.object({
   estimatedWaitTimeMinutesOutbound: z.number().int().min(0).optional().nullable(),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional().nullable(),
   paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
-  // Fields for edit mode that are not directly part of the form but needed for submission
-  isActive: z.boolean().optional(), // For sending existing status during edit
+  estimatedFareOneWay: z.number().optional().nullable(), // Added for payload
+  estimatedFareReturn: z.number().optional().nullable(), // Added for payload
+  isActive: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   if (data.isReturnJourneyScheduled && (!data.returnPickupTime || !data.returnPickupTime.match(/^([01]\d|2[0-3]):([0-5]\d)$/))) {
     ctx.addIssue({
@@ -158,9 +159,9 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
         dropoffDoorOrFlat: initialData.dropoffLocation.doorOrFlat || "",
         dropoffLocation: initialData.dropoffLocation.address,
         stops: initialData.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || "" })) || [],
-        vehicleType: initialData.vehicleType as any, // Assuming type compatibility
+        vehicleType: initialData.vehicleType as any, 
         passengers: initialData.passengers,
-        daysOfWeek: initialData.daysOfWeek as any[], // Assuming type compatibility
+        daysOfWeek: initialData.daysOfWeek as any[], 
         pickupTime: initialData.pickupTime,
         isReturnJourneyScheduled: initialData.isReturnJourneyScheduled,
         returnPickupTime: initialData.returnPickupTime || "",
@@ -169,6 +170,8 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
         driverNotes: initialData.driverNotes || "",
         paymentMethod: initialData.paymentMethod,
         isActive: initialData.isActive,
+        estimatedFareOneWay: initialData.estimatedFareOneWay,
+        estimatedFareReturn: initialData.estimatedFareReturn,
     } : {
       label: "",
       pickupDoorOrFlat: "", pickupLocation: "",
@@ -177,6 +180,8 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
       isReturnJourneyScheduled: false, returnPickupTime: "",
       isWaitAndReturnOutbound: false, estimatedWaitTimeMinutesOutbound: 10,
       driverNotes: "", paymentMethod: "card", isActive: true,
+      estimatedFareOneWay: null, // Default for new
+      estimatedFareReturn: null, // Default for new
     },
   });
   
@@ -200,6 +205,8 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
             driverNotes: initialData.driverNotes || "",
             paymentMethod: initialData.paymentMethod,
             isActive: initialData.isActive,
+            estimatedFareOneWay: initialData.estimatedFareOneWay,
+            estimatedFareReturn: initialData.estimatedFareReturn,
         });
         setPickupInputValue(initialData.pickupLocation.address);
         setPickupCoords({ lat: initialData.pickupLocation.latitude, lng: initialData.pickupLocation.longitude });
@@ -207,7 +214,7 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
         setDropoffCoords({ lat: initialData.dropoffLocation.latitude, lng: initialData.dropoffLocation.longitude });
         
         const initialStopsData: AutocompleteData[] = (initialData.stops || []).map((stop, index) => ({
-            fieldId: `stop-${index}-${Date.now()}`, // Unique ID for key
+            fieldId: `stop-${index}-${Date.now()}`, 
             inputValue: stop.address,
             coords: { lat: stop.latitude, lng: stop.longitude },
             suggestions: [],
@@ -217,8 +224,7 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
         }));
         setStopAutocompleteData(initialStopsData);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData, isEditMode, form.reset]); // form.reset added to dependencies
+  }, [initialData, isEditMode, form]); 
 
 
   const { fields, append, remove, replace } = useFieldArray({
@@ -403,7 +409,15 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
 
   async function onSubmit(values: ScheduledRideFormValues) {
     console.log("NewScheduleForm.tsx: onSubmit triggered. isEditMode:", isEditMode, "initialData ID:", initialData?.id);
-    console.log("NewScheduleForm.tsx: Form values submitted:", JSON.stringify(values, null, 2));
+    
+    // Ensure the values from the form are used, including potentially null/undefined for fare estimates
+    const formValuesForPayload = {
+        ...values,
+        estimatedFareOneWay: values.estimatedFareOneWay === undefined ? null : values.estimatedFareOneWay,
+        estimatedFareReturn: values.estimatedFareReturn === undefined ? null : values.estimatedFareReturn,
+    };
+    console.log("NewScheduleForm.tsx: Form values submitted:", JSON.stringify(formValuesForPayload, null, 2));
+
     if (!user) { toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" }); return; }
     if (!pickupCoords || !dropoffCoords) { toast({ title: "Missing Location Details", description: "Ensure pickup/dropoff are selected from suggestions.", variant: "destructive" }); return; }
     
@@ -428,19 +442,17 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
     setIsSubmitting(true);
     
     const submissionPayload: any = {
-      ...values,
-      passengerId: user.id, // Always send current user's ID for ownership/verification
+      ...formValuesForPayload, // Use the potentially modified form values
+      passengerId: user.id, 
       passengerName: user.name, 
       pickupLocation: { address: values.pickupLocation, latitude: pickupCoords.lat, longitude: pickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat },
       dropoffLocation: { address: values.dropoffLocation, latitude: dropoffCoords.lat, longitude: dropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat },
       stops: validStopsData,
-      // Ensure isActive is present if editing, or defaults to true for new schedules
       isActive: isEditMode && initialData ? initialData.isActive : true, 
     };
      if (values.returnPickupTime === "") submissionPayload.returnPickupTime = null;
      if (values.driverNotes === "") submissionPayload.driverNotes = null;
      if (values.estimatedWaitTimeMinutesOutbound === undefined) submissionPayload.estimatedWaitTimeMinutesOutbound = null;
-
 
     const apiPath = isEditMode && initialData?.id 
       ? `/api/scheduled-bookings/${initialData.id}` 
@@ -589,11 +601,12 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
             </RadioGroup></FormControl><FormMessage /></FormItem>
         )} />
 
-        <div className="text-center my-4">
-            <p className="text-sm text-muted-foreground">Estimated Fare (One Way): <span className="font-semibold">Placeholder £XX.XX</span></p>
-            {watchedIsReturnJourneyScheduled && <p className="text-sm text-muted-foreground">Estimated Fare (Return): <span className="font-semibold">Placeholder £YY.YY</span></p>}
-            <p className="text-xs text-muted-foreground">Actual fare may vary. This is a mock estimate.</p>
+        <div className="text-center my-4 p-3 border rounded-md bg-muted/30">
+            <p className="text-sm text-muted-foreground">Estimated Fare (One Way): <span className="font-semibold text-primary">{form.getValues("estimatedFareOneWay") ? `£${form.getValues("estimatedFareOneWay")?.toFixed(2)}` : "Not Calculated"}</span></p>
+            {watchedIsReturnJourneyScheduled && <p className="text-sm text-muted-foreground">Estimated Fare (Return): <span className="font-semibold text-primary">{form.getValues("estimatedFareReturn") ? `£${form.getValues("estimatedFareReturn")?.toFixed(2)}` : "Not Calculated"}</span></p>}
+            <p className="text-xs text-muted-foreground mt-1">Fare estimation for scheduled rides is a placeholder. Actual fares are determined at the time of booking.</p>
         </div>
+
 
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-3" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
@@ -603,4 +616,3 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
     </Form>
   );
 }
-

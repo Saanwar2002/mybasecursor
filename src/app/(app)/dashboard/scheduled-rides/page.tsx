@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, PlusCircle, Edit, Trash2, Play, Pause, Loader2, AlertTriangle } from "lucide-react";
+import { CalendarClock, PlusCircle, Edit, Trash2, Play, Pause, Loader2, AlertTriangle, RefreshCwIcon, Timer, DollarSign } from "lucide-react";
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -19,23 +18,23 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Separator } from '@/components/ui/separator'; // Added Separator import
 
-// Interface for Firestore Timestamp (if directly used from backend)
+
 interface FirestoreTimestamp {
   _seconds: number;
   _nanoseconds: number;
 }
 
-export interface LocationPoint { // Exported for use in NewScheduleForm
+export interface LocationPoint { 
   address: string;
   latitude: number;
   longitude: number;
   doorOrFlat?: string;
 }
 
-// Matches the data model discussed
 export interface ScheduledBooking {
-  id: string; // Firestore document ID
+  id: string; 
   passengerId: string;
   label: string;
   pickupLocation: LocationPoint;
@@ -43,21 +42,21 @@ export interface ScheduledBooking {
   stops?: LocationPoint[];
   vehicleType: string;
   passengers: number;
-  driverNotes?: string | null; // Made nullable
+  driverNotes?: string | null; 
   paymentMethod: "card" | "cash";
   daysOfWeek: Array<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'>;
-  pickupTime: string; // e.g., "08:30"
+  pickupTime: string; 
   isReturnJourneyScheduled: boolean;
-  returnPickupTime?: string | null; // Made nullable
+  returnPickupTime?: string | null; 
   isWaitAndReturnOutbound?: boolean;
-  estimatedWaitTimeMinutesOutbound?: number | null; // Made nullable
+  estimatedWaitTimeMinutesOutbound?: number | null; 
   isActive: boolean;
-  pausedDates?: string[]; // Array of "YYYY-MM-DD"
-  nextRunDate?: string; // "YYYY-MM-DD"
-  createdAt: string; // ISO string from API
-  updatedAt: string; // ISO string from API
-  estimatedFareOneWay?: number | null; // Made nullable
-  estimatedFareReturn?: number | null; // Made nullable
+  pausedDates?: string[]; 
+  nextRunDate?: string; 
+  createdAt: string; 
+  updatedAt: string; 
+  estimatedFareOneWay?: number | null; 
+  estimatedFareReturn?: number | null; 
 }
 
 export default function ScheduledRidesPage() {
@@ -117,7 +116,7 @@ export default function ScheduledRidesPage() {
         throw new Error(errorData.message || 'Failed to delete schedule.');
       }
       toast({ title: "Schedule Deleted", description: "The scheduled ride has been removed." });
-      setScheduledBookings(prev => prev.filter(s => s.id !== scheduleId)); // Optimistic UI update
+      setScheduledBookings(prev => prev.filter(s => s.id !== scheduleId)); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error.";
       toast({ title: "Delete Failed", description: message, variant: "destructive" });
@@ -207,16 +206,29 @@ export default function ScheduledRidesPage() {
                          | Next Run: {schedule.nextRunDate || "N/A"}
                     </CardDescription>
                     <CardContent className="text-sm pt-2 px-0 pb-0 space-y-1">
-                        <p><strong>From:</strong> {schedule.pickupLocation?.address || "N/A"}</p>
-                        <p><strong>To:</strong> {schedule.dropoffLocation?.address || "N/A"}</p>
+                        <p><strong>From:</strong> {schedule.pickupLocation?.address || "N/A"} {schedule.pickupLocation?.doorOrFlat && `(${schedule.pickupLocation.doorOrFlat})`}</p>
                         {schedule.stops && schedule.stops.length > 0 && (
-                           <p><strong>Stops:</strong> {schedule.stops.map(s => s.address).join(', ') || "None"}</p>
+                           <p><strong>Stops:</strong> {schedule.stops.map(s => `${s.address}${s.doorOrFlat ? ` (${s.doorOrFlat})` : ''}`).join('; ') || "None"}</p>
                         )}
+                        <p><strong>To:</strong> {schedule.dropoffLocation?.address || "N/A"} {schedule.dropoffLocation?.doorOrFlat && `(${schedule.dropoffLocation.doorOrFlat})`}</p>
                         <p><strong>Days:</strong> {schedule.daysOfWeek.join(', ')} at {schedule.pickupTime}</p>
-                        {schedule.isReturnJourneyScheduled && <p><strong>Return Time:</strong> {schedule.returnPickupTime || "N/A"}</p>}
+                        
                         <p><strong>Vehicle:</strong> {schedule.vehicleType}</p>
                         <p><strong>Passengers:</strong> {schedule.passengers}</p>
                         {schedule.isWaitAndReturnOutbound && <p><strong>Wait & Return (Outbound):</strong> Yes, ~{schedule.estimatedWaitTimeMinutesOutbound} mins</p>}
+                        {schedule.estimatedFareOneWay && <p className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Est. Outbound Fare:</strong> £{schedule.estimatedFareOneWay.toFixed(2)}</p>}
+
+
+                        {schedule.isReturnJourneyScheduled && (
+                            <>
+                                <Separator className="my-2"/>
+                                <p className="font-medium text-primary">Return Trip Details:</p>
+                                <p><strong>Return From:</strong> {schedule.dropoffLocation?.address || "N/A"} {schedule.dropoffLocation?.doorOrFlat && `(${schedule.dropoffLocation.doorOrFlat})`}</p>
+                                <p><strong>Return To:</strong> {schedule.pickupLocation?.address || "N/A"} {schedule.pickupLocation?.doorOrFlat && `(${schedule.pickupLocation.doorOrFlat})`}</p>
+                                <p><strong>Return Time:</strong> {schedule.returnPickupTime || "N/A"}</p>
+                                {schedule.estimatedFareReturn && <p className="flex items-center gap-1"><DollarSign className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Est. Return Fare:</strong> £{schedule.estimatedFareReturn.toFixed(2)}</p>}
+                            </>
+                        )}
                     </CardContent>
                     <CardFooter className="border-t pt-3 mt-3 pb-0 px-0 flex justify-end gap-2">
                         <Button 
@@ -283,4 +295,3 @@ export default function ScheduledRidesPage() {
     </div>
   );
 }
-
