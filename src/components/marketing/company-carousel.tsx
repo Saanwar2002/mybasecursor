@@ -21,10 +21,10 @@ interface CarouselSlide {
 const slidesData: CarouselSlide[] = [
   {
     id: 'welcome-mybase',
-    title: "Your Journey Starts Here",
-    description: "Experience the best taxi service in Huddersfield with MyBase. Fast, reliable, and always here for you.",
+    title: "Welcome to MyBase",
+    description: "Your journey starts here. Experience the best taxi service in Huddersfield with MyBase. Fast, reliable, and always here for you.",
     icon: Car,
-    imageUrl: "/images/carousel/MyBase Taxis main.jpg", // Corrected extension
+    imageUrl: "/images/carousel/MyBase Taxis main.jpg",
     imageHint: "taxi car street"
   },
   {
@@ -32,7 +32,7 @@ const slidesData: CarouselSlide[] = [
     title: "Safety Features",
     description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
     icon: ShieldCheck,
-    imageUrl: "/images/carousel/Slide10.JPG", // Assuming this is the safety image
+    imageUrl: "/images/carousel/Slide10.JPG",
     imageHint: "driver car interior"
   },
   {
@@ -40,7 +40,7 @@ const slidesData: CarouselSlide[] = [
     title: "Your Huddersfield, Your MyBase",
     description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
-    imageUrl: "https://placehold.co/600x300/22C55E/FFFFFF.png", // Greenish background
+    imageUrl: "https://placehold.co/600x300/22C55E/FFFFFF.png",
     imageHint: "Huddersfield landmark"
   },
   {
@@ -51,14 +51,14 @@ const slidesData: CarouselSlide[] = [
     imageUrl: "https://placehold.co/600x300/B08BCD/FFFFFF.png?text=600%20x%20300",
     imageHint: "smartphone app interface"
   },
-  {
-    id: 'original-mission',
-    title: "Our Mission at MyBase",
-    description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
-    icon: Target,
-    imageUrl: "https://placehold.co/600x300/0EA5E9/FFFFFF.png?text=Our%20Mission", // Blue background
-    imageHint: "team planning office"
-  },
+  // { // Temporarily removed for diagnosis
+  //   id: 'original-mission',
+  //   title: "Our Mission at MyBase",
+  //   description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
+  //   icon: Target,
+  //   imageUrl: "https://placehold.co/600x300/0EA5E9/FFFFFF.png?text=Our%20Mission",
+  //   imageHint: "team planning office"
+  // },
 ];
 
 export function CompanyCarousel() {
@@ -86,7 +86,27 @@ export function CompanyCarousel() {
   }, [currentIndex]);
 
   const currentSlide = slidesData[currentIndex];
-  const IconComponent = currentSlide.icon;
+  // const IconComponent = currentSlide.icon; // IconComponent is not used
+
+  if (!currentSlide) {
+    // Handle case where slidesData might be empty or currentIndex is out of bounds
+    // Though with the logic above for prev/next, this should be rare.
+    return (
+      <Card className="w-full max-w-3xl mx-auto shadow-xl overflow-hidden border-2 border-primary/20">
+        <CardHeader className="text-center pb-3 pt-4 bg-primary/5">
+          <CardTitle className="text-xl md:text-2xl font-bold text-primary">
+            Discover MyBase
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="relative p-0">
+          <div className="aspect-[16/7] overflow-hidden relative bg-muted flex items-center justify-center">
+            <p className="text-muted-foreground">No slides to display.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
 
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl overflow-hidden border-2 border-primary/20">
