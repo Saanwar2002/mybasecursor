@@ -183,15 +183,33 @@ export default function ProfilePage() {
           <div className="flex-1 text-center md:text-left"> <CardTitle className="text-2xl font-headline">{user.name}</CardTitle> <CardDescription className="capitalize flex items-center justify-center md:justify-start gap-1"> <Briefcase className="w-4 h-4" /> {user.role} </CardDescription> </div>
           <Button variant={isEditing ? "destructive" : "outline"} onClick={() => setIsEditing(!isEditing)}>
             <span className="flex items-center justify-center">
-                <Edit3 className="mr-2 h-4 w-4" />
-                <span>{isEditing ? "Cancel Edit" : "Edit Profile"}</span>
+              <Edit3 className="mr-2 h-4 w-4" />
+              {isEditing ? "Cancel Edit" : "Edit Profile"}
             </span>
           </Button>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div> <Label htmlFor="name" className="flex items-center gap-1"><UserCircle className="w-4 h-4 text-muted-foreground" /> Name</Label> {isEditing ? (<Input id="name" value={name} onChange={(e) => setName(e.target.value)} />) : (<p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.name}</p>)} </div>
-          <div> <Label htmlFor="email" className="flex items-center gap-1"><Mail className="w-4 h-4 text-muted-foreground" /> Email</Label> <p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.email}</p> {isEditing && <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed here. Contact support if needed.</p>} </div>
-          <div> <Label htmlFor="phone" className="flex items-center gap-1"><Phone className="w-4 h-4 text-muted-foreground" /> Phone Number</Label> {isEditing ? (<Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={user.role === 'passenger' ? "Required for passengers" : "Optional"} />) : (<p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.phoneNumber || "Not set"}</p>)} {user.phoneVerified === false && user.phoneVerificationDeadline && (<p className="text-sm text-orange-600 mt-1">Phone not verified. Please verify by {new Date(user.phoneVerificationDeadline).toLocaleDateString()}. (Verification UI not yet implemented)</p>)} {user.phoneVerified === true && (<p className="text-sm text-green-600 mt-1">Phone verified.</p>)} </div>
+          <div>
+            <Label htmlFor="name">
+              <span className="flex items-center gap-1"><UserCircle className="w-4 h-4 text-muted-foreground" /> Name</span>
+            </Label>
+            {isEditing ? (<Input id="name" value={name} onChange={(e) => setName(e.target.value)} />) : (<p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.name}</p>)}
+          </div>
+          <div>
+            <Label htmlFor="email">
+              <span className="flex items-center gap-1"><Mail className="w-4 h-4 text-muted-foreground" /> Email</span>
+            </Label>
+            <p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.email}</p>
+            {isEditing && <p className="text-xs text-muted-foreground mt-1">Email address cannot be changed here. Contact support if needed.</p>}
+          </div>
+          <div>
+            <Label htmlFor="phone">
+              <span className="flex items-center gap-1"><Phone className="w-4 h-4 text-muted-foreground" /> Phone Number</span>
+            </Label>
+            {isEditing ? (<Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={user.role === 'passenger' ? "Required for passengers" : "Optional"} />) : (<p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.phoneNumber || "Not set"}</p>)}
+            {user.phoneVerified === false && user.phoneVerificationDeadline && (<p className="text-sm text-orange-600 mt-1">Phone not verified. Please verify by {new Date(user.phoneVerificationDeadline).toLocaleDateString()}. (Verification UI not yet implemented)</p>)}
+            {user.phoneVerified === true && (<p className="text-sm text-green-600 mt-1">Phone verified.</p>)}
+          </div>
           
           {user.role === 'driver' && isEditing && (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
@@ -256,12 +274,12 @@ export default function ProfilePage() {
                       {unblockingUserId === blocked.blockId ? (
                         <React.Fragment>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            <span>Unblocking...</span>
+                            Unblocking...
                         </React.Fragment>
                       ) : (
                         <React.Fragment>
                             <Trash2 className="mr-2 h-4 w-4"/>
-                            <span>Unblock</span>
+                            Unblock
                         </React.Fragment>
                       )}
                     </span>
@@ -288,10 +306,10 @@ export default function ProfilePage() {
                     {isSettingPin ? (
                         <React.Fragment>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            <span>Setting PIN...</span>
+                            Setting PIN...
                         </React.Fragment>
                     ) : (
-                        <span>Set PIN for this Device</span>
+                        "Set PIN for this Device"
                     )}
                 </span>
             </Button> </form> </Form> )}
