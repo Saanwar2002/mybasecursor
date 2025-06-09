@@ -17,7 +17,8 @@ interface SupportTicket {
   submitterId: string;
   submitterName: string;
   submitterRole: 'driver' | 'passenger' | 'operator';
-  driverOperatorCode?: string; // Added for drivers
+  driverOperatorCode?: string;
+  driverOperatorName?: string; // Added operator name
   category: string;
   details: string;
   submittedAt: string; // ISO string
@@ -26,13 +27,11 @@ interface SupportTicket {
   assignedTo?: string; // Admin/Operator User ID
 }
 
-// For Operator view, we might filter these by their operator code in a real app.
-// For now, showing a mix.
 const mockTicketsForOperator: SupportTicket[] = [
-  { id: 'TICKET_OP001', submitterId: 'driverA1', submitterName: 'Driver Alex', submitterRole: 'driver', driverOperatorCode: 'OP001', category: 'App Issue', details: 'GPS is sometimes inaccurate in city center for my assigned rides.', submittedAt: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'Pending' },
-  { id: 'TICKET_OP002', submitterId: 'driverB2', submitterName: 'Driver Beth', submitterRole: 'driver', driverOperatorCode: 'OP001', category: 'Payment Query', details: 'My payout from last Friday is still pending.', submittedAt: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'In Progress', assignedTo: 'OperatorUser' },
+  { id: 'TICKET_OP001', submitterId: 'driverA1', submitterName: 'Driver Alex', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'App Issue', details: 'GPS is sometimes inaccurate in city center for my assigned rides.', submittedAt: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'Pending' },
+  { id: 'TICKET_OP002', submitterId: 'driverB2', submitterName: 'Driver Beth', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'Payment Query', details: 'My payout from last Friday is still pending.', submittedAt: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'In Progress', assignedTo: 'OperatorUser' },
   { id: 'TICKET_OP003', submitterId: 'passengerC3', submitterName: 'Passenger Chris', submitterRole: 'passenger', category: 'General Feedback', details: 'Compliment for driver Alex (driverA1 of OP001) - very professional service!', submittedAt: new Date(Date.now() - 86400000 * 4).toISOString(), status: 'Resolved' },
-  { id: 'TICKET_OP004', submitterId: 'driverD4', submitterName: 'Driver Dave', submitterRole: 'driver', driverOperatorCode: 'OP002', category: 'Vehicle Issue', details: 'My car requires unexpected maintenance.', submittedAt: new Date(Date.now() - 86400000 * 0.2).toISOString(), status: 'Pending' },
+  { id: 'TICKET_OP004', submitterId: 'driverD4', submitterName: 'Driver Dave', submitterRole: 'driver', driverOperatorCode: 'OP002', driverOperatorName: 'Speedy Cars (Mock)', category: 'Vehicle Issue', details: 'My car requires unexpected maintenance.', submittedAt: new Date(Date.now() - 86400000 * 0.2).toISOString(), status: 'Pending' },
 ];
 
 const ticketStatusOptions: SupportTicket['status'][] = ['Pending', 'In Progress', 'Resolved', 'Closed'];
@@ -131,7 +130,9 @@ export default function OperatorSupportTicketsPage() {
                     <TableCell>
                       {ticket.submitterRole === 'driver' && ticket.driverOperatorCode ? (
                          <Badge variant="outline" className="text-xs flex items-center gap-1">
-                            <Briefcase className="w-3 h-3"/> {ticket.driverOperatorCode}
+                            <Briefcase className="w-3 h-3"/> 
+                            {ticket.driverOperatorCode}
+                            {ticket.driverOperatorName && ` - ${ticket.driverOperatorName}`}
                           </Badge>
                       ) : 'N/A'}
                     </TableCell>
