@@ -103,9 +103,13 @@ export default function ScheduledRidesPage() {
   }, [fetchScheduledBookings]);
 
   const handleDeleteSchedule = async (scheduleId: string) => {
+    if (!user?.id) {
+      toast({ title: "Error", description: "User not identified.", variant: "destructive"});
+      return;
+    }
     setActionLoading(prev => ({ ...prev, [scheduleId]: true }));
     try {
-      const response = await fetch(`/api/scheduled-bookings/${scheduleId}?passengerId=${user?.id}`, {
+      const response = await fetch(`/api/scheduled-bookings/${scheduleId}?passengerId=${user.id}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
@@ -113,7 +117,7 @@ export default function ScheduledRidesPage() {
         throw new Error(errorData.message || 'Failed to delete schedule.');
       }
       toast({ title: "Schedule Deleted", description: "The scheduled ride has been removed." });
-      fetchScheduledBookings(); 
+      setScheduledBookings(prev => prev.filter(s => s.id !== scheduleId)); // Optimistic UI update
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error.";
       toast({ title: "Delete Failed", description: message, variant: "destructive" });
@@ -123,29 +127,35 @@ export default function ScheduledRidesPage() {
   };
 
   const handleToggleActive = async (schedule: ScheduledBooking) => {
-    setActionLoading(prev => ({ ...prev, [`toggle-${schedule.id}`]: true }));
+    if (!user?.id) {
+      toast({ title: "Error", description: "User not identified.", variant: "destructive"});
+      return;
+    }
+    const scheduleId = schedule.id;
+    setActionLoading(prev => ({ ...prev, [`toggle-${scheduleId}`]: true }));
     try {
-      const response = await fetch(`/api/scheduled-bookings/${schedule.id}`, {
+      const response = await fetch(`/api/scheduled-bookings/${scheduleId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passengerId: user?.id, isActive: !schedule.isActive }),
+        // Send passengerId in body for verification, though ideally backend uses authenticated user
+        body: JSON.stringify({ passengerId: user.id, isActive: !schedule.isActive }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update schedule status.');
       }
-      toast({ title: "Schedule Updated", description: `Schedule "${schedule.label}" is now ${!schedule.isActive ? 'active' : 'paused'}.` });
-      fetchScheduledBookings(); 
+      const updatedSchedule = await response.json();
+      toast({ title: "Schedule Updated", description: `Schedule "${schedule.label}" is now ${updatedSchedule.data.isActive ? 'active' : 'paused'}.` });
+      setScheduledBookings(prev => prev.map(s => s.id === scheduleId ? { ...s, isActive: updatedSchedule.data.isActive, updatedAt: updatedSchedule.data.updatedAt } : s));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error.";
       toast({ title: "Update Failed", description: message, variant: "destructive" });
     } finally {
-      setActionLoading(prev => ({ ...prev, [`toggle-${schedule.id}`]: false }));
+      setActionLoading(prev => ({ ...prev, [`toggle-${scheduleId}`]: false }));
     }
   };
 
   console.log("ScheduledRidesPage: Rendering with scheduledBookings state:", scheduledBookings);
-
 
   return (
     <div className="space-y-6">
@@ -189,7 +199,7 @@ export default function ScheduledRidesPage() {
           {!isLoading && !error && scheduledBookings.length > 0 && (
             <div className="space-y-4">
               {scheduledBookings.map((schedule) => {
-                console.log("ScheduledRidesPage: Mapping schedule item:", schedule);
+                console.log("ScheduledRidesPage: Mapping schedule item:", schedule); // Keep this for debugging rendering passes
                 return (
                   <Card key={schedule.id} className="shadow-md hover:shadow-lg transition-shadow p-4">
                     <CardTitle className="text-lg font-semibold">{schedule.label || "No Label"}</CardTitle>
@@ -200,6 +210,9 @@ export default function ScheduledRidesPage() {
                         <p><strong>From:</strong> {schedule.pickupLocation?.address || "N/A"}</p>
                         <p><strong>To:</strong> {schedule.dropoffLocation?.address || "N/A"}</p>
                         <p><strong>Days:</strong> {schedule.daysOfWeek.join(', ')} at {schedule.pickupTime}</p>
+                        <p><strong>Vehicle:</strong> {schedule.vehicleType}</p>
+                        <p><strong>Passengers:</strong> {schedule.passengers}</p>
+                        {schedule.isReturnJourneyScheduled && <p><strong>Return Time:</strong> {schedule.returnPickupTime || "N/A"}</p>}
                     </CardContent>
                     <CardFooter className="border-t pt-3 mt-3 pb-0 px-0 flex justify-end gap-2">
                         <Button 
