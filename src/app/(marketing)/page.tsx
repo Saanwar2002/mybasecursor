@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image'; 
-import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight } from 'lucide-react';
+import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight, Target, Users } from 'lucide-react'; // Added Target, Users
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyCarousel } from '@/components/marketing/company-carousel';
 import { PassengerReviewsCarousel } from '@/components/marketing/PassengerReviewsCarousel';
@@ -59,8 +59,8 @@ export default function LandingPage() {
               </Button>
             </div>
           </div>
-          <div className="hidden md:flex items-center justify-center"> {/* Updated to flex for centering */}
-            <PassengerReviewsCarousel /> {/* Replaced Image with Carousel */}
+          <div className="hidden md:flex items-center justify-center">
+            <PassengerReviewsCarousel />
           </div>
         </div>
       </section>
@@ -92,7 +92,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* New Carousel Section */}
+      {/* Company Carousel Section (Its intended placement) */}
       <section className="container mx-auto px-4">
         <div className="text-center mb-10 md:mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
@@ -102,7 +102,7 @@ export default function LandingPage() {
             A quick look into our values and commitment to you.
           </p>
         </div>
-        <CompanyCarousel />
+        <CompanyCarousel /> 
       </section>
 
     </div>
