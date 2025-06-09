@@ -24,7 +24,7 @@ const slidesData: CarouselSlide[] = [
     title: "Our Mission at MyBase",
     description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
     icon: Target,
-    imageUrl: "https://placehold.co/600x300.png",
+    imageUrl: "https://placehold.co/600x300.png?text=Our+Mission",
     imageHint: "team planning route"
   },
   {
@@ -32,7 +32,7 @@ const slidesData: CarouselSlide[] = [
     title: "Your Huddersfield, Your MyBase",
     description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
-    imageUrl: "https://placehold.co/600x300.png",
+    imageUrl: "https://placehold.co/600x300.png?text=Community+Focus",
     imageHint: "Huddersfield landmark"
   },
   {
@@ -40,7 +40,7 @@ const slidesData: CarouselSlide[] = [
     title: "Smart Rides with MyBase",
     description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
     icon: Smartphone,
-    imageUrl: "https://placehold.co/600x300.png",
+    imageUrl: "https://placehold.co/600x300.png?text=Smart+Technology",
     imageHint: "smartphone app taxi"
   },
   {
@@ -48,7 +48,7 @@ const slidesData: CarouselSlide[] = [
     title: "Ride with Confidence at MyBase",
     description: "Your safety is paramount. MyBase ensures all vehicles are regularly checked and drivers are professionally vetted for your peace of mind.",
     icon: ShieldCheck,
-    imageUrl: "https://placehold.co/600x300.png",
+    imageUrl: "https://placehold.co/600x300.png?text=Safety+First",
     imageHint: "driver smiling car"
   },
 ];
