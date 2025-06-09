@@ -33,7 +33,7 @@ const features = [
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col space-y-10 md:space-y-16 py-6 md:py-10">
+    <div className="flex flex-col space-y-10 md:space-y-16 pt-0 pb-6 md:pb-10">
       {/* Hero Section */}
       <section className="container mx-auto px-4">
         <div className="grid md:grid-cols-2 items-center gap-8 md:gap-16">
