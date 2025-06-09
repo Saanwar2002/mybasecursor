@@ -1,7 +1,5 @@
-// import React from 'react'; // Not strictly needed for simple JSX
 
 export default function TestMarketingLayoutPage() {
-  // console.log("TestMarketingLayoutPage rendering..."); // Removed
   return (
     <div style={{ border: '5px solid orange', padding: '10px', margin: '10px' }}>
       <h1 style={{ fontSize: '24px', color: 'orange', fontWeight: 'bold' }}>TEST MARKETING LAYOUT PAGE</h1>

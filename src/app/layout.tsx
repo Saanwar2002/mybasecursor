@@ -1,14 +1,12 @@
+
 import type { ReactNode } from 'react';
 import './globals.css'; // Essential for Tailwind
-
-// Removed AuthProvider, Toaster, ThemeInitializer for extreme debugging
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
-  // console.log("RootLayout rendering (ULTRA-SIMPLIFIED for manifest debug)..."); // Removed
   return (
     <html lang="en" suppressHydrationWarning>
       <body style={{ border: '5px solid limegreen', padding: '10px', margin: '10px' }}>
