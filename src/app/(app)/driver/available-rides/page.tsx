@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react"; // Added RefreshCw
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -159,6 +159,8 @@ export default function AvailableRidesPage() {
   const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
   const [isConfirmEmergencyOpen, setIsConfirmEmergencyOpen] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  
+  const [isPollingEnabled, setIsPollingEnabled] = useState(true);
   const rideRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
 
@@ -216,6 +218,10 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
+    // Only set loading true if we are not already showing an active ride optimistically
+    if (!activeRide) setIsLoading(true);
+    setError(null);
+
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
       if (!response.ok) {
@@ -223,17 +229,19 @@ export default function AvailableRidesPage() {
         throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`);
       }
       const data: ActiveRide | null = await response.json();
-      setActiveRide(data);
+      setActiveRide(data); // This will update the UI with the latest from backend
       if (data?.pickupLocation) {
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
       console.error("Error in fetchActiveRide:", message);
+      // Don't show toast for regular polling failures unless it's a new error
+      // if (!error) setError(message); // Potentially set error state to show in UI
     } finally {
       setIsLoading(false);
     }
-  }, [driverUser?.id]);
+  }, [driverUser?.id, activeRide]); // Added activeRide to deps to avoid re-setting isLoading if already showing an active ride
 
  useEffect(() => {
     if (waitingTimerIntervalRef.current) {
@@ -304,29 +312,33 @@ export default function AvailableRidesPage() {
   }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
 
 
+  // Effect for fetching active ride and polling
   useEffect(() => {
-    if (driverUser) {
-      setIsLoading(true);
-      fetchActiveRide(); // Initial fetch
-      
-      // Clear any existing interval before setting a new one
+    if (driverUser && isPollingEnabled) {
+      console.log("Polling useEffect: driverUser exists and isPollingEnabled=true. Fetching initial active ride and starting interval.");
+      // No setIsLoading(true) here to avoid flicker if activeRide is already set optimistically
+      fetchActiveRide();
+
       if (rideRefreshIntervalIdRef.current) {
         clearInterval(rideRefreshIntervalIdRef.current);
       }
-      rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000); // Polls every 30 seconds
-      
-      return () => {
-        if (rideRefreshIntervalIdRef.current) {
-          clearInterval(rideRefreshIntervalIdRef.current);
-        }
-      };
+      rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
     } else {
-      setIsLoading(false);
-       if (rideRefreshIntervalIdRef.current) {
+      console.log("Polling useEffect: Conditions not met for polling (driverUser:", !!driverUser, "isPollingEnabled:", isPollingEnabled, "). Clearing interval.");
+      if (rideRefreshIntervalIdRef.current) {
         clearInterval(rideRefreshIntervalIdRef.current);
+        rideRefreshIntervalIdRef.current = null;
       }
     }
-  }, [driverUser, fetchActiveRide]);
+    return () => {
+      if (rideRefreshIntervalIdRef.current) {
+        console.log("Polling useEffect: Cleanup. Clearing interval.");
+        clearInterval(rideRefreshIntervalIdRef.current);
+        rideRefreshIntervalIdRef.current = null;
+      }
+    };
+  }, [driverUser, fetchActiveRide, isPollingEnabled]);
+
 
   useEffect(() => {
     if (activeRide && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup')) {
@@ -379,6 +391,13 @@ export default function AvailableRidesPage() {
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
       return;
+    }
+    
+    console.log("handleAcceptOffer: Disabling polling and clearing existing interval.");
+    setIsPollingEnabled(false); // Disable polling
+    if (rideRefreshIntervalIdRef.current) {
+      clearInterval(rideRefreshIntervalIdRef.current);
+      rideRefreshIntervalIdRef.current = null;
     }
 
     setActionLoading(prev => ({ ...prev, [offerToAccept.id]: true }));
@@ -435,7 +454,7 @@ export default function AvailableRidesPage() {
         dropoffLocation: { address: offerToAccept.dropoffLocation, latitude: offerToAccept.dropoffCoords.lat, longitude: offerToAccept.dropoffCoords.lng },
         fareEstimate: offerToAccept.fareEstimate,
         passengerCount: offerToAccept.passengerCount,
-        status: 'driver_assigned', // Optimistic status
+        status: 'driver_assigned', 
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
@@ -446,10 +465,14 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         vehicleType: driverUser.vehicleCategory || 'Car',
         dispatchMethod: offerToAccept.dispatchMethod,
+        bookingTimestamp: updatedBookingDataFromServer.booking?.bookingTimestamp,
+        scheduledPickupAt: updatedBookingDataFromServer.booking?.scheduledPickupAt,
       };
-      setActiveRide(newActiveRide);
       
-      setRideRequests([]);
+      console.log("handleAcceptOffer: Optimistically setting activeRide:", newActiveRide);
+      setActiveRide(newActiveRide); // Optimistic update
+      
+      setRideRequests([]); // Clear pending offers list
       let toastDesc = `En Route to Pickup for ${updatedBookingDataFromServer?.booking?.passengerName || offerToAccept.passengerName}. Payment: ${updatedBookingDataFromServer?.booking?.paymentMethod || offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
       if (updatedBookingDataFromServer?.booking?.isPriorityPickup && updatedBookingDataFromServer?.booking?.priorityFeeAmount) {
         toastDesc += ` Priority: +£${updatedBookingDataFromServer.booking.priorityFeeAmount.toFixed(2)}.`;
@@ -459,25 +482,18 @@ export default function AvailableRidesPage() {
       }
       toast({title: "Ride Accepted!", description: toastDesc});
       
-      // Clear existing interval and restart it after a delay
-      if (rideRefreshIntervalIdRef.current) {
-        clearInterval(rideRefreshIntervalIdRef.current);
-      }
-      setTimeout(() => {
-        console.log("Restarting active ride fetch interval after 5s delay (post-acceptance).");
-        fetchActiveRide(); // Fetch immediately once after delay
-        rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
-      }, 5000); // 5-second delay
-
-
     } catch(error) {
       console.error("Error in handleAcceptOffer process:", error);
       const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
       toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
-      // Optionally, try to fetch active ride again to ensure state consistency
-      // fetchActiveRide(); 
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
+      console.log("handleAcceptOffer: Re-enabling polling after 3s delay.");
+      setTimeout(async () => {
+        console.log("handleAcceptOffer: Timeout executed. Fetching active ride once and re-enabling polling.");
+        await fetchActiveRide(); 
+        setIsPollingEnabled(true); 
+      }, 3000); // 3-second delay
     }
   };
 
@@ -576,18 +592,21 @@ export default function AvailableRidesPage() {
 
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
+        setIsPollingEnabled(false); // Stop polling immediately for these final actions
+        if (rideRefreshIntervalIdRef.current) {
+          clearInterval(rideRefreshIntervalIdRef.current);
+          rideRefreshIntervalIdRef.current = null;
+        }
         setTimeout(() => {
           setActiveRide(null);
-          // Restart polling after completion/cancellation
-          if (rideRefreshIntervalIdRef.current) clearInterval(rideRefreshIntervalIdRef.current);
-          rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
+          setIsPollingEnabled(true); // Re-enable polling after a delay
         }, 3000);
       }
 
     } catch(err) {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      fetchActiveRide(); // Attempt to resync state on failure
+      fetchActiveRide(); 
     } finally {
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
@@ -1082,4 +1101,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
