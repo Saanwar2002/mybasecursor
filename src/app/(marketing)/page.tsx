@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { LogIn, UserPlus, Zap, ShieldCheck, ThumbsUp, Smartphone, ArrowRight, Target, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CompanyCarousel } from '@/components/marketing/company-carousel'; // Uncommented
+import { CompanyCarousel } from '@/components/marketing/company-carousel';
 import { PassengerReviewsCarousel } from '@/components/marketing/PassengerReviewsCarousel';
 
 const features = [
@@ -39,7 +39,7 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-2 items-center gap-8 md:gap-16">
           <div className="space-y-6 text-center md:text-left">
 
-            <Image src="/mybase-logo.png" alt="MyBase Logo" width={300} height={75} className="mx-auto md:mx-0 mb-4" priority data-ai-hint="logo brand" />
+            <Image src="/mybase-logo.png" alt="MyBase Logo" width={300} height={75} className="mx-auto md:mx-0 mb-4" data-ai-hint="logo brand" />
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground tracking-tight">
               Welcome to MyBase
             </h1>
@@ -102,7 +102,7 @@ export default function LandingPage() {
             A quick look into our values and commitment to you.
           </p>
         </div>
-        <CompanyCarousel /> {/* Uncommented */}
+        <CompanyCarousel />
       </section>
 
     </div>
