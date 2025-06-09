@@ -1,82 +1,85 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Adjusted for more vibrancy - Light Theme */
-    --background: 220 13% 95%; /* Light Gray #F0F2F5 */
-    --foreground: 220 40% 8%; /* Darker for better contrast */
+    /* Neutral Light Theme */
+    --background: 0 0% 100%; /* White */
+    --foreground: 220 40% 10%; /* Dark Grey */
 
-    --card: 0 0% 100%; /* White cards */
-    --card-foreground: 220 40% 8%; /* Matches new foreground */
+    --card: 0 0% 98%; /* Slightly Off-White */
+    --card-foreground: 220 40% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 40% 8%; /* Matches new foreground */
+    --popover-foreground: 220 40% 10%;
 
-    --primary: 223 65% 78%; /* More vibrant Soft Blue */
-    --primary-foreground: 220 40% 4%; /* Darker text on new primary */
+    --primary: 220 60% 55%; /* Neutral Blue */
+    --primary-foreground: 0 0% 100%; /* White text on neutral blue */
 
-    --secondary: 220 10% 90%; 
-    --secondary-foreground: 220 40% 8%; /* Matches new foreground */
+    --secondary: 220 10% 92%; 
+    --secondary-foreground: 220 40% 10%;
 
-    --muted: 220 10% 85%;
-    --muted-foreground: 220 25% 35%;
+    --muted: 220 10% 88%;
+    --muted-foreground: 220 25% 45%;
 
-    --accent: 276 45% 68%; /* More vibrant Muted Purple */
+    --accent: 250 60% 60%; /* Complementary Purple */
     --accent-foreground: 0 0% 100%; 
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 51%; /* Standard Red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 10% 88%;
-    --input: 220 10% 92%;
-    --ring: 223 65% 78%; /* Ring color matching new primary */
+    --border: 220 10% 90%;
+    --input: 220 10% 94%;
+    --ring: 220 60% 55%; /* Ring color matching neutral blue */
 
     --radius: 0.5rem;
 
-    --chart-1: 223 65% 78%; 
-    --chart-2: 276 45% 68%; 
-    --chart-3: 30 80% 60%; 
-    --chart-4: 150 60% 55%; 
-    --chart-5: 200 70% 60%; 
+    /* Chart colors for light theme - can be adjusted */
+    --chart-1: 220 60% 55%; /* Primary Blue */
+    --chart-2: 250 60% 60%; /* Accent Purple */
+    --chart-3: 30 80% 60%; /* Orange */
+    --chart-4: 150 60% 55%; /* Green */
+    --chart-5: 200 70% 60%; /* Teal */
   }
 
   .dark {
-    /* Adjusted for more vibrancy - Dark Theme */
-    --background: 220 15% 8%; 
-    --foreground: 210 20% 98%; 
+    /* Dark Blue & Gold Theme */
+    --background: 220 40% 12%; /* Dark Blue */
+    --foreground: 210 30% 92%; /* Light Off-White */
 
-    --card: 220 15% 12%; 
-    --card-foreground: 210 20% 98%;
+    --card: 220 40% 16%; /* Slightly Lighter Dark Blue for cards */
+    --card-foreground: 210 30% 92%;
 
-    --popover: 220 15% 8%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 220 40% 10%; /* Even Darker Blue for popovers */
+    --popover-foreground: 210 30% 92%;
 
-    --primary: 223 60% 70%; /* More vibrant Darker Soft Blue */
-    --primary-foreground: 210 20% 98%; 
+    --primary: 45 85% 60%; /* Vibrant Gold */
+    --primary-foreground: 45 100% 10%; /* Very Dark Brown/Black for text on gold */
 
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 210 20% 92%;
+    --secondary: 220 40% 25%; /* Muted Dark Blue for secondary elements */
+    --secondary-foreground: 210 30% 80%; /* Slightly dimmer text for secondary */
 
-    --muted: 220 15% 22%;
-    --muted-foreground: 210 20% 65%;
+    --muted: 220 40% 20%; /* Muted Dark Blue for less emphasis */
+    --muted-foreground: 210 30% 65%; /* Muted text */
 
-    --accent: 276 40% 60%; /* More vibrant Darker Muted Purple */
-    --accent-foreground: 210 20% 98%;
+    --accent: 40 75% 65%; /* Slightly different/softer Gold for general accents */
+    --accent-foreground: 40 100% 10%; /* Very Dark Brown/Black for text on accent gold */
 
-    --destructive: 0 60% 50%; /* Adjusted destructive for dark */
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 70% 55%; /* A standard red for destructive actions */
+    --destructive-foreground: 0 0% 100%; /* White text on red */
 
-    --border: 220 15% 22%;
-    --input: 220 15% 15%;
-    --ring: 223 60% 70%; /* Ring color matching new dark primary */
+    --border: 220 40% 30%; /* Dark Blue border */
+    --input: 220 40% 20%; /* Muted Dark Blue for input backgrounds */
+    --ring: 45 85% 65%; /* Gold for focus rings, slightly lighter than primary */
     
-    --chart-1: 223 60% 70%;
-    --chart-2: 276 40% 60%;
-    --chart-3: 35 75% 55%;
-    --chart-4: 150 50% 50%;
-    --chart-5: 200 60% 55%;
+    /* Chart colors for dark theme */
+    --chart-1: 45 85% 60%; /* Primary Gold */
+    --chart-2: 40 75% 65%; /* Accent Gold */
+    --chart-3: 35 70% 70%; /* A lighter, slightly desaturated gold */
+    --chart-4: 210 30% 70%; /* A light blue/grey from the foreground palette for contrast */
+    --chart-5: 220 40% 60%; /* A muted blue for contrast */
   }
 
   * {
