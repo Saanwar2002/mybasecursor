@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Target, Users, TrendingUp, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Users, TrendingUp, ShieldCheck, Smartphone } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -21,35 +21,35 @@ interface CarouselSlide {
 const slidesData: CarouselSlide[] = [
   {
     id: 'mission',
-    title: "Our Mission",
-    description: "To provide safe, reliable, and affordable transportation for everyone, connecting communities seamlessly.",
+    title: "Our Mission at MyBase",
+    description: "Connecting Huddersfield with safe, reliable, and affordable rides. MyBase is your partner in every journey.",
     icon: Target,
     imageUrl: "https://placehold.co/600x300.png",
-    imageHint: "team collaboration"
+    imageHint: "team planning route"
   },
   {
     id: 'community',
-    title: "Community Focused",
-    description: "We're proud to serve our local community, support local events, and build lasting connections with our passengers.",
+    title: "Your Huddersfield, Your MyBase",
+    description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
     imageUrl: "https://placehold.co/600x300.png",
-    imageHint: "community event"
+    imageHint: "Huddersfield landmark"
   },
   {
-    id: 'innovation',
-    title: "Future Forward",
-    description: "Innovating with cutting-edge technology to make your journeys smoother, greener, and more efficient.",
-    icon: TrendingUp,
+    id: 'technology',
+    title: "Smart Rides with MyBase",
+    description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
+    icon: Smartphone,
     imageUrl: "https://placehold.co/600x300.png",
-    imageHint: "futuristic city"
+    imageHint: "smartphone app taxi"
   },
   {
     id: 'safety',
-    title: "Safety First",
-    description: "Your safety is our top priority, with regularly inspected vehicles and professional, vetted drivers.",
+    title: "Ride with Confidence at MyBase",
+    description: "Your safety is paramount. MyBase ensures all vehicles are regularly checked and drivers are professionally vetted for your peace of mind.",
     icon: ShieldCheck,
     imageUrl: "https://placehold.co/600x300.png",
-    imageHint: "car safety"
+    imageHint: "driver smiling car"
   },
 ];
 
@@ -84,7 +84,7 @@ export function CompanyCarousel() {
     <Card className="w-full max-w-3xl mx-auto shadow-xl overflow-hidden border-2 border-primary/20">
       <CardHeader className="text-center pb-3 pt-4 bg-primary/5">
         <CardTitle className="text-xl md:text-2xl font-bold text-primary">
-          Discover Link Cabs
+          Discover MyBase
         </CardTitle>
       </CardHeader>
       <CardContent className="relative p-0">
@@ -152,4 +152,3 @@ export function CompanyCarousel() {
     </Card>
   );
 }
-
