@@ -154,6 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email}`);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       console.log("AuthContext.loginWithEmail: signInWithEmailAndPassword SUCCESS for UID:", userCredential.user.uid);
+      // onAuthStateChanged will handle setting user context and redirecting
     } catch (error: any) {
       setLoading(false);
       console.error("AuthContext.loginWithEmail CAUGHT ERROR. Code:", error.code, "Message:", error.message);
@@ -259,10 +260,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("AuthContext.logout: Attempting signOut.");
     try {
       await signOut(auth);
+      // onAuthStateChanged will set user to null and trigger redirection via useEffect.
       toast({title: "Logged Out", description: "You have been successfully logged out."});
     } catch (error) {
       console.error("AuthContext.logout: Error signing out:", error);
       toast({title: "Logout Error", description: "Failed to log out properly.", variant: "destructive"});
+      // Even if signOut fails, clear local state and attempt redirect.
       setUser(null); 
       setLoading(false);
       router.push('/login'); 
@@ -272,7 +275,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id };
+        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id }; // Ensure 'id' is preserved
         console.log("AuthContext.updateUserProfileInContext: User profile updated in context.", updatedUser);
         return updatedUser;
       }
@@ -283,9 +286,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const publicPaths = ['/login', '/register', '/forgot-password'];
 
   useEffect(() => {
-    if (loading) return;
+    if (loading) return; // Don't redirect until initial auth state check is complete
 
     const isMarketingRoot = pathname === '/';
+    // Check if the current path starts with any of the public paths
     const isPublicPath = publicPaths.some(p => pathname.startsWith(p)) || isMarketingRoot;
     
     console.log(`AuthContext Path Check: Path='${pathname}', User='${user ? user.email : 'null'}', Loading=${loading}, IsPublic=${isPublicPath}`);
@@ -293,19 +297,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user && !isPublicPath) {
       console.log(`AuthContext: No user & not public path (${pathname}). Redirecting to /login.`);
       router.push('/login');
-    } else if (user && (isPublicPath && pathname !== '/')) { 
+    } else if (user && (isPublicPath && pathname !== '/')) { // User is logged in but on a public/auth page (not root landing)
       console.log(`AuthContext: User exists & on auth/public path (${pathname}). Redirecting to role dashboard.`);
       if (user.role === 'admin') router.push('/admin');
       else if (user.role === 'operator') router.push('/operator');
       else if (user.role === 'driver') router.push('/driver');
-      else router.push('/dashboard');
-    } else if (user && isMarketingRoot) { 
+      else router.push('/dashboard'); // Default to passenger dashboard
+    } else if (user && isMarketingRoot) { // User is logged in and on the root marketing page
         console.log(`AuthContext: User exists & on marketing root path ('/'). Redirecting to role dashboard.`);
         if (user.role === 'admin') router.push('/admin');
         else if (user.role === 'operator') router.push('/operator');
         else if (user.role === 'driver') router.push('/driver');
-        else router.push('/dashboard');
+        else router.push('/dashboard'); // Default to passenger dashboard
     }
+    // If user is logged in AND on a protected path, or if no user AND on a public path, no redirect is needed here.
   }, [user, loading, router, pathname]);
 
 
@@ -323,3 +328,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+    
