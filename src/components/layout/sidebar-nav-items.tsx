@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock } from 'lucide-react'; // Added CalendarClock, UserX
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning } from 'lucide-react'; // Added HelpCircle, MessageSquareWarning, CalendarClock, UserX
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -28,6 +28,8 @@ export const navItems: NavItem[] = [
   { href: '/driver/earnings', label: 'Earnings', icon: DollarSign, roles: ['driver'] },
   { href: '/driver/ride-history', label: 'Ride History', icon: History, roles: ['driver'] },
   { href: '/driver/chat', label: 'Chat', icon: MessageCircle, roles: ['driver'] },
+  { href: '/driver/help-support', label: 'Help & Support', icon: HelpCircle, roles: ['driver'] },
+
 
   // Operator
   { href: '/operator', label: 'Operator Panel', icon: Briefcase, roles: ['operator'] },
@@ -37,6 +39,8 @@ export const navItems: NavItem[] = [
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
   { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
+  { href: '/operator/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['operator'] },
+
 
   // Admin
   { href: '/admin', label: 'Admin Dashboard', icon: Shield, roles: ['admin'] },
@@ -58,6 +62,8 @@ export const navItems: NavItem[] = [
   { href: '/admin/analytics', label: 'System Analytics', icon: BarChart3, roles: ['admin'] },
   { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
   { href: '/admin/ai-system-health', label: 'AI System Health', icon: BrainCircuit, roles: ['admin'] },
+  { href: '/admin/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['admin'] },
+
 
 
   // Common
