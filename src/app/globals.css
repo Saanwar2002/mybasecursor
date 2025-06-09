@@ -4,77 +4,76 @@
 
 @layer base {
   :root {
-    /* PRD Colors - Light Theme */
+    /* Adjusted for more vibrancy - Light Theme */
     --background: 220 13% 95%; /* Light Gray #F0F2F5 */
-    --foreground: 220 40% 10%; /* Default Dark for text */
+    --foreground: 220 40% 8%; /* Darker for better contrast */
 
     --card: 0 0% 100%; /* White cards */
-    --card-foreground: 220 40% 10%;
+    --card-foreground: 220 40% 8%; /* Matches new foreground */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 40% 10%;
+    --popover-foreground: 220 40% 8%; /* Matches new foreground */
 
-    --primary: 223 58% 77%; /* Soft Blue #A0B4E8 */
-    --primary-foreground: 220 40% 5%; /* Dark text on soft blue */
+    --primary: 223 65% 78%; /* More vibrant Soft Blue */
+    --primary-foreground: 220 40% 4%; /* Darker text on new primary */
 
-    --secondary: 220 10% 90%; /* Slightly darker gray for secondary elements */
-    --secondary-foreground: 220 40% 10%;
+    --secondary: 220 10% 90%; 
+    --secondary-foreground: 220 40% 8%; /* Matches new foreground */
 
     --muted: 220 10% 85%;
     --muted-foreground: 220 25% 35%;
 
-    --accent: 276 35% 67%; /* Muted Purple #B08BCD */
-    --accent-foreground: 0 0% 100%; /* White text on muted purple */
+    --accent: 276 45% 68%; /* More vibrant Muted Purple */
+    --accent-foreground: 0 0% 100%; 
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 10% 88%;
     --input: 220 10% 92%;
-    --ring: 223 58% 77%; /* Ring color matching primary */
+    --ring: 223 65% 78%; /* Ring color matching new primary */
 
     --radius: 0.5rem;
 
-    /* Chart colors can remain generic or be themed similarly if needed */
-    --chart-1: 223 58% 77%; /* Primary */
-    --chart-2: 276 35% 67%; /* Accent */
-    --chart-3: 30 80% 60%; /* A contrasting orange/yellow */
-    --chart-4: 150 60% 55%; /* A contrasting green */
-    --chart-5: 200 70% 60%; /* A contrasting cyan/blue */
+    --chart-1: 223 65% 78%; 
+    --chart-2: 276 45% 68%; 
+    --chart-3: 30 80% 60%; 
+    --chart-4: 150 60% 55%; 
+    --chart-5: 200 70% 60%; 
   }
 
   .dark {
-    /* PRD Aligned Dark Theme (Interpretations) */
-    --background: 220 15% 10%; /* Very dark gray/blue */
-    --foreground: 210 20% 95%; /* Light gray text */
+    /* Adjusted for more vibrancy - Dark Theme */
+    --background: 220 15% 8%; 
+    --foreground: 210 20% 98%; 
 
-    --card: 220 15% 15%; 
-    --card-foreground: 210 20% 95%;
+    --card: 220 15% 12%; 
+    --card-foreground: 210 20% 98%;
 
-    --popover: 220 15% 10%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 220 15% 8%;
+    --popover-foreground: 210 20% 98%;
 
-    --primary: 223 50% 65%; /* Darker soft blue */
+    --primary: 223 60% 70%; /* More vibrant Darker Soft Blue */
     --primary-foreground: 210 20% 98%; 
 
-    --secondary: 220 15% 20%;
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 210 20% 92%;
 
-    --muted: 220 15% 25%;
-    --muted-foreground: 210 20% 60%;
+    --muted: 220 15% 22%;
+    --muted-foreground: 210 20% 65%;
 
-    --accent: 276 30% 55%; /* Darker muted purple */
+    --accent: 276 40% 60%; /* More vibrant Darker Muted Purple */
     --accent-foreground: 210 20% 98%;
 
-    --destructive: 0 55% 45%;
+    --destructive: 0 60% 50%; /* Adjusted destructive for dark */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 25%;
-    --input: 220 15% 18%;
-    --ring: 223 50% 65%;
+    --border: 220 15% 22%;
+    --input: 220 15% 15%;
+    --ring: 223 60% 70%; /* Ring color matching new dark primary */
     
-    --chart-1: 223 50% 65%;
-    --chart-2: 276 30% 55%;
+    --chart-1: 223 60% 70%;
+    --chart-2: 276 40% 60%;
     --chart-3: 35 75% 55%;
     --chart-4: 150 50% 50%;
     --chart-5: 200 60% 55%;
