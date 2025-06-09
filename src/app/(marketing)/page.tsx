@@ -52,7 +52,7 @@ export default function LandingPage() {
                   <UserPlus className="mr-2 h-5 w-5" /> Get Started - Sign Up
                 </Link>
               </Button>
-              <Button variant="secondary" size="lg" className="w-full sm:w-auto text-base" asChild>
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto text-base border border-accent text-accent hover:bg-accent/10" asChild>
                 <Link href="/login">
                   <LogIn className="mr-2 h-5 w-5" /> Already have an account?
                 </Link>
