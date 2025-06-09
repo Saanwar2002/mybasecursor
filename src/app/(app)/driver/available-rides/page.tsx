@@ -60,7 +60,7 @@ interface ActiveRide {
   fareEstimate: number;
   priorityFeeAmount?: number;
   isPriorityPickup?: boolean;
-  status: 'pending' | 'accepted' | 'declined' | 'active' | 'driver_assigned' | 'arrived_at_pickup' | 'in_progress' | 'In Progress' | 'completed' | 'cancelled_by_driver' | 'pending_driver_wait_and_return_approval' | 'in_progress_wait_and_return';
+  status: string; // More specific statuses used now
   pickupCoords?: { lat: number; lng: number };
   dropoffCoords?: { lat: number; lng: number };
   distanceMiles?: number;
@@ -218,7 +218,6 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
-    // Only set loading true if we are not already showing an active ride optimistically
     if (!activeRide) setIsLoading(true);
     setError(null);
 
@@ -229,19 +228,17 @@ export default function AvailableRidesPage() {
         throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`);
       }
       const data: ActiveRide | null = await response.json();
-      setActiveRide(data); // This will update the UI with the latest from backend
+      setActiveRide(data); 
       if (data?.pickupLocation) {
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
       console.error("Error in fetchActiveRide:", message);
-      // Don't show toast for regular polling failures unless it's a new error
-      // if (!error) setError(message); // Potentially set error state to show in UI
     } finally {
       setIsLoading(false);
     }
-  }, [driverUser?.id, activeRide]); // Added activeRide to deps to avoid re-setting isLoading if already showing an active ride
+  }, [driverUser?.id, activeRide]); 
 
  useEffect(() => {
     if (waitingTimerIntervalRef.current) {
@@ -312,19 +309,14 @@ export default function AvailableRidesPage() {
   }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
 
 
-  // Effect for fetching active ride and polling
   useEffect(() => {
     if (driverUser && isPollingEnabled) {
-      console.log("Polling useEffect: driverUser exists and isPollingEnabled=true. Fetching initial active ride and starting interval.");
-      // No setIsLoading(true) here to avoid flicker if activeRide is already set optimistically
       fetchActiveRide();
-
       if (rideRefreshIntervalIdRef.current) {
         clearInterval(rideRefreshIntervalIdRef.current);
       }
       rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
     } else {
-      console.log("Polling useEffect: Conditions not met for polling (driverUser:", !!driverUser, "isPollingEnabled:", isPollingEnabled, "). Clearing interval.");
       if (rideRefreshIntervalIdRef.current) {
         clearInterval(rideRefreshIntervalIdRef.current);
         rideRefreshIntervalIdRef.current = null;
@@ -332,7 +324,6 @@ export default function AvailableRidesPage() {
     }
     return () => {
       if (rideRefreshIntervalIdRef.current) {
-        console.log("Polling useEffect: Cleanup. Clearing interval.");
         clearInterval(rideRefreshIntervalIdRef.current);
         rideRefreshIntervalIdRef.current = null;
       }
@@ -384,40 +375,40 @@ export default function AvailableRidesPage() {
   };
 
   const handleAcceptOffer = async (rideId: string) => {
+    setIsPollingEnabled(false);
+    if (rideRefreshIntervalIdRef.current) {
+      clearInterval(rideRefreshIntervalIdRef.current);
+      rideRefreshIntervalIdRef.current = null;
+    }
     setIsOfferModalOpen(false);
     const offerToAccept = currentOfferDetails;
     setCurrentOfferDetails(null);
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
+      setIsPollingEnabled(true);
       return;
     }
     
-    console.log("handleAcceptOffer: Disabling polling and clearing existing interval.");
-    setIsPollingEnabled(false); // Disable polling
-    if (rideRefreshIntervalIdRef.current) {
-      clearInterval(rideRefreshIntervalIdRef.current);
-      rideRefreshIntervalIdRef.current = null;
-    }
-
     setActionLoading(prev => ({ ...prev, [offerToAccept.id]: true }));
     try {
+      // Include all offer details in the payload for the backend to create/assign
       const updatePayload: any = {
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
+        // Include all details from offerToAccept
+        offerDetails: { ...offerToAccept },
+        // Explicitly pass priority and dispatchMethod if they exist on the offer
+        isPriorityPickup: offerToAccept.isPriorityPickup,
+        priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
       };
 
-      if (offerToAccept.isPriorityPickup !== undefined) {
-        updatePayload.isPriorityPickup = offerToAccept.isPriorityPickup;
-      }
-      if (offerToAccept.priorityFeeAmount !== undefined) {
-        updatePayload.priorityFeeAmount = offerToAccept.priorityFeeAmount;
-      }
 
+      // The bookingId in the URL will be the mock-offer-id
       const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -427,58 +418,68 @@ export default function AvailableRidesPage() {
       let updatedBookingDataFromServer;
       if (response.ok) {
         updatedBookingDataFromServer = await response.json();
+        if (!updatedBookingDataFromServer || !updatedBookingDataFromServer.booking) {
+            throw new Error("Server returned success but booking data was missing in response.");
+        }
       } else {
-          const clonedResponse = response.clone();
-          let errorDetailsText = `Server responded with status: ${response.status}.`;
-          try {
-              const errorDataJson = await response.json();
-              errorDetailsText = errorDataJson.message || errorDataJson.details || JSON.stringify(errorDataJson);
-          } catch (jsonParseError) {
-              try {
-                  const rawResponseText = await clonedResponse.text();
-                  errorDetailsText += ` Non-JSON response from server. Response text: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
-                  console.error("Raw non-JSON server response from handleAcceptOffer:", rawResponseText);
-              } catch (textReadError) {
-                  errorDetailsText += " Additionally, failed to read response body as text.";
-                  console.error("Failed to read response body as text after JSON parse failed:", textReadError);
-              }
-          }
+        // Attempt to get more detailed error if !response.ok
+        const clonedResponse = response.clone();
+        let errorDetailsText = `Server responded with status: ${response.status}.`;
+        try {
+            const errorDataJson = await response.json();
+            errorDetailsText = errorDataJson.message || errorDataJson.details || JSON.stringify(errorDataJson);
+        } catch (jsonParseError) {
+            try {
+                const rawResponseText = await clonedResponse.text();
+                errorDetailsText += ` Non-JSON response from server. Response text: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
+            } catch (textReadError) {
+                errorDetailsText += " Additionally, failed to read response body as text.";
+            }
+        }
         throw new Error(errorDetailsText);
       }
-
+      
+      const serverBooking = updatedBookingDataFromServer.booking;
       const newActiveRide: ActiveRide = {
-        id: offerToAccept.id,
-        passengerId: offerToAccept.passengerId || 'N/A',
-        passengerName: offerToAccept.passengerName || 'Passenger',
-        pickupLocation: { address: offerToAccept.pickupLocation, latitude: offerToAccept.pickupCoords.lat, longitude: offerToAccept.pickupCoords.lng },
-        dropoffLocation: { address: offerToAccept.dropoffLocation, latitude: offerToAccept.dropoffCoords.lat, longitude: offerToAccept.dropoffCoords.lng },
-        fareEstimate: offerToAccept.fareEstimate,
-        passengerCount: offerToAccept.passengerCount,
-        status: 'driver_assigned', 
-        driverId: driverUser.id,
-        driverName: driverUser.name || "Driver",
-        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        notes: offerToAccept.notes,
-        paymentMethod: offerToAccept.paymentMethod,
-        requiredOperatorId: offerToAccept.requiredOperatorId,
-        isPriorityPickup: offerToAccept.isPriorityPickup,
-        priorityFeeAmount: offerToAccept.priorityFeeAmount,
-        vehicleType: driverUser.vehicleCategory || 'Car',
-        dispatchMethod: offerToAccept.dispatchMethod,
-        bookingTimestamp: updatedBookingDataFromServer.booking?.bookingTimestamp,
-        scheduledPickupAt: updatedBookingDataFromServer.booking?.scheduledPickupAt,
+        id: serverBooking.id, // Use the ID from the server (newly created or updated)
+        passengerId: serverBooking.passengerId || offerToAccept.passengerId || 'N/A',
+        passengerName: serverBooking.passengerName || offerToAccept.passengerName || 'Passenger',
+        passengerAvatar: serverBooking.passengerAvatar,
+        pickupLocation: serverBooking.pickupLocation || { address: offerToAccept.pickupLocation, latitude: offerToAccept.pickupCoords.lat, longitude: offerToAccept.pickupCoords.lng },
+        dropoffLocation: serverBooking.dropoffLocation || { address: offerToAccept.dropoffLocation, latitude: offerToAccept.dropoffCoords.lat, longitude: offerToAccept.dropoffCoords.lng },
+        stops: serverBooking.stops,
+        fareEstimate: serverBooking.fareEstimate ?? offerToAccept.fareEstimate,
+        passengerCount: serverBooking.passengers ?? offerToAccept.passengerCount,
+        status: serverBooking.status || 'driver_assigned', 
+        driverId: serverBooking.driverId || driverUser.id,
+        driverName: serverBooking.driverName || driverUser.name || "Driver",
+        driverVehicleDetails: serverBooking.driverVehicleDetails || `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
+        notes: serverBooking.driverNotes || serverBooking.notes || offerToAccept.notes,
+        paymentMethod: serverBooking.paymentMethod || offerToAccept.paymentMethod,
+        requiredOperatorId: serverBooking.requiredOperatorId || offerToAccept.requiredOperatorId,
+        isPriorityPickup: serverBooking.isPriorityPickup ?? offerToAccept.isPriorityPickup,
+        priorityFeeAmount: serverBooking.priorityFeeAmount ?? offerToAccept.priorityFeeAmount,
+        vehicleType: serverBooking.vehicleType || driverUser.vehicleCategory || 'Car',
+        dispatchMethod: serverBooking.dispatchMethod || offerToAccept.dispatchMethod,
+        bookingTimestamp: serverBooking.bookingTimestamp,
+        scheduledPickupAt: serverBooking.scheduledPickupAt,
+        notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp,
+        passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp,
+        rideStartedAt: serverBooking.rideStartedAt,
+        driverCurrentLocation: serverBooking.driverCurrentLocation,
+        driverEtaMinutes: serverBooking.driverEtaMinutes,
+        waitAndReturn: serverBooking.waitAndReturn,
+        estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
       
-      console.log("handleAcceptOffer: Optimistically setting activeRide:", newActiveRide);
-      setActiveRide(newActiveRide); // Optimistic update
-      
-      setRideRequests([]); // Clear pending offers list
-      let toastDesc = `En Route to Pickup for ${updatedBookingDataFromServer?.booking?.passengerName || offerToAccept.passengerName}. Payment: ${updatedBookingDataFromServer?.booking?.paymentMethod || offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
-      if (updatedBookingDataFromServer?.booking?.isPriorityPickup && updatedBookingDataFromServer?.booking?.priorityFeeAmount) {
-        toastDesc += ` Priority: +£${updatedBookingDataFromServer.booking.priorityFeeAmount.toFixed(2)}.`;
+      setActiveRide(newActiveRide);
+      setRideRequests([]);
+      let toastDesc = `En Route to Pickup for ${newActiveRide.passengerName}. Payment: ${newActiveRide.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
+      if (newActiveRide.isPriorityPickup && newActiveRide.priorityFeeAmount) {
+        toastDesc += ` Priority: +£${newActiveRide.priorityFeeAmount.toFixed(2)}.`;
       }
-      if (updatedBookingDataFromServer?.booking?.dispatchMethod) {
-        toastDesc += ` Dispatched: ${updatedBookingDataFromServer.booking.dispatchMethod.replace('_', ' ')}.`;
+      if (newActiveRide.dispatchMethod) {
+        toastDesc += ` Dispatched: ${newActiveRide.dispatchMethod.replace(/_/g, ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
       
@@ -488,12 +489,10 @@ export default function AvailableRidesPage() {
       toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
-      console.log("handleAcceptOffer: Re-enabling polling after 3s delay.");
-      setTimeout(async () => {
-        console.log("handleAcceptOffer: Timeout executed. Fetching active ride once and re-enabling polling.");
-        await fetchActiveRide(); 
+      setTimeout(() => {
+        fetchActiveRide(); 
         setIsPollingEnabled(true); 
-      }, 3000); // 3-second delay
+      }, 3000); 
     }
   };
 
@@ -514,12 +513,14 @@ export default function AvailableRidesPage() {
     switch(actionType) {
         case 'notify_arrival':
             toastTitle = "Passenger Notified"; toastMessage = `Passenger ${activeRide.passengerName} has been notified of your arrival.`;
+            payload.notifiedPassengerArrivalTimestamp = true; // Signal to backend to set timestamp
             break;
         case 'start_ride':
             toastTitle = "Ride Started"; toastMessage = `Ride with ${activeRide.passengerName} is now in progress.`;
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null);
             setAckWindowSecondsLeft(null);
+            payload.rideStartedAt = true; // Signal to backend
             break;
         case 'complete_ride':
             const baseFare = activeRide.fareEstimate || 0;
@@ -531,6 +532,7 @@ export default function AvailableRidesPage() {
 
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             payload.finalFare = finalFare;
+            payload.completedAt = true; // Signal to backend
             break;
         case 'cancel_active':
             toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
@@ -540,9 +542,14 @@ export default function AvailableRidesPage() {
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
+            payload.waitAndReturn = true; // This might already be set if passenger requested
+            payload.status = 'in_progress_wait_and_return';
             break;
         case 'decline_wait_and_return':
             toastTitle = "Wait & Return Declined"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been declined. Ride continues as normal.`;
+            payload.status = 'in_progress'; // Revert status if it was pending approval
+            payload.waitAndReturn = false; // Ensure it's explicitly false
+            payload.estimatedAdditionalWaitTimeMinutes = null; // Clear this if declining
             break;
     }
 
@@ -592,14 +599,14 @@ export default function AvailableRidesPage() {
 
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
-        setIsPollingEnabled(false); // Stop polling immediately for these final actions
+        setIsPollingEnabled(false); 
         if (rideRefreshIntervalIdRef.current) {
           clearInterval(rideRefreshIntervalIdRef.current);
           rideRefreshIntervalIdRef.current = null;
         }
         setTimeout(() => {
           setActiveRide(null);
-          setIsPollingEnabled(true); // Re-enable polling after a delay
+          setIsPollingEnabled(true); 
         }, 3000);
       }
 
@@ -1101,3 +1108,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
