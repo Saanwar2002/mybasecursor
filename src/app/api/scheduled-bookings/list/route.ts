@@ -3,7 +3,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore'; // Removed orderBy
 
 // Interface for data as it is stored/retrieved directly from Firestore
 interface ScheduledBookingFirestoreData {
@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
   
   try {
     const schedulesRef = collection(db, 'scheduledBookings');
+    // Removed orderBy('createdAt', 'desc') from the query to avoid index error
     const q = query(
       schedulesRef,
-      where('passengerId', '==', passengerId),
-      orderBy('createdAt', 'desc')
+      where('passengerId', '==', passengerId)
     );
     const querySnapshot = await getDocs(q);
     
@@ -91,13 +91,10 @@ export async function GET(request: NextRequest) {
         if (data.nextRunDate instanceof Timestamp) {
           nextRunDateString = data.nextRunDate.toDate().toISOString().split('T')[0];
         } else if (typeof data.nextRunDate === 'string') {
-          // Assuming it's already in "YYYY-MM-DD" format if string
           nextRunDateString = data.nextRunDate;
         }
       }
 
-      // Construct the response object explicitly mapping fields
-      // This ensures type safety and that all expected fields are present
       const responseItem: ScheduledBookingAPIResponse = {
         id: doc.id,
         passengerId: data.passengerId,
@@ -126,6 +123,9 @@ export async function GET(request: NextRequest) {
       return responseItem;
     });
     
+    // Sort in JavaScript after fetching
+    schedules.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     return NextResponse.json({ schedules }, { status: 200 });
 
   } catch (error) {
