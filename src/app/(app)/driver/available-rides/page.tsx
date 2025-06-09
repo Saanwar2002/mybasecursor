@@ -85,7 +85,7 @@ interface ActiveRide {
   driverVehicleDetails?: string;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
-  dispatchMethod?: RideOffer['dispatchMethod']; 
+  dispatchMethod?: RideOffer['dispatchMethod'];
 }
 
 
@@ -375,7 +375,7 @@ export default function AvailableRidesPage() {
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        dispatchMethod: offerToAccept.dispatchMethod, 
+        dispatchMethod: offerToAccept.dispatchMethod,
       };
 
       if (offerToAccept.isPriorityPickup !== undefined) {
@@ -392,35 +392,46 @@ export default function AvailableRidesPage() {
       });
 
       if (!response.ok) {
-        let errorText = `Failed to accept ride. Status: ${response.status}.`;
+        let errorBodyText = "";
         try {
-            const errorData = await response.json(); // Try to parse JSON first
-            errorText = errorData.message || errorData.details || JSON.stringify(errorData);
+          // Try to get text first, as it might be an HTML error page
+          errorBodyText = await response.text();
         } catch (e) {
-            // If .json() fails, it's truly not JSON. Get the raw text.
-            const rawResponseText = await response.text();
-            errorText += ` Non-JSON response from server. Response text: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
-            console.error("Raw non-JSON server response from handleAcceptOffer:", rawResponseText);
+          errorBodyText = "Failed to read error response body as text.";
         }
-        throw new Error(errorText);
+        
+        let errorJsonMessage = null;
+        try {
+          // Then, try to parse the text as JSON
+          const parsedJson = JSON.parse(errorBodyText);
+          errorJsonMessage = parsedJson.message || parsedJson.details || JSON.stringify(parsedJson);
+        } catch (e) {
+          // Not JSON, or error in parsing; use the text or a snippet
+        }
+        
+        const detailMessage = errorJsonMessage || errorBodyText.substring(0,200) + (errorBodyText.length > 200 ? '...' : '');
+        const errorMessage = `Acceptance Failed. Status: ${response.status}. ${detailMessage}`;
+        console.error("Raw server response from handleAcceptOffer if !response.ok:", errorBodyText);
+        throw new Error(errorMessage);
       }
 
-      await fetchActiveRide();
+      const updatedBookingData = await response.json(); // Original response, assuming it's JSON on success
 
+      await fetchActiveRide(); 
       setRideRequests([]);
-      let toastDesc = `En Route to Pickup for ${offerToAccept.passengerName}. Payment: ${offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
-      if (offerToAccept.isPriorityPickup && offerToAccept.priorityFeeAmount) {
-        toastDesc += ` Priority: +£${offerToAccept.priorityFeeAmount.toFixed(2)}.`;
+      let toastDesc = `En Route to Pickup for ${updatedBookingData?.booking?.passengerName || offerToAccept.passengerName}. Payment: ${updatedBookingData?.booking?.paymentMethod || offerToAccept.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
+      if (updatedBookingData?.booking?.isPriorityPickup && updatedBookingData?.booking?.priorityFeeAmount) {
+        toastDesc += ` Priority: +£${updatedBookingData.booking.priorityFeeAmount.toFixed(2)}.`;
       }
-       if (offerToAccept.dispatchMethod) {
-        toastDesc += ` Dispatched: ${offerToAccept.dispatchMethod.replace('_', ' ')}.`;
+      if (updatedBookingData?.booking?.dispatchMethod) {
+        toastDesc += ` Dispatched: ${updatedBookingData.booking.dispatchMethod.replace('_', ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
 
     } catch(error) {
-      console.error("Error accepting offer:", error);
-      const message = error instanceof Error ? error.message : "Could not assign ride. Please try again.";
-      toast({title: "Acceptance Failed", description: message, variant: "destructive"});
+      console.error("Error in handleAcceptOffer process:", error);
+      const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
+      toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
       fetchActiveRide(); // Refresh active ride state on failure too
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
@@ -1026,4 +1037,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
