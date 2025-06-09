@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone', // Required for Firebase App Hosting and optimal containerization
   images: {
     remotePatterns: [
       {
@@ -10,6 +9,11 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  experimental: {
+    // Attempt to disable the default Next.js development service worker
+    // by pointing it to a non-existent file.
+    devSwSrc: '/intentionally-non-existent-service-worker.js',
   },
 };
 
