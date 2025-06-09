@@ -85,41 +85,41 @@ export function PassengerReviewsCarousel() {
   const currentReview = mockReviews[currentIndex];
 
   return (
-    <Card className="w-full max-w-lg h-[400px] flex flex-col justify-between rounded-xl shadow-2xl overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10 border-2 border-primary/30">
-      <CardHeader className="pt-6 pb-3 text-center">
-        <CardTitle className="text-2xl font-headline text-primary">What Our Passengers Say</CardTitle>
+    <Card className="w-full max-w-md h-auto flex flex-col justify-between rounded-xl shadow-2xl overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10 border-2 border-primary/30">
+      <CardHeader className="pt-4 pb-2 text-center">
+        <CardTitle className="text-xl font-headline text-primary">What Our Passengers Say</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col items-center justify-center text-center px-6 py-4 overflow-hidden">
+      <CardContent className="flex-1 flex flex-col items-center justify-center text-center px-4 py-3 overflow-hidden">
         <div className={cn("transition-opacity duration-200 ease-in-out w-full", isTransitioning ? "opacity-0" : "opacity-100")}>
           {currentReview && (
             <>
-              <Avatar className="w-20 h-20 mx-auto mb-4 border-2 border-accent shadow-md">
-                <AvatarImage src={`https://placehold.co/80x80.png?text=${currentReview.avatarText}`} alt={currentReview.name} data-ai-hint="avatar person" />
-                <AvatarFallback className="text-2xl">{currentReview.avatarText}</AvatarFallback>
+              <Avatar className="w-16 h-16 mx-auto mb-3 border-2 border-accent shadow-md">
+                <AvatarImage src={`https://placehold.co/64x64.png?text=${currentReview.avatarText}`} alt={currentReview.name} data-ai-hint="avatar person" />
+                <AvatarFallback className="text-xl">{currentReview.avatarText}</AvatarFallback>
               </Avatar>
-              <div className="flex justify-center mb-2">
+              <div className="flex justify-center mb-1.5">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      "w-5 h-5",
+                      "w-4 h-4",
                       i < currentReview.stars ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/50"
                     )}
                   />
                 ))}
               </div>
-              <p className="text-lg italic text-foreground/90 mb-3 leading-relaxed">
+              <p className="text-base italic text-foreground/90 mb-2 leading-snug">
                 &ldquo;{currentReview.reviewText}&rdquo;
               </p>
-              <p className="font-semibold text-primary">{currentReview.name}</p>
+              <p className="font-semibold text-sm text-primary">{currentReview.name}</p>
               {currentReview.location && <p className="text-xs text-muted-foreground">{currentReview.location}</p>}
             </>
           )}
         </div>
       </CardContent>
-      <div className="flex items-center justify-between p-4 border-t bg-card/50 shrink-0">
-        <Button variant="outline" size="icon" onClick={() => navigate('prev')} aria-label="Previous review">
-          <ChevronLeft className="h-5 w-5" />
+      <div className="flex items-center justify-between p-3 border-t bg-card/50 shrink-0">
+        <Button variant="outline" size="icon" onClick={() => navigate('prev')} aria-label="Previous review" className="h-8 w-8">
+          <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex space-x-1.5">
             {mockReviews.map((_, index) => (
@@ -133,15 +133,15 @@ export function PassengerReviewsCarousel() {
                     }, 200);
                 }}
                 className={cn(
-                "w-2 h-2 rounded-full transition-all duration-300 ease-out",
-                currentIndex === index ? "bg-primary w-4" : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                "w-1.5 h-1.5 rounded-full transition-all duration-300 ease-out",
+                currentIndex === index ? "bg-primary w-3" : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
                 )}
                 aria-label={`Go to review ${index + 1}`}
             />
             ))}
         </div>
-        <Button variant="outline" size="icon" onClick={() => navigate('next')} aria-label="Next review">
-          <ChevronRight className="h-5 w-5" />
+        <Button variant="outline" size="icon" onClick={() => navigate('next')} aria-label="Next review" className="h-8 w-8">
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </Card>
