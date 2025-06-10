@@ -159,7 +159,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     if (!rideDetails.dispatchMethod) return null;
     switch (rideDetails.dispatchMethod) {
       case 'auto_system':
-        return { text: "Dispatched: System (Auto)", icon: CheckCircle, color: "text-green-600" };
+        return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
       case 'manual_operator':
         return { text: "Dispatched Manually By Your Base", icon: Briefcase, color: "text-blue-600" };
       case 'priority_override':
