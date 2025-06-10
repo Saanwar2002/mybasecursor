@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck } from "lucide-react"; // Added ShieldCheck
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -26,15 +26,15 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogTitle as ShadAlertDialogTitle, // Renaming to avoid conflict if DialogTitle is also used directly
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  DialogTitle, // Explicitly import DialogTitle
+  DialogDescription, // Explicitly import DialogDescription
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -1168,7 +1168,7 @@ export default function AvailableRidesPage() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
+                      <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                       <AlertDialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
                       </AlertDialogDescription>
@@ -1201,9 +1201,9 @@ export default function AvailableRidesPage() {
             <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                        <ShadAlertDialogTitle className="text-destructive flex items-center gap-2">
                             <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
-                        </AlertDialogTitle>
+                        </ShadAlertDialogTitle>
                         <AlertDialogDescription>
                             This will immediately alert your operator. Proceed with caution.
                         </AlertDialogDescription>
@@ -1322,7 +1322,7 @@ export default function AvailableRidesPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle><span>Block {activeRide.passengerName}?</span></AlertDialogTitle>
+                        <ShadAlertDialogTitle><span>Block {activeRide.passengerName}?</span></ShadAlertDialogTitle>
                         <AlertDialogDescription>
                           <span>Are you sure you want to block this passenger? You will not be offered rides from them in the future. This action can be undone in your profile settings.</span>
                         </AlertDialogDescription>
@@ -1335,7 +1335,7 @@ export default function AvailableRidesPage() {
                   </AlertDialog>
                 </div>
               )}
-             {showCompletedStatus && (
+            {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
                 <p style={{color: 'lime', fontSize: '18px', fontWeight: 'bold'}}>DEBUG: RATING SECTION SHOULD BE VISIBLE HERE</p>
                 <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName || "Passenger"}:</p>
@@ -1395,7 +1395,7 @@ export default function AvailableRidesPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle><span>Are you sure you want to cancel this ride?</span></AlertDialogTitle>
+              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
               <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1480,7 +1480,7 @@ export default function AvailableRidesPage() {
                   onClick={() => handleReportHazard(hazard.type)}
                   disabled={reportingHazard}
                 >
-                  <hazard.icon className="w-6 h-6 mb-1 text-primary" />
+                  {hazard.icon && <hazard.icon className="w-6 h-6 mb-1 text-primary" />}
                   <span className="text-xs">{hazard.label}</span>
                 </Button>
               ))}
@@ -1525,7 +1525,7 @@ export default function AvailableRidesPage() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
+                    <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                     <AlertDialogDescription>
                     Select the type of assistance needed. Your current location will be shared with your operator.
                     </AlertDialogDescription>
@@ -1558,9 +1558,9 @@ export default function AvailableRidesPage() {
         <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                    <ShadAlertDialogTitle className="text-destructive flex items-center gap-2">
                         <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
-                    </AlertDialogTitle>
+                    </ShadAlertDialogTitle>
                     <AlertDialogDescription>
                         This will immediately alert your operator. Proceed with caution.
                     </AlertDialogDescription>
@@ -1597,7 +1597,7 @@ export default function AvailableRidesPage() {
                   onClick={() => handleReportHazard(hazard.type)}
                   disabled={reportingHazard}
                 >
-                  <hazard.icon className="w-6 h-6 mb-1 text-primary" />
+                  {hazard.icon && <hazard.icon className="w-6 h-6 mb-1 text-primary" />}
                   <span className="text-xs">{hazard.label}</span>
                 </Button>
               ))}
@@ -1625,9 +1625,9 @@ export default function AvailableRidesPage() {
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2">
+          <ShadAlertDialogTitle className="flex items-center gap-2">
             <Navigation className="w-5 h-5 text-primary" /> Time to Go!
-          </AlertDialogTitle>
+          </ShadAlertDialogTitle>
           <AlertDialogDescription>
             Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
           </AlertDialogDescription>
@@ -1642,7 +1642,7 @@ export default function AvailableRidesPage() {
     <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle><span>Are you sure you want to cancel this ride?</span></AlertDialogTitle>
+          <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
           <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
