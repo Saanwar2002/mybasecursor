@@ -43,7 +43,7 @@ const offerDetailsSchema = z.object({
   requiredOperatorId: z.string().optional(),
   distanceMiles: z.number().optional(),
   paymentMethod: z.enum(['card', 'cash']).optional(),
-  passengerId: z.string(), // This is crucial for creating the booking
+  passengerId: z.string(), 
   isPriorityPickup: z.boolean().optional(),
   priorityFeeAmount: z.number().optional(),
   dispatchMethod: z.enum(['auto_system', 'manual_operator', 'priority_override']).optional(),
@@ -63,9 +63,9 @@ const bookingUpdateSchema = z.object({
   completedAt: z.boolean().optional(), 
   passengerAcknowledgedArrivalTimestamp: z.boolean().optional(), 
   offerDetails: offerDetailsSchema.optional(),
-  isPriorityPickup: z.boolean().optional(), // Can also be at root level
-  priorityFeeAmount: z.number().optional(), // Can also be at root level
-  dispatchMethod: z.string().optional(), // Can also be at root level
+  isPriorityPickup: z.boolean().optional(), 
+  priorityFeeAmount: z.number().optional(), 
+  dispatchMethod: z.string().optional(), 
   waitAndReturn: z.boolean().optional(),
   estimatedAdditionalWaitTimeMinutes: z.number().min(0).optional().nullable(),
 });
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest, context: PostContext) {
 
   if (!db) {
     console.error(`API POST Error /api/operator/bookings/${bookingIdForHandler}: Firestore (db) is not initialized.`);
-    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized. Booking update failed.' }, { status: 500 });
+    return NextResponse.json({ message: 'Server configuration error: Firestore (db) is not initialized. Booking update failed.' , details: 'Database service unavailable.'}, { status: 500 });
   }
 
   try {
@@ -105,31 +105,26 @@ export async function POST(request: NextRequest, context: PostContext) {
 
     if (!parsedPayload.success) {
       console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Top-level payload validation failed. Errors:`, JSON.stringify(parsedPayload.error.format(), null, 2));
-      return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format() }, { status: 400 });
+      return NextResponse.json({ message: 'Invalid update payload.', errors: parsedPayload.error.format(), details: 'The main request body does not match the expected structure.' }, { status: 400 });
     }
 
     const updateDataFromPayload = parsedPayload.data;
     console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: RAW payload.offerDetails:`, JSON.stringify(payload.offerDetails, null, 2));
     console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: ZOD PARSED updateDataFromPayload.offerDetails:`, JSON.stringify(updateDataFromPayload.offerDetails, null, 2));
     
-    // Add specific check for offerDetails parsing outcome if it's optional and might be undefined
-    if (payload.offerDetails && !updateDataFromPayload.offerDetails && bookingIdForHandler.startsWith('mock-offer-')) {
-        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: offerDetails was present in raw payload but UNDEFINED after Zod parsing. This suggests the offerDetailsSchema did not match the provided offerDetails object.`);
-        const offerDetailsParseResult = offerDetailsSchema.safeParse(payload.offerDetails);
-        if (!offerDetailsParseResult.success) {
-            console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Specific Zod errors for offerDetails field:`, JSON.stringify(offerDetailsParseResult.error.format(), null, 2));
-             return NextResponse.json({ message: 'Invalid structure for offerDetails field.', errors: offerDetailsParseResult.error.format() }, { status: 400 });
-        }
-    }
-
-
     if (bookingIdForHandler.startsWith('mock-offer-')) {
-      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as mock offer acceptance. Creating new booking.`);
-      if (!updateDataFromPayload.offerDetails) {
-        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: updateDataFromPayload.offerDetails IS FALSY after Zod parsing, even after specific check.`);
-        return NextResponse.json({ message: 'Offer details are required to create a booking from a mock offer.' }, { status: 400 });
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as mock offer acceptance. Validating offerDetails from raw payload.`);
+      
+      // Explicitly validate the raw payload.offerDetails if it's a mock offer
+      const offerDetailsParseResult = offerDetailsSchema.safeParse(payload.offerDetails);
+      if (!offerDetailsParseResult.success) {
+          console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: CRITICAL - payload.offerDetails (raw) FAILED Zod validation. Errors:`, JSON.stringify(offerDetailsParseResult.error.format(), null, 2));
+          return NextResponse.json({ message: 'Offer details are malformed or missing required fields for mock offer processing.', details: 'The nested offerDetails object is invalid.', errors: offerDetailsParseResult.error.format() }, { status: 400 });
       }
-      const offer = updateDataFromPayload.offerDetails;
+      
+      const offer = offerDetailsParseResult.data; // Use the successfully parsed offerDetails
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Successfully parsed offerDetails for mock offer. Proceeding to create booking.`);
+
       const newBookingData: any = {
         passengerId: offer.passengerId,
         passengerName: offer.passengerName || 'Passenger',
@@ -175,7 +170,7 @@ export async function POST(request: NextRequest, context: PostContext) {
 
       if (!bookingSnap.exists()) {
         console.warn(`API POST /api/operator/bookings/${bookingIdForHandler}: Booking not found for update.`);
-        return NextResponse.json({ message: `Booking with ID ${bookingIdForHandler} not found.` }, { status: 404 });
+        return NextResponse.json({ message: `Booking with ID ${bookingIdForHandler} not found.`, details: `No document exists at bookings/${bookingIdForHandler}` }, { status: 404 });
       }
 
       const updatePayloadFirestore: any = { ...updateDataFromPayload };
@@ -214,7 +209,7 @@ export async function POST(request: NextRequest, context: PostContext) {
 
       if (!updatedData) {
           console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Failed to retrieve updated document after update.`);
-          return NextResponse.json({ message: 'Failed to confirm booking update.' }, { status: 500 });
+          return NextResponse.json({ message: 'Failed to confirm booking update.', details: 'Could not re-fetch document post-update.' }, { status: 500 });
       }
       
       const responseData = {
@@ -235,8 +230,9 @@ export async function POST(request: NextRequest, context: PostContext) {
 
   } catch (error: any) {
     console.error(`API POST Error /api/operator/bookings/${bookingIdForHandler}:`, error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error during booking update.';
-    return NextResponse.json({ message: 'Failed to update booking', details: errorMessage, errorRaw: error.toString() }, { status: 500 });
+    const errorMessage = error.message || 'An unexpected error occurred during booking update.';
+    const errorDetails = error.details || (error.cause ? String(error.cause) : error.toString());
+    return NextResponse.json({ message: "Server Error Encountered", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
 
@@ -252,16 +248,16 @@ export async function GET(request: NextRequest, context: GetContext) {
   
   if (!db) {
     console.error(`API GET Error /api/operator/bookings/${bookingId}: Firestore (db) is not initialized.`);
-    return NextResponse.json({ error: true, message: 'Server configuration error: Firestore (db) is not initialized.' }, { status: 500 });
+    return NextResponse.json({ message: 'Server configuration error: Firestore (db) is not initialized.', details: 'Database service unavailable.' }, { status: 500 });
   }
    if (!bookingId || typeof bookingId !== 'string' || bookingId.trim() === '') {
-    return NextResponse.json({ error: true, message: 'A valid Booking ID path parameter is required for GET.' }, { status: 400 });
+    return NextResponse.json({ message: 'A valid Booking ID path parameter is required for GET.', details: 'Booking ID was empty or invalid.' }, { status: 400 });
   }
   try {
     const bookingRef = doc(db, 'bookings', bookingId);
     const bookingSnap = await getDoc(bookingRef);
     if (!bookingSnap.exists()) {
-      return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
+      return NextResponse.json({ message: 'Booking not found.' , details: `No booking found with ID ${bookingId}`}, { status: 404 });
     }
     const data = bookingSnap.data();
      const responseData = {
@@ -278,8 +274,8 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json({ booking: responseData }, { status: 200 });
   } catch (error: any) {
     console.error(`Error in GET /api/operator/bookings/${bookingId || 'UNKNOWN'}`, error);
-    return NextResponse.json({ error: true, message: "Error in GET handler." }, { status: 500 });
+    const errorMessage = error.message || 'An unexpected error occurred while fetching booking.';
+    const errorDetails = error.details || (error.cause ? String(error.cause) : error.toString());
+    return NextResponse.json({ message: "Server Error During GET", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
-
-    
