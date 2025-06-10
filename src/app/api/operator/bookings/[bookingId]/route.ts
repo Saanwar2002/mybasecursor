@@ -115,14 +115,13 @@ export async function POST(request: NextRequest, context: PostContext) {
     if (bookingIdForHandler.startsWith('mock-offer-')) {
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as mock offer acceptance. Validating offerDetails from raw payload.`);
       
-      // Explicitly validate the raw payload.offerDetails if it's a mock offer
       const offerDetailsParseResult = offerDetailsSchema.safeParse(payload.offerDetails);
       if (!offerDetailsParseResult.success) {
           console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: CRITICAL - payload.offerDetails (raw) FAILED Zod validation. Errors:`, JSON.stringify(offerDetailsParseResult.error.format(), null, 2));
           return NextResponse.json({ message: 'Offer details are malformed or missing required fields for mock offer processing.', details: 'The nested offerDetails object is invalid.', errors: offerDetailsParseResult.error.format() }, { status: 400 });
       }
       
-      const offer = offerDetailsParseResult.data; // Use the successfully parsed offerDetails
+      const offer = offerDetailsParseResult.data; 
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Successfully parsed offerDetails for mock offer. Proceeding to create booking.`);
 
       const newBookingData: any = {
@@ -141,7 +140,7 @@ export async function POST(request: NextRequest, context: PostContext) {
         
         driverId: updateDataFromPayload.driverId,
         driverName: updateDataFromPayload.driverName,
-        status: updateDataFromPayload.status || 'driver_assigned',
+        status: updateDataFromPayload.status || 'driver_assigned', // Default to driver_assigned if not specified
         vehicleType: updateDataFromPayload.vehicleType,
         driverVehicleDetails: updateDataFromPayload.driverVehicleDetails,
         
@@ -177,33 +176,55 @@ export async function POST(request: NextRequest, context: PostContext) {
       delete updatePayloadFirestore.action; 
       delete updatePayloadFirestore.offerDetails;
 
-      if (updateDataFromPayload.notifiedPassengerArrivalTimestamp === true) {
-        updatePayloadFirestore.notifiedPassengerArrivalTimestampActual = Timestamp.now();
-        delete updatePayloadFirestore.notifiedPassengerArrivalTimestamp;
+      const existingBookingDbData = bookingSnap.data();
+
+      // Explicitly set status based on action
+      if (updateDataFromPayload.action === 'notify_arrival') {
+          updatePayloadFirestore.status = 'arrived_at_pickup';
+          updatePayloadFirestore.notifiedPassengerArrivalTimestampActual = Timestamp.now();
+      } else if (updateDataFromPayload.action === 'start_ride') {
+          if (existingBookingDbData?.waitAndReturn === true && (existingBookingDbData?.status === 'pending_driver_wait_and_return_approval' || existingBookingDbData?.status === 'in_progress_wait_and_return' || existingBookingDbData?.status === 'arrived_at_pickup')) {
+            updatePayloadFirestore.status = 'in_progress_wait_and_return';
+          } else {
+            updatePayloadFirestore.status = 'in_progress';
+          }
+          updatePayloadFirestore.rideStartedAtActual = Timestamp.now();
+      } else if (updateDataFromPayload.action === 'complete_ride') {
+          updatePayloadFirestore.status = 'completed';
+          updatePayloadFirestore.completedAtActual = Timestamp.now();
+          if (updateDataFromPayload.finalFare !== undefined) {
+              updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare; // Store final fare
+          }
+      } else if (updateDataFromPayload.action === 'cancel_active') {
+          updatePayloadFirestore.status = 'cancelled_by_driver';
+          updatePayloadFirestore.cancelledAt = Timestamp.now();
+      } else if (updateDataFromPayload.action === 'accept_wait_and_return') {
+          updatePayloadFirestore.status = 'in_progress_wait_and_return';
+          updatePayloadFirestore.waitAndReturn = true; 
+      } else if (updateDataFromPayload.action === 'decline_wait_and_return') {
+          updatePayloadFirestore.status = 'in_progress';
+          updatePayloadFirestore.waitAndReturn = false;
+          updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = null;
+      } else if (updateDataFromPayload.status) { 
+          updatePayloadFirestore.status = updateDataFromPayload.status;
       }
-      if (updateDataFromPayload.passengerAcknowledgedArrivalTimestamp === true) {
-        updatePayloadFirestore.passengerAcknowledgedArrivalTimestampActual = Timestamp.now();
-        delete updatePayloadFirestore.passengerAcknowledgedArrivalTimestamp;
+
+
+      // Remove boolean flags if they were used to trigger timestamp setting
+      if (updatePayloadFirestore.notifiedPassengerArrivalTimestamp === true) delete updatePayloadFirestore.notifiedPassengerArrivalTimestamp;
+      if (updatePayloadFirestore.rideStartedAt === true) delete updatePayloadFirestore.rideStartedAt;
+      if (updatePayloadFirestore.completedAt === true) delete updatePayloadFirestore.completedAt;
+      if (updatePayloadFirestore.passengerAcknowledgedArrivalTimestamp === true) {
+          updatePayloadFirestore.passengerAcknowledgedArrivalTimestampActual = Timestamp.now();
+          delete updatePayloadFirestore.passengerAcknowledgedArrivalTimestamp;
       }
-      if (updateDataFromPayload.rideStartedAt === true) {
-        updatePayloadFirestore.rideStartedAtActual = Timestamp.now();
-        delete updatePayloadFirestore.rideStartedAt;
-      }
-      if (updateDataFromPayload.completedAt === true) {
-        updatePayloadFirestore.completedAtActual = Timestamp.now();
-        delete updatePayloadFirestore.completedAt;
-      }
-      if (updateDataFromPayload.estimatedAdditionalWaitTimeMinutes === null) {
-        updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = null;
-      } else if (updateDataFromPayload.estimatedAdditionalWaitTimeMinutes !== undefined) {
-        updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = updateDataFromPayload.estimatedAdditionalWaitTimeMinutes;
-      }
+
 
       updatePayloadFirestore.updatedAt = Timestamp.now();
 
-      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Updating Firestore with:`, JSON.stringify(updatePayloadFirestore, null, 2));
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Updating Firestore with (after action logic):`, JSON.stringify(updatePayloadFirestore, null, 2));
       await updateDoc(bookingRef, updatePayloadFirestore);
-
+      
       const updatedBookingSnap = await getDoc(bookingRef);
       const updatedData = updatedBookingSnap.data();
 
