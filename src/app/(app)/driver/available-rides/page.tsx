@@ -991,9 +991,7 @@ export default function AvailableRidesPage() {
     console.log(`handleRideAction: rideId=${rideId}, actionType=${actionType}. Current activeRide status: ${activeRide.status}`);
 
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup') {
-        // PIN dialog will be opened by the button click handler itself
-        // If verifyAccountPinAndStartRide calls this, it means PIN was good (or overridden)
-        if (!isAccountPinDialogOpen) { // Ensure PIN dialog isn't trying to re-trigger this section
+        if (!isAccountPinDialogOpen) { 
           setIsAccountPinDialogOpen(true);
           return;
         }
@@ -1471,6 +1469,11 @@ export default function AvailableRidesPage() {
                       >
                         Emergency (Alert & Sound)
                       </Button>
+                       <Button variant="outline" className="w-full"
+                        onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
+                      >
+                        Passenger Aggressive/Suspicious
+                      </Button>
                       <Button variant="outline" className="w-full"
                         onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
                       >
@@ -1875,6 +1878,11 @@ export default function AvailableRidesPage() {
                     >
                         Emergency (Alert & Sound)
                     </Button>
+                     <Button variant="outline" className="w-full"
+                        onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
+                      >
+                        Passenger Aggressive/Suspicious
+                      </Button>
                     <Button variant="outline" className="w-full"
                         onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
                     >
