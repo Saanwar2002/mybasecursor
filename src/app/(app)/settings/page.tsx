@@ -5,27 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context"; // Added useAuth
 
 export default function SettingsPage() {
+  const { user, updateUserProfileInContext } = useAuth(); // Added useAuth
   const { toast } = useToast();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('theme');
-      // Default to OS preference if no theme saved in localStorage
       if (savedMode === null) {
         return window.matchMedia('(prefers-color-scheme: dark)').matches;
       }
       return savedMode === 'dark';
     }
-    return false; // Fallback for SSR or if window is not defined (should not happen in client component)
+    return false;
   });
   const [language, setLanguage] = useState("en");
+  const [driverAcceptsPets, setDriverAcceptsPets] = useState(false); // New state for driver preference
 
-  // Effect to apply theme and save to localStorage when darkMode state changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (darkMode) {
@@ -38,11 +39,30 @@ export default function SettingsPage() {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    if (user && user.role === 'driver') {
+      setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
+    }
+  }, [user]);
+
+
   const handleSaveChanges = () => {
-    // Theme is already applied by useEffect. This button can confirm or save other settings.
+    let changesMade = false;
+    // Example: Save notifications settings (if they were fetched from a backend)
+    // For now, it's mostly for the theme and driver preference.
+
+    if (user && user.role === 'driver' && user.acceptsPetFriendlyJobs !== driverAcceptsPets) {
+      updateUserProfileInContext({ acceptsPetFriendlyJobs: driverAcceptsPets });
+      changesMade = true;
+    }
+    
+    // Other settings would be saved here too if they had backend persistence
+    // e.g. updateNotificationSetting(notificationsEnabled);
+    // e.g. updateLanguagePreference(language);
+
     toast({
-      title: "Settings Confirmed",
-      description: "Your preferences have been updated.",
+      title: "Settings Updated",
+      description: changesMade ? "Your preferences have been updated." : "No changes to save in preferences.",
     });
   };
 
@@ -53,9 +73,32 @@ export default function SettingsPage() {
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
             <Settings className="w-8 h-8 text-primary" /> App Settings
           </CardTitle>
-          <CardDescription>Customize your MyBase experience.</CardDescription> {/* Updated App Name */}
+          <CardDescription>Customize your MyBase experience.</CardDescription>
         </CardHeader>
       </Card>
+
+      {user?.role === 'driver' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2"><Dog className="w-5 h-5 text-muted-foreground" /> Driver Preferences</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="pet-friendly-switch" className="text-base">
+                Accept Pet Friendly Jobs?
+              </Label>
+              <Switch
+                id="pet-friendly-switch"
+                checked={driverAcceptsPets}
+                onCheckedChange={setDriverAcceptsPets}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Enable this if you are willing to take passengers with pets.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

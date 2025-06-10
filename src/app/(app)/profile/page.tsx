@@ -53,8 +53,6 @@ export default function ProfilePage() {
   const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   
-  const [acceptsPetFriendlyJobs, setAcceptsPetFriendlyJobs] = useState(user?.acceptsPetFriendlyJobs || false);
-
 
   const pinForm = useForm<z.infer<typeof pinSetupSchema>>({
     resolver: zodResolver(pinSetupSchema),
@@ -66,7 +64,7 @@ export default function ProfilePage() {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phoneNumber || (user.role === 'driver' ? "555-0101" : ""));
-      setAcceptsPetFriendlyJobs(user.acceptsPetFriendlyJobs || false);
+      // acceptsPetFriendlyJobs state removed from here
 
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
@@ -110,9 +108,7 @@ export default function ProfilePage() {
     if (name !== user.name) updatedDetails.name = name;
     if (email !== user.email) updatedDetails.email = email;
     if (phone !== user.phoneNumber) updatedDetails.phoneNumber = phone;
-    if (user.role === 'driver' && acceptsPetFriendlyJobs !== user.acceptsPetFriendlyJobs) {
-        updatedDetails.acceptsPetFriendlyJobs = acceptsPetFriendlyJobs;
-    }
+    // acceptsPetFriendlyJobs logic removed from here
 
     if (Object.keys(updatedDetails).length > 0) { updateUserProfileInContext(updatedDetails); }
     setIsEditing(false);
@@ -178,7 +174,7 @@ export default function ProfilePage() {
 
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-center gap-4">
-          <Avatar className="h-24 w-24 border-2 border-primary"> <AvatarImage src={`https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile large"/> <AvatarFallback className="text-3xl">{user.name.charAt(0).toUpperCase()}</AvatarFallback> </Avatar>
+          <Avatar className="h-24 w-24 border-2 border-primary"> <AvatarImage src={user?.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile large"/> <AvatarFallback className="text-3xl">{user.name.charAt(0).toUpperCase()}</AvatarFallback> </Avatar>
           <div className="flex-1 text-center md:text-left"> <CardTitle className="text-2xl font-headline">{user.name}</CardTitle> <CardDescription className="capitalize flex items-center justify-center md:justify-start gap-1"> <Briefcase className="w-4 h-4" /> {user.role} </CardDescription> </div>
           <Button variant={isEditing ? "destructive" : "outline"} onClick={() => setIsEditing(!isEditing)}>
             <span className="flex items-center justify-center">
@@ -210,36 +206,6 @@ export default function ProfilePage() {
             {user.phoneVerified === true && (<p className="text-sm text-green-600 mt-1">Phone verified.</p>)}
           </div>
           
-          {user.role === 'driver' && isEditing && (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
-              <div className="space-y-0.5">
-                <Label className="text-base flex items-center gap-2 text-foreground">
-                  <Dog className="w-5 h-5 text-primary" />
-                  Accept Pet Friendly Jobs?
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Enable this if you are willing to take pet friendly rides (cars or minibuses).
-                </p>
-              </div>
-              <Switch
-                checked={acceptsPetFriendlyJobs}
-                onCheckedChange={setAcceptsPetFriendlyJobs}
-                aria-label="Accept Pet Friendly Jobs toggle"
-                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-              />
-            </FormItem>
-          )}
-           {user.role === 'driver' && !isEditing && (
-             <div className="p-3 border rounded-md bg-muted/50">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <Dog className="w-5 h-5 text-primary" /> Pet Friendly Jobs: 
-                  <span className={cn("font-semibold", acceptsPetFriendlyJobs ? "text-green-600" : "text-red-600")}>
-                    {acceptsPetFriendlyJobs ? "Allowed" : "Not Allowed"}
-                  </span>
-                </p>
-             </div>
-          )}
-
           {isEditing && (<Button onClick={handleSaveProfile} className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">Save Profile Changes</Button>)}
         </CardContent>
         <CardFooter className="border-t pt-6"> <div className="flex items-center gap-2 text-sm text-muted-foreground"> <Shield className="w-5 h-5 text-green-500" /> Your information is kept secure. </div> </CardFooter>
