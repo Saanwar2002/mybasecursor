@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck, LockKeyhole } from "lucide-react"; // Added LockKeyhole
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck, LockKeyhole } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -96,7 +96,7 @@ interface ActiveRide {
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
-  accountJobPin?: string; // Added for account job PIN
+  accountJobPin?: string;
 }
 
 interface MapHazard {
@@ -722,7 +722,7 @@ export default function AvailableRidesPage() {
 
     let requiredOperatorIdForOffer: string | undefined = undefined;
     let passengerNameForOffer = "Simulated Passenger";
-    let offerContextDescription = ""; // For the toast if skipped
+    let offerContextDescription = ""; 
 
     switch (simulatedOfferType) {
         case 'own_operator':
@@ -832,7 +832,7 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
         driverCurrentLocation: driverLocation,
-        accountJobPin: offerToAccept.accountJobPin, // Pass the PIN
+        accountJobPin: offerToAccept.accountJobPin,
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
@@ -906,7 +906,7 @@ export default function AvailableRidesPage() {
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
-        accountJobPin: serverBooking.accountJobPin, // Store the PIN
+        accountJobPin: serverBooking.accountJobPin,
       };
       console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
       setActiveRide(newActiveRideFromServer);
@@ -977,8 +977,12 @@ export default function AvailableRidesPage() {
     console.log(`handleRideAction: rideId=${rideId}, actionType=${actionType}. Current activeRide status: ${activeRide.status}`);
 
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup') {
-        setIsAccountPinDialogOpen(true);
-        return; // PIN dialog will handle the actual start_ride action after verification
+        // PIN dialog will be opened by the button click handler itself
+        // If verifyAccountPinAndStartRide calls this, it means PIN was good (or overridden)
+        if (!isAccountPinDialogOpen) { // Ensure PIN dialog isn't trying to re-trigger this section
+          setIsAccountPinDialogOpen(true);
+          return;
+        }
     }
 
 
@@ -1017,7 +1021,7 @@ export default function AvailableRidesPage() {
 
             toastTitle = "Ride Completed";
             if (activeRide.paymentMethod === "account" && activeRide.accountJobPin) {
-                 toastMessage = `Ride with ${activeRide.passengerName} completed. Account holder will be notified. PIN: ${activeRide.accountJobPin}. Final Fare: £${finalFare.toFixed(2)}.`;
+                 toastMessage = `Ride with ${activeRide.passengerName} completed. Account holder will be notified. PIN used: ${activeRide.accountJobPin}. Final Fare: £${finalFare.toFixed(2)}.`;
             } else {
                  toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, waiting, W&R): £${finalFare.toFixed(2)}.`;
             }
@@ -1141,11 +1145,20 @@ export default function AvailableRidesPage() {
         toast({ title: "PIN Verified!", description: "Starting account job..." });
         setIsAccountPinDialogOpen(false);
         setEnteredAccountPin("");
-        await handleRideAction(activeRide.id, 'start_ride'); // Proceed to start ride
+        await handleRideAction(activeRide.id, 'start_ride');
     } else {
         toast({ title: "Incorrect PIN", description: "The PIN entered is incorrect. Please try again.", variant: "destructive" });
     }
     setIsVerifyingPin(false);
+  };
+
+  const handleStartRideWithManualPinOverride = async () => {
+    if (!activeRide || !driverUser) return;
+    setIsAccountPinDialogOpen(false);
+    setEnteredAccountPin("");
+    toast({ title: "Manual Override", description: "Starting account job without PIN verification. Operator will be notified for review.", variant: "default", duration: 7000 });
+    console.warn(`Ride ${activeRide.id} for passenger ${activeRide.passengerName} (Account Job) started with manual PIN override by driver ${driverUser.id} (${driverUser.name}). Account PIN was: ${activeRide.accountJobPin || 'Not found in state'}.`);
+    await handleRideAction(activeRide.id, 'start_ride');
   };
 
 
@@ -1751,13 +1764,18 @@ export default function AvailableRidesPage() {
               disabled={isVerifyingPin}
             />
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => {setIsAccountPinDialogOpen(false); setEnteredAccountPin("");}} disabled={isVerifyingPin}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={verifyAccountPinAndStartRide} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingPin || enteredAccountPin.length !== 4}>
-              {isVerifyingPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Verify & Start Ride
+          <DialogFooter className="grid grid-cols-1 gap-2">
+            <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={() => {setIsAccountPinDialogOpen(false); setEnteredAccountPin("");}} disabled={isVerifyingPin}>
+                Cancel
+                </Button>
+                <Button type="button" onClick={verifyAccountPinAndStartRide} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingPin || enteredAccountPin.length !== 4}>
+                {isVerifyingPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Verify & Start Ride
+                </Button>
+            </div>
+            <Button type="button" variant="link" size="sm" className="text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingPin}>
+              Problem with PIN? Start ride manually.
             </Button>
           </DialogFooter>
         </DialogContent>
