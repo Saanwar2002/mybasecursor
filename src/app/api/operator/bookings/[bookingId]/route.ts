@@ -147,8 +147,7 @@ export async function POST(request: NextRequest, context: PostContext) {
         isPriorityPickup: offer.isPriorityPickup || updateDataFromPayload.isPriorityPickup || false,
         priorityFeeAmount: offer.priorityFeeAmount || updateDataFromPayload.priorityFeeAmount || 0,
         
-        // When an operator accepts a mock offer (which implies they are manually assigning it)
-        dispatchMethod: 'manual_operator',
+        dispatchMethod: offer.dispatchMethod || updateDataFromPayload.dispatchMethod || 'auto_system',
 
         driverId: updateDataFromPayload.driverId,
         driverName: updateDataFromPayload.driverName,
@@ -288,7 +287,11 @@ export async function POST(request: NextRequest, context: PostContext) {
 
     if (error instanceof Error) {
         errorMessage = error.message;
-        errorDetails = error.stack || error.toString();
+        if ((error as any).code) { // Firebase errors have a 'code' property
+          errorDetails = `Firebase Error Code: ${(error as any).code}. ${error.stack || error.toString()}`;
+        } else {
+          errorDetails = error.stack || error.toString();
+        }
     } else if (typeof error === 'string') {
         errorMessage = error;
         errorDetails = error;
@@ -351,4 +354,3 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: "Server Error During GET", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
-
