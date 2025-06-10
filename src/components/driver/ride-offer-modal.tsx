@@ -26,7 +26,7 @@ export interface RideOffer {
   dropoffCoords: { lat: number; lng: number };
   fareEstimate: number;
   passengerCount: number;
-  passengerId: string; // Added passengerId
+  passengerId: string;
   passengerName?: string;
   notes?: string;
   requiredOperatorId?: string;

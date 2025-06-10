@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react"; // Added RefreshCw
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -541,6 +541,7 @@ export default function AvailableRidesPage() {
         rideStartedAt: serverBooking.rideStartedAt, 
         driverCurrentLocation: serverBooking.driverCurrentLocation,
         driverEtaMinutes: serverBooking.driverEtaMinutes,
+        passengerPhone: serverBooking.passengerPhone,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
@@ -971,9 +972,18 @@ export default function AvailableRidesPage() {
               <Avatar className="h-12 w-12"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/48x48.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar>
               <div className="flex-1"> <p className="font-semibold text-base">{activeRide.passengerName}</p> {activeRide.passengerRating && ( <div className="flex items-center"> {[...Array(5)].map((_, i) => <Star key={i} className={cn("w-3.5 h-3.5", i < Math.round(activeRide.passengerRating!) ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />)} <span className="ml-1 text-xs text-muted-foreground">({activeRide.passengerRating.toFixed(1)})</span> </div> )} </div>
               {(!showCompletedStatus && !showCancelledByDriverStatus) && (
-                <Button asChild variant="outline" size="icon" className="h-9 w-9">
-                    <Link href="/driver/chat"><ChatIcon className="w-4 h-4" /></Link>
-                </Button>
+                <div className="flex items-center gap-1">
+                  {activeRide.passengerPhone && (
+                    <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                      <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
+                        <Phone className="w-4 h-4" />
+                      </a>
+                    </Button>
+                  )}
+                  <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                      <Link href="/driver/chat"><ChatIcon className="w-4 h-4" /></Link>
+                  </Button>
+                </div>
                )}
             </div>
             {activeRide.isPriorityPickup && (
