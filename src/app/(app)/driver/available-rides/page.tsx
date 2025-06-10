@@ -219,16 +219,16 @@ export default function AvailableRidesPage() {
   }, [toast]);
 
 
-  useEffect(() => {
-    const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
-    let currentIndex = 0;
-    const intervalId = setInterval(() => {
-      currentIndex = (currentIndex + 1) % busynessLevels.length;
-      setMapBusynessLevel(busynessLevels[currentIndex]);
-    }, 4000);
+  // useEffect(() => {
+  //   const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
+  //   let currentIndex = 0;
+  //   const intervalId = setInterval(() => {
+  //     currentIndex = (currentIndex + 1) % busynessLevels.length;
+  //     setMapBusynessLevel(busynessLevels[currentIndex]);
+  //   }, 4000); 
 
-    return () => clearInterval(intervalId);
-  }, []);
+  //   return () => clearInterval(intervalId);
+  // }, []);
 
   useEffect(() => {
     if (driverUser?.operatorCode) {
@@ -1266,4 +1266,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
