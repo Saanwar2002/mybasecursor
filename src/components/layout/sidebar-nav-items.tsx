@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart, ServerCog } from 'lucide-react'; // Added ServerCog
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart, ServerCog, FileText } from 'lucide-react'; // Added FileText
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -75,6 +75,7 @@ export const navItems: NavItem[] = [
       { href: '/admin/support-scalability', label: 'Support Scalability', icon: Users, roles: ['admin']},
       { href: '/admin/driver-incentives', label: 'Driver Incentives (Platform)', icon: Award, roles: ['admin'] }, 
       { href: '/admin/server-monitoring', label: 'Server Monitoring', icon: ServerCog, roles: ['admin'] },
+      { href: '/admin/financial-sop', label: 'Financial SOPs', icon: FileText, roles: ['admin'] },
     ]
   },
   { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
