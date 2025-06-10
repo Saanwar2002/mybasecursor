@@ -25,7 +25,7 @@ export interface User {
   status?: 'Active' | 'Pending Approval' | 'Suspended';
   phoneVerificationDeadline?: string | null; 
   acceptsPetFriendlyJobs?: boolean; 
-  acceptsPlatformJobs?: boolean; // New field
+  acceptsPlatformJobs?: boolean; 
 
   // Driver-specific vehicle & compliance details
   vehicleMakeModel?: string;
@@ -55,6 +55,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const PLATFORM_OPERATOR_CODE = "OP001"; // Define platform's own operator code
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -97,16 +99,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
               : null,
             acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
-            acceptsPlatformJobs: firestoreUser.acceptsPlatformJobs || false, // Initialize new field
+            acceptsPlatformJobs: firestoreUser.operatorCode === PLATFORM_OPERATOR_CODE ? true : (firestoreUser.acceptsPlatformJobs || false),
             // Driver-specific details
             vehicleMakeModel: firestoreUser.vehicleMakeModel,
             vehicleRegistration: firestoreUser.vehicleRegistration,
             vehicleColor: firestoreUser.vehicleColor,
             insurancePolicyNumber: firestoreUser.insurancePolicyNumber,
-            insuranceExpiryDate: firestoreUser.insuranceExpiryDate, // Assuming stored as string
-            motExpiryDate: firestoreUser.motExpiryDate, // Assuming stored as string
+            insuranceExpiryDate: firestoreUser.insuranceExpiryDate, 
+            motExpiryDate: firestoreUser.motExpiryDate, 
             taxiLicenseNumber: firestoreUser.taxiLicenseNumber,
-            taxiLicenseExpiryDate: firestoreUser.taxiLicenseExpiryDate, // Assuming stored as string
+            taxiLicenseExpiryDate: firestoreUser.taxiLicenseExpiryDate, 
             // Conceptual fields for fairness system (backend would populate these)
             currentSessionId: firestoreUser.currentSessionId || null,
             lastLoginAt: firestoreUser.lastLoginAt ? (firestoreUser.lastLoginAt as Timestamp).toDate().toISOString() : null,
@@ -234,16 +236,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         guestUser = { ...baseGuestData, name: 'Guest Passenger', role: 'passenger' };
         break;
       case 'driver':
+        const isMyBaseDriver = Math.random() < 0.3; // 30% chance of being a MyBase direct driver
+        const guestOperatorCode = isMyBaseDriver ? PLATFORM_OPERATOR_CODE : `OP-GUEST-${Math.floor(Math.random()*900)+100}`;
         guestUser = {
           ...baseGuestData,
-          name: 'Guest Driver',
+          name: `Guest Driver (${guestOperatorCode})`,
           role: 'driver',
-          operatorCode: 'OP-GUEST',
-          driverIdentifier: 'DR-GUEST',
+          operatorCode: guestOperatorCode,
+          driverIdentifier: `DR-GUEST-${Math.floor(Math.random()*9000)+1000}`,
           vehicleCategory: 'car',
-          customId: 'DR-GUEST', 
+          customId: `DR-GUEST-${Math.floor(Math.random()*9000)+1000}`, 
           acceptsPetFriendlyJobs: Math.random() < 0.5,
-          acceptsPlatformJobs: Math.random() < 0.7, // Assign randomly for guest
+          acceptsPlatformJobs: guestOperatorCode === PLATFORM_OPERATOR_CODE ? true : Math.random() < 0.7,
           vehicleMakeModel: 'Toyota Prius (Guest)',
           vehicleRegistration: 'GUEST123',
           vehicleColor: 'Silver',
@@ -259,12 +263,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           ...baseGuestData,
           name: 'Guest Operator',
           role: 'operator',
-          customId: 'OP-GUEST', 
-          operatorCode: 'OP-GUEST',
+          customId: `OP-GUEST-${Math.floor(Math.random()*900)+100}`, 
+          operatorCode: `OP-GUEST-${Math.floor(Math.random()*900)+100}`,
         };
         break;
       case 'admin':
-        guestUser = { ...baseGuestData, name: 'Guest Admin', role: 'admin' };
+        guestUser = { ...baseGuestData, name: 'Guest Admin', role: 'admin', operatorCode: PLATFORM_OPERATOR_CODE }; // Admins are part of platform
         break;
       default:
         toast({ title: "Error", description: "Invalid guest role specified.", variant: "destructive" });
@@ -305,7 +309,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        const updatedUser = { ...currentUser, ...updatedProfileData, id: currentUser.id }; // Ensure 'id' is preserved
+        // If operatorCode is being updated to PLATFORM_OPERATOR_CODE, ensure acceptsPlatformJobs is true.
+        // Or, if the user *is* already PLATFORM_OPERATOR_CODE, acceptsPlatformJobs should remain true.
+        let finalAcceptsPlatformJobs = currentUser.acceptsPlatformJobs;
+        if ('operatorCode' in updatedProfileData && updatedProfileData.operatorCode === PLATFORM_OPERATOR_CODE) {
+          finalAcceptsPlatformJobs = true;
+        } else if (currentUser.operatorCode === PLATFORM_OPERATOR_CODE && !('acceptsPlatformJobs' in updatedProfileData)) {
+          finalAcceptsPlatformJobs = true;
+        }
+
+
+        const updatedUser = { 
+          ...currentUser, 
+          ...updatedProfileData, 
+          id: currentUser.id,
+          acceptsPlatformJobs: finalAcceptsPlatformJobs,
+        };
         console.log("AuthContext.updateUserProfileInContext: User profile updated in context.", updatedUser);
         return updatedUser;
       }
@@ -316,10 +335,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const publicPaths = ['/login', '/register', '/forgot-password'];
 
   useEffect(() => {
-    if (loading) return; // Don't redirect until initial auth state check is complete
+    if (loading) return; 
 
     const isMarketingRoot = pathname === '/';
-    // Check if the current path starts with any of the public paths
     const isPublicPath = publicPaths.some(p => pathname.startsWith(p)) || isMarketingRoot;
     
     console.log(`AuthContext Path Check: Path='${pathname}', User='${user ? user.email : 'null'}', Loading=${loading}, IsPublic=${isPublicPath}`);
@@ -327,20 +345,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user && !isPublicPath) {
       console.log(`AuthContext: No user & not public path (${pathname}). Redirecting to /login.`);
       router.push('/login');
-    } else if (user && (isPublicPath && pathname !== '/')) { // User is logged in but on a public/auth page (not root landing)
+    } else if (user && (isPublicPath && pathname !== '/')) { 
       console.log(`AuthContext: User exists & on auth/public path (${pathname}). Redirecting to role dashboard.`);
       if (user.role === 'admin') router.push('/admin');
       else if (user.role === 'operator') router.push('/operator');
       else if (user.role === 'driver') router.push('/driver');
-      else router.push('/dashboard'); // Default to passenger dashboard
-    } else if (user && isMarketingRoot) { // User is logged in and on the root marketing page
+      else router.push('/dashboard'); 
+    } else if (user && isMarketingRoot) { 
         console.log(`AuthContext: User exists & on marketing root path ('/'). Redirecting to role dashboard.`);
         if (user.role === 'admin') router.push('/admin');
         else if (user.role === 'operator') router.push('/operator');
         else if (user.role === 'driver') router.push('/driver');
-        else router.push('/dashboard'); // Default to passenger dashboard
+        else router.push('/dashboard'); 
     }
-    // If user is logged in AND on a protected path, or if no user AND on a public path, no redirect is needed here.
   }, [user, loading, router, pathname]);
 
 
@@ -358,3 +375,7 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export { PLATFORM_OPERATOR_CODE };
+
+    

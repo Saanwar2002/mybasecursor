@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers } from "lucide-react"; // Added Layers
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers, Info } from "lucide-react"; 
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, UserRole, User } from "@/contexts/auth-context"; 
+import { useAuth, UserRole, User, PLATFORM_OPERATOR_CODE } from "@/contexts/auth-context"; 
 import { zodResolver } from "@hookform/resolvers/zod"; 
 import { useForm } from "react-hook-form"; 
 import * as z from "zod"; 
@@ -54,14 +54,13 @@ export default function SettingsPage() {
   });
   const [language, setLanguage] = useState("en");
   const [driverAcceptsPets, setDriverAcceptsPets] = useState(false); 
-  const [driverAcceptsPlatformJobs, setDriverAcceptsPlatformJobs] = useState(false); // New state
+  const [driverAcceptsPlatformJobs, setDriverAcceptsPlatformJobs] = useState(false); 
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
   const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
 
-  // PIN State and Form
   const [currentPin, setCurrentPin] = useState<string | null>(null);
   const [isSettingPin, setIsSettingPin] = useState(false);
   
@@ -87,7 +86,9 @@ export default function SettingsPage() {
     if (user) {
       if (user.role === 'driver') {
         setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
-        setDriverAcceptsPlatformJobs(user.acceptsPlatformJobs || false); // Initialize new state
+        // For OP001 drivers, acceptsPlatformJobs is effectively always true.
+        // For others, it's their stored preference.
+        setDriverAcceptsPlatformJobs(user.operatorCode === PLATFORM_OPERATOR_CODE ? true : (user.acceptsPlatformJobs || false));
       }
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
@@ -135,7 +136,7 @@ export default function SettingsPage() {
         throw new Error(errorData.message || "Failed to unblock user.");
       }
       toast({ title: "User Unblocked", description: `${blockedUserName} has been removed from your block list.` });
-      fetchBlockedUsers(); // Refresh the list
+      fetchBlockedUsers(); 
     } catch (error) {
       toast({ title: "Unblocking Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
     } finally {
@@ -180,7 +181,9 @@ export default function SettingsPage() {
         updates.acceptsPetFriendlyJobs = driverAcceptsPets;
         changesMadeDescription += "Pet preference updated. ";
       }
-      if (user.acceptsPlatformJobs !== driverAcceptsPlatformJobs) { // Check new preference
+      // Only update acceptsPlatformJobs if the driver is NOT an OP001 driver,
+      // as their preference is effectively always true and the toggle is hidden.
+      if (user.operatorCode !== PLATFORM_OPERATOR_CODE && user.acceptsPlatformJobs !== driverAcceptsPlatformJobs) { 
         updates.acceptsPlatformJobs = driverAcceptsPlatformJobs;
         changesMadeDescription += "Platform jobs preference updated. ";
       }
@@ -230,23 +233,35 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">
               Enable this if you are willing to take passengers with pets.
             </p>
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div className="space-y-0.5">
-                <Label htmlFor="platform-jobs-switch" className="text-base">
-                  Accept Jobs from MyBase Platform Pool?
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  ON: Get jobs from your operator AND the general MyBase platform (e.g., OP001).
-                  <br/>
-                  OFF: Only jobs from your affiliated operator.
-                </p>
+
+            {user.operatorCode !== PLATFORM_OPERATOR_CODE ? (
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="space-y-0.5">
+                  <Label htmlFor="platform-jobs-switch" className="text-base">
+                    Accept Jobs from MyBase Platform Pool?
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    ON: Get jobs from your operator AND the general MyBase platform (e.g., OP001).
+                    <br/>
+                    OFF: Only jobs from your affiliated operator.
+                  </p>
+                </div>
+                <Switch
+                  id="platform-jobs-switch"
+                  checked={driverAcceptsPlatformJobs}
+                  onCheckedChange={setDriverAcceptsPlatformJobs}
+                />
               </div>
-              <Switch
-                id="platform-jobs-switch"
-                checked={driverAcceptsPlatformJobs}
-                onCheckedChange={setDriverAcceptsPlatformJobs}
-              />
-            </div>
+            ) : (
+              <Alert variant="default" className="mt-4 bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700">
+                  <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <AlertTitle className="font-semibold text-blue-700 dark:text-blue-300">Platform Driver Note</AlertTitle>
+                  <AlertDescription className="text-sm text-blue-600 dark:text-blue-400">
+                      As a MyBase direct driver ({PLATFORM_OPERATOR_CODE}), you automatically receive all jobs from the platform pool.
+                  </AlertDescription>
+              </Alert>
+            )}
+
           </CardContent>
         </Card>
       )}
@@ -437,3 +452,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
