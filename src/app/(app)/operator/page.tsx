@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; 
-import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2 } from 'lucide-react';
+import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2, ListChecks, ShieldCheck, TrafficCone, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-// Removed Image import as we are replacing the placeholder
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import type { LucideIcon } from 'lucide-react';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -30,6 +33,60 @@ interface Driver { id: string; status: string; }
 
 type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
+interface ActionableItem {
+  id: string;
+  label: string;
+  completed: boolean; // For checkbox state
+  priority?: 'high' | 'medium' | 'low';
+  details?: string;
+}
+
+interface ActionableCategory {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  items: ActionableItem[];
+}
+
+const initialOperatorActionItems: ActionableCategory[] = [
+  {
+    id: 'driver-management',
+    name: 'Driver Management',
+    icon: Users,
+    items: [
+      { id: 'op-task-1', label: 'Review 2 new driver applications.', completed: false, priority: 'high', details: 'Check documents for Smith J. and Ali K.' },
+      { id: 'op-task-2', label: 'Driver Patel R. - PCO license expiring in 7 days.', completed: false, priority: 'medium', details: 'Send reminder or check renewal status.' },
+      { id: 'op-task-3', label: 'Investigate low acceptance rate for Driver Evans.', completed: false, priority: 'low' },
+    ],
+  },
+  {
+    id: 'ride-operations',
+    name: 'Ride Operations',
+    icon: Car,
+    items: [
+      { id: 'op-task-4', label: 'High demand reported in "Town Centre" zone. Monitor driver availability.', completed: false, priority: 'high' },
+      { id: 'op-task-5', label: 'Address passenger complaint re: Ride #12345 (vehicle cleanliness).', completed: false, priority: 'medium' },
+    ],
+  },
+  {
+    id: 'fleet-alerts',
+    name: 'Fleet Alerts',
+    icon: AlertTriangle,
+    items: [
+      { id: 'op-task-6', label: 'Vehicle BZ68 XYZ - MOT due next month.', completed: true, priority: 'medium' },
+      { id: 'op-task-7', label: 'Surge pricing automatically activated in "Stadium Zone" due to event.', completed: false, priority: 'low', details: 'Monitor and adjust if needed.' },
+    ],
+  },
+];
+
+const mapOperatorPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
+  switch (priority) {
+    case 'high': return 'font-bold text-destructive';
+    case 'medium': return 'font-semibold text-orange-600 dark:text-orange-400';
+    default: return '';
+  }
+};
+
 export default function OperatorDashboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -39,9 +96,11 @@ export default function OperatorDashboardPage() {
   const [totalDriversCount, setTotalDriversCount] = useState<number | string>("...");
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
+  const [operatorActionItems, setOperatorActionItems] = useState<ActionableCategory[]>(initialOperatorActionItems);
+
 
   // Mocked: In a real app, fetch actual issues
-  const issuesReported = 3;
+  const issuesReported = 3; // This could be derived from operatorActionItems count where priority is high
 
    useEffect(() => {
     const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
@@ -145,72 +204,146 @@ export default function OperatorDashboardPage() {
     }
   );
 
+  const toggleOperatorTaskCompletion = (taskId: string) => {
+    setOperatorActionItems(prevList =>
+      prevList.map(category => ({
+        ...category,
+        items: category.items.map(task =>
+          task.id === taskId ? { ...task, completed: !task.completed } : task
+        ),
+      }))
+    );
+  };
+
+
   return (
-    <div className="space-y-6">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-3xl font-headline">Taxi Base Control Panel</CardTitle>
-          <CardDescription>Welcome, {user?.name || 'Operator'}. Manage your fleet and operations efficiently.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col md:flex-row items-center gap-6">
-           <div className="flex-1 space-y-4">
-            <p className="text-lg">Oversee all ongoing rides, manage your drivers, and view real-time analytics to optimize your taxi service.</p>
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Link href="/operator/manage-rides">
-                <Briefcase className="mr-2 h-5 w-5" /> Manage Rides
-              </Link>
-            </Button>
-          </div>
-          {/* Placeholder removed from here */}
-        </CardContent>
-      </Card>
+    <div className="flex flex-col lg:flex-row gap-6">
+      <div className="lg:w-2/3 space-y-6">
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-3xl font-headline">Taxi Base Control Panel</CardTitle>
+            <CardDescription>Welcome, {user?.name || 'Operator'}. Manage your fleet and operations efficiently.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row items-center gap-6">
+            <div className="flex-1 space-y-4">
+              <p className="text-lg">Oversee all ongoing rides, manage your drivers, and view real-time analytics to optimize your taxi service.</p>
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Link href="/operator/manage-rides">
+                  <Briefcase className="mr-2 h-5 w-5" /> Manage Rides
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Active Rides" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : String(activeRidesCount)} icon={Car} color="text-green-500" />
-        <StatCard title="Available Drivers" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : `${availableDriversCount} / ${totalDriversCount}`} icon={Users} color="text-blue-500" />
-        <StatCard title="Issues Reported" value={issuesReported.toString()} icon={AlertTriangle} color="text-red-500" />
-        <StatCard title="System Status" value="Operational" icon={Briefcase} color="text-green-500" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <StatCard title="Active Rides" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : String(activeRidesCount)} icon={Car} color="text-green-500" />
+          <StatCard title="Available Drivers" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : `${availableDriversCount} / ${totalDriversCount}`} icon={Users} color="text-blue-500" />
+          <StatCard title="Issues Reported" value={issuesReported.toString()} icon={AlertTriangle} color="text-red-500" />
+          <StatCard title="System Status" value="Operational" icon={Briefcase} color="text-green-500" />
+        </div>
+
+        <Card>
+          <CardHeader>
+              <CardTitle className="text-xl font-headline flex items-center gap-2">
+                  <Map className="w-6 h-6 text-primary" /> Live Fleet Overview
+              </CardTitle>
+          </CardHeader>
+          <CardContent className={mapContainerClasses}>
+              <GoogleMapDisplay
+                  center={huddersfieldCenterGoogle}
+                  zoom={13}
+                  markers={mockFleetMarkersData} 
+                  className="w-full h-full"
+                  disableDefaultUI={true}
+              />
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <FeatureCard
+            title="Manage All Rides"
+            description="View, assign, and track all ongoing and requested rides."
+            icon={Car}
+            link="/operator/manage-rides"
+            actionText="Go to Ride Management"
+          />
+          <FeatureCard
+            title="Driver Management"
+            description="Onboard new drivers, manage profiles, and monitor performance."
+            icon={Users}
+            link="/operator/manage-drivers"
+            actionText="Manage Drivers"
+          />
+          <FeatureCard
+            title="Analytics &amp; Reports"
+            description="Access detailed reports on rides, earnings, and driver activity."
+            icon={BarChart3}
+            link="/operator/analytics"
+            actionText="View Analytics"
+          />
+        </div>
       </div>
-
-      <Card>
-        <CardHeader>
+      
+      {/* Action Items Side Panel Column */}
+      <div className="lg:w-1/3 space-y-6">
+        <Card className="shadow-lg sticky top-20">
+          <CardHeader>
             <CardTitle className="text-xl font-headline flex items-center gap-2">
-                <Map className="w-6 h-6 text-primary" /> Live Fleet Overview
+              <ListChecks className="w-6 h-6 text-accent" /> Fleet Status &amp; Alerts
             </CardTitle>
-        </CardHeader>
-        <CardContent className={mapContainerClasses}>
-             <GoogleMapDisplay
-                center={huddersfieldCenterGoogle}
-                zoom={13}
-                markers={mockFleetMarkersData} 
-                className="w-full h-full"
-                disableDefaultUI={true}
-             />
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <FeatureCard
-          title="Manage All Rides"
-          description="View, assign, and track all ongoing and requested rides."
-          icon={Car}
-          link="/operator/manage-rides"
-          actionText="Go to Ride Management"
-        />
-        <FeatureCard
-          title="Driver Management"
-          description="Onboard new drivers, manage profiles, and monitor performance."
-          icon={Users}
-          link="/operator/manage-drivers"
-          actionText="Manage Drivers"
-        />
-        <FeatureCard
-          title="Analytics & Reports"
-          description="Access detailed reports on rides, earnings, and driver activity."
-          icon={BarChart3}
-          link="/operator/analytics"
-          actionText="View Analytics"
-        />
+            <CardDescription>Actionable insights and tasks for your fleet.</CardDescription>
+          </CardHeader>
+          <CardContent className="max-h-[calc(100vh-12rem)] overflow-y-auto">
+            <Accordion type="multiple" defaultValue={operatorActionItems.map(cat => cat.id)} className="w-full">
+              {operatorActionItems.map((category) => (
+                <AccordionItem value={category.id} key={category.id}>
+                  <AccordionTrigger className="text-base hover:no-underline font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      <category.icon className="w-5 h-5 text-muted-foreground" />
+                      {category.name} ({category.items.filter(i => !i.completed).length})
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {category.items && category.items.length > 0 ? (
+                      <ul className="space-y-2 pl-2">
+                        {category.items.map(item => (
+                          <li key={item.id} className="flex items-start space-x-2 p-1.5 rounded-md hover:bg-muted/50">
+                            <Checkbox
+                              id={`op-item-${item.id}`}
+                              checked={item.completed}
+                              onCheckedChange={() => toggleOperatorTaskCompletion(item.id)}
+                              className="mt-1"
+                            />
+                            <div className="flex-1">
+                              <Label
+                                htmlFor={`op-item-${item.id}`}
+                                className={cn("text-sm cursor-pointer", mapOperatorPriorityToStyle(item.priority), item.completed ? 'line-through text-muted-foreground/70' : '')}
+                              >
+                                {item.label}
+                              </Label>
+                              {item.details && !item.completed && <p className="text-xs text-muted-foreground">{item.details}</p>}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground pl-2 py-1">No items in this category.</p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+            {operatorActionItems.length === 0 && (
+              <p className="text-muted-foreground text-sm text-center py-4">No specific action items currently.</p>
+            )}
+          </CardContent>
+           <CardFooter className="border-t pt-4">
+                <p className="text-xs text-muted-foreground">
+                    This panel shows mock alerts and tasks for your operator fleet.
+                </p>
+            </CardFooter>
+        </Card>
       </div>
     </div>
   );
@@ -261,4 +394,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
-
