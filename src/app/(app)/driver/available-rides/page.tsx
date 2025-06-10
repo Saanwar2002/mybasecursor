@@ -600,8 +600,23 @@ export default function AvailableRidesPage() {
       
     } catch(error) {
       console.error(`Error in handleAcceptOffer process for ${currentActionRideId} (outer catch):`, error);
-      const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
-      toast({title: "Acceptance Process Failed", description: `Client-side error or network issue: ${message}`, variant: "destructive"});
+      console.error("Type of error object in outer catch:", typeof error);
+      console.error("Error object stringified:", JSON.stringify(error, Object.getOwnPropertyNames(error))); 
+
+      let detailedMessage = "An unknown server error occurred.";
+      if (error instanceof Error) {
+        detailedMessage = error.message;
+      } else if (typeof error === 'string') {
+        detailedMessage = error;
+      } else if (typeof error === 'object' && error !== null && (error as any).message) {
+        detailedMessage = (error as any).message;
+      } else if (typeof error === 'object' && error !== null) {
+        detailedMessage = "Received a non-standard error object from the server. Check console for details.";
+      }
+      
+      const finalMessage = detailedMessage || "Server Error Encountered";
+
+      toast({title: "Acceptance Failed on Server", description: finalMessage, variant: "destructive"});
       setIsPollingEnabled(true); 
     } finally {
       console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
@@ -1306,7 +1321,7 @@ export default function AvailableRidesPage() {
             <ShadAlertDescription>{geolocationError}</ShadAlertDescription>
         </Alert>
     )}
-    {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+    {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
     <AlertDialog
       open={isStationaryReminderVisible}
       onOpenChange={setIsStationaryReminderVisible}

@@ -204,7 +204,7 @@ export async function POST(request: NextRequest, context: PostContext) {
       } else if (updateDataFromPayload.action === 'decline_wait_and_return') {
           updatePayloadFirestore.status = 'in_progress';
           updatePayloadFirestore.waitAndReturn = false;
-          updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = null;
+          updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = null; 
       } else if (updateDataFromPayload.status) { 
           updatePayloadFirestore.status = updateDataFromPayload.status;
       }
@@ -251,9 +251,28 @@ export async function POST(request: NextRequest, context: PostContext) {
 
   } catch (error: any) {
     console.error(`API POST Error /api/operator/bookings/${bookingIdForHandler}:`, error);
-    const errorMessage = error.message || 'An unexpected error occurred during booking update.';
-    const errorDetails = error.details || (error.cause ? String(error.cause) : error.toString());
-    return NextResponse.json({ message: "Server Error Encountered", details: errorMessage, rawError: errorDetails }, { status: 500 });
+    
+    let errorMessage = 'An unexpected error occurred during booking update.';
+    let errorDetails = '';
+
+    if (error instanceof Error) {
+        errorMessage = error.message;
+        errorDetails = error.stack || error.toString();
+    } else if (typeof error === 'string') {
+        errorMessage = error;
+        errorDetails = error;
+    } else if (typeof error === 'object' && error !== null) {
+        errorMessage = (error as any).message || JSON.stringify(error);
+        errorDetails = JSON.stringify(error, Object.getOwnPropertyNames(error));
+    } else {
+        errorDetails = String(error);
+    }
+    
+    return NextResponse.json({ 
+        message: "Server Error Encountered During Update",
+        details: errorMessage, 
+        rawErrorDetails: errorDetails 
+    }, { status: 500 });
   }
 }
 
