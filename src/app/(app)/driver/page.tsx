@@ -265,7 +265,7 @@ export default function DriverDashboardPage() {
            <CardFooter className="border-t pt-4">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <CheckCircle className="w-4 h-4 text-green-500" />
-                    Keep this list updated for smooth operations.
+                    <span>Keep this list updated. Document and maintenance reminders will appear here.</span>
                 </div>
             </CardFooter>
         </Card>
@@ -298,3 +298,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+
