@@ -41,6 +41,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from '@/components/ui/separator';
+import { db } from '@/lib/firebase'; // Added for mock hazard seeding
+import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'; // Added for mock hazard seeding
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -167,6 +169,14 @@ function getDistanceBetweenPointsInMeters(
 
   return R * c;
 }
+
+const MOCK_HAZARDS_TO_SEED = [
+  { id: 'mock-hazard-speedcam-001', hazardType: 'mobile_speed_camera', location: { latitude: 53.6450, longitude: -1.7850 } },
+  { id: 'mock-hazard-roadworks-002', hazardType: 'road_works', location: { latitude: 53.6400, longitude: -1.7700 } },
+  { id: 'mock-hazard-accident-003', hazardType: 'accident', location: { latitude: 53.6500, longitude: -1.7900 } },
+  { id: 'mock-hazard-taxi-check-004', hazardType: 'roadside_taxi_checking', location: { latitude: 53.6488, longitude: -1.7805 } }, // Near station
+  { id: 'mock-hazard-traffic-005', hazardType: 'heavy_traffic', location: { latitude: 53.6430, longitude: -1.7797 } }, // Near university
+];
 
 
 export default function AvailableRidesPage() {
@@ -303,44 +313,121 @@ export default function AvailableRidesPage() {
   }, [activeRide]);
 
   useEffect(() => {
-    if (!driverLocation || !activeMapHazards.length || !isDriverOnline || approachingHazardInfo) {
+    if (!driverLocation || !activeMapHazards.length || !isDriverOnline) {
+      if(approachingHazardInfo) setApproachingHazardInfo(null); // Clear existing alert if conditions no longer met
       return;
     }
-
+  
+    if (approachingHazardInfo) { // If an alert is already active, don't process new ones
+      const distanceToCurrentAlertedHazard = getDistanceBetweenPointsInMeters(driverLocation, activeMapHazards.find(h => h.id === approachingHazardInfo.id)?.location || null);
+      if (distanceToCurrentAlertedHazard > HAZARD_ALERT_RESET_DISTANCE_METERS) {
+        // User has moved away from the currently alerted hazard significantly
+        alertedForThisApproachRef.current.delete(approachingHazardInfo.id);
+        setApproachingHazardInfo(null); // Allow new alerts
+      }
+      return; // Still handling an active alert dialog or just dismissed it
+    }
+  
     let foundApproachingHazard = false;
     for (const hazard of activeMapHazards) {
       const distance = getDistanceBetweenPointsInMeters(driverLocation, hazard.location);
-
+  
       if (distance < HAZARD_ALERT_DISTANCE_METERS && !alertedForThisApproachRef.current.has(hazard.id)) {
         setApproachingHazardInfo({ id: hazard.id, hazardType: hazard.hazardType, reportedAt: hazard.reportedAt });
-        alertedForThisApproachRef.current.add(hazard.id);
+        // alertedForThisApproachRef.current.add(hazard.id); // Add when dialog is shown, not here
         foundApproachingHazard = true;
-        break; 
+        break;
       }
     }
-    
-    // Clean up alertedForThisApproachRef for hazards that are now far away
+  
+    // Clean up alertedForThisApproachRef for hazards that are now far away (outside the reset distance)
+    // This logic needs to run even if no new hazard is immediately approached to clear old entries.
     const newAlertedSet = new Set<string>();
     alertedForThisApproachRef.current.forEach(alertedId => {
-        const hazard = activeMapHazards.find(h => h.id === alertedId);
-        if (hazard) {
-            const distance = getDistanceBetweenPointsInMeters(driverLocation, hazard.location);
-            if (distance < HAZARD_ALERT_RESET_DISTANCE_METERS) { // Keep if still relatively close
-                newAlertedSet.add(alertedId);
-            }
+      const hazard = activeMapHazards.find(h => h.id === alertedId);
+      if (hazard) {
+        const distance = getDistanceBetweenPointsInMeters(driverLocation, hazard.location);
+        if (distance < HAZARD_ALERT_RESET_DISTANCE_METERS) {
+          newAlertedSet.add(alertedId);
         }
+      }
     });
     alertedForThisApproachRef.current = newAlertedSet;
-
+  
   }, [driverLocation, activeMapHazards, isDriverOnline, approachingHazardInfo]);
+  
 
-  const handleHazardAlertResponse = (hazardId: string, isStillThere: boolean) => {
+  const handleHazardAlertResponse = async (hazardId: string, isStillThere: boolean) => {
     console.log(`Hazard ${hazardId} response: ${isStillThere ? 'Yes, still there' : 'No, it\'s gone'}`);
-    // TODO: In next step, send this feedback to the backend.
     setApproachingHazardInfo(null); 
-    // No need to modify alertedForThisApproachRef.current here, 
-    // the proximity check will handle re-alerting if driver moves away and comes back.
+    alertedForThisApproachRef.current.add(hazardId); // Mark as alerted for this approach cycle AFTER response
+
+    if (!driverUser) {
+      toast({ title: "Error", description: "Driver not identified.", variant: "destructive"});
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/driver/map-hazards/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          hazardId,
+          driverId: driverUser.id,
+          isStillPresent,
+          feedbackTimestamp: new Date().toISOString(),
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({message: "Failed to submit feedback"}));
+        throw new Error(errorData.message);
+      }
+      toast({ title: "Feedback Submitted", description: "Thank you for helping keep the map accurate!"});
+      // Optionally, re-fetch active hazards if a hazard might have been cleared
+      if (!isStillThere) fetchActiveHazards();
+
+    } catch (err: any) {
+      toast({ title: "Feedback Error", description: err.message || "Could not submit feedback.", variant: "destructive"});
+    }
   };
+
+  const seedMockHazards = async () => {
+    if (!db) {
+      toast({ title: "DB Error", description: "Firestore not initialized.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Seeding...", description: "Attempting to add/update mock hazards." });
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const mock of MOCK_HAZARDS_TO_SEED) {
+      try {
+        const hazardRef = doc(db, 'mapHazards', mock.id);
+        await setDoc(hazardRef, {
+          hazardType: mock.hazardType,
+          location: mock.location, // Firestore will convert {latitude, longitude} to GeoPoint
+          reportedByDriverId: driverUser?.id || "mock-seeder",
+          reportedAt: serverTimestamp(),
+          status: 'active',
+          confirmations: 0,
+          negations: 0,
+          lastConfirmedAt: serverTimestamp(),
+        }, { merge: true }); // Use merge to create or overwrite
+        successCount++;
+      } catch (e) {
+        console.error(`Failed to seed hazard ${mock.id}:`, e);
+        errorCount++;
+      }
+    }
+
+    if (errorCount > 0) {
+      toast({ title: "Seeding Partially Failed", description: `${successCount} hazards seeded/updated. ${errorCount} failed. Check console.`, variant: "destructive" });
+    } else {
+      toast({ title: "Mock Hazards Seeded", description: `${successCount} hazards added or updated in Firestore.` });
+    }
+    fetchActiveHazards(); // Refresh the map
+  };
+
 
 
   const playBeep = useCallback(() => {
@@ -1658,7 +1745,11 @@ export default function AvailableRidesPage() {
             <ShadAlertDescription>{geolocationError}</ShadAlertDescription>
         </Alert>
     )}
-    {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+    {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> 
+    <div className="pt-2">
+      <Button variant="outline" size="sm" onClick={seedMockHazards} className="text-xs h-8 px-3 py-1">Seed Mock Hazards (Test)</Button>
+    </div>
+    {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
     <AlertDialog
       open={isStationaryReminderVisible}
       onOpenChange={setIsStationaryReminderVisible}
@@ -1714,7 +1805,7 @@ export default function AvailableRidesPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-     <AlertDialog open={!!approachingHazardInfo} onOpenChange={(open) => { if (!open) setApproachingHazardInfo(null); }}>
+     <AlertDialog open={!!approachingHazardInfo} onOpenChange={(open) => { if (!open) {setApproachingHazardInfo(null); if(approachingHazardInfo) alertedForThisApproachRef.current.add(approachingHazardInfo.id);} }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <ShadAlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="w-6 h-6 text-yellow-500" /> Approaching Hazard</ShadAlertDialogTitle>
