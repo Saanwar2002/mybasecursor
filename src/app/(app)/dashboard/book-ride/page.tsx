@@ -243,6 +243,7 @@ export default function BookRidePage() {
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
   const [availabilityStatusMessage, setAvailabilityStatusMessage] = useState("Checking availability in your area...");
   const [mapBusynessLevel, setMapBusynessLevel] = useState<'idle' | 'moderate' | 'high'>('idle');
+  const [isNoDriversAvailableMock, setIsNoDriversAvailableMock] = useState(false);
 
   const searchParams = useSearchParams();
   const operatorPreference = searchParams.get('operator_preference');
@@ -337,24 +338,34 @@ export default function BookRidePage() {
     }
   }, [isPriorityFeeDialogOpen]);
 
-  useEffect(() => {
+ useEffect(() => {
     setIsCheckingAvailability(true);
+    setIsNoDriversAvailableMock(false); // Reset no-driver state
     setAvailabilityStatusMessage("Checking availability...");
-    const waitTimes = [
-      "3-5 mins", "5-8 mins", "7-12 mins", "10-15 mins",
-    ];
-    const vehicleTypes = [
+    
+    const waitTimes = ["3-5 mins", "5-8 mins", "7-12 mins", "10-15 mins"];
+    const vehicleTypesMessages = [
       "Standard Cars available.",
       "Standard & Estate Cars available.",
       "High demand. Standard Cars available.",
       "Limited availability. Expect longer wait for Minibus."
     ];
+
     const timer = setTimeout(() => {
-      const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
-      const randomVehicles = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-      setAvailabilityStatusMessage("Estimated wait: ~" + randomWait + ". " + randomVehicles + " (Mock)");
+      const isNoDriversScenario = Math.random() < 0.2; // 20% chance of "no drivers"
+
+      if (isNoDriversScenario) {
+        setAvailabilityStatusMessage("Currently, no drivers are available in your area. Please try again shortly. (Mock)");
+        setIsNoDriversAvailableMock(true);
+      } else {
+        const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
+        const randomVehicles = vehicleTypesMessages[Math.floor(Math.random() * vehicleTypesMessages.length)];
+        setAvailabilityStatusMessage(`Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`);
+        setIsNoDriversAvailableMock(false);
+      }
       setIsCheckingAvailability(false);
     }, 1500);
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -1700,7 +1711,10 @@ const handleProceedToConfirmation = async () => {
                  />
               </div>
 
-            <Card className="mb-4 bg-primary/5 border-primary/20 shadow-sm">
+            <Card className={cn(
+                "mb-4 shadow-sm",
+                isNoDriversAvailableMock ? "bg-red-500/10 border-red-500/30" : "bg-primary/5 border-primary/20"
+                )}>
                 <CardContent className="p-3 text-center">
                     {isCheckingAvailability ? (
                         <div className="flex items-center justify-center text-sm text-primary">
@@ -1708,8 +1722,12 @@ const handleProceedToConfirmation = async () => {
                             {availabilityStatusMessage}
                         </div>
                     ) : (
-                        <p className="text-sm text-primary font-medium flex items-center justify-center gap-1.5">
-                            <BadgeCheck className="w-4 h-4 text-green-500" /> {availabilityStatusMessage}
+                        <p className={cn(
+                            "text-sm font-medium flex items-center justify-center gap-1.5",
+                            isNoDriversAvailableMock ? "text-red-600" : "text-primary"
+                            )}>
+                           {isNoDriversAvailableMock ? <AlertTriangle className="w-4 h-4" /> : <BadgeCheck className="w-4 h-4 text-green-500" />}
+                           {availabilityStatusMessage}
                         </p>
                     )}
                 </CardContent>
@@ -2131,7 +2149,7 @@ const handleProceedToConfirmation = async () => {
                     type="button"
                     onClick={handleProceedToConfirmation}
                     className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3 mt-8"
-                    disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords || isLoadingSurgeSetting}
+                    disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords || isLoadingSurgeSetting || isNoDriversAvailableMock}
                   >
                      {isLoadingSurgeSetting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" /> }
                      {isLoadingSurgeSetting ? 'Loading Settings...' : 'Review & Confirm Ride'}
@@ -2355,7 +2373,4 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
-
-
-
 
