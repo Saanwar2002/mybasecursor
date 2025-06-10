@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle, DollarSign, MessageSquare, Clock, RefreshCwIcon, Crown } from "lucide-react";
+import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle, DollarSign, MessageSquare, Clock, RefreshCwIcon, Crown, XCircle } from "lucide-react"; // Added XCircle
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -23,12 +23,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useAuth } from '@/contexts/auth-context'; 
 
 interface LocationPoint {
   address: string;
   latitude: number;
   longitude: number;
+  doorOrFlat?: string;
 }
 
 interface SerializedTimestamp {
@@ -45,7 +46,7 @@ interface Ride {
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: LocationPoint[];
-  status: 'Pending' | 'Assigned' | 'In Progress' | 'Completed' | 'Cancelled' | 'pending_assignment' | 'driver_assigned' | 'arrived_at_pickup';
+  status: 'Pending' | 'Assigned' | 'In Progress' | 'Completed' | 'Cancelled' | 'pending_assignment' | 'driver_assigned' | 'arrived_at_pickup' | 'cancelled_by_operator';
   fareEstimate: number;
   bookingTimestamp?: SerializedTimestamp | null;
   scheduledPickupAt?: string | null;
@@ -59,14 +60,13 @@ interface Ride {
   estimatedWaitTimeMinutes?: number;
 }
 
-// Driver interface for the dropdown
 interface AssignableDriver {
   id: string;
   name: string;
   vehicleModel?: string;
   licensePlate?: string;
   vehicleCategory?: string;
-  customId?: string; // driverIdentifier usually stored here
+  customId?: string; 
   status: string;
 }
 
@@ -95,7 +95,7 @@ const formatDateFromISO = (isoString?: string | null): string => {
 
 
 export default function OperatorManageRidesPage() {
-  const { user: operatorUser } = useAuth(); // Get current operator
+  const { user: operatorUser } = useAuth(); 
   const [rides, setRides] = useState<Ride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,9 +112,10 @@ export default function OperatorManageRidesPage() {
   
   const [availableDriversForAssignment, setAvailableDriversForAssignment] = useState<AssignableDriver[]>([]);
   const [isLoadingDriversForAssign, setIsLoadingDriversForAssign] = useState(false);
-  const [selectedDriverForAssign, setSelectedDriverForAssign] = useState<string>(""); // Stores selected driver ID
+  const [selectedDriverForAssign, setSelectedDriverForAssign] = useState<string>(""); 
 
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isCancellingRideId, setIsCancellingRideId] = useState<string | null>(null);
 
 
   const RIDES_PER_PAGE = 10;
@@ -214,7 +215,7 @@ export default function OperatorManageRidesPage() {
   
   const openAssignDialog = async (ride: Ride) => {
     setSelectedRideForAssignment(ride);
-    setSelectedDriverForAssign(""); // Reset selected driver
+    setSelectedDriverForAssign(""); 
     setAvailableDriversForAssignment([]);
     setIsLoadingDriversForAssign(true);
     setIsAssignDialogOpen(true);
@@ -226,7 +227,7 @@ export default function OperatorManageRidesPage() {
     }
 
     try {
-        const response = await fetch(`/api/operator/drivers?operatorCode=${operatorUser.operatorCode}&status=Active&limit=100`); // Fetch active drivers for this operator
+        const response = await fetch(`/api/operator/drivers?operatorCode=${operatorUser.operatorCode}&status=Active&limit=100`); 
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.message || "Failed to fetch drivers for assignment.");
@@ -253,7 +254,7 @@ export default function OperatorManageRidesPage() {
     }
 
     setIsAssigning(true);
-    const vehicleDetails = `${driverToAssign.vehicleCategory || driverToAssign.vehicleModel || 'Vehicle'} - ${driverToAssign.customId || driverToAssign.licensePlate || 'REG N/A'}`;
+    const vehicleDetails = `${driverToAssign.vehicleCategory || driverToAssign.vehicleModel || selectedRideForAssignment.vehicleType || 'Car'} - ${driverToAssign.customId || driverToAssign.licensePlate || 'REG N/A'}`;
 
     try {
       const response = await fetch(`/api/operator/bookings/${selectedRideForAssignment.id}`, {
@@ -287,6 +288,28 @@ export default function OperatorManageRidesPage() {
       toast({ title: "Assignment Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  const handleOperatorCancelRide = async (rideId: string) => {
+    setIsCancellingRideId(rideId);
+    try {
+        const response = await fetch(`/api/operator/bookings/${rideId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'operator_cancel_pending' }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to cancel ride.');
+        }
+        const result = await response.json();
+        setRides(prev => prev.map(r => r.id === rideId ? { ...r, status: result.booking.status as Ride['status'] } : r));
+        toast({ title: "Ride Cancelled", description: `Booking ID ${rideId} has been cancelled by operator.` });
+    } catch (error) {
+        toast({ title: "Cancellation Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
+    } finally {
+        setIsCancellingRideId(null);
     }
   };
 
@@ -352,11 +375,11 @@ export default function OperatorManageRidesPage() {
                   <TableRow>
                     <TableHead className="min-w-[150px]">Passenger / Vehicle</TableHead>
                     <TableHead className="min-w-[150px]">Driver</TableHead>
-                    <TableHead className="min-w-[200px]">Pickup / Dropoff</TableHead>
+                    <TableHead className="min-w-[200px]">Pickup / Dropoff / Stops</TableHead>
                     <TableHead className="min-w-[100px]">Status</TableHead>
                     <TableHead className="min-w-[120px] text-right">Fare / Payment</TableHead>
                     <TableHead className="min-w-[180px]">Booked/Scheduled</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Actions</TableHead>
+                    <TableHead className="text-center min-w-[150px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -372,18 +395,17 @@ export default function OperatorManageRidesPage() {
                         <div className="text-xs text-muted-foreground">{ride.driverVehicleDetails || 'N/A'}</div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-xs"><strong>P:</strong> {ride.pickupLocation.address}</div>
+                        <div className="text-xs"><strong>P:</strong> {ride.pickupLocation.address} {ride.pickupLocation.doorOrFlat && `(${ride.pickupLocation.doorOrFlat})`}</div>
                         {ride.stops && ride.stops.length > 0 && (
-                            <div className="text-xs text-blue-600 dark:text-blue-400"><strong>Stops:</strong> {ride.stops.map(s => s.address).join('; ')}</div>
+                            <div className="text-xs text-blue-600 dark:text-blue-400"><strong>Stops:</strong> {ride.stops.map(s => `${s.address}${s.doorOrFlat ? ` (${s.doorOrFlat})` : ''}`).join('; ')}</div>
                         )}
-                        <div className="text-xs"><strong>D:</strong> {ride.dropoffLocation.address}</div>
+                        <div className="text-xs"><strong>D:</strong> {ride.dropoffLocation.address} {ride.dropoffLocation.doorOrFlat && `(${ride.dropoffLocation.doorOrFlat})`}</div>
                         {ride.waitAndReturn && <Badge variant="outline" className="mt-1 text-xs border-indigo-500 text-indigo-600 bg-indigo-500/10"><RefreshCwIcon className="h-3 w-3 mr-1"/>W&R (~{ride.estimatedWaitTimeMinutes}m)</Badge>}
-
                       </TableCell>
                       <TableCell>
                         <Badge variant={
                           ride.status === 'Completed' ? 'default' :
-                          ride.status === 'Cancelled' ? 'destructive' :
+                          ride.status === 'Cancelled' || ride.status === 'cancelled_by_operator' ? 'destructive' :
                           ride.status === 'In Progress' || ride.status === 'in_progress' ? 'outline' 
                           : 'secondary'
                         }
@@ -404,9 +426,27 @@ export default function OperatorManageRidesPage() {
                       <TableCell className="text-xs">{ride.scheduledPickupAt ? `Sched: ${formatDateFromISO(ride.scheduledPickupAt)}` : `Booked: ${formatDateFromTimestamp(ride.bookingTimestamp)}`}</TableCell>
                       <TableCell className="text-center space-x-1">
                         {(ride.status === 'Pending' || ride.status === 'pending_assignment') && (
-                          <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => openAssignDialog(ride)}>
-                            <Users className="mr-1 h-3 w-3" /> Assign
-                          </Button>
+                          <>
+                            <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => openAssignDialog(ride)} disabled={isAssigning || !!isCancellingRideId}>
+                              <Users className="mr-1 h-3 w-3" /> Assign
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm" className="h-8" disabled={isAssigning || !!isCancellingRideId}>
+                                        <XCircle className="mr-1 h-3 w-3" /> Cancel
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Confirm Cancellation</AlertDialogTitle><AlertDialogDescription>Are you sure you want to cancel this pending ride for {ride.passengerName}?</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Keep Ride</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleOperatorCancelRide(ride.id)} className="bg-destructive hover:bg-destructive/90">
+                                            {isCancellingRideId === ride.id ? <Loader2 className="h-4 w-4 animate-spin"/> : "Confirm Cancel"}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                          </>
                         )}
                          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => toast({ title: "Ride Details (Placeholder)", description: `Details for ride ${ride.id}: \nPassenger: ${ride.passengerName}\nVehicle: ${ride.vehicleType}\nFare: £${ride.fareEstimate.toFixed(2)}\nNotes: ${ride.driverNotes || 'None'}`, duration: 8000 })}>
                             <Eye className="h-4 w-4" title="View Details"/>
@@ -452,7 +492,7 @@ export default function OperatorManageRidesPage() {
             <AlertDialogDescription>
               Assign an active driver from your fleet to ride ID: {selectedRideForAssignment?.id}. <br />
               Passenger: {selectedRideForAssignment?.passengerName} <br/>
-              Vehicle Type Requested: {selectedRideForAssignment?.vehicleType}
+              Vehicle Type Requested: {selectedRideForAssignment?.vehicleType || 'Any'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-2">
@@ -487,3 +527,4 @@ export default function OperatorManageRidesPage() {
     </div>
   );
 }
+

@@ -69,7 +69,7 @@ const bookingUpdateSchema = z.object({
   dispatchMethod: z.string().optional(), 
   waitAndReturn: z.boolean().optional(),
   estimatedAdditionalWaitTimeMinutes: z.number().min(0).optional().nullable(),
-  driverCurrentLocation: z.object({ lat: z.number(), lng: z.number() }).optional(), // Added driverCurrentLocation
+  driverCurrentLocation: z.object({ lat: z.number(), lng: z.number() }).optional(),
 });
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest, context: PostContext) {
         status: updateDataFromPayload.status || 'driver_assigned', // Default to driver_assigned if not specified
         vehicleType: updateDataFromPayload.vehicleType,
         driverVehicleDetails: updateDataFromPayload.driverVehicleDetails,
-        driverCurrentLocation: updateDataFromPayload.driverCurrentLocation, // Save driver's current location on accept
+        driverCurrentLocation: updateDataFromPayload.driverCurrentLocation,
         
         bookingTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           updatePayloadFirestore.status = 'completed';
           updatePayloadFirestore.completedAtActual = Timestamp.now();
           if (updateDataFromPayload.finalFare !== undefined) {
-              updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare; // Store final fare
+              updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare; 
           }
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
@@ -209,12 +209,17 @@ export async function POST(request: NextRequest, context: PostContext) {
           updatePayloadFirestore.status = 'in_progress';
           updatePayloadFirestore.waitAndReturn = false;
           updatePayloadFirestore.estimatedAdditionalWaitTimeMinutes = null; 
+      } else if (updateDataFromPayload.action === 'operator_cancel_pending') {
+          if (existingBookingDbData?.status !== 'pending_assignment') {
+            return NextResponse.json({ message: 'Only "Pending Assignment" rides can be cancelled by the operator this way.' }, { status: 400 });
+          }
+          updatePayloadFirestore.status = 'cancelled'; // Or 'cancelled_by_operator'
+          updatePayloadFirestore.cancelledAt = Timestamp.now();
       } else if (updateDataFromPayload.status) { 
           updatePayloadFirestore.status = updateDataFromPayload.status;
       }
 
 
-      // Remove boolean flags if they were used to trigger timestamp setting
       if (updatePayloadFirestore.notifiedPassengerArrivalTimestamp === true) delete updatePayloadFirestore.notifiedPassengerArrivalTimestamp;
       if (updatePayloadFirestore.rideStartedAt === true) delete updatePayloadFirestore.rideStartedAt;
       if (updatePayloadFirestore.completedAt === true) delete updatePayloadFirestore.completedAt;
@@ -247,7 +252,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedData.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
           rideStartedAt: serializeTimestamp(updatedData.rideStartedAtActual as Timestamp | undefined),
           completedAt: serializeTimestamp(updatedData.completedAtActual as Timestamp | undefined),
-          driverCurrentLocation: updatedData.driverCurrentLocation, // Pass it back
+          driverCurrentLocation: updatedData.driverCurrentLocation,
       };
 
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Update successful. Returning:`, JSON.stringify(responseData, null, 2));
@@ -315,7 +320,7 @@ export async function GET(request: NextRequest, context: GetContext) {
         passengerAcknowledgedArrivalTimestamp: serializeTimestamp(data.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
         rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
         completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
-        driverCurrentLocation: data.driverCurrentLocation, // Pass it back
+        driverCurrentLocation: data.driverCurrentLocation,
     };
     return NextResponse.json({ booking: responseData }, { status: 200 });
   } catch (error: any) {
@@ -326,3 +331,4 @@ export async function GET(request: NextRequest, context: GetContext) {
   }
 }
 
+    
