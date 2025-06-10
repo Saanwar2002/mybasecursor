@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart } from 'lucide-react'; // Added MessageSquareHeart
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart, ServerCog } from 'lucide-react'; // Added ServerCog
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -51,7 +51,7 @@ export const navItems: NavItem[] = [
   { href: '/admin', label: 'Admin Dashboard', icon: Shield, roles: ['admin'] },
   { href: '/admin/manage-operators', label: 'Manage Operators', icon: Building, roles: ['admin'] },
   { 
-    href: '#', // Parent item, not a direct link
+    href: '#', 
     label: 'User Management', 
     icon: UserCog, 
     roles: ['admin'],
@@ -74,6 +74,7 @@ export const navItems: NavItem[] = [
       { href: '/admin/user-feedback/list', label: 'User Feedback', icon: MessageSquareHeart, roles: ['admin'] },
       { href: '/admin/support-scalability', label: 'Support Scalability', icon: Users, roles: ['admin']},
       { href: '/admin/driver-incentives', label: 'Driver Incentives (Platform)', icon: Award, roles: ['admin'] }, 
+      { href: '/admin/server-monitoring', label: 'Server Monitoring', icon: ServerCog, roles: ['admin'] },
     ]
   },
   { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
