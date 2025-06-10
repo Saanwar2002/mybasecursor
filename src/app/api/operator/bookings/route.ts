@@ -71,29 +71,25 @@ export async function GET(request: NextRequest) {
       queryConstraints.push(where('status', '==', status));
     }
     if (passengerName) {
-      // Basic equality search for passengerName. For more complex search, consider dedicated search services.
-      queryConstraints.push(where('passengerName', '==', passengerName));
+      queryConstraints.push(where('passengerName', '>=', passengerName));
+      queryConstraints.push(where('passengerName', '<=', passengerName + '\uf8ff'));
     }
     if (dateFrom) {
       queryConstraints.push(where('bookingTimestamp', '>=', Timestamp.fromDate(new Date(dateFrom))));
     }
     if (dateTo) {
-      // To include the entire 'dateTo' day, we can set time to end of day or adjust the query
       const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999); // End of the day
+      toDate.setHours(23, 59, 59, 999);
       queryConstraints.push(where('bookingTimestamp', '<=', Timestamp.fromDate(toDate)));
     }
 
-    // Sorting - Firestore requires the first orderBy field to match the field in inequality filters (like date range)
-    // If sortBy is different from bookingTimestamp and date filters are active, this might need adjustment or multiple queries.
-    // For simplicity, if date filters are used, we prioritize sorting by bookingTimestamp if sortBy is not already bookingTimestamp.
-    if (dateFrom || dateTo) {
+    if (passengerName && sortBy !== 'passengerName') {
+        queryConstraints.push(orderBy('passengerName', sortOrder));
+        if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder));
+    } else if (dateFrom || dateTo) {
         if (sortBy !== 'bookingTimestamp') {
             queryConstraints.push(orderBy('bookingTimestamp', sortOrder));
-             // Add secondary sort if originally requested and different
-            if (sortBy) {
-                queryConstraints.push(orderBy(sortBy, sortOrder));
-            }
+            if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder));
         } else {
             queryConstraints.push(orderBy(sortBy, sortOrder));
         }
@@ -122,11 +118,28 @@ export async function GET(request: NextRequest) {
       const data = doc.data();
       return {
         id: doc.id,
-        ...data,
+        passengerId: data.passengerId,
+        passengerName: data.passengerName,
+        driverId: data.driverId,
+        driverName: data.driverName,
+        driverVehicleDetails: data.driverVehicleDetails,
+        pickupLocation: data.pickupLocation,
+        dropoffLocation: data.dropoffLocation,
+        stops: data.stops,
+        status: data.status,
+        fareEstimate: data.fareEstimate,
         bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
-        scheduledPickupAt: data.scheduledPickupAt ? data.scheduledPickupAt : null, // Ensure it's either ISO string or null
+        scheduledPickupAt: data.scheduledPickupAt ? data.scheduledPickupAt : null,
         updatedAt: serializeTimestamp(data.updatedAt as Timestamp | undefined),
         cancelledAt: serializeTimestamp(data.cancelledAt as Timestamp | undefined),
+        vehicleType: data.vehicleType,
+        passengers: data.passengers,
+        paymentMethod: data.paymentMethod,
+        driverNotes: data.driverNotes,
+        isPriorityPickup: data.isPriorityPickup,
+        priorityFeeAmount: data.priorityFeeAmount,
+        waitAndReturn: data.waitAndReturn,
+        estimatedWaitTimeMinutes: data.estimatedWaitTimeMinutes,
       };
     });
 
@@ -139,12 +152,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       bookings,
       nextCursor,
-      // prevCursor could be implemented if needed by passing the first doc ID of the current page
     }, { status: 200 });
 
   } catch (error) {
     console.error('Error fetching bookings for operator:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (error instanceof Error && (error as any).code === 'failed-precondition') {
+        return NextResponse.json({
+            message: 'Query requires a Firestore index. Please check the console for a link to create it.',
+            details: errorMessage
+        }, { status: 500});
+    }
     return NextResponse.json({ message: 'Failed to fetch bookings', details: errorMessage }, { status: 500 });
   }
 }

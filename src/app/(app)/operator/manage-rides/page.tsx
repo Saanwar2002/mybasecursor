@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle } from "lucide-react";
+import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle, DollarSign, MessageSquare, Clock, RefreshCwIcon, Crown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 
 interface LocationPoint {
   address: string;
@@ -48,6 +49,13 @@ interface Ride {
   bookingTimestamp?: SerializedTimestamp | null;
   scheduledPickupAt?: string | null;
   vehicleType?: string;
+  passengers?: number;
+  paymentMethod?: 'card' | 'cash';
+  driverNotes?: string;
+  isPriorityPickup?: boolean;
+  priorityFeeAmount?: number;
+  waitAndReturn?: boolean;
+  estimatedWaitTimeMinutes?: number;
 }
 
 const formatDateFromTimestamp = (timestamp?: SerializedTimestamp | null): string => {
@@ -132,6 +140,13 @@ export default function OperatorManageRidesPage() {
         bookingTimestamp: b.bookingTimestamp,
         scheduledPickupAt: b.scheduledPickupAt,
         vehicleType: b.vehicleType,
+        passengers: b.passengers,
+        paymentMethod: b.paymentMethod,
+        driverNotes: b.driverNotes,
+        isPriorityPickup: b.isPriorityPickup,
+        priorityFeeAmount: b.priorityFeeAmount,
+        waitAndReturn: b.waitAndReturn,
+        estimatedWaitTimeMinutes: b.estimatedWaitTimeMinutes,
       }));
       
       setRides(fetchedRides);
@@ -185,7 +200,7 @@ export default function OperatorManageRidesPage() {
     setSelectedRideForAssignment(ride);
     setAssignDriverId("");
     setAssignDriverName("");
-    setAssignVehicleDetails("");
+    setAssignVehicleDetails(ride.vehicleType || "Car"); // Pre-fill if available
     setIsAssignDialogOpen(true);
   };
 
@@ -202,8 +217,8 @@ export default function OperatorManageRidesPage() {
         body: JSON.stringify({ 
             driverId: assignDriverId.trim(), 
             driverName: assignDriverName.trim(),
-            driverVehicleDetails: assignVehicleDetails.trim() || `${selectedRideForAssignment.vehicleType || 'Car'} - Reg N/A`, // Default vehicle details
-            status: 'driver_assigned' // Changed from 'Assigned'
+            driverVehicleDetails: assignVehicleDetails.trim() || `${selectedRideForAssignment.vehicleType || 'Car'} - Reg N/A`,
+            status: 'driver_assigned' 
         }), 
       });
       if (!response.ok) {
@@ -286,61 +301,82 @@ export default function OperatorManageRidesPage() {
              <p className="text-center text-muted-foreground py-8">No rides match your criteria.</p>
           )}
           {!isLoading && !error && rides.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Passenger</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Vehicle Details</TableHead>
-                  <TableHead>Pickup</TableHead>
-                  <TableHead>Dropoff</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Fare</TableHead>
-                  <TableHead>Booked/Scheduled</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rides.map((ride) => (
-                  <TableRow key={ride.id}>
-                    <TableCell className="font-medium">{ride.passengerName || 'N/A'}</TableCell>
-                    <TableCell>{ride.driverName || 'N/A'}</TableCell>
-                    <TableCell>{ride.driverVehicleDetails || 'N/A'}</TableCell>
-                    <TableCell>{ride.pickupLocation.address}</TableCell>
-                    <TableCell>{ride.dropoffLocation.address}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        ride.status === 'Completed' ? 'default' :
-                        ride.status === 'Cancelled' ? 'destructive' :
-                        ride.status === 'In Progress' || ride.status === 'in_progress' ? 'outline' 
-                        : 'secondary'
-                      }
-                      className={
-                        ride.status === 'In Progress' || ride.status === 'in_progress' ? 'border-blue-500 text-blue-500' : 
-                        ride.status === 'Pending' || ride.status === 'pending_assignment' ? 'bg-yellow-400/80 text-yellow-900' :
-                        ride.status === 'Assigned' || ride.status === 'driver_assigned' ? 'bg-sky-400/80 text-sky-900' : 
-                        ride.status === 'arrived_at_pickup' ? 'bg-indigo-400/80 text-indigo-900' : ''
-                      }
-                      >
-                        {ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">£{(ride.fareEstimate || 0).toFixed(2)}</TableCell>
-                    <TableCell>{ride.scheduledPickupAt ? `Scheduled: ${formatDateFromISO(ride.scheduledPickupAt)}` : `Booked: ${formatDateFromTimestamp(ride.bookingTimestamp)}`}</TableCell>
-                    <TableCell className="text-center space-x-1">
-                      {(ride.status === 'Pending' || ride.status === 'pending_assignment') && (
-                        <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => openAssignDialog(ride)}>
-                          <Users className="mr-1 h-3 w-3" /> Assign
-                        </Button>
-                      )}
-                       <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => toast({ title: "Info", description: `Viewing details for ride ${ride.id} (Placeholder)`})}>
-                          <Eye className="h-4 w-4" title="View Details"/>
-                      </Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[150px]">Passenger / Vehicle</TableHead>
+                    <TableHead className="min-w-[150px]">Driver</TableHead>
+                    <TableHead className="min-w-[200px]">Pickup / Dropoff</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="min-w-[120px] text-right">Fare / Payment</TableHead>
+                    <TableHead className="min-w-[180px]">Booked/Scheduled</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rides.map((ride) => (
+                    <TableRow key={ride.id}>
+                      <TableCell>
+                        <div className="font-medium">{ride.passengerName || 'N/A'} ({ride.passengers || 1} <Users className="inline h-3 w-3 -mt-1"/>)</div>
+                        <div className="text-xs text-muted-foreground">{ride.vehicleType || 'N/A'}</div>
+                         {ride.isPriorityPickup && <Badge variant="outline" className="mt-1 text-xs border-orange-500 text-orange-600 bg-orange-500/10"><Crown className="h-3 w-3 mr-1"/>Priority +£{(ride.priorityFeeAmount || 0).toFixed(2)}</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <div>{ride.driverName || 'N/A'}</div>
+                        <div className="text-xs text-muted-foreground">{ride.driverVehicleDetails || 'N/A'}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs"><strong>P:</strong> {ride.pickupLocation.address}</div>
+                        {ride.stops && ride.stops.length > 0 && (
+                            <div className="text-xs text-blue-600 dark:text-blue-400"><strong>Stops:</strong> {ride.stops.map(s => s.address).join('; ')}</div>
+                        )}
+                        <div className="text-xs"><strong>D:</strong> {ride.dropoffLocation.address}</div>
+                        {ride.waitAndReturn && <Badge variant="outline" className="mt-1 text-xs border-indigo-500 text-indigo-600 bg-indigo-500/10"><RefreshCwIcon className="h-3 w-3 mr-1"/>W&R (~{ride.estimatedWaitTimeMinutes}m)</Badge>}
+
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          ride.status === 'Completed' ? 'default' :
+                          ride.status === 'Cancelled' ? 'destructive' :
+                          ride.status === 'In Progress' || ride.status === 'in_progress' ? 'outline' 
+                          : 'secondary'
+                        }
+                        className={
+                          ride.status === 'In Progress' || ride.status === 'in_progress' ? 'border-blue-500 text-blue-500' : 
+                          ride.status === 'Pending' || ride.status === 'pending_assignment' ? 'bg-yellow-400/80 text-yellow-900' :
+                          ride.status === 'Assigned' || ride.status === 'driver_assigned' ? 'bg-sky-400/80 text-sky-900' : 
+                          ride.status === 'arrived_at_pickup' ? 'bg-indigo-400/80 text-indigo-900' : ''
+                        }
+                        >
+                          {ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div>£{(ride.fareEstimate || 0).toFixed(2)}</div>
+                        <div className="text-xs capitalize text-muted-foreground">{ride.paymentMethod || 'N/A'}</div>
+                      </TableCell>
+                      <TableCell className="text-xs">{ride.scheduledPickupAt ? `Sched: ${formatDateFromISO(ride.scheduledPickupAt)}` : `Booked: ${formatDateFromTimestamp(ride.bookingTimestamp)}`}</TableCell>
+                      <TableCell className="text-center space-x-1">
+                        {(ride.status === 'Pending' || ride.status === 'pending_assignment') && (
+                          <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => openAssignDialog(ride)}>
+                            <Users className="mr-1 h-3 w-3" /> Assign
+                          </Button>
+                        )}
+                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => toast({ title: "Ride Details (Placeholder)", description: `Details for ride ${ride.id}: \nPassenger: ${ride.passengerName}\nVehicle: ${ride.vehicleType}\nFare: £${ride.fareEstimate.toFixed(2)}\nNotes: ${ride.driverNotes || 'None'}`, duration: 8000 })}>
+                            <Eye className="h-4 w-4" title="View Details"/>
+                        </Button>
+                         {ride.driverNotes && (
+                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => toast({ title: `Notes for Ride ${ride.id}`, description: ride.driverNotes, duration: 8000})}>
+                             <MessageSquare className="h-4 w-4" title="View Passenger Notes"/>
+                           </Button>
+                         )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
            <div className="flex items-center justify-end space-x-2 py-4">
             <Button
@@ -371,8 +407,11 @@ export default function OperatorManageRidesPage() {
             <AlertDialogDescription>
               Assign a driver to ride ID: {selectedRideForAssignment?.id}. <br />
               Passenger: {selectedRideForAssignment?.passengerName} <br />
-              From: {selectedRideForAssignment?.pickupLocation.address} <br/>
-              To: {selectedRideForAssignment?.dropoffLocation.address}
+              <div className="text-xs mt-1">
+                Vehicle: {selectedRideForAssignment?.vehicleType} ({selectedRideForAssignment?.passengers} pax) <br/>
+                From: {selectedRideForAssignment?.pickupLocation.address} <br/>
+                To: {selectedRideForAssignment?.dropoffLocation.address}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-2">
