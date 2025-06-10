@@ -179,7 +179,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
         if (markers.length === 1) {
             mapInstanceRef.current.setCenter(bounds.getCenter());
-            mapInstanceRef.current.setZoom(zoom); 
+            mapInstanceRef.current.setZoom(15); // Set a more reasonable zoom for single markers
         } else {
             mapInstanceRef.current.fitBounds(bounds, 60); 
         }
