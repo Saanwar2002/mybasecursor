@@ -38,6 +38,7 @@ export const navItems: NavItem[] = [
   { href: '/operator/manage-passengers', label: 'Manage Passengers', icon: Contact, roles: ['operator'] },
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
+  { href: '/operator/driver-incentives', label: 'Driver Incentives', icon: Award, roles: ['operator'] },
   { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
   { href: '/operator/credit-accounts', label: 'Credit Accounts', icon: CreditCard, roles: ['operator'] }, 
   { href: '/operator/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['operator'] },
@@ -47,30 +48,29 @@ export const navItems: NavItem[] = [
   { href: '/admin', label: 'Admin Dashboard', icon: Shield, roles: ['admin'] },
   { href: '/admin/manage-operators', label: 'Manage Operators', icon: Building, roles: ['admin'] },
   { 
-    href: '/admin/platform-users', 
-    label: 'Platform Users', 
-    icon: Users, 
+    href: '#', // Parent item, not a direct link
+    label: 'User Management', 
+    icon: UserCog, 
     roles: ['admin'],
     subItems: [
       { href: '/admin/platform-users', label: 'All Users', icon: Users, roles: ['admin']},
       { href: '/admin/platform-users?role=passenger', label: 'Passengers', icon: UserSearch, roles: ['admin']},
       { href: '/admin/platform-users?role=driver', label: 'Drivers', icon: Car, roles: ['admin']},
-      { href: '/admin/platform-users?role=operator', label: 'Operators', icon: Briefcase, roles: ['admin']},
-      { href: '/admin/platform-users?role=admin', label: 'Administrators', icon: UserCog, roles: ['admin']},
+      { href: '/admin/platform-users?role=operator', label: 'Operators (Sub-Admins)', icon: Briefcase, roles: ['admin']},
+      { href: '/admin/platform-users?role=admin', label: 'Platform Admins', icon: Shield, roles: ['admin']},
     ]
   },
   { href: '/admin/user-blocks', label: 'User Blocks', icon: UserX, roles: ['admin'] },
   { href: '/admin/analytics', label: 'System Analytics', icon: BarChart3, roles: ['admin'] },
   { 
-    href: '#', // Parent item, not a direct link
+    href: '#', 
     label: 'Operations & Strategy', 
-    icon: Activity, // Or BrainCircuit or another suitable icon
+    icon: Activity, 
     roles: ['admin'],
     subItems: [
       { href: '/admin/user-feedback/list', label: 'User Feedback', icon: MessageSquareHeart, roles: ['admin'] },
       { href: '/admin/support-scalability', label: 'Support Scalability', icon: Users, roles: ['admin']},
-      { href: '/admin/driver-incentives', label: 'Driver Incentives', icon: Award, roles: ['admin'] }, // New
-      // Add other strategic pages here as they are created
+      { href: '/admin/driver-incentives', label: 'Driver Incentives (Platform)', icon: Award, roles: ['admin'] }, 
     ]
   },
   { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
