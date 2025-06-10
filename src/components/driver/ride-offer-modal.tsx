@@ -12,7 +12,7 @@ import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { PLATFORM_OPERATOR_CODE } from '@/contexts/auth-context'; 
+import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context'; 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -87,6 +87,7 @@ Progress.displayName = ProgressPrimitive.Root.displayName;
 
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const { user: driverUser } = useAuth(); // Get current driver user
 
   useEffect(() => {
     if (!isOpen) {
@@ -164,21 +165,32 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       if (rideDetails.dispatchMethod === 'manual_operator') {
         return { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, color: "text-blue-600" };
       }
-      // Default for OP001 rides (includes 'auto_system' or undefined dispatchMethod)
       return { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, color: "text-green-600" };
     }
 
-    // Case 2: Ride is for another operator or general pool
-    if (rideDetails.dispatchMethod === 'manual_operator') {
-      return { text: "Dispatched Manually By Your Base", icon: Briefcase, color: "text-blue-600" };
-    }
-    if (rideDetails.dispatchMethod === 'priority_override') {
-      return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, color: "text-purple-600" };
+    // Case 2: Ride is for the driver's own affiliated base (and not OP001)
+    if (driverUser && rideDetails.requiredOperatorId === driverUser.operatorCode && driverUser.operatorCode !== PLATFORM_OPERATOR_CODE) {
+      if (rideDetails.dispatchMethod === 'manual_operator') {
+        return { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, color: "text-blue-600" };
+      }
+      // If it's for their own base and not manual, assume their base's system dispatched it automatically.
+      return { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, color: "text-green-600" };
     }
     
-    // Default for non-OP001 rides if no specific manual/priority dispatch method.
-    // This implies the platform is automatically routing this job.
-    return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
+    // Case 3: Fallback for general pool jobs, or jobs from OTHER operators
+    switch (rideDetails.dispatchMethod) {
+      case 'manual_operator':
+        // If manual_operator but not covered by above, it implies admin manual assignment or complex inter-op
+        if (rideDetails.requiredOperatorId) {
+             return { text: `Manual Dispatch from ${rideDetails.requiredOperatorId}`, icon: Briefcase, color: "text-blue-600" };
+        }
+        return { text: "Manually Dispatched by Platform Admin", icon: Briefcase, color: "text-blue-600" };
+      case 'priority_override':
+        return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, color: "text-purple-600" };
+      case 'auto_system':
+      default: // Includes undefined dispatchMethod
+        return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
+    }
   };
   const dispatchInfo = getDispatchMethodText();
 
@@ -243,8 +255,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
             </div>
             <div className="space-y-2.5">
-              {/* Display requiredOperatorId only if it's NOT the platform operator */}
-              {rideDetails.requiredOperatorId && rideDetails.requiredOperatorId !== PLATFORM_OPERATOR_CODE && (
+              {/* Display requiredOperatorId only if it's NOT the platform operator, AND not the driver's own operator (as that's covered by dispatchInfo) */}
+              {rideDetails.requiredOperatorId && 
+               rideDetails.requiredOperatorId !== PLATFORM_OPERATOR_CODE && 
+               (!driverUser || rideDetails.requiredOperatorId !== driverUser.operatorCode) && (
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-lg text-center">
                   <p className="text-sm font-semibold text-purple-700 dark:text-purple-200 flex items-center justify-center gap-1">
                     <Briefcase className="w-4 h-4"/> This ride is from Operator: {rideDetails.requiredOperatorId}
@@ -320,3 +334,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
