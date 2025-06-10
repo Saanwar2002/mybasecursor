@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart, ServerCog, FileText, ShieldCheck, Leaf } from 'lucide-react'; // Added Leaf
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart, ServerCog, FileText, ShieldCheck, Leaf, SlidersHorizontal } from 'lucide-react'; // Added Leaf, SlidersHorizontal
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -41,7 +41,7 @@ export const navItems: NavItem[] = [
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
   { href: '/operator/driver-incentives', label: 'Driver Incentives', icon: Award, roles: ['operator'] },
-  { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
+  { href: '/operator/settings/operational-settings', label: 'Operational Settings', icon: SlidersHorizontal, roles: ['operator'] },
   { href: '/operator/credit-accounts', label: 'Credit Accounts', icon: CreditCard, roles: ['operator'] }, 
   { href: '/operator/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['operator'] },
   { href: '/operator/help-support', label: 'Support & Feedback', icon: HelpCircle, roles: ['operator'] },

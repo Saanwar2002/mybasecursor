@@ -27,6 +27,7 @@ export interface User {
   acceptsPetFriendlyJobs?: boolean; 
   acceptsPlatformJobs?: boolean; 
   maxJourneyDistance?: string; 
+  dispatchMode?: 'auto' | 'manual'; // Added for operators
 
   // Driver-specific vehicle & compliance details
   vehicleMakeModel?: string;
@@ -102,6 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
             acceptsPlatformJobs: firestoreUser.operatorCode === PLATFORM_OPERATOR_CODE ? true : (firestoreUser.acceptsPlatformJobs || false),
             maxJourneyDistance: firestoreUser.maxJourneyDistance || "no_limit", 
+            dispatchMode: firestoreUser.dispatchMode || 'auto', // Default to 'auto'
             // Driver-specific details
             vehicleMakeModel: firestoreUser.vehicleMakeModel,
             vehicleRegistration: firestoreUser.vehicleRegistration,
@@ -268,6 +270,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: 'operator',
           customId: `OP-GUEST-${Math.floor(Math.random()*900)+100}`, 
           operatorCode: `OP-GUEST-${Math.floor(Math.random()*900)+100}`,
+          dispatchMode: 'auto', // Default for guest operator
         };
         break;
       case 'admin':
@@ -376,5 +379,3 @@ export const useAuth = () => {
 };
 
 export { PLATFORM_OPERATOR_CODE };
-
-    
