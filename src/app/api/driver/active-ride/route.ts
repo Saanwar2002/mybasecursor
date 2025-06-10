@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+import type { RideOffer } from '@/components/driver/ride-offer-modal'; // Assuming this might contain dispatchMethod type
 
 // Helper to serialize Timestamp
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -25,36 +26,37 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 
 interface ActiveDriverRide {
   id: string;
-  passengerId: string; 
+  passengerId: string;
   passengerName: string;
   passengerAvatar?: string;
+  passengerPhone?: string;
   pickupLocation: { address: string; latitude: number; longitude: number; doorOrFlat?: string; };
   dropoffLocation: { address: string; latitude: number; longitude: number; doorOrFlat?: string; };
   stops?: Array<{ address: string; latitude: number; longitude: number; doorOrFlat?: string; }>;
-  estimatedTime?: string;
-  fareEstimate: number;
+  fareEstimate: number; // Base fare estimate
+  isPriorityPickup?: boolean;
+  priorityFeeAmount?: number;
   status: string;
-  pickupCoords?: { lat: number; lng: number };
-  dropoffCoords?: { lat: number; lng: number };
-  distanceMiles?: number;
   passengerCount: number;
-  passengerPhone?: string;
   passengerRating?: number;
   notes?: string;
   driverId?: string;
   bookingTimestamp?: { _seconds: number; _nanoseconds: number } | null;
   scheduledPickupAt?: string | null;
-  vehicleType?: string;
+  vehicleType?: string; // Requested vehicle type
   isSurgeApplied?: boolean;
   paymentMethod?: 'card' | 'cash';
-  notifiedPassengerArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | string | null;
-  passengerAcknowledgedArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | string | null;
-  rideStartedAt?: { _seconds: number; _nanoseconds: number } | string | null;
-  driverCurrentLocation?: { lat: number; lng: number };
-  driverEtaMinutes?: number;
-  driverVehicleDetails?: string;
+  notifiedPassengerArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | null;
+  passengerAcknowledgedArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | null;
+  rideStartedAt?: { _seconds: number; _nanoseconds: number } | null;
+  completedAt?: { _seconds: number; _nanoseconds: number } | null;
+  driverCurrentLocation?: { lat: number; lng: number }; // Driver's own current location (not from booking)
+  driverEtaMinutes?: number; // Driver's ETA to pickup (not from booking)
+  driverVehicleDetails?: string; // Driver's actual vehicle details (set upon assignment)
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
+  requiredOperatorId?: string;
+  dispatchMethod?: RideOffer['dispatchMethod']; // 'auto_system' | 'manual_operator' | 'priority_override'
 }
 
 export async function GET(request: NextRequest) {
@@ -72,27 +74,26 @@ export async function GET(request: NextRequest) {
     }
 
     const bookingsRef = collection(db, 'bookings');
-    // Define statuses that indicate an active ride for a driver comprehensively
     const activeDriverStatuses = [
-      'driver_assigned', // Driver is assigned and en route
-      'arrived_at_pickup', // Driver has arrived at pickup
-      'in_progress', // Ride is ongoing
-      'pending_driver_wait_and_return_approval', // Driver needs to act on W&R request
-      'in_progress_wait_and_return' // Ride is ongoing with W&R active
+      'driver_assigned',
+      'arrived_at_pickup',
+      'in_progress',
+      'pending_driver_wait_and_return_approval',
+      'in_progress_wait_and_return'
     ];
 
     const q = query(
       bookingsRef,
       where('driverId', '==', driverId),
       where('status', 'in', activeDriverStatuses),
-      orderBy('bookingTimestamp', 'desc'), 
+      orderBy('bookingTimestamp', 'desc'),
       limit(1)
     );
 
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      return NextResponse.json(null, { status: 200 }); 
+      return NextResponse.json(null, { status: 200 });
     }
 
     const doc = querySnapshot.docs[0];
@@ -100,42 +101,43 @@ export async function GET(request: NextRequest) {
 
     const activeRide: ActiveDriverRide = {
       id: doc.id,
-      passengerId: data.passengerId, 
+      passengerId: data.passengerId,
       passengerName: data.passengerName || 'N/A',
       passengerAvatar: data.passengerAvatar,
+      passengerPhone: data.passengerPhone || data.customerPhoneNumber,
       pickupLocation: data.pickupLocation,
       dropoffLocation: data.dropoffLocation,
       stops: data.stops,
-      estimatedTime: data.estimatedTime,
       fareEstimate: data.fareEstimate || 0,
+      isPriorityPickup: data.isPriorityPickup || false,
+      priorityFeeAmount: data.priorityFeeAmount || 0,
       status: data.status,
-      pickupCoords: data.pickupLocation ? { lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude } : undefined,
-      dropoffCoords: data.dropoffLocation ? { lat: data.dropoffLocation.latitude, lng: data.dropoffLocation.longitude } : undefined,
-      distanceMiles: data.distanceMiles,
       passengerCount: data.passengers || 1,
-      passengerPhone: data.passengerPhone || data.customerPhoneNumber, // Check both fields
       passengerRating: data.passengerRating,
-      notes: data.driverNotes || data.notes, 
-      driverId: data.driverId,
+      notes: data.driverNotes || data.notes,
+      driverId: data.driverId, // Will be same as query param
       bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
       scheduledPickupAt: data.scheduledPickupAt || null,
       vehicleType: data.vehicleType,
       isSurgeApplied: data.isSurgeApplied,
       paymentMethod: data.paymentMethod,
-      notifiedPassengerArrivalTimestamp: data.notifiedPassengerArrivalTimestamp ? serializeTimestamp(data.notifiedPassengerArrivalTimestamp as Timestamp | undefined) : null,
-      passengerAcknowledgedArrivalTimestamp: data.passengerAcknowledgedArrivalTimestamp ? serializeTimestamp(data.passengerAcknowledgedArrivalTimestamp as Timestamp | undefined) : null,
-      rideStartedAt: data.rideStartedAt ? serializeTimestamp(data.rideStartedAt as Timestamp | undefined) : null,
-      driverCurrentLocation: data.driverCurrentLocation,
-      driverEtaMinutes: data.driverEtaMinutes,
+      notifiedPassengerArrivalTimestamp: serializeTimestamp(data.notifiedPassengerArrivalTimestampActual as Timestamp | undefined),
+      passengerAcknowledgedArrivalTimestamp: serializeTimestamp(data.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
+      rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
+      completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
+      driverCurrentLocation: data.driverCurrentLocation, // This is ephemeral state, not usually on booking doc
+      driverEtaMinutes: data.driverEtaMinutes, // This is ephemeral state
       driverVehicleDetails: data.driverVehicleDetails || `${data.vehicleType || 'Vehicle'} - Reg N/A`,
       waitAndReturn: data.waitAndReturn,
-      estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes
+      estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
+      requiredOperatorId: data.requiredOperatorId,
+      dispatchMethod: data.dispatchMethod,
     };
 
     return NextResponse.json(activeRide, { status: 200 });
 
   } catch (error) {
-    console.error(`Error in /api/driver/active-ride for driverId ${driverId}:`, error); 
+    console.error(`Error in /api/driver/active-ride for driverId ${driverId}:`, error);
 
     let errorMessage = 'An unknown error occurred while fetching the active ride.';
     let errorDetails = error instanceof Error ? error.message : String(error);
@@ -143,7 +145,7 @@ export async function GET(request: NextRequest) {
 
     if (error instanceof Error) {
       errorMessage = error.message;
-      const firebaseError = error as any; // Type assertion for Firebase specific error codes
+      const firebaseError = error as any;
       if (firebaseError.code === 'failed-precondition') {
         errorMessage = `Query requires a Firestore index. Please check Firestore console. Details: ${error.message}`;
       } else if (firebaseError.code) {

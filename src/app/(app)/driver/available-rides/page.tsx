@@ -71,14 +71,10 @@ interface ActiveRide {
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: Array<LocationPoint>;
-  estimatedTime?: string;
-  fareEstimate: number;
-  priorityFeeAmount?: number;
+  fareEstimate: number; // This is the base fare
   isPriorityPickup?: boolean;
+  priorityFeeAmount?: number;
   status: string; 
-  pickupCoords?: { lat: number; lng: number };
-  dropoffCoords?: { lat: number; lng: number };
-  distanceMiles?: number;
   passengerCount: number;
   passengerRating?: number;
   driverRatingForPassenger?: number | null;
@@ -92,11 +88,11 @@ interface ActiveRide {
   driverId?: string;
   bookingTimestamp?: SerializedTimestamp | null;
   scheduledPickupAt?: string | null;
-  vehicleType?: string;
+  vehicleType?: string; // Requested vehicle type
   isSurgeApplied?: boolean;
   driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
-  driverVehicleDetails?: string;
+  driverVehicleDetails?: string; // Driver's actual vehicle details
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
@@ -798,6 +794,8 @@ export default function AvailableRidesPage() {
         dropoffLocation: serverBooking.dropoffLocation,
         stops: serverBooking.stops,
         fareEstimate: serverBooking.fareEstimate,
+        isPriorityPickup: serverBooking.isPriorityPickup,
+        priorityFeeAmount: serverBooking.priorityFeeAmount,
         passengerCount: serverBooking.passengers, 
         status: serverBooking.status, 
         driverId: serverBooking.driverId,
@@ -805,8 +803,6 @@ export default function AvailableRidesPage() {
         notes: serverBooking.driverNotes || serverBooking.notes,
         paymentMethod: serverBooking.paymentMethod,
         requiredOperatorId: serverBooking.requiredOperatorId,
-        isPriorityPickup: serverBooking.isPriorityPickup,
-        priorityFeeAmount: serverBooking.priorityFeeAmount,
         vehicleType: serverBooking.vehicleType,
         dispatchMethod: serverBooking.dispatchMethod,
         bookingTimestamp: serverBooking.bookingTimestamp, 
@@ -814,6 +810,7 @@ export default function AvailableRidesPage() {
         notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp, 
         passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp, 
         rideStartedAt: serverBooking.rideStartedAt, 
+        completedAt: serverBooking.completedAt,
         driverCurrentLocation: serverBooking.driverCurrentLocation,
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
@@ -907,10 +904,15 @@ export default function AvailableRidesPage() {
         case 'complete_ride':
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
-            const finalFare = baseFare + priorityFee + currentWaitingCharge;
+            
+            let wrCharge = 0;
+            if(activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
+                wrCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
+            }
+            const finalFare = baseFare + priorityFee + currentWaitingCharge + wrCharge; // Added wrCharge
 
             toastTitle = "Ride Completed";
-            toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority & waiting): £${finalFare.toFixed(2)}.`;
+            toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, waiting, W&R): £${finalFare.toFixed(2)}.`;
 
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             payload.finalFare = finalFare;
@@ -975,7 +977,7 @@ export default function AvailableRidesPage() {
           notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
           passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
           rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
-          completedAt: serverData.completedAt || prev.completedAt,
+          completedAt: serverData.completedAt || prev.completedAt, // Ensure completedAt is updated
           fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
           waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
           estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
@@ -991,6 +993,8 @@ export default function AvailableRidesPage() {
           vehicleType: serverData.vehicleType || prev.vehicleType,
           paymentMethod: serverData.paymentMethod || prev.paymentMethod,
           notes: serverData.notes || prev.notes,
+          requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
+          dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
         };
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
@@ -1246,21 +1250,23 @@ export default function AvailableRidesPage() {
 
     const baseFare = activeRide.fareEstimate || 0;
     const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
-    let totalCalculatedFare = baseFare + priorityFee + currentWaitingCharge;
+    
+    let wrCharge = 0;
+    if(activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes && activeRide.status === 'in_progress_wait_and_return') {
+      wrCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
+    }
+    const totalCalculatedFare = baseFare + priorityFee + currentWaitingCharge + wrCharge;
+
 
     let displayedFare = `£${totalCalculatedFare.toFixed(2)}`;
-    if (activeRide.isPriorityPickup && activeRide.priorityFeeAmount) {
-        displayedFare = `£${totalCalculatedFare.toFixed(2)} (Base: £${baseFare.toFixed(2)} + Prio: £${priorityFee.toFixed(2)} + Wait: £${currentWaitingCharge.toFixed(2)})`;
-    } else if (currentWaitingCharge > 0) {
-        displayedFare = `£${totalCalculatedFare.toFixed(2)} (incl. £${currentWaitingCharge.toFixed(2)} wait)`;
-    }
-
-
-    if (activeRide.waitAndReturn && activeRide.status === 'in_progress_wait_and_return' && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined) {
-        const waitingChargeForDisplay = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
-        const wrBaseWithPriority = (baseFare + priorityFee) * 1.70; 
-        totalCalculatedFare = wrBaseWithPriority + waitingChargeForDisplay;
-        displayedFare = `£${totalCalculatedFare.toFixed(2)} (W&R: Base £${baseFare.toFixed(2)} + Prio £${priorityFee.toFixed(2)} + Wait £${waitingChargeForDisplay.toFixed(2)})`;
+    let fareBreakdown = `(Base: £${baseFare.toFixed(2)}`;
+    if (priorityFee > 0) fareBreakdown += ` + Prio: £${priorityFee.toFixed(2)}`;
+    if (currentWaitingCharge > 0) fareBreakdown += ` + Wait: £${currentWaitingCharge.toFixed(2)}`;
+    if (wrCharge > 0) fareBreakdown += ` + W&R Wait: £${wrCharge.toFixed(2)}`;
+    fareBreakdown += ")";
+    
+    if (priorityFee > 0 || currentWaitingCharge > 0 || wrCharge > 0) {
+        displayedFare += ` ${fareBreakdown}`;
     }
 
 
@@ -1371,16 +1377,19 @@ export default function AvailableRidesPage() {
                 </div>
                )}
             </div>
+            {(activeRide.isPriorityPickup || activeRide.requiredOperatorId || activeRide.dispatchMethod) && (<Separator className="my-1.5" />)}
             {activeRide.isPriorityPickup && (
-                <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 my-1">
-                    <Crown className="h-5 w-5" />
-                    <ShadAlertTitle className="font-semibold">Priority Booking!</ShadAlertTitle>
+                <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-2 text-xs">
+                    <Crown className="h-4 w-4" />
+                    <ShadAlertTitle className="font-medium">Priority Booking</ShadAlertTitle>
                     <ShadAlertDescription>
-                        Passenger offered an extra <strong>£{(activeRide.priorityFeeAmount || 0).toFixed(2)}</strong> for priority.
+                        Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.
                     </ShadAlertDescription>
                 </Alert>
             )}
-            {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-600 rounded-md text-center mt-1"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
+            {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-600 rounded-md text-center"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
+            {activeRide.dispatchMethod && ( <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-md text-center"> <p className="text-xs font-medium text-sky-600 dark:text-sky-300 flex items-center justify-center gap-1"> <CarIcon className="w-3 h-3"/> Dispatched Via: {activeRide.dispatchMethod.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} </p> </div> )}
+
 
             {showArrivedAtPickupStatus && (
               <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 my-1">
@@ -1431,7 +1440,6 @@ export default function AvailableRidesPage() {
                     </p>
                     <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
                     {activeRide.paymentMethod && ( <p className="flex items-center gap-1 col-span-2 mt-1"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card' : 'Cash'} </p> )}
-                    {activeRide.distanceMiles && ( <p className="flex items-center gap-1 col-span-2 mt-1"> <Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi </p> )}
                  </div>
             </div>
             {activeRide.notes && !['in_progress', 'In Progress', 'completed', 'cancelled_by_driver', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase()) && ( <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1"> <p className="text-xs md:text-sm text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p> </div> )}
@@ -1462,7 +1470,6 @@ export default function AvailableRidesPage() {
               )}
             {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
-                <p style={{color: 'lime', fontSize: '18px', fontWeight: 'bold'}}>DEBUG: RATING SECTION SHOULD BE VISIBLE HERE</p>
                 <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName || "Passenger"}:</p>
                 <div className="flex justify-center space-x-1 mb-2">
                   {[...Array(5)].map((_, i) => (
