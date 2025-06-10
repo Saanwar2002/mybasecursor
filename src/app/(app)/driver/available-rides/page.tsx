@@ -90,7 +90,7 @@ interface ActiveRide {
   scheduledPickupAt?: string | null;
   vehicleType?: string; // Requested vehicle type
   isSurgeApplied?: boolean;
-  driverCurrentLocation?: { lat: number; lng: number };
+  driverCurrentLocation?: { lat: number; lng: number }; // This is from the booking doc, if stored
   driverEtaMinutes?: number;
   driverVehicleDetails?: string; // Driver's actual vehicle details
   waitAndReturn?: boolean;
@@ -742,6 +742,7 @@ export default function AvailableRidesPage() {
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
+        driverCurrentLocation: driverLocation, // Add current driver location on acceptance
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
@@ -889,6 +890,12 @@ export default function AvailableRidesPage() {
     let toastMessage = ""; let toastTitle = "";
     let payload: any = { action: actionType };
 
+    // Include current driver location for actions that imply movement or arrival
+    if (['notify_arrival', 'start_ride'].includes(actionType) && driverLocation) {
+      payload.driverCurrentLocation = driverLocation;
+    }
+
+
     switch(actionType) {
         case 'notify_arrival':
             toastTitle = "Passenger Notified"; toastMessage = `Passenger ${activeRide.passengerName} has been notified of your arrival.`;
@@ -995,6 +1002,7 @@ export default function AvailableRidesPage() {
           notes: serverData.notes || prev.notes,
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
+          driverCurrentLocation: serverData.driverCurrentLocation || prev.driverCurrentLocation, // Update from server
         };
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
@@ -1040,7 +1048,11 @@ export default function AvailableRidesPage() {
     let baseMarkers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     
     if (activeRide) {
-        const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation ? driverLocation : activeRide.driverCurrentLocation;
+        // Use driver's live GPS location if online, otherwise use location from booking (if available)
+        const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation 
+            ? driverLocation 
+            : activeRide.driverCurrentLocation; // This is the one from the booking doc
+
         if (currentLocToDisplay) { 
             baseMarkers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
         }
@@ -1828,3 +1840,4 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
+

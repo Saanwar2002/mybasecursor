@@ -69,6 +69,7 @@ const bookingUpdateSchema = z.object({
   dispatchMethod: z.string().optional(), 
   waitAndReturn: z.boolean().optional(),
   estimatedAdditionalWaitTimeMinutes: z.number().min(0).optional().nullable(),
+  driverCurrentLocation: z.object({ lat: z.number(), lng: z.number() }).optional(), // Added driverCurrentLocation
 });
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest, context: PostContext) {
         status: updateDataFromPayload.status || 'driver_assigned', // Default to driver_assigned if not specified
         vehicleType: updateDataFromPayload.vehicleType,
         driverVehicleDetails: updateDataFromPayload.driverVehicleDetails,
+        driverCurrentLocation: updateDataFromPayload.driverCurrentLocation, // Save driver's current location on accept
         
         bookingTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -245,6 +247,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedData.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
           rideStartedAt: serializeTimestamp(updatedData.rideStartedAtActual as Timestamp | undefined),
           completedAt: serializeTimestamp(updatedData.completedAtActual as Timestamp | undefined),
+          driverCurrentLocation: updatedData.driverCurrentLocation, // Pass it back
       };
 
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Update successful. Returning:`, JSON.stringify(responseData, null, 2));
@@ -312,6 +315,7 @@ export async function GET(request: NextRequest, context: GetContext) {
         passengerAcknowledgedArrivalTimestamp: serializeTimestamp(data.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
         rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
         completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
+        driverCurrentLocation: data.driverCurrentLocation, // Pass it back
     };
     return NextResponse.json({ booking: responseData }, { status: 200 });
   } catch (error: any) {
@@ -321,3 +325,4 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: "Server Error During GET", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
+
