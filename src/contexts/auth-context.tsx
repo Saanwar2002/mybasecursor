@@ -25,6 +25,7 @@ export interface User {
   status?: 'Active' | 'Pending Approval' | 'Suspended';
   phoneVerificationDeadline?: string | null; 
   acceptsPetFriendlyJobs?: boolean; 
+  acceptsPlatformJobs?: boolean; // New field
 
   // Driver-specific vehicle & compliance details
   vehicleMakeModel?: string;
@@ -96,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
               : null,
             acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
+            acceptsPlatformJobs: firestoreUser.acceptsPlatformJobs || false, // Initialize new field
             // Driver-specific details
             vehicleMakeModel: firestoreUser.vehicleMakeModel,
             vehicleRegistration: firestoreUser.vehicleRegistration,
@@ -241,6 +243,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           vehicleCategory: 'car',
           customId: 'DR-GUEST', 
           acceptsPetFriendlyJobs: Math.random() < 0.5,
+          acceptsPlatformJobs: Math.random() < 0.7, // Assign randomly for guest
           vehicleMakeModel: 'Toyota Prius (Guest)',
           vehicleRegistration: 'GUEST123',
           vehicleColor: 'Silver',

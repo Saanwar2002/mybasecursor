@@ -5,17 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound } from "lucide-react"; // Added KeyRound
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers } from "lucide-react"; // Added Layers
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, UserRole, User } from "@/contexts/auth-context"; // Added User import
-import { zodResolver } from "@hookform/resolvers/zod"; // Added for PIN
-import { useForm } from "react-hook-form"; // Added for PIN
-import * as z from "zod"; // Added for PIN
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Added for PIN
-import { Input } from "@/components/ui/input"; // Added for PIN
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert
-import { cn } from "@/lib/utils"; // Added cn
+import { useAuth, UserRole, User } from "@/contexts/auth-context"; 
+import { zodResolver } from "@hookform/resolvers/zod"; 
+import { useForm } from "react-hook-form"; 
+import * as z from "zod"; 
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; 
+import { Input } from "@/components/ui/input"; 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
+import { cn } from "@/lib/utils"; 
 
 interface BlockedUserDisplay {
   blockId: string;
@@ -54,6 +54,7 @@ export default function SettingsPage() {
   });
   const [language, setLanguage] = useState("en");
   const [driverAcceptsPets, setDriverAcceptsPets] = useState(false); 
+  const [driverAcceptsPlatformJobs, setDriverAcceptsPlatformJobs] = useState(false); // New state
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
@@ -86,6 +87,7 @@ export default function SettingsPage() {
     if (user) {
       if (user.role === 'driver') {
         setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
+        setDriverAcceptsPlatformJobs(user.acceptsPlatformJobs || false); // Initialize new state
       }
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
@@ -171,10 +173,23 @@ export default function SettingsPage() {
 
   const handleSaveChanges = () => {
     let changesMadeDescription = "";
-    if (user && user.role === 'driver' && user.acceptsPetFriendlyJobs !== driverAcceptsPets) {
-      updateUserProfileInContext({ acceptsPetFriendlyJobs: driverAcceptsPets });
-      changesMadeDescription += "Pet preference updated. ";
+    const updates: Partial<User> = {};
+
+    if (user && user.role === 'driver') {
+      if (user.acceptsPetFriendlyJobs !== driverAcceptsPets) {
+        updates.acceptsPetFriendlyJobs = driverAcceptsPets;
+        changesMadeDescription += "Pet preference updated. ";
+      }
+      if (user.acceptsPlatformJobs !== driverAcceptsPlatformJobs) { // Check new preference
+        updates.acceptsPlatformJobs = driverAcceptsPlatformJobs;
+        changesMadeDescription += "Platform jobs preference updated. ";
+      }
     }
+    
+    if (Object.keys(updates).length > 0) {
+      updateUserProfileInContext(updates);
+    }
+
     if (changesMadeDescription.trim() === "") {
       changesMadeDescription = "No preference changes to save.";
     }
@@ -199,7 +214,7 @@ export default function SettingsPage() {
       {user?.role === 'driver' && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2"><Dog className="w-5 h-5 text-muted-foreground" /> Driver Preferences</CardTitle>
+            <CardTitle className="text-xl flex items-center gap-2"><CarIcon className="w-5 h-5 text-muted-foreground" /> Driver Preferences</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -215,6 +230,23 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">
               Enable this if you are willing to take passengers with pets.
             </p>
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="space-y-0.5">
+                <Label htmlFor="platform-jobs-switch" className="text-base">
+                  Accept Jobs from MyBase Platform Pool?
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  ON: Get jobs from your operator AND the general MyBase platform (e.g., OP001).
+                  <br/>
+                  OFF: Only jobs from your affiliated operator.
+                </p>
+              </div>
+              <Switch
+                id="platform-jobs-switch"
+                checked={driverAcceptsPlatformJobs}
+                onCheckedChange={setDriverAcceptsPlatformJobs}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
