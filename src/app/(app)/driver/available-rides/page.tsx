@@ -26,15 +26,15 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle, // Renaming to avoid conflict if DialogTitle is also used directly
+  AlertDialogTitle as ShadAlertDialogTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle, // Explicitly import DialogTitle
-  DialogDescription, // Explicitly import DialogDescription
+  DialogTitle, 
+  DialogDescription, 
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -126,6 +126,8 @@ const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 const STATIONARY_REMINDER_TIMEOUT_MS = 60000; 
 const MOVEMENT_THRESHOLD_METERS = 50; 
+const HAZARD_ALERT_DISTANCE_METERS = 500;
+const HAZARD_ALERT_RESET_DISTANCE_METERS = 750;
 
 
 const parseTimestampToDate = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
@@ -226,6 +228,9 @@ export default function AvailableRidesPage() {
   const [isLoadingHazards, setIsLoadingHazards] = useState(false);
   const hazardRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [approachingHazardInfo, setApproachingHazardInfo] = useState<{ id: string, hazardType: string, reportedAt: string } | null>(null);
+  const alertedForThisApproachRef = useRef<Set<string>>(new Set());
+
 
   const fetchActiveHazards = useCallback(async () => {
     if (!isDriverOnline) return;
@@ -240,8 +245,6 @@ export default function AvailableRidesPage() {
       setActiveMapHazards(data.hazards || []);
     } catch (err: any) {
       console.warn("Error fetching active map hazards:", err);
-      // Optionally, show a non-intrusive toast for hazard loading errors
-      // toast({ title: "Could not load map hazards", description: err.message, variant: "default", duration: 3000 });
     } finally {
       setIsLoadingHazards(false);
     }
@@ -249,14 +252,14 @@ export default function AvailableRidesPage() {
 
   useEffect(() => {
     if (isDriverOnline) {
-      fetchActiveHazards(); // Fetch on initial load/online status change
-      hazardRefreshIntervalIdRef.current = setInterval(fetchActiveHazards, 60000); // Poll every 60 seconds
+      fetchActiveHazards();
+      hazardRefreshIntervalIdRef.current = setInterval(fetchActiveHazards, 60000); 
     } else {
       if (hazardRefreshIntervalIdRef.current) {
         clearInterval(hazardRefreshIntervalIdRef.current);
         hazardRefreshIntervalIdRef.current = null;
       }
-      setActiveMapHazards([]); // Clear hazards when offline
+      setActiveMapHazards([]); 
     }
     return () => {
       if (hazardRefreshIntervalIdRef.current) {
@@ -298,6 +301,46 @@ export default function AvailableRidesPage() {
       setCustomMapLabel(null);
     }
   }, [activeRide]);
+
+  useEffect(() => {
+    if (!driverLocation || !activeMapHazards.length || !isDriverOnline || approachingHazardInfo) {
+      return;
+    }
+
+    let foundApproachingHazard = false;
+    for (const hazard of activeMapHazards) {
+      const distance = getDistanceBetweenPointsInMeters(driverLocation, hazard.location);
+
+      if (distance < HAZARD_ALERT_DISTANCE_METERS && !alertedForThisApproachRef.current.has(hazard.id)) {
+        setApproachingHazardInfo({ id: hazard.id, hazardType: hazard.hazardType, reportedAt: hazard.reportedAt });
+        alertedForThisApproachRef.current.add(hazard.id);
+        foundApproachingHazard = true;
+        break; 
+      }
+    }
+    
+    // Clean up alertedForThisApproachRef for hazards that are now far away
+    const newAlertedSet = new Set<string>();
+    alertedForThisApproachRef.current.forEach(alertedId => {
+        const hazard = activeMapHazards.find(h => h.id === alertedId);
+        if (hazard) {
+            const distance = getDistanceBetweenPointsInMeters(driverLocation, hazard.location);
+            if (distance < HAZARD_ALERT_RESET_DISTANCE_METERS) { // Keep if still relatively close
+                newAlertedSet.add(alertedId);
+            }
+        }
+    });
+    alertedForThisApproachRef.current = newAlertedSet;
+
+  }, [driverLocation, activeMapHazards, isDriverOnline, approachingHazardInfo]);
+
+  const handleHazardAlertResponse = (hazardId: string, isStillThere: boolean) => {
+    console.log(`Hazard ${hazardId} response: ${isStillThere ? 'Yes, still there' : 'No, it\'s gone'}`);
+    // TODO: In next step, send this feedback to the backend.
+    setApproachingHazardInfo(null); 
+    // No need to modify alertedForThisApproachRef.current here, 
+    // the proximity check will handle re-alerting if driver moves away and comes back.
+  };
 
 
   const playBeep = useCallback(() => {
@@ -853,7 +896,6 @@ export default function AvailableRidesPage() {
           estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
           isPriorityPickup: serverData.isPriorityPickup ?? prev.isPriorityPickup,
           priorityFeeAmount: serverData.priorityFeeAmount ?? prev.priorityFeeAmount,
-          // Add other fields from ActiveRide if they are returned and need updating
           passengerId: serverData.passengerId || prev.passengerId,
           passengerName: serverData.passengerName || prev.passengerName,
           passengerAvatar: serverData.passengerAvatar || prev.passengerAvatar,
@@ -924,8 +966,6 @@ export default function AvailableRidesPage() {
       position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
       title: formatHazardType(hazard.hazardType),
       label: { text: getHazardMarkerLabel(hazard.hazardType), color: 'black', fontWeight: 'bold', fontSize: '11px' }, 
-      // Consider adding a distinct default icon for hazards or color-coding labels later
-      // For now, label differentiates. Google default marker is red.
     }));
 
     return [...baseMarkers, ...hazardMarkers];
@@ -1086,7 +1126,7 @@ export default function AvailableRidesPage() {
         throw new Error(errorData.message);
       }
       toast({ title: "Hazard Reported!", description: `${formatHazardType(hazardType)} reported successfully.`, duration: 5000 });
-      fetchActiveHazards(); // Refresh hazards on map
+      fetchActiveHazards(); 
     } catch (error: any) {
       const message = error instanceof Error ? error.message : "Unknown error reporting hazard.";
       toast({ title: "Report Failed", description: message, variant: "destructive" });
@@ -1113,9 +1153,9 @@ export default function AvailableRidesPage() {
     console.log("Rendering ActiveRide UI. Current activeRide.status:", activeRide.status, "activeRide.id:", activeRide.id);
     const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
     const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
-    const showInProgressStatus = activeRide.status.toLowerCase() === 'in_progress'; // Exact match 'in_progress'
+    const showInProgressStatus = activeRide.status.toLowerCase() === 'in_progress'; 
     const showPendingWRApprovalStatus = activeRide.status === 'pending_driver_wait_and_return_approval';
-    const showInProgressWRStatus = activeRide.status === 'in_progress_wait_and_return'; // Specific WR status
+    const showInProgressWRStatus = activeRide.status === 'in_progress_wait_and_return'; 
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
 
@@ -1674,5 +1714,21 @@ export default function AvailableRidesPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+     <AlertDialog open={!!approachingHazardInfo} onOpenChange={(open) => { if (!open) setApproachingHazardInfo(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <ShadAlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="w-6 h-6 text-yellow-500" /> Approaching Hazard</ShadAlertDialogTitle>
+            <AlertDialogDescription>
+              A <strong className="font-semibold">{approachingHazardInfo?.hazardType ? formatHazardType(approachingHazardInfo.hazardType) : 'hazard'}</strong> was reported nearby.
+              <br />
+              Is it still present?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => handleHazardAlertResponse(approachingHazardInfo!.id, false)}>No, It's Gone</Button>
+            <Button className="bg-primary hover:bg-primary/90" onClick={() => handleHazardAlertResponse(approachingHazardInfo!.id, true)}>Yes, Still There</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
   </div> );
 }
