@@ -86,8 +86,6 @@ export default function SettingsPage() {
     if (user) {
       if (user.role === 'driver') {
         setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
-        // For OP001 drivers, acceptsPlatformJobs is effectively always true.
-        // For others, it's their stored preference.
         setDriverAcceptsPlatformJobs(user.operatorCode === PLATFORM_OPERATOR_CODE ? true : (user.acceptsPlatformJobs || false));
       }
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
@@ -181,8 +179,6 @@ export default function SettingsPage() {
         updates.acceptsPetFriendlyJobs = driverAcceptsPets;
         changesMadeDescription += "Pet preference updated. ";
       }
-      // Only update acceptsPlatformJobs if the driver is NOT an OP001 driver,
-      // as their preference is effectively always true and the toggle is hidden.
       if (user.operatorCode !== PLATFORM_OPERATOR_CODE && user.acceptsPlatformJobs !== driverAcceptsPlatformJobs) { 
         updates.acceptsPlatformJobs = driverAcceptsPlatformJobs;
         changesMadeDescription += "Platform jobs preference updated. ";
@@ -202,6 +198,8 @@ export default function SettingsPage() {
   if (!user) {
     return ( <div className="flex justify-center items-center h-screen"> <Loader2 className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg text-muted-foreground">Loading settings...</p> </div> );
   }
+
+  const isPlatformDriver = user.role === 'driver' && user.operatorCode === PLATFORM_OPERATOR_CODE;
 
   return (
     <div className="space-y-6">
@@ -234,30 +232,30 @@ export default function SettingsPage() {
               Enable this if you are willing to take passengers with pets.
             </p>
 
-            {user.operatorCode !== PLATFORM_OPERATOR_CODE ? (
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="space-y-0.5">
-                  <Label htmlFor="platform-jobs-switch" className="text-base">
-                    Accept Jobs from MyBase Platform Pool?
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    ON: Get jobs from your operator AND the general MyBase platform (e.g., OP001).
-                    <br/>
-                    OFF: Only jobs from your affiliated operator.
-                  </p>
-                </div>
-                <Switch
-                  id="platform-jobs-switch"
-                  checked={driverAcceptsPlatformJobs}
-                  onCheckedChange={setDriverAcceptsPlatformJobs}
-                />
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="space-y-0.5">
+                <Label htmlFor="platform-jobs-switch" className="text-base">
+                  Accept Jobs from MyBase Platform Pool?
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  ON: Get jobs from your operator AND the general MyBase platform.
+                  <br/>
+                  OFF: Only jobs from your affiliated operator.
+                </p>
               </div>
-            ) : (
-              <Alert variant="default" className="mt-4 bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700">
+              <Switch
+                id="platform-jobs-switch"
+                checked={driverAcceptsPlatformJobs}
+                onCheckedChange={isPlatformDriver ? undefined : setDriverAcceptsPlatformJobs}
+                disabled={isPlatformDriver}
+              />
+            </div>
+            {isPlatformDriver && (
+              <Alert variant="default" className="mt-2 bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700">
                   <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   <AlertTitle className="font-semibold text-blue-700 dark:text-blue-300">Platform Driver Note</AlertTitle>
                   <AlertDescription className="text-sm text-blue-600 dark:text-blue-400">
-                      As a MyBase direct driver ({PLATFORM_OPERATOR_CODE}), you automatically receive all jobs from the platform pool.
+                      As a MyBase direct driver ({PLATFORM_OPERATOR_CODE}), you automatically receive all jobs from the platform pool. This setting is fixed for you.
                   </AlertDescription>
               </Alert>
             )}
@@ -452,5 +450,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
