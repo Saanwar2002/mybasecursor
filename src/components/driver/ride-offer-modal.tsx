@@ -28,11 +28,11 @@ export interface RideOffer {
   passengerCount: number;
   passengerId: string;
   passengerName?: string;
-  passengerPhone?: string; // Added passengerPhone
+  passengerPhone?: string; 
   notes?: string;
   requiredOperatorId?: string;
   distanceMiles?: number;
-  paymentMethod?: 'card' | 'cash';
+  paymentMethod?: 'card' | 'cash' | 'account'; // Added "account"
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
   dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override';
@@ -169,6 +169,28 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   };
   const dispatchInfo = getDispatchMethodText();
 
+  const getPaymentMethodDisplay = () => {
+    if (!rideDetails.paymentMethod) return "N/A";
+    switch (rideDetails.paymentMethod) {
+      case "card": return "Card";
+      case "cash": return "Cash";
+      case "account": return "Account Job (No Collection)";
+      default: return "N/A";
+    }
+  };
+
+  const getPaymentMethodIcon = () => {
+    if (!rideDetails.paymentMethod) return Info;
+    switch (rideDetails.paymentMethod) {
+      case "card": return CreditCard;
+      case "cash": return Coins;
+      case "account": return Briefcase; // Using Briefcase for Account
+      default: return Info;
+    }
+  };
+  const PaymentIcon = getPaymentMethodIcon();
+
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
@@ -247,11 +269,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
                  {rideDetails.paymentMethod && (
                     <div className="flex items-center gap-1.5">
-                      {rideDetails.paymentMethod === 'card' ?
-                        <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" /> :
-                        <Coins className="w-4 h-4 text-muted-foreground shrink-0" />
-                      }
-                      <strong>Payment:</strong> {rideDetails.paymentMethod === 'card' ? 'Card' : 'Cash'}
+                      <PaymentIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <strong>Payment:</strong> {getPaymentMethodDisplay()}
                     </div>
                   )}
                 {rideDetails.distanceMiles && (

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, Briefcase } from 'lucide-react'; // Added Briefcase
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -107,7 +107,7 @@ const bookingFormSchema = z.object({
   isPriorityPickup: z.boolean().optional().default(false),
   priorityFeeAmount: z.number().min(0, "Priority fee cannot be negative.").optional(),
   promoCode: z.string().optional(),
-  paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
+  paymentMethod: z.enum(["card", "cash", "account"], { required_error: "Please select a payment method." }), // Added "account"
 }).superRefine((data, ctx) => {
   if (data.bookingType === "scheduled") {
     if (!data.desiredPickupDate) {
@@ -340,13 +340,18 @@ export default function BookRidePage() {
 
  useEffect(() => {
     setIsCheckingAvailability(true);
-    setIsNoDriversAvailableMock(false); 
+    setIsNoDriversAvailableMock(false);
     let message = "Checking availability...";
     setAvailabilityStatusMessage(message);
-    
-    const mockOperators = ["OP001", "OP002 (City Cabs)", "OP003 (Speedy Cars)"];
+
+    const mockOperators = [
+        { id: "OP001", name: "MyBase Direct"},
+        { id: "OP002", name: "City Cabs"},
+        { id: "OP003", name: "Speedy Cars"},
+        { id: "OP004", name: "Alpha Taxis"}
+    ];
     const randomWaitTimes = ["2-4 mins", "4-7 mins", "6-10 mins", "8-12 mins", "10-15 mins"];
-    
+
     const timer = setTimeout(() => {
         const noDriversOverall = Math.random() < 0.2; // 20% chance no drivers AT ALL
 
@@ -355,22 +360,26 @@ export default function BookRidePage() {
             setIsNoDriversAvailableMock(true);
         } else {
             const randomWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
-            if (operatorPreference) { // Passenger has chosen a specific operator
-                const preferredOpAvailable = Math.random() < 0.7; // 70% chance preferred op has cars
+            if (operatorPreference) {
+                const preferredOpDetails = mockOperators.find(op => op.id === operatorPreference || op.name === operatorPreference);
+                const preferredOpDisplayName = preferredOpDetails ? preferredOpDetails.name : operatorPreference;
+                const preferredOpAvailable = Math.random() < 0.7;
+
                 if (preferredOpAvailable) {
-                    message = `${operatorPreference} driver available. Est. wait: ~${randomWait}. (Mock)`;
+                    message = `${preferredOpDisplayName} driver available. Est. wait: ~${randomWait}. (Mock)`;
                 } else {
-                    const fallbackOp = mockOperators.find(op => op.split(" ")[0] !== operatorPreference) || "Another operator";
+                    const fallbackOpCandidates = mockOperators.filter(op => (op.id !== operatorPreference && op.name !== operatorPreference));
+                    const fallbackOp = fallbackOpCandidates.length > 0 ? fallbackOpCandidates[Math.floor(Math.random() * fallbackOpCandidates.length)] : {name: "Another operator"};
                     const fallbackWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
-                    message = `${operatorPreference} is busy. ${fallbackOp.split(" ")[0]} driver available in ~${fallbackWait}. (Mock)`;
+                    message = `${preferredOpDisplayName} is busy. ${fallbackOp.name} driver available in ~${fallbackWait}. (Mock)`;
                 }
             } else { // Passenger lets app decide
-                const specificOpFound = Math.random() < 0.6; // 60% chance a specific operator is best match
+                const specificOpFound = Math.random() < 0.6;
                 if (specificOpFound) {
                     const bestOp = mockOperators[Math.floor(Math.random() * mockOperators.length)];
-                    message = `${bestOp.split(" ")[0]} driver available. Est. wait: ~${randomWait}. (Mock)`;
+                    message = `${bestOp.name} driver available. Est. wait: ~${randomWait}. (Mock)`;
                 } else {
-                    message = `MyBase driver available. Est. wait: ~${randomWait}. (Mock)`;
+                     message = `MyBase driver available. Est. wait: ~${randomWait}. (Mock)`;
                 }
             }
         }
@@ -379,7 +388,7 @@ export default function BookRidePage() {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [operatorPreference]); // Re-run if operatorPreference changes
+  }, [operatorPreference, pickupCoords]); // Re-run if operatorPreference or pickupCoords changes
 
 
   useEffect(() => {
@@ -1046,11 +1055,11 @@ export default function BookRidePage() {
       } else {
           toastDescription += `Your driver will be assigned shortly for the scheduled time. `;
       }
-      if (values.paymentMethod === 'cash') {
-          toastDescription += `Payment: Cash to driver.`;
-      } else {
-          toastDescription += `Payment: Card (Pay driver directly).`;
-      }
+
+      if (values.paymentMethod === 'cash') toastDescription += `Payment: Cash to driver.`;
+      else if (values.paymentMethod === 'card') toastDescription += `Payment: Card (Pay driver directly).`;
+      else if (values.paymentMethod === 'account') toastDescription += `Payment: Via Account (Operator will bill).`;
+      
       if (values.waitAndReturn) {
         toastDescription += ` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.`;
       }
@@ -2149,6 +2158,12 @@ const handleProceedToConfirmation = async () => {
                                     <Coins className="w-4 h-4 text-green-500" /> Cash
                                     </FormLabel>
                                 </FormItem>
+                                <FormItem className="flex items-center space-x-2">
+                                    <FormControl><RadioGroupItem value="account" id="account" /></FormControl>
+                                    <FormLabel htmlFor="account" className="font-normal flex items-center gap-1">
+                                    <Briefcase className="w-4 h-4 text-purple-500" /> Account (If eligible)
+                                    </FormLabel>
+                                </FormItem>
                                 </RadioGroup>
                             </FormControl>
                         <FormMessage />
@@ -2255,6 +2270,19 @@ const handleProceedToConfirmation = async () => {
                                           <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
                                           Pay with Cash
                                           <span className="text-xs text-muted-foreground mt-1">(pay cash to driver)</span>
+                                        </Label>
+                                      </FormItem>
+                                       <FormItem className="flex-1 sm:col-span-2">
+                                        <FormControl>
+                                          <RadioGroupItem value="account" id="dialog-account" className="sr-only peer" />
+                                        </FormControl>
+                                        <Label
+                                          htmlFor="dialog-account"
+                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                        >
+                                          <Briefcase className="mb-3 h-8 w-8 text-purple-600 peer-data-[state=checked]:text-purple-600" />
+                                          Pay via Account
+                                          <span className="text-xs text-muted-foreground mt-1">(If eligible, operator will bill)</span>
                                         </Label>
                                       </FormItem>
                                     </RadioGroup>
@@ -2385,5 +2413,3 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
-
-

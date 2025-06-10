@@ -40,11 +40,11 @@ const offerDetailsSchema = z.object({
   passengerCount: z.number(),
   passengerId: z.string(), 
   passengerName: z.string().optional(),
-  passengerPhone: z.string().optional(), // Added passengerPhone
+  passengerPhone: z.string().optional(), 
   notes: z.string().optional(),
   requiredOperatorId: z.string().optional(),
   distanceMiles: z.number().optional(),
-  paymentMethod: z.enum(['card', 'cash']).optional(),
+  paymentMethod: z.enum(['card', 'cash', 'account']).optional(), // Added "account"
   isPriorityPickup: z.boolean().optional(),
   priorityFeeAmount: z.number().optional(),
   dispatchMethod: z.enum(['auto_system', 'manual_operator', 'priority_override']).optional(),
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest, context: PostContext) {
       const newBookingData: any = {
         passengerId: offer.passengerId,
         passengerName: offer.passengerName || 'Passenger',
-        passengerPhone: offer.passengerPhone || null, // Save passengerPhone
+        passengerPhone: offer.passengerPhone || null, 
         pickupLocation: { address: offer.pickupLocation, latitude: offer.pickupCoords.lat, longitude: offer.pickupCoords.lng },
         dropoffLocation: { address: offer.dropoffLocation, latitude: offer.dropoffCoords.lat, longitude: offer.dropoffCoords.lng },
         fareEstimate: offer.fareEstimate,
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest, context: PostContext) {
         
         driverId: updateDataFromPayload.driverId,
         driverName: updateDataFromPayload.driverName,
-        status: updateDataFromPayload.status || 'driver_assigned', // Default to driver_assigned if not specified
+        status: updateDataFromPayload.status || 'driver_assigned', 
         vehicleType: updateDataFromPayload.vehicleType,
         driverVehicleDetails: updateDataFromPayload.driverVehicleDetails,
         driverCurrentLocation: updateDataFromPayload.driverCurrentLocation,
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           if (existingBookingDbData?.status !== 'pending_assignment') {
             return NextResponse.json({ message: 'Only "Pending Assignment" rides can be cancelled by the operator this way.' }, { status: 400 });
           }
-          updatePayloadFirestore.status = 'cancelled'; // Or 'cancelled_by_operator'
+          updatePayloadFirestore.status = 'cancelled_by_operator'; // Differentiated cancellation
           updatePayloadFirestore.cancelledAt = Timestamp.now();
       } else if (updateDataFromPayload.status) { 
           updatePayloadFirestore.status = updateDataFromPayload.status;
@@ -330,5 +330,3 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: "Server Error During GET", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
-
-    

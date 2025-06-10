@@ -2,9 +2,9 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw } from "lucide-react"; // Added RefreshCw
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase } from "lucide-react"; // Added Briefcase
 import dynamic from 'next/dynamic';
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'; // Ensured React is imported
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'; 
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -67,14 +67,14 @@ interface ActiveRide {
   driver?: string;
   driverId?: string;
   driverAvatar?: string;
-  driverVehicleDetails?: string; // Added field
+  driverVehicleDetails?: string; 
   vehicleType: string;
   fareEstimate: number;
   status: string;
   rating?: number;
   passengerName: string;
   isSurgeApplied?: boolean;
-  paymentMethod?: "card" | "cash";
+  paymentMethod?: "card" | "cash" | "account"; // Added "account"
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
@@ -130,7 +130,7 @@ type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions
 const FREE_WAITING_TIME_SECONDS_PASSENGER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_PASSENGER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS = 30;
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10; // For Wait & Return
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10; 
 
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -576,7 +576,11 @@ export default function MyActiveRidePage() {
     fareDisplay = `£${(waitAndReturnBaseFare + additionalWaitCharge).toFixed(2)} (W&R)`;
   }
 
-  const paymentMethodDisplay = activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)'  : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' : 'Payment N/A';
+  const paymentMethodDisplay = 
+    activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)' 
+    : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
+    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
+    : 'Payment N/A';
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
@@ -646,7 +650,7 @@ export default function MyActiveRidePage() {
 
                 {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><span className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> <span>Chat</span></span></Link> </Button> </div> )}
                 <Separator />
-                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
+                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <span className="flex items-center justify-center"><CheckCheck className="mr-2 h-5 w-5" /> <span>Acknowledge Driver Arrival</span> </span></Button> )}
                  {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
                    <Button
@@ -803,18 +807,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-    
-    
-    
-
-    
-
-    
-
-
-
-    
-
-
-
-

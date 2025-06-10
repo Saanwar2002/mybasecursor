@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning } from 'lucide-react'; // Added HelpCircle, MessageSquareWarning, CalendarClock, UserX
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard } from 'lucide-react'; // Added CreditCard
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -39,6 +39,7 @@ export const navItems: NavItem[] = [
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
   { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
+  { href: '/operator/credit-accounts', label: 'Credit Accounts', icon: CreditCard, roles: ['operator'] }, // New Item
   { href: '/operator/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['operator'] },
 
 

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, Play } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, Play, Briefcase } from 'lucide-react'; // Added Briefcase
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -92,7 +92,7 @@ const scheduledRideFormSchema = z.object({
   isWaitAndReturnOutbound: z.boolean().default(false),
   estimatedWaitTimeMinutesOutbound: z.number().int().min(0).optional().nullable(),
   driverNotes: z.string().max(200, { message: "Notes cannot exceed 200 characters."}).optional().nullable(),
-  paymentMethod: z.enum(["card", "cash"], { required_error: "Please select a payment method." }),
+  paymentMethod: z.enum(["card", "cash", "account"], { required_error: "Please select a payment method." }), // Added "account"
   estimatedFareOneWay: z.number().optional().nullable(),
   estimatedFareReturn: z.number().optional().nullable(),
   isActive: z.boolean().optional(),
@@ -689,9 +689,10 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
             <FormItem><FormLabel className="flex items-center gap-1"><StickyNote className="w-4 h-4" /> Notes for Driver (Optional)</FormLabel><FormControl><Textarea placeholder="e.g., Specific entrance, contact on arrival." {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="paymentMethod" render={({ field }) => (
-            <FormItem className="space-y-2"><FormLabel className="text-base">Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-2">
+            <FormItem className="space-y-2"><FormLabel className="text-base">Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col sm:flex-row sm:space-y-0 gap-2 sm:gap-4">
                 <FormItem className="flex items-center space-x-1"><FormControl><RadioGroupItem value="card" /></FormControl><FormLabel className="font-normal flex items-center gap-1"><CreditCard className="w-4 h-4 text-blue-500" /> Card</FormLabel></FormItem>
                 <FormItem className="flex items-center space-x-1"><FormControl><RadioGroupItem value="cash" /></FormControl><FormLabel className="font-normal flex items-center gap-1"><Coins className="w-4 h-4 text-green-500" /> Cash</FormLabel></FormItem>
+                <FormItem className="flex items-center space-x-1"><FormControl><RadioGroupItem value="account" /></FormControl><FormLabel className="font-normal flex items-center gap-1"><Briefcase className="w-4 h-4 text-purple-500" /> Account</FormLabel></FormItem>
             </RadioGroup></FormControl><FormMessage /></FormItem>
         )} />
 
@@ -726,5 +727,3 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
     </Form>
   );
 }
-
-    

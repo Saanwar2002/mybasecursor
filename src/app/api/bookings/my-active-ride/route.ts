@@ -31,7 +31,7 @@ interface Ride {
   rating?: number;
   passengerName: string;
   isSurgeApplied?: boolean;
-  paymentMethod?: "card" | "cash";
+  paymentMethod?: "card" | "cash" | "account"; // Added "account"
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
