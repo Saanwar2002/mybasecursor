@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, KeyRound, AlertTriangle, Users, UserX, Car as CarIcon, Trash2, CreditCard, Dog } from "lucide-react";
+import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, KeyRound, AlertTriangle, Users, UserX, Car as CarIcon, Trash2, CreditCard } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,14 +30,6 @@ const pinSetupSchema = z.object({
   path: ["confirmNewPin"],
 });
 
-interface BlockedUserDisplay {
-  blockId: string;
-  blockedUserId: string;
-  blockedUserName: string;
-  blockedUserRole: UserRole;
-  createdAt: string;
-}
-
 export default function ProfilePage() {
   const { user, login, updateUserProfileInContext } = useAuth();
   const { toast } = useToast();
@@ -47,13 +39,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [currentPin, setCurrentPin] = useState<string | null>(null);
   const [isSettingPin, setIsSettingPin] = useState(false);
-
-  const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
-  const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
-  const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
-  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   
-
   const pinForm = useForm<z.infer<typeof pinSetupSchema>>({
     resolver: zodResolver(pinSetupSchema),
     defaultValues: { newPin: "", confirmNewPin: "" },
@@ -64,7 +50,6 @@ export default function ProfilePage() {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phoneNumber || (user.role === 'driver' ? "555-0101" : ""));
-      // acceptsPetFriendlyJobs state removed from here
 
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
@@ -76,39 +61,12 @@ export default function ProfilePage() {
     }
   }, [user]);
 
-  const fetchBlockedUsers = useCallback(async () => {
-    if (!user) return;
-    setIsLoadingBlockedUsers(true);
-    setErrorBlockedUsers(null);
-    try {
-      const response = await fetch(`/api/users/blocks?userId=${user.id}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch blocked users.");
-      }
-      const data: BlockedUserDisplay[] = await response.json();
-      setBlockedUsers(data);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not load blocked users."
-      toast({ title: "Error", description: message, variant: "destructive" });
-      setErrorBlockedUsers(message);
-      setBlockedUsers([]);
-    } finally {
-      setIsLoadingBlockedUsers(false);
-    }
-  }, [user, toast]);
-
-  useEffect(() => {
-    fetchBlockedUsers();
-  }, [fetchBlockedUsers]);
-
   const handleSaveProfile = () => {
     if (!user) return;
     const updatedDetails: Partial<User> = {};
     if (name !== user.name) updatedDetails.name = name;
     if (email !== user.email) updatedDetails.email = email;
     if (phone !== user.phoneNumber) updatedDetails.phoneNumber = phone;
-    // acceptsPetFriendlyJobs logic removed from here
 
     if (Object.keys(updatedDetails).length > 0) { updateUserProfileInContext(updatedDetails); }
     setIsEditing(false);
@@ -133,38 +91,9 @@ export default function ProfilePage() {
     toast({ title: "PIN Removed", description: "Quick PIN login has been disabled for this device." });
   };
 
-  const handleUnblockUser = async (blockId: string, blockedUserName: string) => {
-    if (!user) return;
-    setUnblockingUserId(blockId);
-    try {
-      const response = await fetch(`/api/users/blocks?blockId=${blockId}&userId=${user.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to unblock user.");
-      }
-      toast({ title: "User Unblocked", description: `${blockedUserName} has been removed from your block list.` });
-      fetchBlockedUsers();
-    } catch (error) {
-      toast({ title: "Unblocking Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
-    } finally {
-      setUnblockingUserId(null);
-    }
-  };
-
   if (!user) {
     return ( <div className="flex justify-center items-center h-screen"> <Loader2 className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg text-muted-foreground">Loading profile...</p> </div> );
   }
-
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case 'passenger': return <UserCircle className="w-4 h-4 text-muted-foreground" />;
-      case 'driver': return <CarIcon className="w-4 h-4 text-muted-foreground" />;
-      case 'operator': return <Briefcase className="w-4 h-4 text-muted-foreground" />;
-      case 'admin': return <Shield className="w-4 h-4 text-muted-foreground" />;
-      default: return <UserCircle className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
-
 
   return (
     <div className="space-y-6">
@@ -268,56 +197,6 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader> <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-muted-foreground"/>Manage Blocked Users</CardTitle> <CardDescription>Review and manage users you have blocked.</CardDescription> </CardHeader>
-        <CardContent>
-          {isLoadingBlockedUsers && <div className="flex items-center justify-center p-4"><Loader2 className="mr-2 h-5 w-5 animate-spin"/>Loading blocked users...</div>}
-          {!isLoadingBlockedUsers && errorBlockedUsers && <p className="text-destructive">Error loading blocked users: {errorBlockedUsers}</p>}
-          {!isLoadingBlockedUsers && !errorBlockedUsers && blockedUsers.length === 0 && <p className="text-muted-foreground">You haven't blocked any users.</p>}
-          {!isLoadingBlockedUsers && !errorBlockedUsers && blockedUsers.length > 0 && (
-            <div className="space-y-3">
-              {blockedUsers.map((blocked) => (
-                <div key={blocked.blockId} className="flex items-center justify-between p-3 border rounded-md bg-card hover:shadow-sm">
-                  <div className="flex items-center gap-2">
-                    {getRoleIcon(blocked.blockedUserRole)}
-                    <div>
-                      <p className="font-medium">{blocked.blockedUserName}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{blocked.blockedUserRole} (Blocked on: {new Date(blocked.createdAt).toLocaleDateString()})</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleUnblockUser(blocked.blockId, blocked.blockedUserName)}
-                    disabled={unblockingUserId === blocked.blockId}
-                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    <span className="flex items-center justify-center">
-                      {unblockingUserId === blocked.blockId ? (
-                        <React.Fragment>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            Unblocking...
-                        </React.Fragment>
-                      ) : (
-                        <React.Fragment>
-                            <Trash2 className="mr-2 h-4 w-4"/>
-                            Unblock
-                        </React.Fragment>
-                      )}
-                    </span>
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-         <CardFooter className="border-t pt-4">
-          <p className="text-xs text-muted-foreground">
-            Blocking a user prevents them from being assigned to your rides (if you are a passenger blocking a driver) or prevents their ride requests from being shown to you (if you are a driver blocking a passenger). This is a simplified demonstration.
-          </p>
-        </CardFooter>
-      </Card>
-
       {user.role === 'passenger' && 
         <Card>
           <CardHeader><CardTitle className="text-xl flex items-center gap-2"><CreditCard className="w-5 h-5 text-muted-foreground"/>Payment Methods</CardTitle></CardHeader>
@@ -338,4 +217,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
