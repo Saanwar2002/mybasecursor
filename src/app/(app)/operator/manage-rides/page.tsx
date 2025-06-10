@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 interface LocationPoint {
   address: string;
@@ -58,6 +59,18 @@ interface Ride {
   estimatedWaitTimeMinutes?: number;
 }
 
+// Driver interface for the dropdown
+interface AssignableDriver {
+  id: string;
+  name: string;
+  vehicleModel?: string;
+  licensePlate?: string;
+  vehicleCategory?: string;
+  customId?: string; // driverIdentifier usually stored here
+  status: string;
+}
+
+
 const formatDateFromTimestamp = (timestamp?: SerializedTimestamp | null): string => {
   if (!timestamp) return 'N/A';
   try {
@@ -82,6 +95,7 @@ const formatDateFromISO = (isoString?: string | null): string => {
 
 
 export default function OperatorManageRidesPage() {
+  const { user: operatorUser } = useAuth(); // Get current operator
   const [rides, setRides] = useState<Ride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,9 +109,11 @@ export default function OperatorManageRidesPage() {
 
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedRideForAssignment, setSelectedRideForAssignment] = useState<Ride | null>(null);
-  const [assignDriverId, setAssignDriverId] = useState("");
-  const [assignDriverName, setAssignDriverName] = useState("");
-  const [assignVehicleDetails, setAssignVehicleDetails] = useState("");
+  
+  const [availableDriversForAssignment, setAvailableDriversForAssignment] = useState<AssignableDriver[]>([]);
+  const [isLoadingDriversForAssign, setIsLoadingDriversForAssign] = useState(false);
+  const [selectedDriverForAssign, setSelectedDriverForAssign] = useState<string>(""); // Stores selected driver ID
+
   const [isAssigning, setIsAssigning] = useState(false);
 
 
@@ -196,28 +212,57 @@ export default function OperatorManageRidesPage() {
     setFilterStatus(value);
   };
   
-  const openAssignDialog = (ride: Ride) => {
+  const openAssignDialog = async (ride: Ride) => {
     setSelectedRideForAssignment(ride);
-    setAssignDriverId("");
-    setAssignDriverName("");
-    setAssignVehicleDetails(ride.vehicleType || "Car"); // Pre-fill if available
+    setSelectedDriverForAssign(""); // Reset selected driver
+    setAvailableDriversForAssignment([]);
+    setIsLoadingDriversForAssign(true);
     setIsAssignDialogOpen(true);
+
+    if (!operatorUser || !operatorUser.operatorCode) {
+        toast({title: "Error", description: "Operator code not found. Cannot fetch drivers.", variant: "destructive"});
+        setIsLoadingDriversForAssign(false);
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/operator/drivers?operatorCode=${operatorUser.operatorCode}&status=Active&limit=100`); // Fetch active drivers for this operator
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to fetch drivers for assignment.");
+        }
+        const data = await response.json();
+        setAvailableDriversForAssignment(data.drivers || []);
+    } catch (error) {
+        toast({title: "Error Fetching Drivers", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive"});
+    } finally {
+        setIsLoadingDriversForAssign(false);
+    }
   };
 
   const handleAssignDriver = async () => {
-    if (!selectedRideForAssignment || !assignDriverId.trim() || !assignDriverName.trim()) {
-      toast({ title: "Missing Information", description: "Driver ID and Name are required.", variant: "destructive" });
+    if (!selectedRideForAssignment || !selectedDriverForAssign) {
+      toast({ title: "Missing Information", description: "Please select a driver.", variant: "destructive" });
       return;
     }
+    
+    const driverToAssign = availableDriversForAssignment.find(d => d.id === selectedDriverForAssign);
+    if (!driverToAssign) {
+      toast({ title: "Driver Not Found", description: "Selected driver details could not be found.", variant: "destructive" });
+      return;
+    }
+
     setIsAssigning(true);
+    const vehicleDetails = `${driverToAssign.vehicleCategory || driverToAssign.vehicleModel || 'Vehicle'} - ${driverToAssign.customId || driverToAssign.licensePlate || 'REG N/A'}`;
+
     try {
       const response = await fetch(`/api/operator/bookings/${selectedRideForAssignment.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-            driverId: assignDriverId.trim(), 
-            driverName: assignDriverName.trim(),
-            driverVehicleDetails: assignVehicleDetails.trim() || `${selectedRideForAssignment.vehicleType || 'Car'} - Reg N/A`,
+            driverId: driverToAssign.id, 
+            driverName: driverToAssign.name,
+            driverVehicleDetails: vehicleDetails,
             status: 'driver_assigned' 
         }), 
       });
@@ -236,7 +281,7 @@ export default function OperatorManageRidesPage() {
           status: updatedRideResult.booking.status as Ride['status'] 
         } : r
       ));
-      toast({ title: "Driver Assigned", description: `Driver ${assignDriverName} assigned to ride ${selectedRideForAssignment.id}.` });
+      toast({ title: "Driver Assigned", description: `Driver ${driverToAssign.name} assigned to ride ${selectedRideForAssignment.id}.` });
       setIsAssignDialogOpen(false);
     } catch (error) {
       toast({ title: "Assignment Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
@@ -253,7 +298,7 @@ export default function OperatorManageRidesPage() {
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
             <Car className="w-8 h-8 text-primary" /> Manage All Rides
           </CardTitle>
-          <CardDescription>Oversee, assign, and track all ride requests and ongoing journeys.</CardDescription>
+          <CardDescription>Oversee, assign, and track all ride requests and ongoing journeys. Operator: {operatorUser?.operatorCode || "N/A"}</CardDescription>
         </CardHeader>
       </Card>
 
@@ -405,47 +450,34 @@ export default function OperatorManageRidesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Assign Driver to Ride</AlertDialogTitle>
             <AlertDialogDescription>
-              Assign a driver to ride ID: {selectedRideForAssignment?.id}. <br />
-              Passenger: {selectedRideForAssignment?.passengerName} <br />
-              <div className="text-xs mt-1">
-                Vehicle: {selectedRideForAssignment?.vehicleType} ({selectedRideForAssignment?.passengers} pax) <br/>
-                From: {selectedRideForAssignment?.pickupLocation.address} <br/>
-                To: {selectedRideForAssignment?.dropoffLocation.address}
-              </div>
+              Assign an active driver from your fleet to ride ID: {selectedRideForAssignment?.id}. <br />
+              Passenger: {selectedRideForAssignment?.passengerName} <br/>
+              Vehicle Type Requested: {selectedRideForAssignment?.vehicleType}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <Label htmlFor="assignDriverId">Driver ID</Label>
-              <Input 
-                id="assignDriverId" 
-                value={assignDriverId} 
-                onChange={(e) => setAssignDriverId(e.target.value)}
-                placeholder="Enter Driver ID (e.g., DR-mock-xyz)" 
-              />
-            </div>
-            <div>
-              <Label htmlFor="assignDriverName">Driver Name</Label>
-              <Input 
-                id="assignDriverName" 
-                value={assignDriverName} 
-                onChange={(e) => setAssignDriverName(e.target.value)}
-                placeholder="Enter Driver's Name" 
-              />
-            </div>
-             <div>
-              <Label htmlFor="assignVehicleDetails">Driver Vehicle Details</Label>
-              <Input 
-                id="assignVehicleDetails" 
-                value={assignVehicleDetails} 
-                onChange={(e) => setAssignVehicleDetails(e.target.value)}
-                placeholder="e.g., Toyota Prius - ABC 123" 
-              />
-            </div>
+            {isLoadingDriversForAssign ? (
+                <div className="flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /> <span className="ml-2">Loading available drivers...</span></div>
+            ) : availableDriversForAssignment.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active drivers found for your operator code ({operatorUser?.operatorCode}). Ensure drivers are set to 'Active'.</p>
+            ) : (
+            <Select value={selectedDriverForAssign} onValueChange={setSelectedDriverForAssign}>
+                <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select an active driver" />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableDriversForAssignment.map(driver => (
+                        <SelectItem key={driver.id} value={driver.id}>
+                            {driver.name} ({driver.vehicleCategory || driver.vehicleModel || 'Vehicle N/A'} - {driver.customId || driver.licensePlate || 'Reg N/A'}) - Status: {driver.status}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            )}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setIsAssignDialogOpen(false)} disabled={isAssigning}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleAssignDriver} disabled={isAssigning || !assignDriverId.trim() || !assignDriverName.trim()}>
+            <AlertDialogAction onClick={handleAssignDriver} disabled={isAssigning || !selectedDriverForAssign || isLoadingDriversForAssign}>
               {isAssigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Assign Driver
             </AlertDialogAction>
@@ -455,4 +487,3 @@ export default function OperatorManageRidesPage() {
     </div>
   );
 }
-    

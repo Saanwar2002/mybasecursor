@@ -31,10 +31,11 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   startAfter: z.string().optional(), // Document ID to start after
-  status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended']).optional(), // Added Suspended
+  status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended', 'all']).optional().default('all'), // Default to all if no specific status given
   sortBy: z.enum(['name', 'email', 'status', 'createdAt']).optional().default('name'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
   searchName: z.string().optional(),
+  operatorCode: z.string().optional(), // New filter
 });
 
 interface Driver {
@@ -44,12 +45,14 @@ interface Driver {
   phone?: string;
   vehicleModel?: string;
   licensePlate?: string;
+  vehicleCategory?: string; // Added for better vehicle description
+  customId?: string; // Typically used for driver's unique ID / registration
   status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended';
   rating?: number;
   totalRides?: number;
   role: 'driver';
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
-  operatorCode?: string; // Added operatorCode
+  operatorCode?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -62,14 +65,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid query parameters', errors: parsedQuery.error.format() }, { status: 400 });
   }
 
-  const {
+  let {
     limit,
     startAfter: startAfterDocId,
     status,
     sortBy,
     sortOrder,
     searchName,
+    operatorCode, // Destructure new filter
   } = parsedQuery.data;
+
+  // If operatorCode is provided and no specific status is requested, default to 'Active'
+  if (operatorCode && status === 'all') {
+    status = 'Active';
+  }
+
 
   try {
     const usersRef = collection(db, 'users'); 
@@ -77,7 +87,11 @@ export async function GET(request: NextRequest) {
 
     queryConstraints.push(where('role', '==', 'driver'));
 
-    if (status) {
+    if (operatorCode) {
+      queryConstraints.push(where('operatorCode', '==', operatorCode));
+    }
+
+    if (status && status !== 'all') {
       queryConstraints.push(where('status', '==', status));
     }
 
@@ -119,12 +133,14 @@ export async function GET(request: NextRequest) {
         phone: data.phone,
         vehicleModel: data.vehicleModel,
         licensePlate: data.licensePlate,
+        vehicleCategory: data.vehicleCategory,
+        customId: data.customId,
         status: data.status || 'Inactive', 
         rating: data.rating,
         totalRides: data.totalRides,
         role: 'driver', 
         createdAt: serializeTimestamp(data.createdAt as Timestamp | undefined),
-        operatorCode: data.operatorCode || null, // Include operatorCode
+        operatorCode: data.operatorCode || null,
       } as Driver;
     });
 
