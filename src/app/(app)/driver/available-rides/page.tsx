@@ -105,6 +105,8 @@ const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
+const STATIONARY_REMINDER_TIMEOUT_MS = 60000; // 60 seconds
+const MOVEMENT_THRESHOLD_METERS = 50; // 50 meters
 
 
 const parseTimestampToDate = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
@@ -124,6 +126,27 @@ const formatTimer = (totalSeconds: number): string => {
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
+
+function getDistanceBetweenPointsInMeters(
+  coord1: google.maps.LatLngLiteral | null,
+  coord2: google.maps.LatLngLiteral | null
+): number {
+  if (!coord1 || !coord2) return Infinity;
+
+  const R = 6371e3; // Earth radius in meters
+  const lat1Rad = coord1.lat * Math.PI / 180;
+  const lat2Rad = coord2.lat * Math.PI / 180;
+  const deltaLatRad = (coord2.lat - coord1.lat) * Math.PI / 180;
+  const deltaLonRad = (coord2.lng - coord1.lng) * Math.PI / 180;
+
+  const a = Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
+            Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+            Math.sin(deltaLonRad / 2) * Math.sin(deltaLonRad / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
@@ -162,6 +185,10 @@ export default function AvailableRidesPage() {
   
   const [isPollingEnabled, setIsPollingEnabled] = useState(true);
   const rideRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
+
+  const driverLocationAtAcceptanceRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const stationaryReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isStationaryReminderVisible, setIsStationaryReminderVisible] = useState(false);
 
 
   const playBeep = useCallback(() => {
@@ -218,7 +245,6 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
-    // Only set loading if there isn't already an active ride or error
     if (!activeRide && !error) setIsLoading(true); 
 
     try {
@@ -234,14 +260,12 @@ export default function AvailableRidesPage() {
       } else if (data?.pickupLocation) {
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
-      // Clear error if fetch is successful
       if (data && error) setError(null); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
       console.error("Error in fetchActiveRide:", message);
-      if (!activeRide) setError(message); // Only set error if no ride is currently displayed
+      if (!activeRide) setError(message); 
     } finally {
-      // Only set loading to false if there was no active ride to begin with
       if (!activeRide) setIsLoading(false);
     }
   }, [driverUser?.id, activeRide, error, toast]); 
@@ -315,7 +339,7 @@ export default function AvailableRidesPage() {
   }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
 
 
-  useEffect(() => {
+ useEffect(() => {
     if (rideRefreshIntervalIdRef.current) {
       clearInterval(rideRefreshIntervalIdRef.current);
       rideRefreshIntervalIdRef.current = null;
@@ -351,6 +375,49 @@ export default function AvailableRidesPage() {
     }
   }, [activeRide]);
 
+  useEffect(() => {
+    const clearStationaryLogic = () => {
+      if (stationaryReminderTimerRef.current) {
+        clearTimeout(stationaryReminderTimerRef.current);
+        stationaryReminderTimerRef.current = null;
+      }
+      setIsStationaryReminderVisible(false);
+      driverLocationAtAcceptanceRef.current = null;
+    };
+
+    if (activeRide && activeRide.status === 'driver_assigned') {
+      if (!driverLocationAtAcceptanceRef.current && driverLocation) {
+        console.log("Driver assigned: Setting initial location for stationary check and starting timer.");
+        driverLocationAtAcceptanceRef.current = driverLocation;
+
+        if (stationaryReminderTimerRef.current) clearTimeout(stationaryReminderTimerRef.current);
+        stationaryReminderTimerRef.current = setTimeout(() => {
+          if (activeRide && activeRide.status === 'driver_assigned' && driverLocationAtAcceptanceRef.current && driverLocation) {
+            const distanceMoved = getDistanceBetweenPointsInMeters(driverLocationAtAcceptanceRef.current, driverLocation);
+            console.log(`Stationary check: Distance moved since acceptance: ${distanceMoved}m`);
+            if (distanceMoved < MOVEMENT_THRESHOLD_METERS) {
+              setIsStationaryReminderVisible(true);
+            } else {
+              clearStationaryLogic(); // Driver moved before timer fired completely
+            }
+          }
+          stationaryReminderTimerRef.current = null; 
+        }, STATIONARY_REMINDER_TIMEOUT_MS);
+      } else if (driverLocationAtAcceptanceRef.current && driverLocation) {
+        const distanceMoved = getDistanceBetweenPointsInMeters(driverLocationAtAcceptanceRef.current, driverLocation);
+        if (distanceMoved >= MOVEMENT_THRESHOLD_METERS) {
+          console.log("Driver moved significantly. Clearing stationary reminder.");
+          clearStationaryLogic();
+        }
+      }
+    } else {
+      clearStationaryLogic();
+    }
+    return () => { // Cleanup on effect unmount or dependency change
+      clearStationaryLogic();
+    };
+  }, [activeRide, driverLocation]);
+
 
   const handleSimulateOffer = () => {
     const randomScenario = Math.random();
@@ -381,7 +448,7 @@ export default function AvailableRidesPage() {
   };
 
   const handleAcceptOffer = async (rideId: string) => {
-    setIsPollingEnabled(false); // Disable polling when attempting to accept
+    setIsPollingEnabled(false); 
     if (rideRefreshIntervalIdRef.current) {
       clearInterval(rideRefreshIntervalIdRef.current);
       rideRefreshIntervalIdRef.current = null;
@@ -393,7 +460,7 @@ export default function AvailableRidesPage() {
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
-      setIsPollingEnabled(true); // Re-enable polling on early exit
+      setIsPollingEnabled(true); 
       return;
     }
     
@@ -455,7 +522,6 @@ export default function AvailableRidesPage() {
         passengerCount: serverBooking.passengers, 
         status: serverBooking.status, 
         driverId: serverBooking.driverId,
-        // driverName: serverBooking.driverName, // This might be missing from YOUR specific serverBooking definition
         driverVehicleDetails: serverBooking.driverVehicleDetails,
         notes: serverBooking.driverNotes || serverBooking.notes,
         paymentMethod: serverBooking.paymentMethod,
@@ -475,7 +541,7 @@ export default function AvailableRidesPage() {
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
       
-      setActiveRide(newActiveRideFromServer); // Update UI with server-confirmed data
+      setActiveRide(newActiveRideFromServer);
       setRideRequests([]);
 
       let toastDesc = `En Route to Pickup for ${newActiveRideFromServer.passengerName}. Payment: ${newActiveRideFromServer.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
@@ -486,16 +552,14 @@ export default function AvailableRidesPage() {
         toastDesc += ` Dispatched: ${newActiveRideFromServer.dispatchMethod.replace(/_/g, ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
-      // Polling remains disabled until the ride is finished/cancelled by driver action
       
     } catch(error) {
       console.error("Error in handleAcceptOffer process:", error);
       const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
       toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
-      setIsPollingEnabled(true); // Re-enable polling on error so they can get new offers
+      setIsPollingEnabled(true); 
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
-      // Do NOT re-enable polling here. It's handled by ride completion/cancellation.
     }
   };
 
@@ -602,15 +666,15 @@ export default function AvailableRidesPage() {
 
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
-        setActiveRide(null); // Clear the active ride
-        setIsPollingEnabled(true); // Re-enable polling to look for new offers
+        setActiveRide(null);
+        setIsPollingEnabled(true);
       }
 
     } catch(err) {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      fetchActiveRide(); // Attempt to re-sync state on failure
-      setIsPollingEnabled(true); // Re-enable polling after error
+      fetchActiveRide();
+      setIsPollingEnabled(true);
     } finally {
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
@@ -955,8 +1019,8 @@ export default function AvailableRidesPage() {
                         setDriverRatingForPassenger(0); 
                         setCurrentWaitingCharge(0); 
                         setIsCancelSwitchOn(false);
-                        setActiveRide(null); // Clear active ride
-                        setIsPollingEnabled(true); // Re-enable polling
+                        setActiveRide(null); 
+                        setIsPollingEnabled(true);
                     }} 
                     disabled={activeRide ? actionLoading[activeRide.id] : false} 
                 > 
@@ -1093,6 +1157,26 @@ export default function AvailableRidesPage() {
         </AlertDialog>
     </div> 
     <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+    <AlertDialog
+      open={isStationaryReminderVisible}
+      onOpenChange={setIsStationaryReminderVisible}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <Navigation className="w-5 h-5 text-primary" /> Time to Go!
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
+            Okay, I&apos;m Going!
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -1129,4 +1213,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
