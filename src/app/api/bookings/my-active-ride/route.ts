@@ -24,6 +24,7 @@ interface Ride {
   stops?: LocationPoint[];
   driver?: string;
   driverAvatar?: string;
+  driverVehicleDetails?: string; // Added field
   vehicleType: string;
   fareEstimate: number;
   status: string;
@@ -31,15 +32,33 @@ interface Ride {
   passengerName: string;
   isSurgeApplied?: boolean;
   paymentMethod?: "card" | "cash";
+  // Fields from driver's active ride that might be useful for passenger context too
+  notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
+  passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
+  rideStartedAt?: SerializedTimestamp | string | null;
+  driverEtaMinutes?: number;
+  waitAndReturn?: boolean;
+  estimatedAdditionalWaitTimeMinutes?: number;
 }
 
 function serializeTimestamp(timestamp: Timestamp | undefined | null): SerializedTimestamp | null {
   if (!timestamp) return null;
-  return {
-    _seconds: timestamp.seconds,
-    _nanoseconds: timestamp.nanoseconds,
-  };
+  if (timestamp instanceof Timestamp) {
+    return {
+      _seconds: timestamp.seconds,
+      _nanoseconds: timestamp.nanoseconds,
+    };
+  }
+   // Handle cases where it might already be an object like { seconds: ..., nanoseconds: ... }
+  if (typeof timestamp === 'object' && timestamp !== null && ('_seconds'in timestamp || 'seconds' in timestamp)) {
+     return {
+      _seconds: (timestamp as any)._seconds ?? (timestamp as any).seconds,
+      _nanoseconds: (timestamp as any)._nanoseconds ?? (timestamp as any).nanoseconds ?? 0,
+    };
+  }
+  return null;
 }
+
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -51,20 +70,21 @@ export async function GET(request: NextRequest) {
 
   try {
     const bookingsRef = collection(db, 'bookings');
-    // Define the statuses that mean a ride is active or pending
     const activeStatuses = [
       'pending_assignment',
-      'driver_assigned', // Assuming this is a possible status
-      'Assigned', // Including this case variant if it's used
+      'driver_assigned',
+      'Assigned', 
       'arrived_at_pickup',
-      'in_progress', // Standard lowercase
-      'In Progress' // Including this case variant if it's used
+      'in_progress',
+      'In Progress',
+      'pending_driver_wait_and_return_approval',
+      'in_progress_wait_and_return'
     ];
 
     const q = query(
       bookingsRef,
       where('passengerId', '==', passengerId),
-      where('status', 'in', activeStatuses), // Changed to 'in' filter
+      where('status', 'in', activeStatuses),
       orderBy('bookingTimestamp', 'desc'),
       limit(1)
     );
@@ -72,11 +92,27 @@ export async function GET(request: NextRequest) {
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      return NextResponse.json(null, { status: 200 }); // No active ride found
+      return NextResponse.json(null, { status: 200 });
     }
 
     const doc = querySnapshot.docs[0];
     const data = doc.data();
+
+    // Helper to convert potential actual Firestore Timestamps or already serialized string timestamps
+    const processTimestampField = (fieldValue: any): SerializedTimestamp | string | null => {
+        if (!fieldValue) return null;
+        if (fieldValue instanceof Timestamp) {
+            return serializeTimestamp(fieldValue);
+        }
+        if (typeof fieldValue === 'string') { // Assuming ISO string if it's already a string
+            return fieldValue;
+        }
+         if (typeof fieldValue === 'object' && ('_seconds' in fieldValue || 'seconds' in fieldValue)) {
+            return serializeTimestamp(fieldValue as Timestamp); // Cast if it matches structure
+        }
+        return null;
+    };
+
 
     const activeRide: Ride = {
       id: doc.id,
@@ -87,13 +123,19 @@ export async function GET(request: NextRequest) {
       vehicleType: data.vehicleType,
       fareEstimate: data.fareEstimate,
       status: data.status,
-      driver: data.driverName, // Assuming driverName is stored
-      driverAvatar: data.driverAvatar, // Assuming driverAvatar is stored
+      driver: data.driverName,
+      driverAvatar: data.driverAvatar,
+      driverVehicleDetails: data.driverVehicleDetails, // Added this line
       isSurgeApplied: data.isSurgeApplied,
       paymentMethod: data.paymentMethod,
       bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
       scheduledPickupAt: data.scheduledPickupAt || null,
-      // rating can be added if you track it for active rides
+      notifiedPassengerArrivalTimestamp: processTimestampField(data.notifiedPassengerArrivalTimestampActual || data.notifiedPassengerArrivalTimestamp),
+      passengerAcknowledgedArrivalTimestamp: processTimestampField(data.passengerAcknowledgedArrivalTimestampActual || data.passengerAcknowledgedArrivalTimestamp),
+      rideStartedAt: processTimestampField(data.rideStartedAtActual || data.rideStartedAt),
+      driverEtaMinutes: data.driverEtaMinutes,
+      waitAndReturn: data.waitAndReturn,
+      estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
     };
 
     return NextResponse.json(activeRide, { status: 200 });
@@ -110,4 +152,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch active ride', details: errorMessage }, { status: 500 });
   }
 }
-

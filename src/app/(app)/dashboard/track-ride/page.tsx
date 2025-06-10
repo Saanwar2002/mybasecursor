@@ -67,6 +67,7 @@ interface ActiveRide {
   driver?: string;
   driverId?: string;
   driverAvatar?: string;
+  driverVehicleDetails?: string; // Added field
   vehicleType: string;
   fareEstimate: number;
   status: string;
@@ -79,7 +80,6 @@ interface ActiveRide {
   rideStartedAt?: SerializedTimestamp | string | null;
   driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
-  driverVehicleDetails?: string;
   waitAndReturn?: boolean; 
   estimatedAdditionalWaitTimeMinutes?: number; 
 }
@@ -675,43 +675,14 @@ export default function MyActiveRidePage() {
                     </Alert>
                  )}
             </CardContent>
-             {(activeRide.status === 'pending_assignment' || activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.toLowerCase().includes('in_progress')) && (
+             {activeRide.status === 'pending_assignment' && (
                 <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2">
-                    {activeRide.status === 'pending_assignment' && (
-                        <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto">
-                            <span className="flex items-center justify-center"><Edit className="mr-2 h-4 w-4" /> <span>Edit Booking</span></span>
-                        </Button>
-                    )}
-                    <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
+                  <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto" disabled={isUpdatingDetails}>
+                    <span className="flex items-center justify-center"><Edit className="mr-2 h-4 w-4" /> <span>Edit Details</span></span>
+                  </Button>
+                  <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
                 </CardFooter>
             )}
-            {(activeRide.status === 'completed' || activeRide.status === 'cancelled_by_driver') && (
-                <CardFooter className="border-t pt-4">
-                  <Button
-                      className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto"
-                      onClick={() => {
-                        if (activeRide.status === 'completed' && driverRatingForPassenger > 0) {
-                          console.log(`Passenger rated driver ${driverRatingForPassenger} stars for ride ${activeRide.id}.`);
-                          toast({title: "Rating Submitted (Mock)", description: `You rated the driver ${driverRatingForPassenger} stars.`});
-                        }
-                        setDriverRatingForPassenger(0);
-                        setCurrentWaitingCharge(0);
-                        setIsCancelSwitchOn(false);
-                        fetchActiveRide();
-                      }}
-                      disabled={activeRide ? actionLoading[activeRide.id] : false}
-                    >
-                    <span className="flex items-center justify-center">
-                      {(activeRide && actionLoading[activeRide.id]) ? (
-                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                      ) : (
-                        <Check className="mr-2 h-4 w-4" />
-                      )}
-                      <span>Done</span>
-                    </span>
-                  </Button>
-                </CardFooter>
-             )}
           </Card>
         </>
       )}
@@ -832,5 +803,6 @@ export default function MyActiveRidePage() {
 
 
     
+
 
 
