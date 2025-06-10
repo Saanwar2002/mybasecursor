@@ -231,6 +231,47 @@ export default function AvailableRidesPage() {
     }
   }, [driverUser]);
 
+  useEffect(() => {
+    if (isDriverOnline && navigator.geolocation) {
+      setGeolocationError(null);
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          setDriverLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setGeolocationError(null); // Clear any previous error on success
+        },
+        (error) => {
+          console.warn("Geolocation Error:", error.message);
+          let message = "Could not get your location. Please enable location services.";
+          if (error.code === error.PERMISSION_DENIED) {
+            message = "Location access denied. Please enable it in your browser settings.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            message = "Location information is unavailable at the moment.";
+          } else if (error.code === error.TIMEOUT) {
+            message = "Getting location timed out. Please try again.";
+          }
+          setGeolocationError(message);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (!navigator.geolocation) {
+        setGeolocationError("Geolocation is not supported by your browser.");
+      }
+    }
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [isDriverOnline]);
+
   const fetchActiveRide = useCallback(async () => {
     if (!driverUser?.id) {
       setIsLoading(false);
@@ -247,8 +288,9 @@ export default function AvailableRidesPage() {
       const data: ActiveRide | null = await response.json();
       setActiveRide(data); 
       if (data?.driverCurrentLocation) { 
-        setDriverLocation(data.driverCurrentLocation);
-      } else if (data?.pickupLocation) {
+        // Do not setDriverLocation here if geolocation is active and working
+        // setDriverLocation(data.driverCurrentLocation);
+      } else if (data?.pickupLocation && !watchIdRef.current) { // Only set if not actively watching GPS
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
       if (data && error) setError(null); 
@@ -723,18 +765,25 @@ export default function AvailableRidesPage() {
   };
 
   const memoizedMapMarkers = useMemo(() => {
-    if (!activeRide) return [];
+    if (!activeRide && !isDriverOnline) return []; // No markers if no active ride AND driver is offline
+    if (!activeRide && isDriverOnline && driverLocation) { // Driver online, no active ride
+      return [{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} }];
+    }
+    if (!activeRide) return []; // Should be covered above, but as a fallback
+
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-    if (activeRide.driverCurrentLocation) { 
-        markers.push({ position: activeRide.driverCurrentLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
-    } else { 
-        markers.push({ position: driverLocation, title: "Your Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+    
+    // Use live driverLocation if online, otherwise fallback to activeRide.driverCurrentLocation (which might be stale or from server)
+    const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation ? driverLocation : activeRide.driverCurrentLocation;
+
+    if (currentLocToDisplay) { 
+        markers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
     }
     if (activeRide.pickupLocation) { markers.push({ position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude}, title: `Pickup: ${activeRide.pickupLocation.address}`, label: { text: "P", color: "white", fontWeight: "bold"} }); }
     if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) { markers.push({ position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude}, title: `Dropoff: ${activeRide.dropoffLocation.address}`, label: { text: "D", color: "white", fontWeight: "bold" } }); }
     activeRide.stops?.forEach((stop, index) => { if(stop.latitude && stop.longitude) { markers.push({ position: {lat: stop.latitude, lng: stop.longitude}, title: `Stop ${index + 1}: ${stop.address}`, label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" } }); } });
     return markers;
-  }, [activeRide, driverLocation]);
+  }, [activeRide, driverLocation, isDriverOnline]);
 
   const memoizedMapCenter = useMemo(() => {
     if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
@@ -742,7 +791,7 @@ export default function AvailableRidesPage() {
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
     if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
     if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    return driverLocation;
+    return driverLocation; // Fallback to live driverLocation
   }, [activeRide, driverLocation]);
 
 
@@ -1175,7 +1224,7 @@ export default function AvailableRidesPage() {
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
   return ( <div className="flex flex-col h-full space-y-2"> 
     <div className={mapContainerClasses}> 
-        <GoogleMapDisplay center={driverLocation} zoom={13} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} />
+        <GoogleMapDisplay center={driverLocation} zoom={13} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} />
         <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
             <AlertDialogTrigger asChild>
             <Button
@@ -1252,7 +1301,15 @@ export default function AvailableRidesPage() {
             </AlertDialogContent>
         </AlertDialog>
     </div> 
-    <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+    <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> 
+    {geolocationError && isDriverOnline && (
+        <Alert variant="destructive" className="mb-2 text-xs">
+            <AlertTriangle className="h-4 w-4" />
+            <ShadAlertTitle>Location Error</ShadAlertTitle>
+            <ShadAlertDescription>{geolocationError}</ShadAlertDescription>
+        </Alert>
+    )}
+    {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
     <AlertDialog
       open={isStationaryReminderVisible}
       onOpenChange={setIsStationaryReminderVisible}
@@ -1310,6 +1367,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
-
-    
