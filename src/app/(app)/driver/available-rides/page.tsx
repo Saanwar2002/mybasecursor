@@ -678,6 +678,7 @@ export default function AvailableRidesPage() {
       setActiveRide(prev => {
         if (!prev) return null;
         const serverData = updatedBookingFromServer.booking;
+        // Ensure all relevant fields are updated from the server response
         return {
           ...prev,
           status: serverData.status || prev.status,
@@ -694,16 +695,18 @@ export default function AvailableRidesPage() {
       });
 
       toast({ title: toastTitle, description: toastMessage });
+      // Do NOT set activeRide to null here for cancel/complete. Let the "Done" button handle it.
+      // This ensures the "Completed" or "Cancelled" UI is displayed.
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
-        setActiveRide(null);
-        setIsPollingEnabled(true);
+        setIsPollingEnabled(true); // Allow polling for new offers once this ride is truly finished (Done clicked)
       }
+
 
     } catch(err) {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      fetchActiveRide();
-      setIsPollingEnabled(true);
+      fetchActiveRide(); // Attempt to re-sync if an action failed
+      setIsPollingEnabled(true); // Re-enable polling for offers if something went wrong with an active ride action
     } finally {
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
@@ -988,8 +991,8 @@ export default function AvailableRidesPage() {
                         <br />
                         New estimated total fare (if accepted): ~£{((baseFare + priorityFee) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER)).toFixed(2)}.
                         <div className="flex gap-2 mt-2">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={actionLoading[activeRide.id]}>Accept W&R</Button>
-                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={actionLoading[activeRide.id]}>Decline W&R</Button>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Accept W&R</Button>
+                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Decline W&R</Button>
                         </div>
                     </ShadAlertDescription>
                 </Alert>
@@ -1016,7 +1019,7 @@ export default function AvailableRidesPage() {
                 <div className="pt-2">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground" disabled={actionLoading[`block-p-${activeRide.passengerId}`]}>
+                      <Button variant="outline" size="sm" className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground" disabled={!!actionLoading[`block-p-${activeRide.passengerId}`]}>
                         {actionLoading[`block-p-${activeRide.passengerId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
                         Block Passenger
                       </Button>
@@ -1058,9 +1061,9 @@ export default function AvailableRidesPage() {
           </CardContent>
 
           <CardFooter className="p-3 border-t grid gap-2">
-             {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
-             {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </div> )}
-             {(showInProgressStatus || showInProgressWRStatus) && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-primary hover:bg-primary/80 text-base text-primary-foreground py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </div> )}
+             {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
+             {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </div> )}
+             {(showInProgressStatus || showInProgressWRStatus) && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-primary hover:bg-primary/80 text-base text-primary-foreground py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </div> )}
              {(showCompletedStatus || showCancelledByDriverStatus) && ( 
                 <Button 
                     className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" 
@@ -1250,15 +1253,16 @@ export default function AvailableRidesPage() {
           >
             <span className="flex items-center justify-center">
             {activeRide && (!!actionLoading[activeRide.id]) ? (
-              <Loader2 className="animate-spin mr-2 h-4 w-4" />
+              <React.Fragment> {/* Using React.Fragment */}
+                <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                <span>Cancelling...</span>
+              </React.Fragment>
             ) : (
-              <ShieldX className="mr-2 h-4 w-4" />
+              <React.Fragment> {/* Using React.Fragment */}
+                <ShieldX className="mr-2 h-4 w-4" />
+                <span>Confirm Cancel</span>
+             </React.Fragment>
             )}
-            <span>
-            {activeRide && (!!actionLoading[activeRide.id])
-              ? "Cancelling..."
-              : "Confirm Cancel"}
-            </span>
             </span>
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -1266,3 +1270,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
