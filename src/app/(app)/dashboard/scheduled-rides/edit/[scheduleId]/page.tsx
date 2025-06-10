@@ -53,7 +53,7 @@ export default function EditScheduledRidePage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
             <Loader2 className="w-8 h-8 text-primary animate-spin" /> Loading Schedule...
           </CardTitle>
@@ -70,11 +70,11 @@ export default function EditScheduledRidePage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-3xl font-headline flex items-center gap-2 text-destructive">
             <AlertTriangle className="w-8 h-8" /> Error Loading Schedule
           </CardTitle>
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="w-full md:w-auto">
             <Link href="/dashboard/scheduled-rides">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Link>
@@ -93,11 +93,11 @@ export default function EditScheduledRidePage() {
   if (!initialData) {
      return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
              Schedule Not Found
           </CardTitle>
-           <Button variant="outline" asChild>
+           <Button variant="outline" asChild className="w-full md:w-auto">
             <Link href="/dashboard/scheduled-rides">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Link>
@@ -115,11 +115,11 @@ export default function EditScheduledRidePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
         <CardTitle className="text-3xl font-headline flex items-center gap-2">
           <CalendarClock className="w-8 h-8 text-primary" /> Edit Scheduled Ride
         </CardTitle>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild className="w-full md:w-auto">
           <Link href="/dashboard/scheduled-rides">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Scheduled Rides
           </Link>
