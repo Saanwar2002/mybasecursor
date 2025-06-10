@@ -97,6 +97,7 @@ interface ActiveRide {
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
   accountJobPin?: string;
+  distanceMiles?: number; // Added
 }
 
 interface MapHazard {
@@ -187,33 +188,31 @@ const getActiveRideDispatchInfo = (
 ): DispatchDisplayInfo | null => {
   if (!ride || !currentUser) return null;
 
-  const isPlatformJob = ride.requiredOperatorId === PLATFORM_OPERATOR_CODE;
-  const isDriverOwnBaseJob = currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode && ride.requiredOperatorId !== PLATFORM_OPERATOR_CODE;
-
-  if (isPlatformJob) {
-    if (ride.dispatchMethod === 'manual_operator') {
+  const isManual = ride.dispatchMethod === 'manual_operator';
+  const isPriority = ride.dispatchMethod === 'priority_override';
+  
+  if (ride.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
+    if (isManual) {
       return { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" };
     }
     return { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
   }
 
-  if (isDriverOwnBaseJob) {
-    if (ride.dispatchMethod === 'manual_operator') {
+  if (currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode) {
+    if (isManual) {
       return { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" };
     }
     return { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
   }
 
-  // General pool or other operator assignments
-  if (ride.dispatchMethod === 'manual_operator') {
+  if (isManual) {
     const dispatcher = ride.requiredOperatorId ? `Operator ${ride.requiredOperatorId}` : "Platform Admin";
     return { text: `Manually Dispatched by ${dispatcher}`, icon: Briefcase, bgColorClassName: "bg-blue-600" };
   }
-  if (ride.dispatchMethod === 'priority_override') {
+  if (isPriority) {
     return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
   }
   
-  // Fallback for general pool, other cases not explicitly covered above
   return { text: "Dispatched By App (Auto)", icon: CheckCircle, bgColorClassName: "bg-green-600" };
 };
 
@@ -748,7 +747,7 @@ export default function AvailableRidesPage() {
         simulatedOfferType = 'own_operator';
     }
 
-    const distance = parseFloat((Math.random() * 35 + 1).toFixed(1)); // Increased max distance for testing preference
+    const distance = parseFloat((Math.random() * 35 + 1).toFixed(1)); 
     const paymentMethodOptions: Array<RideOffer['paymentMethod']> = ['card', 'cash', 'account'];
     const paymentMethod: RideOffer['paymentMethod'] = paymentMethodOptions[Math.floor(Math.random() * paymentMethodOptions.length)];
     const isPriority = Math.random() < 0.3;
@@ -813,7 +812,6 @@ export default function AvailableRidesPage() {
         showThisOfferToDriver = true;
     }
 
-    // Check max distance preference
     let distanceLimitExceeded = false;
     if (maxDistancePref !== "no_limit") {
       const limitValue = parseInt(maxDistancePref.split('_')[1]);
@@ -963,6 +961,7 @@ export default function AvailableRidesPage() {
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
         accountJobPin: serverBooking.accountJobPin,
+        distanceMiles: offerToAccept.distanceMiles, // Persist distance from offer
       };
       console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
       setActiveRide(newActiveRideFromServer);
@@ -1165,6 +1164,7 @@ export default function AvailableRidesPage() {
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
           driverCurrentLocation: serverData.driverCurrentLocation || driverLocation,
           accountJobPin: serverData.accountJobPin || prev.accountJobPin,
+          distanceMiles: serverData.distanceMiles || prev.distanceMiles, // Persist distance
         };
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
@@ -1594,10 +1594,9 @@ export default function AvailableRidesPage() {
             </div>
             
             {dispatchInfo && (
-              <div className={cn("p-2 my-1.5 rounded-lg text-center", dispatchInfo.bgColorClassName)}>
-                <p className="text-sm font-medium text-white flex items-center justify-center gap-1">
-                  <dispatchInfo.icon className="w-4 h-4 text-white" />
-                  {dispatchInfo.text}
+              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
+                <p className="text-sm font-medium flex items-center justify-center gap-1">
+                  <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
             )}
@@ -1660,6 +1659,9 @@ export default function AvailableRidesPage() {
                       <strong>Fare:</strong> {displayedFare}
                     </p>
                     <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
+                    {activeRide.distanceMiles && (
+                      <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                    )}
                     {activeRide.paymentMethod && ( <p className="flex items-center gap-1 col-span-2 mt-1"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'account' ? 'Account (PIN)' : 'Cash'} </p> )}
                  </div>
             </div>
@@ -2092,4 +2094,3 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
-

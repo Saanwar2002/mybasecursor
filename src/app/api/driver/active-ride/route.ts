@@ -56,6 +56,7 @@ interface ActiveDriverRide {
   requiredOperatorId?: string;
   dispatchMethod?: RideOffer['dispatchMethod'];
   accountJobPin?: string; // Added for account jobs
+  distanceMiles?: number; // Added for ride distance
 }
 
 export async function GET(request: NextRequest) {
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     const bookingsRef = collection(db, 'bookings');
     const activeDriverStatuses = [
-      'driver_assigned', // Standardized
+      'driver_assigned', 
       'arrived_at_pickup',
       'in_progress',
       'pending_driver_wait_and_return_approval',
@@ -131,7 +132,8 @@ export async function GET(request: NextRequest) {
       estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
       requiredOperatorId: data.requiredOperatorId,
       dispatchMethod: data.dispatchMethod,
-      accountJobPin: data.accountJobPin, // Include the PIN
+      accountJobPin: data.accountJobPin, 
+      distanceMiles: data.offerDetails?.distanceMiles, // Populate distance from offerDetails
     };
 
     return NextResponse.json(activeRide, { status: 200 });
