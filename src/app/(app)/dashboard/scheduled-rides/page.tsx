@@ -159,14 +159,14 @@ export default function ScheduledRidesPage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-row justify-between items-center">
+        <CardHeader className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
             <CardTitle className="text-3xl font-headline flex items-center gap-2">
               <CalendarClock className="w-8 h-8 text-primary" /> Scheduled Rides
             </CardTitle>
             <CardDescription>Manage your recurring and future scheduled bookings.</CardDescription>
           </div>
-          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground w-full md:w-auto">
             <Link href="/dashboard/scheduled-rides/create">
               <PlusCircle className="mr-2 h-4 w-4" /> Create New Schedule
             </Link>
