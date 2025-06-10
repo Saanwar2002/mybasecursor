@@ -26,7 +26,7 @@ export interface User {
   phoneVerificationDeadline?: string | null; 
   acceptsPetFriendlyJobs?: boolean; 
   acceptsPlatformJobs?: boolean; 
-  maxJourneyDistance?: string; // e.g., "no_limit", "local_5", "medium_10"
+  maxJourneyDistance?: string; 
 
   // Driver-specific vehicle & compliance details
   vehicleMakeModel?: string;
@@ -238,7 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         guestUser = { ...baseGuestData, name: 'Guest Passenger', role: 'passenger' };
         break;
       case 'driver':
-        const isMyBaseDriver = Math.random() < 0.3; // 30% chance of being a MyBase direct driver
+        const isMyBaseDriver = Math.random() < 0.3;
         const guestOperatorCode = isMyBaseDriver ? PLATFORM_OPERATOR_CODE : `OP-GUEST-${Math.floor(Math.random()*900)+100}`;
         guestUser = {
           ...baseGuestData,
@@ -271,7 +271,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         break;
       case 'admin':
-        guestUser = { ...baseGuestData, name: 'Guest Admin', role: 'admin', operatorCode: PLATFORM_OPERATOR_CODE }; // Admins are part of platform
+        guestUser = { ...baseGuestData, name: 'Guest Admin', role: 'admin', operatorCode: PLATFORM_OPERATOR_CODE };
         break;
       default:
         toast({ title: "Error", description: "Invalid guest role specified.", variant: "destructive" });
@@ -297,12 +297,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("AuthContext.logout: Attempting signOut.");
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null and trigger redirection via useEffect.
       toast({title: "Logged Out", description: "You have been successfully logged out."});
     } catch (error) {
       console.error("AuthContext.logout: Error signing out:", error);
       toast({title: "Logout Error", description: "Failed to log out properly.", variant: "destructive"});
-      // Even if signOut fails, clear local state and attempt redirect.
+    } finally {
       setUser(null); 
       setLoading(false);
       router.push('/login'); 
@@ -322,7 +321,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const updatedUser = { 
           ...currentUser, 
           ...updatedProfileData, 
-          id: currentUser.id,
+          id: currentUser.id, 
           acceptsPlatformJobs: finalAcceptsPlatformJobs,
         };
         console.log("AuthContext.updateUserProfileInContext: User profile updated in context.", updatedUser);
@@ -377,3 +376,5 @@ export const useAuth = () => {
 };
 
 export { PLATFORM_OPERATOR_CODE };
+
+    
