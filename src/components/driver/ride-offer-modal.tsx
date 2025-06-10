@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole } from "lucide-react"; // Added LockKeyhole
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,7 @@ import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { PLATFORM_OPERATOR_CODE } from '@/contexts/auth-context'; // Import PLATFORM_OPERATOR_CODE
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -36,7 +37,7 @@ export interface RideOffer {
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
   dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override';
-  accountJobPin?: string; // PIN is NOT shown to driver here, but its presence signifies an account job needing PIN later.
+  accountJobPin?: string;
 }
 
 interface RideOfferModalProps {
@@ -156,7 +157,13 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const totalFareForDriver = rideDetails.fareEstimate + (rideDetails.priorityFeeAmount || 0);
 
   const getDispatchMethodText = () => {
-    if (!rideDetails.dispatchMethod) return null;
+    if (!rideDetails.dispatchMethod && rideDetails.requiredOperatorId !== PLATFORM_OPERATOR_CODE) return null;
+
+    // If the ride is specifically for the platform operator (OP001), always show "Dispatched By App (Auto)"
+    if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
+      return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
+    }
+
     switch (rideDetails.dispatchMethod) {
       case 'auto_system':
         return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
@@ -165,7 +172,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       case 'priority_override':
         return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, color: "text-purple-600" };
       default:
-        return null;
+        // If dispatchMethod is undefined BUT requiredOperatorId is not OP001 (and not null/undefined, implying it's for a specific non-platform operator)
+        // it might be considered manually dispatched by that operator.
+        if (rideDetails.requiredOperatorId) {
+            return { text: `Dispatched By Operator (${rideDetails.requiredOperatorId})`, icon: Briefcase, color: "text-blue-600" };
+        }
+        return null; // Or a default if no dispatch method and no specific operator implies general pool
     }
   };
   const dispatchInfo = getDispatchMethodText();
@@ -175,7 +187,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     switch (rideDetails.paymentMethod) {
       case "card": return "Card";
       case "cash": return "Cash";
-      case "account": return "Account Job (PIN Required)"; // Updated for PIN
+      case "account": return "Account Job (PIN Required)";
       default: return "N/A";
     }
   };
@@ -185,7 +197,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     switch (rideDetails.paymentMethod) {
       case "card": return CreditCard;
       case "cash": return Coins;
-      case "account": return LockKeyhole; // Changed icon for Account to imply PIN
+      case "account": return LockKeyhole;
       default: return Info;
     }
   };
@@ -231,10 +243,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
             </div>
             <div className="space-y-2.5">
-              {rideDetails.requiredOperatorId && (
+              {rideDetails.requiredOperatorId && rideDetails.requiredOperatorId !== PLATFORM_OPERATOR_CODE && (
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-lg text-center">
                   <p className="text-sm font-semibold text-purple-700 dark:text-purple-200 flex items-center justify-center gap-1">
-                    <Briefcase className="w-4 h-4"/> This ride is restricted to Operator: {rideDetails.requiredOperatorId}
+                    <Briefcase className="w-4 h-4"/> This ride is from Operator: {rideDetails.requiredOperatorId}
                   </p>
                 </div>
               )}
