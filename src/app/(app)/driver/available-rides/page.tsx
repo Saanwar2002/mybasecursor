@@ -218,8 +218,7 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
-    if (!activeRide && !error) setIsLoading(true); // Only show full load if no ride and no prior error
-    // setError(null); // Don't clear global error on poll, only on manual retry
+    if (!activeRide && !error) setIsLoading(true); 
 
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
@@ -229,19 +228,16 @@ export default function AvailableRidesPage() {
       }
       const data: ActiveRide | null = await response.json();
       setActiveRide(data); 
-      if (data?.driverCurrentLocation) { // Use driver's actual current location if available for map center
+      if (data?.driverCurrentLocation) { 
         setDriverLocation(data.driverCurrentLocation);
       } else if (data?.pickupLocation) {
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
-      if (data && error) setError(null); // Clear error if data is successfully fetched
+      if (data && error) setError(null); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
       console.error("Error in fetchActiveRide:", message);
-      // Only set global error if there isn't already an active ride displayed
       if (!activeRide) setError(message);
-      // Optionally toast non-critical polling errors differently or less frequently
-      // toast({ title: "Polling Error", description: "Could not refresh ride status.", variant: "default", duration: 3000 });
     } finally {
       if (!activeRide) setIsLoading(false);
     }
@@ -301,7 +297,7 @@ export default function AvailableRidesPage() {
       };
       updateTimers();
       waitingTimerIntervalRef.current = setInterval(updateTimers, 1000);
-    } else if (activeRide?.status !== 'arrived_at_pickup') { // Ensure timers are cleared if not in this status
+    } else if (activeRide?.status !== 'arrived_at_pickup') { 
       setAckWindowSecondsLeft(null);
       setFreeWaitingSecondsLeft(null);
       setExtraWaitingSeconds(null);
@@ -405,7 +401,7 @@ export default function AvailableRidesPage() {
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        offerDetails: { ...offerToAccept },
+        offerDetails: { ...offerToAccept }, // Send all offer details for new booking creation
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
@@ -433,15 +429,17 @@ export default function AvailableRidesPage() {
             try {
                 const rawResponseText = await clonedResponse.text();
                 errorDetailsText += ` Non-JSON response from server. Response text: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
+                console.error("Raw non-JSON server response from handleAcceptOffer:", rawResponseText);
             } catch (textReadError) {
                 errorDetailsText += " Additionally, failed to read response body as text.";
+                console.error("Failed to read response body as text after JSON parse failed:", textReadError);
             }
         }
         throw new Error(errorDetailsText);
       }
       
       const serverBooking = updatedBookingDataFromServer.booking;
-      const newActiveRide: ActiveRide = {
+      const newActiveRideFromServer: ActiveRide = {
         id: serverBooking.id, 
         passengerId: serverBooking.passengerId,
         passengerName: serverBooking.passengerName,
@@ -450,7 +448,7 @@ export default function AvailableRidesPage() {
         dropoffLocation: serverBooking.dropoffLocation,
         stops: serverBooking.stops,
         fareEstimate: serverBooking.fareEstimate,
-        passengerCount: serverBooking.passengers,
+        passengerCount: serverBooking.passengers, // Ensure this comes from serverBooking if possible
         status: serverBooking.status, 
         driverId: serverBooking.driverId,
         driverName: serverBooking.driverName,
@@ -462,26 +460,26 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: serverBooking.priorityFeeAmount,
         vehicleType: serverBooking.vehicleType,
         dispatchMethod: serverBooking.dispatchMethod,
-        bookingTimestamp: serverBooking.bookingTimestamp,
-        scheduledPickupAt: serverBooking.scheduledPickupAt,
-        notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp,
-        passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp,
-        rideStartedAt: serverBooking.rideStartedAt,
+        bookingTimestamp: serverBooking.bookingTimestamp, // Expect serialized from server
+        scheduledPickupAt: serverBooking.scheduledPickupAt, // Expect string or null
+        notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp, // Expect serialized or null
+        passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp, // Expect serialized or null
+        rideStartedAt: serverBooking.rideStartedAt, // Expect serialized or null
         driverCurrentLocation: serverBooking.driverCurrentLocation,
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
       
-      setActiveRide(newActiveRide); // OPTIMISTIC UPDATE
-      setRideRequests([]); // Clear other offers
+      setActiveRide(newActiveRideFromServer);
+      setRideRequests([]);
 
-      let toastDesc = `En Route to Pickup for ${newActiveRide.passengerName}. Payment: ${newActiveRide.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
-      if (newActiveRide.isPriorityPickup && newActiveRide.priorityFeeAmount) {
-        toastDesc += ` Priority: +£${newActiveRide.priorityFeeAmount.toFixed(2)}.`;
+      let toastDesc = `En Route to Pickup for ${newActiveRideFromServer.passengerName}. Payment: ${newActiveRideFromServer.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
+      if (newActiveRideFromServer.isPriorityPickup && newActiveRideFromServer.priorityFeeAmount) {
+        toastDesc += ` Priority: +£${newActiveRideFromServer.priorityFeeAmount.toFixed(2)}.`;
       }
-      if (newActiveRide.dispatchMethod) {
-        toastDesc += ` Dispatched: ${newActiveRide.dispatchMethod.replace(/_/g, ' ')}.`;
+      if (newActiveRideFromServer.dispatchMethod) {
+        toastDesc += ` Dispatched: ${newActiveRideFromServer.dispatchMethod.replace(/_/g, ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
       
@@ -492,7 +490,7 @@ export default function AvailableRidesPage() {
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
       setTimeout(() => {
-        // fetchActiveRide(); // Fetch again to ensure sync, but not strictly necessary if POST returns full data
+        // fetchActiveRide(); // No longer needed here, main poller will take over.
         setIsPollingEnabled(true); 
       }, 3000); // Delay before re-enabling polling
     }
@@ -587,10 +585,10 @@ export default function AvailableRidesPage() {
         return {
           ...prev,
           status: serverData.status || prev.status,
-          notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
-          passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
-          rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
-          completedAt: serverData.completedAt || prev.completedAt,
+          notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp,
+          passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp,
+          rideStartedAt: serverData.rideStartedAt,
+          completedAt: serverData.completedAt,
           fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
           waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
           estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
@@ -624,9 +622,9 @@ export default function AvailableRidesPage() {
   const memoizedMapMarkers = useMemo(() => {
     if (!activeRide) return [];
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-    if (activeRide.driverCurrentLocation) { // Driver's actual location if available
+    if (activeRide.driverCurrentLocation) { 
         markers.push({ position: activeRide.driverCurrentLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
-    } else { // Fallback to general driver location if specific one isn't pushed by backend
+    } else { 
         markers.push({ position: driverLocation, title: "Your Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
     }
     if (activeRide.pickupLocation) { markers.push({ position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude}, title: `Pickup: ${activeRide.pickupLocation.address}`, label: { text: "P", color: "white", fontWeight: "bold"} }); }
@@ -738,7 +736,7 @@ export default function AvailableRidesPage() {
       <div className="flex flex-col h-full">
         {(!showCompletedStatus && !showCancelledByDriverStatus && ( 
         <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
-            <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
+            <GoogleMapDisplay center={memoizedMapCenter} zoom={13} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button
@@ -769,51 +767,51 @@ export default function AvailableRidesPage() {
                   >
                     Emergency (Alert & Sound)
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." });
-                      setIsSosDialogOpen(false);
-                    }}
-                  >
-                    Vehicle Breakdown
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      toast({ title: "Callback Requested", description: "Operator has been asked to call you back." });
-                      setIsSosDialogOpen(false);
-                    }}
-                  >
-                    Request Operator Callback
-                  </Button>
-                </div>
+                <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                    toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." });
+                    setIsSosDialogOpen(false);
+                }}
+                >
+                Vehicle Breakdown
+                </Button>
+                <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                    toast({ title: "Callback Requested", description: "Operator has been asked to call you back." });
+                    setIsSosDialogOpen(false);
+                }}
+                >
+                Request Operator Callback
+                </Button>
+            </div>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        
+        <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                        <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will immediately alert your operator. Proceed with caution.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
+                    <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
+                        Yes, Confirm Emergency!
+                    </AlertDialogAction>
                 </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            
-            <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
-                            <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This will immediately alert your operator. Proceed with caution.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
-                            Yes, Confirm Emergency!
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            </AlertDialogContent>
+        </AlertDialog>
         </div> 
         ))}
         <Card className={cn( "flex-1 flex flex-col rounded-t-xl z-10 shadow-[-4px_0px_15px_rgba(0,0,0,0.1)] border-t-4 border-primary bg-card overflow-hidden", (showCompletedStatus || showCancelledByDriverStatus) ? "mt-0 rounded-b-xl" : "-mt-3" )}>
@@ -1116,4 +1114,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
