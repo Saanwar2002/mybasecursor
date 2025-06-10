@@ -595,7 +595,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoad) setIsLoading(false);
     }
-  }, [driverUser?.id, toast, error]);
+  }, [driverUser?.id, toast, error, activeRide]);
 
 
  useEffect(() => {
@@ -1307,36 +1307,6 @@ export default function AvailableRidesPage() {
     }
   };
 
-  const handleBlockPassenger = async () => {
-    if (!driverUser || !activeRide || !activeRide.passengerId || !activeRide.passengerName) {
-      toast({ title: "Cannot Block", description: "Passenger information is missing for this ride.", variant: "destructive" });
-      return;
-    }
-    setActionLoading(prev => ({ ...prev, [`block-p-${activeRide.passengerId}`]: true }));
-    try {
-      const response = await fetch('/api/users/blocks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          blockerId: driverUser.id,
-          blockedId: activeRide.passengerId,
-          blockerRole: 'driver',
-          blockedRole: 'passenger',
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || `Failed to block passenger. Status: ${response.status}`);
-      }
-      toast({ title: "Passenger Blocked", description: `${activeRide.passengerName} has been added to your block list.` });
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : "Unknown error while blocking passenger.";
-      toast({ title: "Blocking Failed", description: message, variant: "destructive" });
-    } finally {
-      setActionLoading(prev => ({ ...prev, [`block-p-${activeRide!.passengerId}`]: false }));
-    }
-  };
-
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
     if (!ride || !['driver_assigned', 'arrived_at_pickup'].includes(ride.status.toLowerCase())) return null;
     return (
@@ -1691,31 +1661,7 @@ export default function AvailableRidesPage() {
                  </div>
             </div>
             {activeRide.notes && !['in_progress', 'In Progress', 'completed', 'cancelled_by_driver', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase()) && ( <div className="border-l-4 border-accent pl-3 py-1.5 bg-accent/10 rounded-r-md my-1"> <p className="text-xs md:text-sm text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p> </div> )}
-
-             {showCompletedStatus && activeRide.passengerId && activeRide.passengerName && (
-                <div className="pt-2">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground" disabled={!!actionLoading[`block-p-${activeRide.passengerId}`]}>
-                        {actionLoading[`block-p-${activeRide.passengerId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
-                        Block Passenger
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <ShadAlertDialogTitle><span>Block {activeRide.passengerName}?</span></ShadAlertDialogTitle>
-                        <AlertDialogDescription>
-                          <span>Are you sure you want to block this passenger? You will not be offered rides from them in the future. This action can be undone in your profile settings.</span>
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel><span>Cancel</span></AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBlockPassenger} className="bg-destructive hover:bg-destructive/90"><span>Block Passenger</span></AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              )}
+            
             {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
                 <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName || "Passenger"}:</p>
@@ -2119,4 +2065,3 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
-
