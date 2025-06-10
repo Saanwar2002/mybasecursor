@@ -163,7 +163,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       case 'manual_operator':
         return { text: "Dispatched Manually By Your Base", icon: Briefcase, color: "text-blue-600" };
       case 'priority_override':
-        return { text: "Dispatched: Priority Override", icon: AlertOctagon, color: "text-purple-600" };
+        return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, color: "text-purple-600" };
       default:
         return null;
     }
