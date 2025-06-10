@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle, DollarSign, MessageSquare, Clock, RefreshCwIcon, Crown, XCircle } from "lucide-react"; // Added XCircle
+import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle, DollarSign, MessageSquare, Clock, RefreshCwIcon, Crown, XCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context'; 
@@ -116,6 +117,9 @@ export default function OperatorManageRidesPage() {
 
   const [isAssigning, setIsAssigning] = useState(false);
   const [isCancellingRideId, setIsCancellingRideId] = useState<string | null>(null);
+
+  const [isRideDetailsDialogOpen, setIsRideDetailsDialogOpen] = useState(false);
+  const [rideForDetailsModal, setRideForDetailsModal] = useState<Ride | null>(null);
 
 
   const RIDES_PER_PAGE = 10;
@@ -313,6 +317,11 @@ export default function OperatorManageRidesPage() {
     }
   };
 
+  const handleOpenRideDetails = (ride: Ride) => {
+    setRideForDetailsModal(ride);
+    setIsRideDetailsDialogOpen(true);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -448,7 +457,7 @@ export default function OperatorManageRidesPage() {
                             </AlertDialog>
                           </>
                         )}
-                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => toast({ title: "Ride Details (Placeholder)", description: `Details for ride ${ride.id}: \nPassenger: ${ride.passengerName}\nVehicle: ${ride.vehicleType}\nFare: £${ride.fareEstimate.toFixed(2)}\nNotes: ${ride.driverNotes || 'None'}`, duration: 8000 })}>
+                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenRideDetails(ride)}>
                             <Eye className="h-4 w-4" title="View Details"/>
                         </Button>
                          {ride.driverNotes && (
@@ -524,6 +533,77 @@ export default function OperatorManageRidesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+       <Dialog open={isRideDetailsDialogOpen} onOpenChange={setIsRideDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <ShadDialogTitle className="text-xl font-headline">Ride Details: {rideForDetailsModal?.id}</ShadDialogTitle>
+            <ShadDialogDescription>
+              Detailed information for the selected ride.
+            </ShadDialogDescription>
+          </DialogHeader>
+          {rideForDetailsModal && (
+            <div className="py-4 space-y-3 text-sm max-h-[70vh] overflow-y-auto pr-2">
+              <p><strong>Passenger:</strong> {rideForDetailsModal.passengerName} ({rideForDetailsModal.passengers || 1} <Users className="inline h-3.5 w-3.5 -mt-0.5"/>)</p>
+              <p><strong>Vehicle Type:</strong> {rideForDetailsModal.vehicleType || "N/A"}</p>
+              <Separator />
+              <p><strong>Pickup:</strong> {rideForDetailsModal.pickupLocation.address} {rideForDetailsModal.pickupLocation.doorOrFlat && `(${rideForDetailsModal.pickupLocation.doorOrFlat})`}</p>
+              {rideForDetailsModal.stops && rideForDetailsModal.stops.length > 0 && (
+                <div>
+                  <strong>Stops:</strong>
+                  <ul className="list-disc list-inside ml-4">
+                    {rideForDetailsModal.stops.map((stop, index) => (
+                      <li key={`detail-stop-${index}`}>{stop.address} {stop.doorOrFlat && `(${stop.doorOrFlat})`}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p><strong>Dropoff:</strong> {rideForDetailsModal.dropoffLocation.address} {rideForDetailsModal.dropoffLocation.doorOrFlat && `(${rideForDetailsModal.dropoffLocation.doorOrFlat})`}</p>
+              <Separator />
+              <p><strong>Status:</strong> <Badge variant={
+                rideForDetailsModal.status === 'Completed' ? 'default' :
+                rideForDetailsModal.status === 'Cancelled' || rideForDetailsModal.status === 'cancelled_by_operator' ? 'destructive' :
+                rideForDetailsModal.status === 'In Progress' || rideForDetailsModal.status === 'in_progress' ? 'outline' : 'secondary'
+              } className={
+                rideForDetailsModal.status === 'In Progress' || rideForDetailsModal.status === 'in_progress' ? 'border-blue-500 text-blue-500' :
+                rideForDetailsModal.status === 'Pending' || rideForDetailsModal.status === 'pending_assignment' ? 'bg-yellow-400/80 text-yellow-900' :
+                rideForDetailsModal.status === 'Assigned' || rideForDetailsModal.status === 'driver_assigned' ? 'bg-sky-400/80 text-sky-900' :
+                rideForDetailsModal.status === 'arrived_at_pickup' ? 'bg-indigo-400/80 text-indigo-900' : ''
+              }>
+                {rideForDetailsModal.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </Badge></p>
+              <p><strong>Fare Estimate:</strong> £{(rideForDetailsModal.fareEstimate || 0).toFixed(2)}</p>
+              <p><strong>Payment Method:</strong> <span className="capitalize">{rideForDetailsModal.paymentMethod || "N/A"}</span></p>
+              <p><strong>Booking Time:</strong> {rideForDetailsModal.scheduledPickupAt ? `Scheduled for ${formatDateFromISO(rideForDetailsModal.scheduledPickupAt)}` : formatDateFromTimestamp(rideForDetailsModal.bookingTimestamp)}</p>
+              {rideForDetailsModal.isPriorityPickup && (
+                <p className="text-orange-600 font-semibold">
+                  <Crown className="inline h-4 w-4 mr-1" /> Priority Booking (+£{(rideForDetailsModal.priorityFeeAmount || 0).toFixed(2)})
+                </p>
+              )}
+              {rideForDetailsModal.waitAndReturn && (
+                <p className="text-indigo-600 font-semibold">
+                  <RefreshCwIcon className="inline h-4 w-4 mr-1" /> Wait & Return (~{rideForDetailsModal.estimatedWaitTimeMinutes}m)
+                </p>
+              )}
+              {rideForDetailsModal.driverName && <p><strong>Assigned Driver:</strong> {rideForDetailsModal.driverName}</p>}
+              {rideForDetailsModal.driverVehicleDetails && <p><strong>Driver Vehicle:</strong> {rideForDetailsModal.driverVehicleDetails}</p>}
+              {rideForDetailsModal.driverNotes && (
+                <>
+                  <Separator />
+                  <p><strong>Passenger Notes:</strong></p>
+                  <p className="p-2 bg-muted rounded-md text-xs whitespace-pre-wrap">{rideForDetailsModal.driverNotes}</p>
+                </>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
