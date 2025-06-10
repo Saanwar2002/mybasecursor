@@ -39,6 +39,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
+import type { LabelType } from '@/components/ui/custom-map-label-overlay';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -200,7 +201,9 @@ export default function AvailableRidesPage() {
   
   const [consecutiveMissedOffers, setConsecutiveMissedOffers] = useState(0);
   const MAX_CONSECUTIVE_MISSED_OFFERS = 3;
-  const [customMapLabel, setCustomMapLabel] = useState<{ position: google.maps.LatLngLiteral; content: string } | null>(null);
+  
+  const [customMapLabel, setCustomMapLabel] = useState<{ position: google.maps.LatLngLiteral; content: string; type: LabelType } | null>(null);
+
 
   const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
   const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
@@ -211,6 +214,8 @@ export default function AvailableRidesPage() {
     if (activeRide) {
       let labelContent: string | null = null;
       let labelPosition: google.maps.LatLngLiteral | null = null;
+      let labelType: LabelType = 'pickup';
+
       const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
       const dropoffStreet = activeRide.dropoffLocation.address.split(',')[0];
 
@@ -218,16 +223,18 @@ export default function AvailableRidesPage() {
         if (activeRide.pickupLocation) {
           labelPosition = { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
           labelContent = `Pickup at\n${pickupStreet}`;
+          labelType = 'pickup';
         }
       } else if (activeRide.status.toLowerCase().includes('in_progress')) {
         if (activeRide.dropoffLocation) {
           labelPosition = { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude };
           labelContent = `Dropoff at\n${dropoffStreet}`;
+          labelType = 'dropoff';
         }
       }
       
       if (labelPosition && labelContent) {
-        setCustomMapLabel({ position: labelPosition, content: labelContent });
+        setCustomMapLabel({ position: labelPosition, content: labelContent, type: labelType });
       } else {
         setCustomMapLabel(null);
       }

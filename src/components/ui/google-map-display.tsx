@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { cn } from "@/lib/utils";
 import { Skeleton } from './skeleton';
-import { getCustomMapLabelOverlayClass, type ICustomMapLabelOverlay, type CustomMapLabelOverlayConstructor } from './custom-map-label-overlay';
+import { getCustomMapLabelOverlayClass, type ICustomMapLabelOverlay, type CustomMapLabelOverlayConstructor, type LabelType } from './custom-map-label-overlay';
 
 interface GoogleMapDisplayProps {
   center: google.maps.LatLngLiteral;
@@ -20,6 +20,7 @@ interface GoogleMapDisplayProps {
   customMapLabel?: {
     position: google.maps.LatLngLiteral;
     content: string;
+    type: LabelType; // Added type for styling
   } | null;
   className?: string;
   style?: React.CSSProperties;
@@ -28,7 +29,7 @@ interface GoogleMapDisplayProps {
   fitBoundsToMarkers?: boolean;
 }
 
-const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; // User-confirmed working key
+const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; 
 
 const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   center,
@@ -90,7 +91,6 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         if (loadedGoogle && loadedGoogle.maps && loadedGoogle.maps.Map) {
            CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(loadedGoogle.maps);
            setIsSdkLoaded(true);
-           // Ensure window.google is set if the loader doesn't do it, though it usually does.
            if (typeof window !== 'undefined' && !(window as any).google) {
              (window as any).google = loadedGoogle;
            }
@@ -173,16 +173,15 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         }
     }
 
-    // Manage custom label overlay
     const CustomMapLabelOverlay = CustomMapLabelOverlayClassRef.current;
     if (mapInstanceRef.current && CustomMapLabelOverlay) {
       if (customMapLabel) {
         if (customLabelOverlayRef.current) {
             customLabelOverlayRef.current.updatePosition(customMapLabel.position);
-            customLabelOverlayRef.current.updateContent(customMapLabel.content);
+            customLabelOverlayRef.current.updateContent(customMapLabel.content, customMapLabel.type);
             customLabelOverlayRef.current.show();
         } else {
-          customLabelOverlayRef.current = new CustomMapLabelOverlay(customMapLabel.position, customMapLabel.content);
+          customLabelOverlayRef.current = new CustomMapLabelOverlay(customMapLabel.position, customMapLabel.content, customMapLabel.type);
           customLabelOverlayRef.current.setMap(mapInstanceRef.current);
         }
       } else {
