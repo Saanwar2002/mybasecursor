@@ -105,8 +105,8 @@ const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
-const STATIONARY_REMINDER_TIMEOUT_MS = 60000; // 60 seconds
-const MOVEMENT_THRESHOLD_METERS = 50; // 50 meters
+const STATIONARY_REMINDER_TIMEOUT_MS = 60000; 
+const MOVEMENT_THRESHOLD_METERS = 50; 
 
 
 const parseTimestampToDate = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
@@ -133,7 +133,7 @@ function getDistanceBetweenPointsInMeters(
 ): number {
   if (!coord1 || !coord2) return Infinity;
 
-  const R = 6371e3; // Earth radius in meters
+  const R = 6371e3; 
   const lat1Rad = coord1.lat * Math.PI / 180;
   const lat2Rad = coord2.lat * Math.PI / 180;
   const deltaLatRad = (coord2.lat - coord1.lat) * Math.PI / 180;
@@ -189,6 +189,9 @@ export default function AvailableRidesPage() {
   const driverLocationAtAcceptanceRef = useRef<google.maps.LatLngLiteral | null>(null);
   const stationaryReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isStationaryReminderVisible, setIsStationaryReminderVisible] = useState(false);
+  
+  const [consecutiveMissedOffers, setConsecutiveMissedOffers] = useState(0);
+  const MAX_CONSECUTIVE_MISSED_OFFERS = 3;
 
 
   const playBeep = useCallback(() => {
@@ -398,7 +401,7 @@ export default function AvailableRidesPage() {
             if (distanceMoved < MOVEMENT_THRESHOLD_METERS) {
               setIsStationaryReminderVisible(true);
             } else {
-              clearStationaryLogic(); // Driver moved before timer fired completely
+              clearStationaryLogic(); 
             }
           }
           stationaryReminderTimerRef.current = null; 
@@ -413,7 +416,7 @@ export default function AvailableRidesPage() {
     } else {
       clearStationaryLogic();
     }
-    return () => { // Cleanup on effect unmount or dependency change
+    return () => { 
       clearStationaryLogic();
     };
   }, [activeRide, driverLocation]);
@@ -453,6 +456,7 @@ export default function AvailableRidesPage() {
       clearInterval(rideRefreshIntervalIdRef.current);
       rideRefreshIntervalIdRef.current = null;
     }
+    setConsecutiveMissedOffers(0); // Reset missed offers on acceptance
 
     setIsOfferModalOpen(false);
     const offerToAccept = currentOfferDetails;
@@ -565,9 +569,30 @@ export default function AvailableRidesPage() {
 
 
   const handleDeclineOffer = (rideId: string) => {
-    const declinedOffer = currentOfferDetails; setIsOfferModalOpen(false); setCurrentOfferDetails(null);
-    if (declinedOffer) { toast({title: "Ride Offer Declined", description: `You declined the offer for ${declinedOffer.passengerName || 'a passenger'}.`}); }
-    else { toast({title: "Offer Declined", description: `Offer with ID ${rideId} declined (details not found).`}); }
+    const offerThatWasDeclined = currentOfferDetails; 
+    setIsOfferModalOpen(false);
+    setCurrentOfferDetails(null);
+
+    const newMissedCount = consecutiveMissedOffers + 1;
+    setConsecutiveMissedOffers(newMissedCount);
+
+    if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
+        setIsDriverOnline(false);
+        // In a real app, also call: updateDriverStatusInBackend(driverUser?.id, false);
+        toast({
+            title: "Automatically Set Offline",
+            description: `You've missed ${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive offers and have been set to Offline. You can go online again manually.`,
+            variant: "default",
+            duration: 8000,
+        });
+        setConsecutiveMissedOffers(0); // Reset for the next time they go online
+    } else {
+        const passengerName = offerThatWasDeclined?.passengerName || 'the passenger';
+        toast({
+            title: "Ride Offer Declined",
+            description: `You declined the offer for ${passengerName}. (${newMissedCount}/${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive before auto-offline).`
+        });
+    }
   };
 
  const handleRideAction = async (rideId: string, actionType: 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active' | 'accept_wait_and_return' | 'decline_wait_and_return') => {
@@ -750,6 +775,29 @@ export default function AvailableRidesPage() {
     setIsConfirmEmergencyOpen(false); 
     setIsSosDialogOpen(false); 
   };
+
+  const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
+    setIsDriverOnline(newOnlineStatus);
+    if (newOnlineStatus) { // If toggling TO online
+        setConsecutiveMissedOffers(0); // Reset miss count
+        if (geolocationError) {
+            setGeolocationError(null); 
+            // Geolocation watch will be re-attempted by its own useEffect
+        }
+        // Start polling for active ride / offers if not already
+        setIsPollingEnabled(true);
+    } else { // If toggling TO offline manually
+        setRideRequests([]); 
+        setIsPollingEnabled(false); 
+        if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+        }
+    }
+    // In a real app, you'd also update the driver's status on the backend
+    // e.g., updateDriverBackendStatus(driverUser?.id, newOnlineStatus);
+  };
+
 
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -1156,7 +1204,7 @@ export default function AvailableRidesPage() {
             </AlertDialogContent>
         </AlertDialog>
     </div> 
-    <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={setIsDriverOnline} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+    <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> {isDriverOnline ? ( geolocationError ? ( <div className="flex flex-col items-center text-center space-y-1 p-1 bg-destructive/10 rounded-md"> <AlertTriangle className="w-6 h-6 text-destructive" /> <p className="text-xs text-destructive">{geolocationError}</p> </div> ) : ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=unchecked]:bg-red-600 data-[state=unchecked]:border-red-700")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div> {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
     <AlertDialog
       open={isStationaryReminderVisible}
       onOpenChange={setIsStationaryReminderVisible}
@@ -1213,3 +1261,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
