@@ -43,7 +43,7 @@ interface ActiveDriverRide {
   scheduledPickupAt?: string | null;
   vehicleType?: string;
   isSurgeApplied?: boolean;
-  paymentMethod?: 'card' | 'cash';
+  paymentMethod?: 'card' | 'cash' | 'account';
   notifiedPassengerArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | null;
   passengerAcknowledgedArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | null;
   rideStartedAt?: { _seconds: number; _nanoseconds: number } | null;
@@ -55,6 +55,7 @@ interface ActiveDriverRide {
   estimatedAdditionalWaitTimeMinutes?: number;
   requiredOperatorId?: string;
   dispatchMethod?: RideOffer['dispatchMethod'];
+  accountJobPin?: string; // Added for account jobs
 }
 
 export async function GET(request: NextRequest) {
@@ -130,6 +131,7 @@ export async function GET(request: NextRequest) {
       estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
       requiredOperatorId: data.requiredOperatorId,
       dispatchMethod: data.dispatchMethod,
+      accountJobPin: data.accountJobPin, // Include the PIN
     };
 
     return NextResponse.json(activeRide, { status: 200 });

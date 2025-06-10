@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle } from "lucide-react"; // Added Crown, AlertOctagon, CheckCircle
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole } from "lucide-react"; // Added LockKeyhole
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,14 +28,15 @@ export interface RideOffer {
   passengerCount: number;
   passengerId: string;
   passengerName?: string;
-  passengerPhone?: string; 
+  passengerPhone?: string;
   notes?: string;
   requiredOperatorId?: string;
   distanceMiles?: number;
-  paymentMethod?: 'card' | 'cash' | 'account'; // Added "account"
+  paymentMethod?: 'card' | 'cash' | 'account';
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
   dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override';
+  accountJobPin?: string; // PIN is NOT shown to driver here, but its presence signifies an account job needing PIN later.
 }
 
 interface RideOfferModalProps {
@@ -174,7 +175,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     switch (rideDetails.paymentMethod) {
       case "card": return "Card";
       case "cash": return "Cash";
-      case "account": return "Account Job (No Collection)";
+      case "account": return "Account Job (PIN Required)"; // Updated for PIN
       default: return "N/A";
     }
   };
@@ -184,7 +185,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     switch (rideDetails.paymentMethod) {
       case "card": return CreditCard;
       case "cash": return Coins;
-      case "account": return Briefcase; // Using Briefcase for Account
+      case "account": return LockKeyhole; // Changed icon for Account to imply PIN
       default: return Info;
     }
   };

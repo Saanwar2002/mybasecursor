@@ -31,10 +31,16 @@ interface BookingPayload {
   bookedByOperatorId?: string;
   driverNotes?: string;
   waitAndReturn?: boolean;
-  estimatedWaitTimeMinutes?: number; 
+  estimatedWaitTimeMinutes?: number;
   promoCode?: string;
-  paymentMethod: "card" | "cash";
+  paymentMethod: "card" | "cash" | "account";
   preferredOperatorId?: string;
+  accountJobPin?: string; // Added for account jobs
+}
+
+// Function to generate a random 4-digit PIN
+function generateFourDigitPin(): string {
+  return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
 export async function POST(request: NextRequest) {
@@ -51,8 +57,8 @@ export async function POST(request: NextRequest) {
     if (!bookingData.passengerId || !bookingData.pickupLocation || !bookingData.dropoffLocation || !bookingData.passengerName || !bookingData.paymentMethod) {
       return NextResponse.json({ message: 'Missing required booking fields (passengerId, passengerName, pickup, dropoff, paymentMethod).' }, { status: 400 });
     }
-    if (bookingData.paymentMethod !== "card" && bookingData.paymentMethod !== "cash") {
-      return NextResponse.json({ message: 'Invalid payment method. Must be "card" or "cash".' }, { status: 400 });
+    if (bookingData.paymentMethod !== "card" && bookingData.paymentMethod !== "cash" && bookingData.paymentMethod !== "account") {
+      return NextResponse.json({ message: 'Invalid payment method. Must be "card", "cash", or "account".' }, { status: 400 });
     }
     if (bookingData.waitAndReturn && (bookingData.estimatedWaitTimeMinutes === undefined || bookingData.estimatedWaitTimeMinutes < 0)) {
         return NextResponse.json({ message: 'Estimated wait time is required and must be non-negative for Wait & Return journeys.' }, { status: 400 });
@@ -103,6 +109,10 @@ export async function POST(request: NextRequest) {
       waitAndReturn: bookingData.waitAndReturn || false,
     };
 
+    if (bookingData.paymentMethod === "account") {
+      newBooking.accountJobPin = generateFourDigitPin();
+    }
+
     if (bookingData.waitAndReturn && bookingData.estimatedWaitTimeMinutes !== undefined) {
       newBooking.estimatedWaitTimeMinutes = bookingData.estimatedWaitTimeMinutes;
     }
@@ -130,6 +140,12 @@ export async function POST(request: NextRequest) {
     const docRef = await addDoc(collection(db, 'bookings'), newBooking);
 
     const responseData = { ...newBooking, bookingTimestamp: new Date().toISOString() };
+    // For account jobs, include the PIN in the response so the frontend (passenger side) could hypothetically display it.
+    // In a real system, this might be handled differently (e.g., separate notification).
+    if (newBooking.accountJobPin) {
+        responseData.accountJobPin = newBooking.accountJobPin;
+    }
+
 
     return NextResponse.json({ message: 'Booking created successfully', bookingId: docRef.id, data: responseData }, { status: 201 });
 
