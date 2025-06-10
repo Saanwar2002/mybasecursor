@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck, LockKeyhole } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck, LockKeyhole, AlertOctagon, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth, UserRole } from '@/contexts/auth-context';
+import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -174,6 +174,48 @@ const MOCK_HAZARDS_TO_SEED = [
   { id: 'mock-hazard-taxi-check-004', hazardType: 'roadside_taxi_checking', location: { latitude: 53.6488, longitude: -1.7805 } },
   { id: 'mock-hazard-traffic-005', hazardType: 'heavy_traffic', location: { latitude: 53.6430, longitude: -1.7797 } },
 ];
+
+interface DispatchDisplayInfo {
+  text: string;
+  icon: LucideIcon;
+  bgColorClassName: string;
+}
+
+const getActiveRideDispatchInfo = (
+  ride: ActiveRide | null,
+  currentUser: User | null
+): DispatchDisplayInfo | null => {
+  if (!ride || !currentUser) return null;
+
+  const isPlatformJob = ride.requiredOperatorId === PLATFORM_OPERATOR_CODE;
+  const isDriverOwnBaseJob = currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode && ride.requiredOperatorId !== PLATFORM_OPERATOR_CODE;
+
+  if (isPlatformJob) {
+    if (ride.dispatchMethod === 'manual_operator') {
+      return { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" };
+    }
+    return { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+  }
+
+  if (isDriverOwnBaseJob) {
+    if (ride.dispatchMethod === 'manual_operator') {
+      return { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" };
+    }
+    return { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+  }
+
+  // General pool or other operator assignments
+  if (ride.dispatchMethod === 'manual_operator') {
+    const dispatcher = ride.requiredOperatorId ? `Operator ${ride.requiredOperatorId}` : "Platform Admin";
+    return { text: `Manually Dispatched by ${dispatcher}`, icon: Briefcase, bgColorClassName: "bg-blue-600" };
+  }
+  if (ride.dispatchMethod === 'priority_override') {
+    return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
+  }
+  
+  // Fallback for general pool, other cases not explicitly covered above
+  return { text: "Dispatched By App (Auto)", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+};
 
 
 export default function AvailableRidesPage() {
@@ -695,7 +737,7 @@ export default function AvailableRidesPage() {
     const maxDistancePref = driverUser.maxJourneyDistance || "no_limit";
 
     let simulatedOfferType: 'own_operator' | 'platform_op001' | 'general_pool';
-    const canReceivePlatformOrGeneral = acceptsPlatformJobs || operatorCode === 'OP001';
+    const canReceivePlatformOrGeneral = acceptsPlatformJobs || operatorCode === PLATFORM_OPERATOR_CODE;
 
     if (canReceivePlatformOrGeneral) {
         const rand = Math.random();
@@ -732,9 +774,9 @@ export default function AvailableRidesPage() {
             offerContextDescription = `for your operator (${operatorCode})`;
             break;
         case 'platform_op001':
-            requiredOperatorIdForOffer = 'OP001';
+            requiredOperatorIdForOffer = PLATFORM_OPERATOR_CODE;
             passengerNameForOffer = "Passenger (Platform MyBase)";
-            offerContextDescription = `from MyBase platform pool (OP001)`;
+            offerContextDescription = `from MyBase platform pool (${PLATFORM_OPERATOR_CODE})`;
             break;
         case 'general_pool':
             requiredOperatorIdForOffer = undefined;
@@ -767,7 +809,7 @@ export default function AvailableRidesPage() {
     let showThisOfferToDriver = false;
     if (mockOffer.requiredOperatorId === operatorCode) {
         showThisOfferToDriver = true;
-    } else if ((!mockOffer.requiredOperatorId || mockOffer.requiredOperatorId === 'OP001') && canReceivePlatformOrGeneral) {
+    } else if ((!mockOffer.requiredOperatorId || mockOffer.requiredOperatorId === PLATFORM_OPERATOR_CODE) && canReceivePlatformOrGeneral) {
         showThisOfferToDriver = true;
     }
 
@@ -1382,6 +1424,8 @@ export default function AvailableRidesPage() {
     }
   };
 
+  const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
+
 
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -1474,17 +1518,17 @@ export default function AvailableRidesPage() {
                       >
                         Passenger Aggressive/Suspicious
                       </Button>
-                      <Button variant="outline" className="w-full"
+                    <Button variant="outline" className="w-full"
                         onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
-                      >
+                    >
                         Vehicle Breakdown
-                      </Button>
-                      <Button variant="outline" className="w-full"
+                    </Button>
+                    <Button variant="outline" className="w-full"
                         onClick={() => { toast({ title: "Callback Requested", description: "Operator has been asked to call you back." }); setIsSosDialogOpen(false); }}
-                      >
+                    >
                         Request Operator Callback
-                      </Button>
-                    </div>
+                    </Button>
+                </div>
                     <AlertDialogFooter>
                       <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
                     </AlertDialogFooter>
@@ -1548,9 +1592,18 @@ export default function AvailableRidesPage() {
                 </div>
                )}
             </div>
-            {(activeRide.isPriorityPickup || activeRide.requiredOperatorId || activeRide.dispatchMethod) && (<Separator className="my-1.5" />)}
-            {activeRide.isPriorityPickup && (
-                <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-2 text-xs">
+            
+            {dispatchInfo && (
+              <div className={cn("p-2 my-1.5 rounded-lg text-center", dispatchInfo.bgColorClassName)}>
+                <p className="text-sm font-medium text-white flex items-center justify-center gap-1">
+                  <dispatchInfo.icon className="w-4 h-4 text-white" />
+                  {dispatchInfo.text}
+                </p>
+              </div>
+            )}
+
+            {activeRide.isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (
+                <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-2 text-xs my-1.5">
                     <Crown className="h-4 w-4" />
                     <ShadAlertTitle className="font-medium">Priority Booking</ShadAlertTitle>
                     <ShadAlertDescription>
@@ -1558,9 +1611,6 @@ export default function AvailableRidesPage() {
                     </ShadAlertDescription>
                 </Alert>
             )}
-            {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-md text-center"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
-            {activeRide.dispatchMethod && ( <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-md text-center"> <p className="text-xs font-medium text-sky-600 dark:text-sky-300 flex items-center justify-center gap-1"> <CarIcon className="w-3 h-3"/> Dispatched Via: {activeRide.dispatchMethod.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} </p> </div> )}
-
 
             {showArrivedAtPickupStatus && (
               <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 my-1">
@@ -2042,3 +2092,4 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
+
