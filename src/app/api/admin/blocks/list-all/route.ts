@@ -88,3 +88,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch all user blocks', details: errorMessage }, { status: 500 });
   }
 }
+
