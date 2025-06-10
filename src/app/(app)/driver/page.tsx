@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation'; // Import useRouter
 
 export default function DriverDashboardPage() {
   const { user } = useAuth();
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(false); // Default to Offline
   const router = useRouter(); // Initialize useRouter
 
   const activeRide = null; 
@@ -43,7 +43,7 @@ export default function DriverDashboardPage() {
                 <Switch 
                   id="online-status" 
                   checked={isOnline} 
-                  onCheckedChange={handleOnlineStatusChange} // Updated handler
+                  onCheckedChange={handleOnlineStatusChange} 
                 />
                 <Label htmlFor="online-status" className={isOnline ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
                   {isOnline ? "Online" : "Offline"}
