@@ -97,7 +97,7 @@ interface ActiveRide {
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
   accountJobPin?: string;
-  distanceMiles?: number; // Added
+  distanceMiles?: number; 
 }
 
 interface MapHazard {
@@ -188,31 +188,31 @@ const getActiveRideDispatchInfo = (
 ): DispatchDisplayInfo | null => {
   if (!ride || !currentUser) return null;
 
-  const isManual = ride.dispatchMethod === 'manual_operator';
-  const isPriority = ride.dispatchMethod === 'priority_override';
+  const isPlatformRide = ride.requiredOperatorId === PLATFORM_OPERATOR_CODE;
+  const isOwnOperatorRide = currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode && ride.requiredOperatorId !== PLATFORM_OPERATOR_CODE;
   
-  if (ride.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
-    if (isManual) {
-      return { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" };
-    }
-    return { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
-  }
+  const isManualDispatch = ride.dispatchMethod === 'manual_operator';
+  const isPriorityOverride = ride.dispatchMethod === 'priority_override';
 
-  if (currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode) {
-    if (isManual) {
-      return { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" };
-    }
-    return { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+  if (isPlatformRide) {
+    return isManualDispatch 
+      ? { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
+      : { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
   }
-
-  if (isManual) {
+  if (isOwnOperatorRide) {
+    return isManualDispatch
+      ? { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
+      : { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+  }
+  // General pool or other operator dispatch
+  if (isManualDispatch) {
     const dispatcher = ride.requiredOperatorId ? `Operator ${ride.requiredOperatorId}` : "Platform Admin";
     return { text: `Manually Dispatched by ${dispatcher}`, icon: Briefcase, bgColorClassName: "bg-blue-600" };
   }
-  if (isPriority) {
+  if (isPriorityOverride) {
     return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
   }
-  
+  // Default for general pool auto-dispatches
   return { text: "Dispatched By App (Auto)", icon: CheckCircle, bgColorClassName: "bg-green-600" };
 };
 
@@ -560,21 +560,43 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
-    if (!activeRide && !error) setIsLoading(true);
+
+    const initialLoad = !activeRide;
+    if (initialLoad && !error) setIsLoading(true);
 
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
       console.log("fetchActiveRide response status:", response.status);
-      if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}` })); throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`); }
+      if (!response.ok) { 
+        const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}` })); 
+        throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`); 
+      }
       const data: ActiveRide | null = await response.json();
-      console.log("fetchActiveRide - Data received:", data);
-      setActiveRide(data);
-      if (data && error) setError(null);
-    } catch (err: any) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; console.error("Error in fetchActiveRide:", message); if (!activeRide) setError(message);
+      console.log("fetchActiveRide - Data received from API:", data);
+      
+      setActiveRide(currentClientRide => {
+        if (data === null && currentClientRide?.status === 'completed') {
+          console.log("fetchActiveRide: API reports no active ride, but client has a 'completed' ride. Retaining client state for rating.");
+          return currentClientRide;
+        }
+        if (JSON.stringify(data) !== JSON.stringify(currentClientRide)) {
+            console.log("fetchActiveRide: API data differs from client, updating client state.");
+            return data;
+        }
+        console.log("fetchActiveRide: API data matches client state, no update needed.");
+        return currentClientRide;
+      });
+
+      if (data && error) setError(null); 
+    } catch (err: any) { 
+      const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; 
+      console.error("Error in fetchActiveRide:", message); 
+      if (initialLoad) setError(message);
     } finally {
-      if (!activeRide) setIsLoading(false);
+      if (initialLoad) setIsLoading(false);
     }
-  }, [driverUser?.id, activeRide, error]);
+  }, [driverUser?.id, toast, error]);
+
 
  useEffect(() => {
     if (waitingTimerIntervalRef.current) {
@@ -652,8 +674,8 @@ export default function AvailableRidesPage() {
     }
     if (driverUser && isPollingEnabled) {
       console.log("POLLING EFFECT: Polling enabled, fetching active ride and starting interval.");
-      fetchActiveRide();
-      rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
+      fetchActiveRide(); 
+      rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000); 
     } else {
       console.log("POLLING EFFECT: Polling disabled or no driver user.");
     }
@@ -881,16 +903,16 @@ export default function AvailableRidesPage() {
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        offerDetails: { ...offerToAccept },
+        offerDetails: { ...offerToAccept }, 
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
-        dispatchMethod: offerToAccept.dispatchMethod,
+        dispatchMethod: offerToAccept.dispatchMethod, 
         driverCurrentLocation: driverLocation,
         accountJobPin: offerToAccept.accountJobPin,
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
-      const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
+      const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload),
@@ -941,7 +963,7 @@ export default function AvailableRidesPage() {
         fareEstimate: serverBooking.fareEstimate,
         isPriorityPickup: serverBooking.isPriorityPickup,
         priorityFeeAmount: serverBooking.priorityFeeAmount,
-        passengerCount: serverBooking.passengers,
+        passengerCount: serverBooking.passengers, 
         status: serverBooking.status,
         driverId: serverBooking.driverId,
         driverVehicleDetails: serverBooking.driverVehicleDetails,
@@ -961,7 +983,7 @@ export default function AvailableRidesPage() {
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
         accountJobPin: serverBooking.accountJobPin,
-        distanceMiles: offerToAccept.distanceMiles, // Persist distance from offer
+        distanceMiles: offerToAccept.distanceMiles, 
       };
       console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
       setActiveRide(newActiveRideFromServer);
@@ -1164,7 +1186,7 @@ export default function AvailableRidesPage() {
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
           driverCurrentLocation: serverData.driverCurrentLocation || driverLocation,
           accountJobPin: serverData.accountJobPin || prev.accountJobPin,
-          distanceMiles: serverData.distanceMiles || prev.distanceMiles, // Persist distance
+          distanceMiles: serverData.distanceMiles || prev.distanceMiles, 
         };
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
@@ -1173,7 +1195,10 @@ export default function AvailableRidesPage() {
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
         console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Enabling polling for new offers.`);
-        setIsPollingEnabled(true);
+        // Polling is managed by isPollingEnabled and activeRide.status effect, so no direct setIsPollingEnabled(true) here.
+        // The fact that activeRide.status is 'completed' or 'cancelled_by_driver' means the polling effect might stop itself.
+        // However, if we want to ensure it *restarts* for new offers after these terminal actions, we need to make sure
+        // the polling effect is re-evaluated. The state update to activeRide will trigger it.
       }
 
 
@@ -1181,8 +1206,8 @@ export default function AvailableRidesPage() {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       console.error(`handleRideAction (${actionType}) for ${rideId}: Error caught:`, message);
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      fetchActiveRide();
-      setIsPollingEnabled(true);
+      fetchActiveRide(); 
+      // setIsPollingEnabled(true); // No, let the effect handle based on activeRide.status
     } finally {
       console.log(`Resetting actionLoading for ${rideId} to false after action ${actionType}`);
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
@@ -1594,9 +1619,9 @@ export default function AvailableRidesPage() {
             </div>
             
             {dispatchInfo && (
-              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
-                <p className="text-sm font-medium flex items-center justify-center gap-1">
-                  <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
+              <div className={cn("p-2 my-1.5 rounded-lg text-center", dispatchInfo.bgColorClassName)}>
+                <p className="text-sm font-medium flex items-center justify-center gap-1 text-white">
+                  <dispatchInfo.icon className="w-4 h-4"/> {dispatchInfo.text}
                 </p>
               </div>
             )}
@@ -1727,8 +1752,8 @@ export default function AvailableRidesPage() {
                         setDriverRatingForPassenger(0);
                         setCurrentWaitingCharge(0);
                         setIsCancelSwitchOn(false);
-                        setActiveRide(null);
-                        setIsPollingEnabled(true);
+                        setActiveRide(null); 
+                        setIsPollingEnabled(true); 
                     }}
                     disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
@@ -2094,3 +2119,4 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
+
