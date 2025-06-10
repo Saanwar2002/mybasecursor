@@ -2,17 +2,16 @@
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; 
 import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import Image from 'next/image';
+// Removed Image import as we are replacing the placeholder
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// Use the new GoogleMapDisplay component
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
@@ -50,7 +49,7 @@ export default function OperatorDashboardPage() {
     const intervalId = setInterval(() => {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
-    }, 4000); // Cycle every 4 seconds
+    }, 4000); 
 
     return () => clearInterval(intervalId);
   }, []);
@@ -59,9 +58,7 @@ export default function OperatorDashboardPage() {
     const fetchDashboardStats = async () => {
       setIsLoadingStats(true);
       try {
-        // Fetch assigned rides
         const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=100`); 
-        // Fetch in-progress rides
         const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In%20Progress&limit=100`);
 
         let assignedErrorText = "";
@@ -91,7 +88,6 @@ export default function OperatorDashboardPage() {
         const activeRides = (assignedData.bookings?.length || 0) + (inProgressData.bookings?.length || 0);
         setActiveRidesCount(activeRides);
 
-        // Fetch available drivers
         const availableDriversResponse = await fetch(`/api/operator/drivers?status=Active&limit=100`); 
         if (!availableDriversResponse.ok) {
             const errorText = await availableDriversResponse.text();
@@ -105,7 +101,6 @@ export default function OperatorDashboardPage() {
         const availableDriversData = await availableDriversResponse.json();
         setAvailableDriversCount(availableDriversData.drivers?.length || 0);
 
-        // Fetch total drivers
         const totalDriversResponse = await fetch(`/api/operator/drivers?limit=100`); 
         if (!totalDriversResponse.ok) {
             const errorText = await totalDriversResponse.text();
@@ -142,7 +137,7 @@ export default function OperatorDashboardPage() {
   }, [user, toast]);
 
   const mapContainerClasses = cn(
-    "h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border-4", // Changed to border-4
+    "h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border-4",
     {
       'border-border': mapBusynessLevel === 'idle',
       'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
@@ -166,16 +161,7 @@ export default function OperatorDashboardPage() {
               </Link>
             </Button>
           </div>
-          <div className="flex-shrink-0">
-            <Image 
-              src="https://placehold.co/300x200.png" 
-              alt="Operator control panel" 
-              data-ai-hint="control panel city" 
-              width={300} 
-              height={200} 
-              className="rounded-lg shadow-md object-cover" 
-            />
-          </div>
+          {/* Placeholder removed from here */}
         </CardContent>
       </Card>
 
@@ -275,3 +261,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+
