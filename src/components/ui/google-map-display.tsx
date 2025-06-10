@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { cn } from "@/lib/utils";
 import { Skeleton } from './skeleton';
-import { CustomMapLabelOverlay } from './custom-map-label-overlay'; // Import the custom overlay
+import { getCustomMapLabelOverlayClass, type ICustomMapLabelOverlay, type CustomMapLabelOverlayConstructor } from './custom-map-label-overlay';
 
 interface GoogleMapDisplayProps {
   center: google.maps.LatLngLiteral;
@@ -17,7 +17,7 @@ interface GoogleMapDisplayProps {
     iconUrl?: string;
     iconScaledSize?: { width: number; height: number };
   }>;
-  customMapLabel?: { // New prop for the custom label
+  customMapLabel?: {
     position: google.maps.LatLngLiteral;
     content: string;
   } | null;
@@ -28,13 +28,13 @@ interface GoogleMapDisplayProps {
   fitBoundsToMarkers?: boolean;
 }
 
-const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4";
+const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; // User-confirmed working key
 
 const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   center,
   zoom = 13,
   markers,
-  customMapLabel, // Destructure the new prop
+  customMapLabel,
   className,
   style: propStyle,
   mapId: mapIdProp,
@@ -44,7 +44,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const currentMarkersRef = useRef<google.maps.Marker[]>([]);
-  const customLabelOverlayRef = useRef<CustomMapLabelOverlay | null>(null); // Ref for the custom overlay
+  const customLabelOverlayRef = useRef<ICustomMapLabelOverlay | null>(null);
+  const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
   const [isSdkLoaded, setIsSdkLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [usedApiKeySource, setUsedApiKeySource] = useState<string>("unknown");
@@ -84,10 +85,15 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       libraries: ["geocoding", "maps", "marker", "places"],
     });
 
-    loader.load().then((googleInstance) => {
+    loader.load().then((loadedGoogle) => {
       if (isMounted) {
-        if (googleInstance && googleInstance.maps && googleInstance.maps.Map) {
+        if (loadedGoogle && loadedGoogle.maps && loadedGoogle.maps.Map) {
+           CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(loadedGoogle.maps);
            setIsSdkLoaded(true);
+           // Ensure window.google is set if the loader doesn't do it, though it usually does.
+           if (typeof window !== 'undefined' && !(window as any).google) {
+             (window as any).google = loadedGoogle;
+           }
         } else {
            const errorMsg = `Google Maps SDK loaded, but 'google.maps.Map' is not available. API Key used from: ${apiKeySource}. Check API key permissions for "Maps JavaScript API".`;
            setMapError(errorMsg);
@@ -105,7 +111,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   }, []); 
 
   useEffect(() => {
-    if (!isSdkLoaded || !mapRef.current || typeof google === 'undefined' || !google.maps) return;
+    if (!isSdkLoaded || !mapRef.current || typeof window.google === 'undefined' || !window.google.maps) return;
 
     const mapOptions: google.maps.MapOptions = {
         center, zoom, mapId: mapIdProp, disableDefaultUI,
@@ -114,7 +120,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     };
 
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
-      mapInstanceRef.current = new google.maps.Map(mapRef.current, mapOptions);
+      mapInstanceRef.current = new window.google.maps.Map(mapRef.current, mapOptions);
     } else if (mapInstanceRef.current) {
       if (!fitBoundsToMarkers || !markers || markers.length < 1) {
         const currentMapCenter = mapInstanceRef.current.getCenter();
@@ -130,21 +136,21 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
-    if (markers && markers.length > 0 && mapInstanceRef.current && google.maps?.Marker && google.maps?.LatLngBounds) {
-      const bounds = new google.maps.LatLngBounds();
+    if (markers && markers.length > 0 && mapInstanceRef.current && window.google.maps?.Marker && window.google.maps?.LatLngBounds) {
+      const bounds = new window.google.maps.LatLngBounds();
       markers.forEach(markerData => {
         let markerOptions: google.maps.MarkerOptions = {
           position: markerData.position, map: mapInstanceRef.current,
           title: markerData.title, label: markerData.label,
         };
-        if (markerData.iconUrl && markerData.iconScaledSize && google.maps.Size && google.maps.Point) {
+        if (markerData.iconUrl && markerData.iconScaledSize && window.google.maps.Size && window.google.maps.Point) {
           markerOptions.icon = {
             url: markerData.iconUrl,
-            scaledSize: new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height),
-            anchor: new google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height),
+            scaledSize: new window.google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height),
+            anchor: new window.google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height),
           };
         }
-        const newMarker = new google.maps.Marker(markerOptions);
+        const newMarker = new window.google.maps.Marker(markerOptions);
         currentMarkersRef.current.push(newMarker);
         if (markerData.position) bounds.extend(markerData.position);
       });
@@ -152,7 +158,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
         if (markers.length === 1) {
             mapInstanceRef.current.setCenter(bounds.getCenter());
-            mapInstanceRef.current.setZoom(15); // Default zoom for single marker
+            mapInstanceRef.current.setZoom(15); 
         } else {
             mapInstanceRef.current.fitBounds(bounds, 60); 
         }
@@ -168,22 +174,20 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     }
 
     // Manage custom label overlay
-    if (mapInstanceRef.current) {
+    const CustomMapLabelOverlay = CustomMapLabelOverlayClassRef.current;
+    if (mapInstanceRef.current && CustomMapLabelOverlay) {
       if (customMapLabel) {
         if (customLabelOverlayRef.current) {
-          // If overlay exists, update its position and content
-          customLabelOverlayRef.current.updatePosition(customMapLabel.position);
-          customLabelOverlayRef.current.updateContent(customMapLabel.content);
-          customLabelOverlayRef.current.show();
+            customLabelOverlayRef.current.updatePosition(customMapLabel.position);
+            customLabelOverlayRef.current.updateContent(customMapLabel.content);
+            customLabelOverlayRef.current.show();
         } else {
-          // Create new overlay
           customLabelOverlayRef.current = new CustomMapLabelOverlay(customMapLabel.position, customMapLabel.content);
           customLabelOverlayRef.current.setMap(mapInstanceRef.current);
         }
       } else {
-        // No custom label, remove existing if any
         if (customLabelOverlayRef.current) {
-          customLabelOverlayRef.current.setMap(null); // This calls onRemove
+          customLabelOverlayRef.current.setMap(null); 
           customLabelOverlayRef.current = null;
         }
       }
