@@ -340,34 +340,46 @@ export default function BookRidePage() {
 
  useEffect(() => {
     setIsCheckingAvailability(true);
-    setIsNoDriversAvailableMock(false); // Reset no-driver state
-    setAvailabilityStatusMessage("Checking availability...");
+    setIsNoDriversAvailableMock(false); 
+    let message = "Checking availability...";
+    setAvailabilityStatusMessage(message);
     
-    const waitTimes = ["3-5 mins", "5-8 mins", "7-12 mins", "10-15 mins"];
-    const vehicleTypesMessages = [
-      "Standard Cars available.",
-      "Standard & Estate Cars available.",
-      "High demand. Standard Cars available.",
-      "Limited availability. Expect longer wait for Minibus."
-    ];
-
+    const mockOperators = ["OP001", "OP002 (City Cabs)", "OP003 (Speedy Cars)"];
+    const randomWaitTimes = ["2-4 mins", "4-7 mins", "6-10 mins", "8-12 mins", "10-15 mins"];
+    
     const timer = setTimeout(() => {
-      const isNoDriversScenario = Math.random() < 0.2; // 20% chance of "no drivers"
+        const noDriversOverall = Math.random() < 0.2; // 20% chance no drivers AT ALL
 
-      if (isNoDriversScenario) {
-        setAvailabilityStatusMessage("Currently, no drivers are available in your area. Please try again shortly. (Mock)");
-        setIsNoDriversAvailableMock(true);
-      } else {
-        const randomWait = waitTimes[Math.floor(Math.random() * waitTimes.length)];
-        const randomVehicles = vehicleTypesMessages[Math.floor(Math.random() * vehicleTypesMessages.length)];
-        setAvailabilityStatusMessage(`Estimated wait: ~${randomWait}. ${randomVehicles} (Mock)`);
-        setIsNoDriversAvailableMock(false);
-      }
-      setIsCheckingAvailability(false);
+        if (noDriversOverall) {
+            message = "Currently, no drivers are available in your area. Please try again shortly. (Mock)";
+            setIsNoDriversAvailableMock(true);
+        } else {
+            const randomWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
+            if (operatorPreference) { // Passenger has chosen a specific operator
+                const preferredOpAvailable = Math.random() < 0.7; // 70% chance preferred op has cars
+                if (preferredOpAvailable) {
+                    message = `${operatorPreference} driver available. Est. wait: ~${randomWait}. (Mock)`;
+                } else {
+                    const fallbackOp = mockOperators.find(op => op.split(" ")[0] !== operatorPreference) || "Another operator";
+                    const fallbackWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
+                    message = `${operatorPreference} is busy. ${fallbackOp.split(" ")[0]} driver available in ~${fallbackWait}. (Mock)`;
+                }
+            } else { // Passenger lets app decide
+                const specificOpFound = Math.random() < 0.6; // 60% chance a specific operator is best match
+                if (specificOpFound) {
+                    const bestOp = mockOperators[Math.floor(Math.random() * mockOperators.length)];
+                    message = `${bestOp.split(" ")[0]} driver available. Est. wait: ~${randomWait}. (Mock)`;
+                } else {
+                    message = `MyBase driver available. Est. wait: ~${randomWait}. (Mock)`;
+                }
+            }
+        }
+        setAvailabilityStatusMessage(message);
+        setIsCheckingAvailability(false);
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [operatorPreference]); // Re-run if operatorPreference changes
 
 
   useEffect(() => {
@@ -2373,4 +2385,5 @@ const handleProceedToConfirmation = async () => {
   );
 }
     
+
 

@@ -578,6 +578,8 @@ export default function MyActiveRidePage() {
 
   const paymentMethodDisplay = activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)'  : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' : 'Payment N/A';
 
+  const isEditingDisabled = activeRide?.status !== 'pending_assignment';
+
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide, isLoading: boolean }) => (
     <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
       <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm">
@@ -677,9 +679,18 @@ export default function MyActiveRidePage() {
             </CardContent>
              {activeRide.status === 'pending_assignment' && (
                 <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto" disabled={isUpdatingDetails}>
+                  <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto" disabled={isUpdatingDetails || isEditingDisabled}>
                     <span className="flex items-center justify-center"><Edit className="mr-2 h-4 w-4" /> <span>Edit Details</span></span>
                   </Button>
+                  {isEditingDisabled && (
+                    <Alert variant="default" className="w-full text-xs p-2 bg-yellow-50 border-yellow-400 dark:bg-yellow-800/30 dark:border-yellow-700">
+                      <AlertTriangle className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
+                      <ShadAlertTitle className="text-yellow-700 dark:text-yellow-300 font-semibold">Editing Disabled</ShadAlertTitle>
+                      <ShadAlertDescription className="text-yellow-600 dark:text-yellow-400">
+                        Ride details cannot be changed once a driver is assigned or the ride is in progress. Please cancel and rebook if major changes are needed.
+                      </ShadAlertDescription>
+                    </Alert>
+                  )}
                   <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
                 </CardFooter>
             )}
@@ -803,6 +814,7 @@ export default function MyActiveRidePage() {
 
 
     
+
 
 
 
