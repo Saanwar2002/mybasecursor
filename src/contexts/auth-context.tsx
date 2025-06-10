@@ -26,6 +26,7 @@ export interface User {
   phoneVerificationDeadline?: string | null; 
   acceptsPetFriendlyJobs?: boolean; 
   acceptsPlatformJobs?: boolean; 
+  maxJourneyDistance?: string; // e.g., "no_limit", "local_5", "medium_10"
 
   // Driver-specific vehicle & compliance details
   vehicleMakeModel?: string;
@@ -100,6 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               : null,
             acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
             acceptsPlatformJobs: firestoreUser.operatorCode === PLATFORM_OPERATOR_CODE ? true : (firestoreUser.acceptsPlatformJobs || false),
+            maxJourneyDistance: firestoreUser.maxJourneyDistance || "no_limit", 
             // Driver-specific details
             vehicleMakeModel: firestoreUser.vehicleMakeModel,
             vehicleRegistration: firestoreUser.vehicleRegistration,
@@ -248,6 +250,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           customId: `DR-GUEST-${Math.floor(Math.random()*9000)+1000}`, 
           acceptsPetFriendlyJobs: Math.random() < 0.5,
           acceptsPlatformJobs: guestOperatorCode === PLATFORM_OPERATOR_CODE ? true : Math.random() < 0.7,
+          maxJourneyDistance: "no_limit", 
           vehicleMakeModel: 'Toyota Prius (Guest)',
           vehicleRegistration: 'GUEST123',
           vehicleColor: 'Silver',
@@ -309,15 +312,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUserProfileInContext = (updatedProfileData: Partial<User>) => {
     setUser(currentUser => {
       if (currentUser) {
-        // If operatorCode is being updated to PLATFORM_OPERATOR_CODE, ensure acceptsPlatformJobs is true.
-        // Or, if the user *is* already PLATFORM_OPERATOR_CODE, acceptsPlatformJobs should remain true.
         let finalAcceptsPlatformJobs = currentUser.acceptsPlatformJobs;
         if ('operatorCode' in updatedProfileData && updatedProfileData.operatorCode === PLATFORM_OPERATOR_CODE) {
           finalAcceptsPlatformJobs = true;
         } else if (currentUser.operatorCode === PLATFORM_OPERATOR_CODE && !('acceptsPlatformJobs' in updatedProfileData)) {
           finalAcceptsPlatformJobs = true;
         }
-
 
         const updatedUser = { 
           ...currentUser, 
@@ -377,5 +377,3 @@ export const useAuth = () => {
 };
 
 export { PLATFORM_OPERATOR_CODE };
-
-    

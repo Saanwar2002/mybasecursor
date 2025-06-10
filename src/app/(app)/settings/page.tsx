@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers, Info } from "lucide-react"; 
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers, Info, Route } from "lucide-react"; 
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, UserRole, User, PLATFORM_OPERATOR_CODE } from "@/contexts/auth-context"; 
@@ -55,6 +55,7 @@ export default function SettingsPage() {
   const [language, setLanguage] = useState("en");
   const [driverAcceptsPets, setDriverAcceptsPets] = useState(false); 
   const [driverAcceptsPlatformJobs, setDriverAcceptsPlatformJobs] = useState(false); 
+  const [driverMaxJourneyDistance, setDriverMaxJourneyDistance] = useState("no_limit");
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
@@ -87,6 +88,7 @@ export default function SettingsPage() {
       if (user.role === 'driver') {
         setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
         setDriverAcceptsPlatformJobs(user.operatorCode === PLATFORM_OPERATOR_CODE ? true : (user.acceptsPlatformJobs || false));
+        setDriverMaxJourneyDistance(user.maxJourneyDistance || "no_limit");
       }
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
@@ -183,6 +185,10 @@ export default function SettingsPage() {
         updates.acceptsPlatformJobs = driverAcceptsPlatformJobs;
         changesMadeDescription += "Platform jobs preference updated. ";
       }
+      if (user.maxJourneyDistance !== driverMaxJourneyDistance) {
+        updates.maxJourneyDistance = driverMaxJourneyDistance;
+        changesMadeDescription += "Max journey distance updated. ";
+      }
     }
     
     if (Object.keys(updates).length > 0) {
@@ -247,7 +253,8 @@ export default function SettingsPage() {
                 id="platform-jobs-switch"
                 checked={driverAcceptsPlatformJobs}
                 onCheckedChange={isPlatformDriver ? undefined : setDriverAcceptsPlatformJobs}
-                disabled={isPlatformDriver}
+                disabled={isPlatformDriver} 
+                className={cn(isPlatformDriver && "cursor-not-allowed opacity-70")}
               />
             </div>
             {isPlatformDriver && (
@@ -259,6 +266,27 @@ export default function SettingsPage() {
                   </AlertDescription>
               </Alert>
             )}
+            
+            <div className="pt-4 border-t space-y-2">
+              <Label htmlFor="max-journey-distance-select" className="text-base flex items-center gap-1">
+                <Route className="w-4 h-4 text-muted-foreground" /> Maximum Journey Distance
+              </Label>
+              <Select value={driverMaxJourneyDistance} onValueChange={setDriverMaxJourneyDistance}>
+                <SelectTrigger id="max-journey-distance-select">
+                  <SelectValue placeholder="Select max distance" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_limit">No Limit (National)</SelectItem>
+                  <SelectItem value="local_5">Local (Up to 5 miles)</SelectItem>
+                  <SelectItem value="medium_10">Medium (Up to 10 miles)</SelectItem>
+                  <SelectItem value="long_20">Long (Up to 20 miles)</SelectItem>
+                  <SelectItem value="extra_long_30">Extra Long (Up to 30 miles)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Set your preferred maximum distance for ride offers. This is a preference, actual offers depend on availability.
+              </p>
+            </div>
 
           </CardContent>
         </Card>

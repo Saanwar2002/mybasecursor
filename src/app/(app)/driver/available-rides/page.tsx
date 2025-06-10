@@ -15,7 +15,7 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth, UserRole } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import {
@@ -692,6 +692,7 @@ export default function AvailableRidesPage() {
 
     const operatorCode = driverUser.operatorCode || driverUser.customId || "OP_DefaultGuest";
     const acceptsPlatformJobs = driverUser.acceptsPlatformJobs || false;
+    const maxDistancePref = driverUser.maxJourneyDistance || "no_limit";
 
     let simulatedOfferType: 'own_operator' | 'platform_op001' | 'general_pool';
     const canReceivePlatformOrGeneral = acceptsPlatformJobs || operatorCode === 'OP001';
@@ -705,7 +706,7 @@ export default function AvailableRidesPage() {
         simulatedOfferType = 'own_operator';
     }
 
-    const distance = parseFloat((Math.random() * 10 + 2).toFixed(1));
+    const distance = parseFloat((Math.random() * 35 + 1).toFixed(1)); // Increased max distance for testing preference
     const paymentMethodOptions: Array<RideOffer['paymentMethod']> = ['card', 'cash', 'account'];
     const paymentMethod: RideOffer['paymentMethod'] = paymentMethodOptions[Math.floor(Math.random() * paymentMethodOptions.length)];
     const isPriority = Math.random() < 0.3;
@@ -770,14 +771,27 @@ export default function AvailableRidesPage() {
         showThisOfferToDriver = true;
     }
 
-    if (showThisOfferToDriver) {
+    // Check max distance preference
+    let distanceLimitExceeded = false;
+    if (maxDistancePref !== "no_limit") {
+      const limitValue = parseInt(maxDistancePref.split('_')[1]);
+      if (mockOffer.distanceMiles && mockOffer.distanceMiles > limitValue) {
+        distanceLimitExceeded = true;
+      }
+    }
+
+    if (showThisOfferToDriver && !distanceLimitExceeded) {
         setCurrentOfferDetails(mockOffer);
         setIsOfferModalOpen(true);
     } else {
         const currentOperatorDisplay = operatorCode || "N/A";
+        let skipReason = `An offer ${offerContextDescription} was received, but your current preferences mean it wasn't shown. Your operator: ${currentOperatorDisplay}.`;
+        if (distanceLimitExceeded) {
+          skipReason = `An offer ${offerContextDescription} was received, but its distance of ${mockOffer.distanceMiles?.toFixed(1)} miles exceeds your preference of ${maxDistancePref.replace("_", " ")} miles.`;
+        }
         toast({
             title: "Offer Skipped (Simulation)",
-            description: `An offer ${offerContextDescription} was received, but your current preferences (${acceptsPlatformJobs ? 'Accepting Platform' : 'Operator Only'}) mean it wasn't shown to you. Your operator: ${currentOperatorDisplay}.`,
+            description: skipReason,
             variant: "default",
             duration: 8000,
         });
@@ -1541,7 +1555,7 @@ export default function AvailableRidesPage() {
                     </ShadAlertDescription>
                 </Alert>
             )}
-            {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-600 rounded-md text-center"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
+            {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-md text-center"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
             {activeRide.dispatchMethod && ( <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-md text-center"> <p className="text-xs font-medium text-sky-600 dark:text-sky-300 flex items-center justify-center gap-1"> <CarIcon className="w-3 h-3"/> Dispatched Via: {activeRide.dispatchMethod.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} </p> </div> )}
 
 
