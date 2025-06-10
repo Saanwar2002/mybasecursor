@@ -24,11 +24,13 @@ import { Label } from "@/components/ui/label";
 import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow';
 import type { ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
 import * as LucideIcons from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+
 
 interface TaskItem {
   id: string;
   label: string;
-  completed: boolean;
+  completed: boolean; // For checkbox state
   priority?: 'high' | 'medium' | 'low';
   iconName?: string;
   category?: string;
@@ -58,7 +60,6 @@ const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
   }
 };
 
-// Moved from driver/page.tsx
 const initialDriverToDoData: TaskCategory[] = [
   {
     id: 'cat1',
@@ -115,7 +116,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
   const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
 
-  // State and toggle function for driver's to-do list
   const [driverToDoList, setDriverToDoList] = useState<TaskCategory[]>(initialDriverToDoData);
 
   const toggleDriverTaskCompletion = (taskId: string) => {
@@ -222,7 +222,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return null;
   }
 
-  const navItems = getNavItemsForRole(user.role);
+  const navItemsForRole = getNavItemsForRole(user.role);
   const toggleSubMenu = (label: string) => setOpenSubMenus(prev => ({ ...prev, [label]: !prev[label] }));
 
   const renderNavItems = (items: NavItem[], isSubItem = false, isMobileView = false) => {
@@ -270,7 +270,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             !shouldShowLabels && "justify-center px-0"
           )}
           title={!shouldShowLabels ? item.label : undefined}
-          onClick={() => isMobileSheetOpen && setIsMobileSheetOpen(false)}
+          onClick={() => isMobileView && setIsMobileSheetOpen(false)} // Close sheet on mobile nav click
         >
           <Link href={item.href}>
             <span className={cn(
@@ -288,11 +288,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const sidebarContent = (isMobileView = false) => {
     const shouldShowLabels = isSidebarExpanded || isMobileView;
+    
+    const allNavsForRole = getNavItemsForRole(user.role);
+    const roleSpecificMainItems = allNavsForRole.filter(item => item.href !== '/profile' && item.href !== '/settings');
+    const commonBottomItems = allNavsForRole.filter(item => item.href === '/profile' || item.href === '/settings');
+  
     return (
       <>
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
-            <Link href="/" className="flex items-center" aria-label="MyBase Home">
+            <Link href="/" className="flex items-center" aria-label="MyBase Home" onClick={() => isMobileView && setIsMobileSheetOpen(false)}>
               <Image src="https://placehold.co/120x36.png?text=MyBase" alt="MyBase Logo" width={120} height={36} className="shrink-0" priority data-ai-hint="logo wordmark" />
             </Link>
           )}
@@ -302,123 +307,125 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </Button>
           )}
         </div>
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1"> 
           <nav className={cn("grid items-start gap-1 p-2 text-sm font-medium", shouldShowLabels ? "px-4" : "px-2")}>
-            {renderNavItems(navItems, false, isMobileView)}
+            {renderNavItems(roleSpecificMainItems, false, isMobileView)}
+  
+            {user.role === 'admin' && shouldShowLabels && (
+              <Card className="my-2 mx-0 bg-card/50">
+                <CardHeader className="p-3">
+                  <CardTitle className="text-base font-headline flex items-center gap-1.5">
+                    <DatabaseZap className="w-5 h-5 text-accent" /> Admin To-Do
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
+                  {isLoadingAdminTasks ? <Skeleton className="h-20 w-full" /> :
+                  adminToDoList.length > 0 ? ( <Accordion type="multiple" className="w-full">
+                      {adminToDoList.map((category) => (
+                        <AccordionItem value={category.id} key={category.id} className="border-b-0">
+                          <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
+                            <span className="flex items-center gap-1.5">
+                              {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <DefaultAiTaskIcon className="w-3.5 h-3.5 text-muted-foreground" />}
+                              <span>{category.name} ({category.tasks?.length || 0})</span>
+                            </span>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-1">
+                            {category.tasks && category.tasks.length > 0 && (
+                              <ul className="space-y-1 pl-1">
+                                {category.tasks.map(task => (
+                                  <li key={task.id} className="flex items-center space-x-1.5">
+                                    <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {
+                                        setAdminToDoList(prev => prev.map(cat => ({
+                                            ...cat,
+                                            tasks: cat.tasks?.map(t => t.id === task.id ? {...t, completed: !t.completed} : t)
+                                        })));
+                                    }} className="w-3.5 h-3.5" />
+                                    <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
+                                      <span>{task.label}</span>
+                                    </Label>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  ) : (<p className="text-muted-foreground text-center text-xs py-2">No urgent admin tasks from AI.</p>)
+                }
+                </CardContent>
+              </Card>
+            )}
+            {user.role === 'driver' && shouldShowLabels && (
+              <Card className="my-2 mx-0 bg-card/50">
+                <CardHeader className="p-3">
+                  <CardTitle className="text-base font-headline flex items-center gap-1.5">
+                    <ListChecks className="w-5 h-5 text-accent" /> Driver To-Do
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
+                  {driverToDoList.length > 0 ? (  <Accordion type="multiple" className="w-full" defaultValue={driverToDoList.map(c => c.id)}>
+                      {driverToDoList.map((category) => (
+                        <AccordionItem value={category.id} key={category.id} className="border-b-0">
+                          <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
+                            <span className="flex items-center gap-1.5">
+                              {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <ListChecks className="w-3.5 h-3.5 text-muted-foreground" />}
+                              <span>{category.name}</span>
+                            </span>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-1">
+                            {category.tasks && category.tasks.length > 0 && (
+                              <ul className="space-y-1 pl-1">
+                                {category.tasks.map(task => (
+                                  <li key={task.id} className="flex items-center space-x-1.5">
+                                    <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5" />
+                                    <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
+                                      {task.label}
+                                    </Label>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                             {category.subCategories && category.subCategories.map(subCat => (
+                              <Accordion key={subCat.id} type="single" collapsible className="w-full pl-1 my-0.5">
+                                  <AccordionItem value={subCat.id} className="border-l-2 border-primary/20 pl-1.5 rounded-r-md">
+                                      <AccordionTrigger className="text-xs hover:no-underline py-1 font-normal">
+                                          {subCat.name}
+                                      </AccordionTrigger>
+                                      <AccordionContent className="pb-1">
+                                          <ul className="space-y-1 pl-1.5">
+                                              {subCat.tasks.map(task => (
+                                                  <li key={task.id} className="flex items-center space-x-1.5">
+                                                      <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5"/>
+                                                      <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
+                                                          {task.label}
+                                                      </Label>
+                                                  </li>
+                                              ))}
+                                          </ul>
+                                      </AccordionContent>
+                                  </AccordionItem>
+                              </Accordion>
+                             ))}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  ) : (<p className="text-muted-foreground text-center text-xs py-2">No tasks for you currently.</p>) }
+                </CardContent>
+                <CardFooter className="border-t pt-2 pb-2 p-3 text-xs text-muted-foreground">
+                  Document and maintenance reminders.
+                </CardFooter>
+              </Card>
+            )}
+  
+            {(roleSpecificMainItems.length > 0 || (user.role === 'admin' && shouldShowLabels) || (user.role === 'driver' && shouldShowLabels)) && commonBottomItems.length > 0 && shouldShowLabels && (
+              <Separator className="my-2" />
+            )}
+  
+            {renderNavItems(commonBottomItems, false, isMobileView)}
           </nav>
         </ScrollArea>
-        
-        {user.role === 'admin' && shouldShowLabels && (
-          <Card className="m-2 bg-card/50">
-            <CardHeader className="p-3">
-              <CardTitle className="text-base font-headline flex items-center gap-1.5">
-                <DatabaseZap className="w-5 h-5 text-accent" /> Admin To-Do
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
-              {isLoadingAdminTasks ? <Skeleton className="h-20 w-full" /> :
-              adminToDoList.length > 0 ? (
-                  <Accordion type="multiple" className="w-full">
-                    {adminToDoList.map((category) => (
-                      <AccordionItem value={category.id} key={category.id} className="border-b-0">
-                        <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
-                          <span className="flex items-center gap-1.5">
-                            {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <DefaultAiTaskIcon className="w-3.5 h-3.5 text-muted-foreground" />}
-                            <span>{category.name} ({category.tasks?.length || 0})</span>
-                          </span>
-                        </AccordionTrigger>
-                        <AccordionContent className="pb-1">
-                          {category.tasks && category.tasks.length > 0 && (
-                            <ul className="space-y-1 pl-1">
-                              {category.tasks.map(task => (
-                                <li key={task.id} className="flex items-center space-x-1.5">
-                                  <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {
-                                      // Dummy toggle for AI tasks, in real app this would be an API call
-                                      setAdminToDoList(prev => prev.map(cat => ({
-                                          ...cat,
-                                          tasks: cat.tasks?.map(t => t.id === task.id ? {...t, completed: !t.completed} : t)
-                                      })));
-                                  }} className="w-3.5 h-3.5" />
-                                  <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                    <span>{task.label}</span>
-                                  </Label>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                ) : (<p className="text-muted-foreground text-center text-xs py-2">No urgent admin tasks from AI.</p>)
-              }
-            </CardContent>
-          </Card>
-        )}
-        {user.role === 'driver' && shouldShowLabels && (
-          <Card className="m-2 bg-card/50">
-            <CardHeader className="p-3">
-              <CardTitle className="text-base font-headline flex items-center gap-1.5">
-                <ListChecks className="w-5 h-5 text-accent" /> Driver To-Do
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
-              {driverToDoList.length > 0 ? (
-                  <Accordion type="multiple" className="w-full" defaultValue={driverToDoList.map(c => c.id)}>
-                    {driverToDoList.map((category) => (
-                      <AccordionItem value={category.id} key={category.id} className="border-b-0">
-                        <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
-                          <span className="flex items-center gap-1.5">
-                            {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <ListChecks className="w-3.5 h-3.5 text-muted-foreground" />}
-                            <span>{category.name}</span>
-                          </span>
-                        </AccordionTrigger>
-                        <AccordionContent className="pb-1">
-                          {category.tasks && category.tasks.length > 0 && (
-                            <ul className="space-y-1 pl-1">
-                              {category.tasks.map(task => (
-                                <li key={task.id} className="flex items-center space-x-1.5">
-                                  <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5" />
-                                  <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                    {task.label}
-                                  </Label>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                           {category.subCategories && category.subCategories.map(subCat => (
-                            <Accordion key={subCat.id} type="single" collapsible className="w-full pl-1 my-0.5">
-                                <AccordionItem value={subCat.id} className="border-l-2 border-primary/20 pl-1.5 rounded-r-md">
-                                    <AccordionTrigger className="text-xs hover:no-underline py-1 font-normal">
-                                        {subCat.name}
-                                    </AccordionTrigger>
-                                    <AccordionContent className="pb-1">
-                                        <ul className="space-y-1 pl-1.5">
-                                            {subCat.tasks.map(task => (
-                                                <li key={task.id} className="flex items-center space-x-1.5">
-                                                    <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5"/>
-                                                    <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                                        {task.label}
-                                                    </Label>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
-                           ))}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                ) : (<p className="text-muted-foreground text-center text-xs py-2">No tasks for you currently.</p>)
-              }
-            </CardContent>
-             <CardFooter className="border-t pt-2 pb-2 p-3 text-xs text-muted-foreground">
-                Document and maintenance reminders.
-            </CardFooter>
-          </Card>
-        )}
       </>
     );
   };
@@ -492,4 +499,3 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
