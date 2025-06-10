@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react"; // Added RefreshCw
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -190,6 +190,42 @@ export default function AvailableRidesPage() {
   
   const [consecutiveMissedOffers, setConsecutiveMissedOffers] = useState(0);
   const MAX_CONSECUTIVE_MISSED_OFFERS = 3;
+  const [customMapLabel, setCustomMapLabel] = useState<{ position: google.maps.LatLngLiteral; content: string } | null>(null);
+
+  const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
+  const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
+  const [isRequestingWR, setIsRequestingWR] = useState(false);
+
+
+  useEffect(() => {
+    if (activeRide) {
+      let labelContent: string | null = null;
+      let labelPosition: google.maps.LatLngLiteral | null = null;
+
+      if (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') {
+        if (activeRide.pickupLocation) {
+          labelPosition = { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
+          // Simplified address for label
+          const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
+          labelContent = `Meet at\n${pickupStreet}`;
+        }
+      } else if (activeRide.status.toLowerCase().includes('in_progress')) {
+        if (activeRide.dropoffLocation) {
+          labelPosition = { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude };
+          const dropoffStreet = activeRide.dropoffLocation.address.split(',')[0];
+          labelContent = `Dropoff at\n${dropoffStreet}`;
+        }
+      }
+      
+      if (labelPosition && labelContent) {
+        setCustomMapLabel({ position: labelPosition, content: labelContent });
+      } else {
+        setCustomMapLabel(null);
+      }
+    } else {
+      setCustomMapLabel(null);
+    }
+  }, [activeRide]);
 
 
   const playBeep = useCallback(() => {
@@ -271,6 +307,7 @@ export default function AvailableRidesPage() {
   }, [isDriverOnline]);
 
   const fetchActiveRide = useCallback(async () => {
+    console.log("fetchActiveRide called. driverUser ID:", driverUser?.id);
     if (!driverUser?.id) {
       setIsLoading(false);
       return;
@@ -279,12 +316,13 @@ export default function AvailableRidesPage() {
 
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
+      console.log("fetchActiveRide response status:", response.status);
       if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}` })); throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`); }
       const data: ActiveRide | null = await response.json();
+      console.log("fetchActiveRide - Data received:", data);
       setActiveRide(data); 
       if (data?.driverCurrentLocation) { 
-        // Do not setDriverLocation here if geolocation is active and working
-        // setDriverLocation(data.driverCurrentLocation);
+        // setDriverLocation(data.driverCurrentLocation); // Only set if GPS is not active
       } else if (data?.pickupLocation && !watchIdRef.current) { 
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
@@ -756,8 +794,6 @@ export default function AvailableRidesPage() {
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
         console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Enabling polling for new offers.`);
-        // Don't set activeRide to null here; let the "Done" button do it.
-        // setActiveRide(null); 
         setIsPollingEnabled(true);
       }
 
@@ -890,6 +926,39 @@ export default function AvailableRidesPage() {
     }
   };
 
+  const handleRequestWaitAndReturn = async () => {
+    if (!activeRide || !driverUser) return;
+    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
+    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
+      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
+      return;
+    }
+    setIsRequestingWR(true);
+    try {
+      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'request_wait_and_return', 
+          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes 
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to request Wait & Return.");
+      }
+      const updatedBooking = await response.json();
+      setActiveRide(updatedBooking.booking); 
+      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
+      setIsWRRequestDialogOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error.";
+      toast({ title: "Request Failed", description: message, variant: "destructive" });
+    } finally {
+      setIsRequestingWR(false);
+    }
+  };
+
 
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -908,9 +977,9 @@ export default function AvailableRidesPage() {
     console.log("Rendering ActiveRide UI. Current activeRide.status:", activeRide.status, "activeRide.id:", activeRide.id);
     const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
     const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
-    const showInProgressStatus = activeRide.status.toLowerCase().includes('in_progress') && !activeRide.status.toLowerCase().includes('wait_and_return');
+    const showInProgressStatus = activeRide.status.toLowerCase() === 'in_progress'; // Exact match 'in_progress'
     const showPendingWRApprovalStatus = activeRide.status === 'pending_driver_wait_and_return_approval';
-    const showInProgressWRStatus = activeRide.status === 'in_progress_wait_and_return';
+    const showInProgressWRStatus = activeRide.status === 'in_progress_wait_and_return'; // Specific WR status
     const showCompletedStatus = activeRide.status === 'completed';
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
 
@@ -938,7 +1007,7 @@ export default function AvailableRidesPage() {
       <div className="flex flex-col h-full">
         {(!showCompletedStatus && !showCancelledByDriverStatus && ( 
         <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
-            <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
+            <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} customMapLabel={customMapLabel} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button
@@ -1225,6 +1294,35 @@ export default function AvailableRidesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
+          <ShadDialogDescription>
+            Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min. Passenger must approve.
+          </ShadDialogDescription>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
+            <Input
+              id="wr-wait-time-input"
+              type="number"
+              min="0"
+              value={wrRequestDialogMinutes}
+              onChange={(e) => setWrRequestDialogMinutes(e.target.value)}
+              placeholder="e.g., 15"
+              disabled={isRequestingWR}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleRequestWaitAndReturn} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+              {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     );
   }
@@ -1233,7 +1331,7 @@ export default function AvailableRidesPage() {
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
   return ( <div className="flex flex-col h-full space-y-2"> 
     <div className={mapContainerClasses}> 
-        <GoogleMapDisplay center={driverLocation} zoom={13} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} />
+        <GoogleMapDisplay center={driverLocation} zoom={13} markers={memoizedMapMarkers} customMapLabel={customMapLabel} className="w-full h-full" disableDefaultUI={true} />
         <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
             <AlertDialogTrigger asChild>
             <Button
