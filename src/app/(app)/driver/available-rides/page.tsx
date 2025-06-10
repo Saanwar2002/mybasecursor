@@ -60,7 +60,7 @@ interface ActiveRide {
   fareEstimate: number;
   priorityFeeAmount?: number;
   isPriorityPickup?: boolean;
-  status: string; // More specific statuses used now
+  status: string; 
   pickupCoords?: { lat: number; lng: number };
   dropoffCoords?: { lat: number; lng: number };
   distanceMiles?: number;
@@ -218,6 +218,7 @@ export default function AvailableRidesPage() {
       setIsLoading(false);
       return;
     }
+    // Only set loading if there isn't already an active ride or error
     if (!activeRide && !error) setIsLoading(true); 
 
     try {
@@ -233,12 +234,14 @@ export default function AvailableRidesPage() {
       } else if (data?.pickupLocation) {
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
+      // Clear error if fetch is successful
       if (data && error) setError(null); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
       console.error("Error in fetchActiveRide:", message);
-      if (!activeRide) setError(message);
+      if (!activeRide) setError(message); // Only set error if no ride is currently displayed
     } finally {
+      // Only set loading to false if there was no active ride to begin with
       if (!activeRide) setIsLoading(false);
     }
   }, [driverUser?.id, activeRide, error, toast]); 
@@ -313,20 +316,20 @@ export default function AvailableRidesPage() {
 
 
   useEffect(() => {
+    if (rideRefreshIntervalIdRef.current) {
+      clearInterval(rideRefreshIntervalIdRef.current);
+      rideRefreshIntervalIdRef.current = null;
+    }
     if (driverUser && isPollingEnabled) {
-      fetchActiveRide();
-      if (rideRefreshIntervalIdRef.current) {
-        clearInterval(rideRefreshIntervalIdRef.current);
-      }
+      console.log("POLLING EFFECT: Polling enabled, fetching active ride and starting interval.");
+      fetchActiveRide(); 
       rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
     } else {
-      if (rideRefreshIntervalIdRef.current) {
-        clearInterval(rideRefreshIntervalIdRef.current);
-        rideRefreshIntervalIdRef.current = null;
-      }
+      console.log("POLLING EFFECT: Polling disabled or no driver user.");
     }
     return () => {
       if (rideRefreshIntervalIdRef.current) {
+        console.log("POLLING EFFECT: Clearing interval on cleanup.");
         clearInterval(rideRefreshIntervalIdRef.current);
         rideRefreshIntervalIdRef.current = null;
       }
@@ -378,18 +381,19 @@ export default function AvailableRidesPage() {
   };
 
   const handleAcceptOffer = async (rideId: string) => {
-    setIsPollingEnabled(false);
+    setIsPollingEnabled(false); // Disable polling when attempting to accept
     if (rideRefreshIntervalIdRef.current) {
       clearInterval(rideRefreshIntervalIdRef.current);
       rideRefreshIntervalIdRef.current = null;
     }
+
     setIsOfferModalOpen(false);
     const offerToAccept = currentOfferDetails;
     setCurrentOfferDetails(null);
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
-      setIsPollingEnabled(true);
+      setIsPollingEnabled(true); // Re-enable polling on early exit
       return;
     }
     
@@ -401,7 +405,7 @@ export default function AvailableRidesPage() {
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        offerDetails: { ...offerToAccept }, // Send all offer details for new booking creation
+        offerDetails: { ...offerToAccept }, 
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
@@ -448,10 +452,10 @@ export default function AvailableRidesPage() {
         dropoffLocation: serverBooking.dropoffLocation,
         stops: serverBooking.stops,
         fareEstimate: serverBooking.fareEstimate,
-        passengerCount: serverBooking.passengers, // Ensure this comes from serverBooking if possible
+        passengerCount: serverBooking.passengers, 
         status: serverBooking.status, 
         driverId: serverBooking.driverId,
-        driverName: serverBooking.driverName,
+        // driverName: serverBooking.driverName, // This might be missing from YOUR specific serverBooking definition
         driverVehicleDetails: serverBooking.driverVehicleDetails,
         notes: serverBooking.driverNotes || serverBooking.notes,
         paymentMethod: serverBooking.paymentMethod,
@@ -460,18 +464,18 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: serverBooking.priorityFeeAmount,
         vehicleType: serverBooking.vehicleType,
         dispatchMethod: serverBooking.dispatchMethod,
-        bookingTimestamp: serverBooking.bookingTimestamp, // Expect serialized from server
-        scheduledPickupAt: serverBooking.scheduledPickupAt, // Expect string or null
-        notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp, // Expect serialized or null
-        passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp, // Expect serialized or null
-        rideStartedAt: serverBooking.rideStartedAt, // Expect serialized or null
+        bookingTimestamp: serverBooking.bookingTimestamp, 
+        scheduledPickupAt: serverBooking.scheduledPickupAt, 
+        notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp, 
+        passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp, 
+        rideStartedAt: serverBooking.rideStartedAt, 
         driverCurrentLocation: serverBooking.driverCurrentLocation,
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
       
-      setActiveRide(newActiveRideFromServer);
+      setActiveRide(newActiveRideFromServer); // Update UI with server-confirmed data
       setRideRequests([]);
 
       let toastDesc = `En Route to Pickup for ${newActiveRideFromServer.passengerName}. Payment: ${newActiveRideFromServer.paymentMethod === 'card' ? 'Card' : 'Cash'}.`;
@@ -482,17 +486,16 @@ export default function AvailableRidesPage() {
         toastDesc += ` Dispatched: ${newActiveRideFromServer.dispatchMethod.replace(/_/g, ' ')}.`;
       }
       toast({title: "Ride Accepted!", description: toastDesc});
+      // Polling remains disabled until the ride is finished/cancelled by driver action
       
     } catch(error) {
       console.error("Error in handleAcceptOffer process:", error);
       const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
       toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
+      setIsPollingEnabled(true); // Re-enable polling on error so they can get new offers
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
-      setTimeout(() => {
-        // fetchActiveRide(); // No longer needed here, main poller will take over.
-        setIsPollingEnabled(true); 
-      }, 3000); // Delay before re-enabling polling
+      // Do NOT re-enable polling here. It's handled by ride completion/cancellation.
     }
   };
 
@@ -599,21 +602,15 @@ export default function AvailableRidesPage() {
 
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
-        setIsPollingEnabled(false); 
-        if (rideRefreshIntervalIdRef.current) {
-          clearInterval(rideRefreshIntervalIdRef.current);
-          rideRefreshIntervalIdRef.current = null;
-        }
-        setTimeout(() => {
-          setActiveRide(null);
-          setIsPollingEnabled(true); 
-        }, 3000);
+        setActiveRide(null); // Clear the active ride
+        setIsPollingEnabled(true); // Re-enable polling to look for new offers
       }
 
     } catch(err) {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      fetchActiveRide(); 
+      fetchActiveRide(); // Attempt to re-sync state on failure
+      setIsPollingEnabled(true); // Re-enable polling after error
     } finally {
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
@@ -736,7 +733,7 @@ export default function AvailableRidesPage() {
       <div className="flex flex-col h-full">
         {(!showCompletedStatus && !showCancelledByDriverStatus && ( 
         <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
-            <GoogleMapDisplay center={memoizedMapCenter} zoom={13} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
+            <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button
@@ -842,7 +839,7 @@ export default function AvailableRidesPage() {
                     </ShadAlertDescription>
                 </Alert>
             )}
-            {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center mt-1"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
+            {activeRide.requiredOperatorId && ( <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-600 rounded-md text-center mt-1"> <p className="text-xs font-medium text-purple-600 dark:text-purple-300 flex items-center justify-center gap-1"> <Briefcase className="w-3 h-3"/> Operator Ride: {activeRide.requiredOperatorId} </p> </div> )}
 
             {showArrivedAtPickupStatus && (
               <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 my-1">
@@ -947,7 +944,25 @@ export default function AvailableRidesPage() {
              {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </> )}
              {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-base text-white py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'start_ride')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
              {(showInProgressStatus || showInProgressWRStatus) && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto"> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-primary hover:bg-primary/80 text-base text-primary-foreground py-2.5 h-auto" onClick={() => handleRideAction(activeRide.id, 'complete_ride')} disabled={actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Complete Ride </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} /> </div> )}
-             {(showCompletedStatus || showCancelledByDriverStatus) && ( <Button className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" onClick={() => { if(showCompletedStatus && driverRatingForPassenger > 0) { console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`); toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`}); } setDriverRatingForPassenger(0); setCurrentWaitingCharge(0); setIsCancelSwitchOn(false); fetchActiveRide(); }} disabled={activeRide ? actionLoading[activeRide.id] : false} > {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />} Done </Button> )}
+             {(showCompletedStatus || showCancelledByDriverStatus) && ( 
+                <Button 
+                    className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" 
+                    onClick={() => { 
+                        if(showCompletedStatus && driverRatingForPassenger > 0) { 
+                            console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`); 
+                            toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`}); 
+                        } 
+                        setDriverRatingForPassenger(0); 
+                        setCurrentWaitingCharge(0); 
+                        setIsCancelSwitchOn(false);
+                        setActiveRide(null); // Clear active ride
+                        setIsPollingEnabled(true); // Re-enable polling
+                    }} 
+                    disabled={activeRide ? actionLoading[activeRide.id] : false} 
+                > 
+                    {(activeRide && actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />} Done 
+                </Button> 
+             )}
           </CardFooter>
         </Card>
         <AlertDialog
@@ -1000,7 +1015,7 @@ export default function AvailableRidesPage() {
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } );
   return ( <div className="flex flex-col h-full space-y-2"> 
     <div className={mapContainerClasses}> 
-        <GoogleMapDisplay center={driverLocation} zoom={14} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} />
+        <GoogleMapDisplay center={driverLocation} zoom={13} markers={[{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: { width: 24, height: 24 } }]} className="w-full h-full" disableDefaultUI={true} />
         <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
             <AlertDialogTrigger asChild>
             <Button
@@ -1114,3 +1129,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
