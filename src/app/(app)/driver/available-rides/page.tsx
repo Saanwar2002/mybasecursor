@@ -29,6 +29,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from '@/components/ui/input';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -205,7 +215,6 @@ export default function AvailableRidesPage() {
       if (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') {
         if (activeRide.pickupLocation) {
           labelPosition = { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
-          // Simplified address for label
           const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
           labelContent = `Meet at\n${pickupStreet}`;
         }
@@ -1296,10 +1305,10 @@ export default function AvailableRidesPage() {
         </AlertDialog>
         <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
-          <ShadDialogDescription>
+          <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
+          <DialogDescription>
             Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min. Passenger must approve.
-          </ShadDialogDescription>
+          </DialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
             <Input
