@@ -38,12 +38,13 @@ const offerDetailsSchema = z.object({
   dropoffCoords: z.object({ lat: z.number(), lng: z.number() }),
   fareEstimate: z.number(),
   passengerCount: z.number(),
+  passengerId: z.string(), 
   passengerName: z.string().optional(),
+  passengerPhone: z.string().optional(), // Added passengerPhone
   notes: z.string().optional(),
   requiredOperatorId: z.string().optional(),
   distanceMiles: z.number().optional(),
   paymentMethod: z.enum(['card', 'cash']).optional(),
-  passengerId: z.string(), 
   isPriorityPickup: z.boolean().optional(),
   priorityFeeAmount: z.number().optional(),
   dispatchMethod: z.enum(['auto_system', 'manual_operator', 'priority_override']).optional(),
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest, context: PostContext) {
       const newBookingData: any = {
         passengerId: offer.passengerId,
         passengerName: offer.passengerName || 'Passenger',
+        passengerPhone: offer.passengerPhone || null, // Save passengerPhone
         pickupLocation: { address: offer.pickupLocation, latitude: offer.pickupCoords.lat, longitude: offer.pickupCoords.lng },
         dropoffLocation: { address: offer.dropoffLocation, latitude: offer.dropoffCoords.lat, longitude: offer.dropoffCoords.lng },
         fareEstimate: offer.fareEstimate,

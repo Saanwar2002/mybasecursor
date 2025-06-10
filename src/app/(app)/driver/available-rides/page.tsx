@@ -53,6 +53,7 @@ interface ActiveRide {
   passengerId: string;
   passengerName: string;
   passengerAvatar?: string;
+  passengerPhone?: string; // Added this
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: Array<LocationPoint>;
@@ -65,7 +66,6 @@ interface ActiveRide {
   dropoffCoords?: { lat: number; lng: number };
   distanceMiles?: number;
   passengerCount: number;
-  passengerPhone?: string;
   passengerRating?: number;
   driverRatingForPassenger?: number | null;
   notes?: string;
@@ -279,10 +279,7 @@ export default function AvailableRidesPage() {
 
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}` }));
-        throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`);
-      }
+      if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}` })); throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`); }
       const data: ActiveRide | null = await response.json();
       setActiveRide(data); 
       if (data?.driverCurrentLocation) { 
@@ -292,10 +289,7 @@ export default function AvailableRidesPage() {
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
       if (data && error) setError(null); 
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
-      console.error("Error in fetchActiveRide:", message);
-      if (!activeRide) setError(message); 
+    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; console.error("Error in fetchActiveRide:", message); if (!activeRide) setError(message); 
     } finally {
       if (!activeRide) setIsLoading(false);
     }
@@ -460,15 +454,16 @@ export default function AvailableRidesPage() {
     const dispatchMethods: RideOffer['dispatchMethod'][] = ['auto_system', 'manual_operator', 'priority_override'];
     const randomDispatchMethod = dispatchMethods[Math.floor(Math.random() * dispatchMethods.length)];
     const mockPassengerId = `pass-mock-${Date.now().toString().slice(-5)}`;
+    const mockPhone = `+447700900${Math.floor(Math.random()*900)+100}`;
 
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) {
       const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001";
-      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, passengerId: mockPassengerId, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, passengerId: mockPassengerId, passengerPhone: mockPhone, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) {
-      mockOffer = { id: `mock-offer-match-${Date.now()}`, passengerId: mockPassengerId, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+      mockOffer = { id: `mock-offer-match-${Date.now()}`, passengerId: mockPassengerId, passengerPhone: mockPhone, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     } else {
-      mockOffer = { id: `mock-offer-general-${Date.now()}`, passengerId: mockPassengerId, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+      mockOffer = { id: `mock-offer-general-${Date.now()}`, passengerId: mockPassengerId, passengerPhone: mockPhone, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     }
 
     if (mockOffer.requiredOperatorId && currentDriverOperatorPrefix && mockOffer.requiredOperatorId !== currentDriverOperatorPrefix) {
@@ -559,6 +554,7 @@ export default function AvailableRidesPage() {
         passengerId: serverBooking.passengerId,
         passengerName: serverBooking.passengerName,
         passengerAvatar: serverBooking.passengerAvatar,
+        passengerPhone: serverBooking.passengerPhone,
         pickupLocation: serverBooking.pickupLocation,
         dropoffLocation: serverBooking.dropoffLocation,
         stops: serverBooking.stops,
@@ -581,7 +577,6 @@ export default function AvailableRidesPage() {
         rideStartedAt: serverBooking.rideStartedAt, 
         driverCurrentLocation: serverBooking.driverCurrentLocation,
         driverEtaMinutes: serverBooking.driverEtaMinutes,
-        passengerPhone: serverBooking.passengerPhone || serverBooking.customerPhoneNumber,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
@@ -616,7 +611,7 @@ export default function AvailableRidesPage() {
       
       const finalMessage = detailedMessage || "Server Error Encountered";
 
-      toast({title: "Acceptance Failed on Server", description: finalMessage, variant: "destructive"});
+      toast({ title: "Acceptance Failed on Server", description: finalMessage, variant: "destructive" });
       setIsPollingEnabled(true); 
     } finally {
       console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
@@ -658,8 +653,8 @@ export default function AvailableRidesPage() {
         return; 
     }
     console.log(`handleRideAction: rideId=${rideId}, actionType=${actionType}. Current activeRide status: ${activeRide.status}`);
-    console.log(`Setting actionLoading for ${rideId} to true for action ${actionType}`);
     setActionLoading(prev => ({ ...prev, [rideId]: true }));
+    console.log(`actionLoading for ${rideId} SET TO TRUE`);
 
     let toastMessage = ""; let toastTitle = "";
     let payload: any = { action: actionType };
@@ -761,6 +756,8 @@ export default function AvailableRidesPage() {
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
         console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Enabling polling for new offers.`);
+        // Don't set activeRide to null here; let the "Done" button do it.
+        // setActiveRide(null); 
         setIsPollingEnabled(true);
       }
 
@@ -1233,6 +1230,8 @@ export default function AvailableRidesPage() {
     );
   }
 
+  // const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
+  // Remove mapBusynessLevel from available rides page
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
   return ( <div className="flex flex-col h-full space-y-2"> 
     <div className={mapContainerClasses}> 

@@ -28,6 +28,7 @@ export interface RideOffer {
   passengerCount: number;
   passengerId: string;
   passengerName?: string;
+  passengerPhone?: string; // Added passengerPhone
   notes?: string;
   requiredOperatorId?: string;
   distanceMiles?: number;
