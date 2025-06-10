@@ -5,10 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound } from "lucide-react"; // Added KeyRound
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, UserRole } from "@/contexts/auth-context"; 
+import { useAuth, UserRole, User } from "@/contexts/auth-context"; // Added User import
+import { zodResolver } from "@hookform/resolvers/zod"; // Added for PIN
+import { useForm } from "react-hook-form"; // Added for PIN
+import * as z from "zod"; // Added for PIN
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Added for PIN
+import { Input } from "@/components/ui/input"; // Added for PIN
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert
+import { cn } from "@/lib/utils"; // Added cn
 
 interface BlockedUserDisplay {
   blockId: string;
@@ -17,6 +24,19 @@ interface BlockedUserDisplay {
   blockedUserRole: UserRole;
   createdAt: string;
 }
+
+interface StoredPinUser extends User {
+  pin: string;
+}
+
+const pinSetupSchema = z.object({
+  newPin: z.string().length(4, { message: "PIN must be 4 digits." }).regex(/^\d{4}$/, { message: "PIN must be 4 digits." }),
+  confirmNewPin: z.string().length(4, { message: "PIN must be 4 digits." }),
+}).refine((data) => data.newPin === data.confirmNewPin, {
+  message: "PINs do not match.",
+  path: ["confirmNewPin"],
+});
+
 
 export default function SettingsPage() {
   const { user, updateUserProfileInContext } = useAuth(); 
@@ -40,6 +60,15 @@ export default function SettingsPage() {
   const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
 
+  // PIN State and Form
+  const [currentPin, setCurrentPin] = useState<string | null>(null);
+  const [isSettingPin, setIsSettingPin] = useState(false);
+  
+  const pinForm = useForm<z.infer<typeof pinSetupSchema>>({
+    resolver: zodResolver(pinSetupSchema),
+    defaultValues: { newPin: "", confirmNewPin: "" },
+  });
+
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -54,8 +83,17 @@ export default function SettingsPage() {
   }, [darkMode]);
 
   useEffect(() => {
-    if (user && user.role === 'driver') {
-      setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
+    if (user) {
+      if (user.role === 'driver') {
+        setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
+      }
+      const storedUserData = localStorage.getItem('myBaseUserWithPin');
+      if (storedUserData) {
+        try {
+            const parsedData: StoredPinUser = JSON.parse(storedUserData);
+            if (parsedData.id === user.id) { setCurrentPin(parsedData.pin); }
+        } catch (e) { console.error("Error parsing stored PIN user data:", e); localStorage.removeItem('myBaseUserWithPin'); }
+      } else { setCurrentPin(null); }
     }
   }, [user]);
 
@@ -113,6 +151,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSetPin = (values: z.infer<typeof pinSetupSchema>) => {
+    if (!user) return;
+    setIsSettingPin(true);
+    const userWithPin: StoredPinUser = { ...user, pin: values.newPin };
+    localStorage.setItem('myBaseUserWithPin', JSON.stringify(userWithPin));
+    setCurrentPin(values.newPin);
+    pinForm.reset();
+    setIsSettingPin(false);
+    toast({ title: "PIN Set for This Device", description: "You can now use this PIN for quick login on this device." });
+  };
+
+  const handleRemovePin = () => {
+    if (!user) return;
+    localStorage.removeItem('myBaseUserWithPin');
+    setCurrentPin(null);
+    toast({ title: "PIN Removed", description: "Quick PIN login has been disabled for this device." });
+  };
 
   const handleSaveChanges = () => {
     let changesMadeDescription = "";
@@ -120,26 +175,15 @@ export default function SettingsPage() {
       updateUserProfileInContext({ acceptsPetFriendlyJobs: driverAcceptsPets });
       changesMadeDescription += "Pet preference updated. ";
     }
-    // Example: Save notifications settings (if they were fetched from a backend)
-    // For now, it's mostly for the theme.
-    // if (user.notificationsEnabled !== notificationsEnabled) {
-    //   updateUserProfileInContext({ notificationsEnabled });
-    //   changesMadeDescription += "Notification settings updated. ";
-    // }
-    // if (user.language !== language) {
-    //   updateUserProfileInContext({ language });
-    //   changesMadeDescription += "Language preference updated. ";
-    // }
-
     if (changesMadeDescription.trim() === "") {
       changesMadeDescription = "No preference changes to save.";
     }
-
-    toast({
-      title: "Settings Update",
-      description: changesMadeDescription.trim(),
-    });
+    toast({ title: "Settings Update", description: changesMadeDescription.trim() });
   };
+
+  if (!user) {
+    return ( <div className="flex justify-center items-center h-screen"> <Loader2 className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg text-muted-foreground">Loading settings...</p> </div> );
+  }
 
   return (
     <div className="space-y-6">
@@ -224,6 +268,63 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-muted-foreground"/>Quick PIN Login (This Device Only)</CardTitle>
+          <CardDescription>Set a 4-digit PIN for faster login on this device. This is a mock feature and not secure for production.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Warning: Mock Feature</AlertTitle>
+                <AlertDescription>
+                    This PIN feature is for UI demonstration only. It stores the PIN in your browser and is **not secure**. Do not use real sensitive PINs.
+                </AlertDescription>
+            </Alert>
+            {currentPin ? (
+                <div className="space-y-3">
+                    <p>A PIN is currently set for this device: <span className="font-mono bg-muted px-2 py-1 rounded text-lg tracking-widest">{currentPin.split('').map(() => '•').join(' ')}</span></p>
+                    <Button onClick={handleRemovePin} variant="destructive">Remove PIN for this Device</Button>
+                </div>
+            ) : (
+                <Form {...pinForm}>
+                    <form onSubmit={pinForm.handleSubmit(handleSetPin)} className="space-y-4">
+                        <FormField control={pinForm.control} name="newPin" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>New 4-Digit PIN</FormLabel>
+                                <FormControl>
+                                    <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={pinForm.control} name="confirmNewPin" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Confirm New PIN</FormLabel>
+                                <FormControl>
+                                    <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <Button type="submit" disabled={isSettingPin} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                           <span className="flex items-center justify-center">
+                                {isSettingPin ? (
+                                    <React.Fragment>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                                        Setting PIN...
+                                    </React.Fragment>
+                                ) : (
+                                    "Set PIN for this Device"
+                                )}
+                            </span>
+                        </Button>
+                    </form>
+                </Form>
+            )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader> <CardTitle className="flex items-center gap-2"><UserX className="w-5 h-5 text-muted-foreground"/>Manage Blocked Users</CardTitle> <CardDescription>Review and manage users you have blocked.</CardDescription> </CardHeader>
         <CardContent>
           {isLoadingBlockedUsers && <div className="flex items-center justify-center p-4"><Loader2 className="mr-2 h-5 w-5 animate-spin"/>Loading blocked users...</div>}
@@ -272,7 +373,6 @@ export default function SettingsPage() {
           </p>
         </CardFooter>
       </Card>
-
 
       <Card>
         <CardHeader>
