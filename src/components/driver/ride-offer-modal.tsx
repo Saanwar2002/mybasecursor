@@ -87,7 +87,7 @@ Progress.displayName = ProgressPrimitive.Root.displayName;
 
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const { user: driverUser } = useAuth(); // Get current driver user
+  const { user: driverUser } = useAuth(); 
 
   useEffect(() => {
     if (!isOpen) {
@@ -159,38 +159,53 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const getDispatchMethodText = () => {
     if (!rideDetails) return null;
-
-    // Case 1: Ride is specifically for the platform operator (OP001)
-    if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
-      if (rideDetails.dispatchMethod === 'manual_operator') {
-        return { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, color: "text-blue-600" };
-      }
-      return { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, color: "text-green-600" };
-    }
-
-    // Case 2: Ride is for the driver's own affiliated base (and not OP001)
-    if (driverUser && rideDetails.requiredOperatorId === driverUser.operatorCode && driverUser.operatorCode !== PLATFORM_OPERATOR_CODE) {
-      if (rideDetails.dispatchMethod === 'manual_operator') {
-        return { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, color: "text-blue-600" };
-      }
-      // If it's for their own base and not manual, assume their base's system dispatched it automatically.
-      return { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, color: "text-green-600" };
-    }
     
-    // Case 3: Fallback for general pool jobs, or jobs from OTHER operators
-    switch (rideDetails.dispatchMethod) {
-      case 'manual_operator':
-        // If manual_operator but not covered by above, it implies admin manual assignment or complex inter-op
-        if (rideDetails.requiredOperatorId) {
-             return { text: `Manual Dispatch from ${rideDetails.requiredOperatorId}`, icon: Briefcase, color: "text-blue-600" };
-        }
-        return { text: "Manually Dispatched by Platform Admin", icon: Briefcase, color: "text-blue-600" };
-      case 'priority_override':
-        return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, color: "text-purple-600" };
-      case 'auto_system':
-      default: // Includes undefined dispatchMethod
-        return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
+    const isManual = rideDetails.dispatchMethod === 'manual_operator';
+    const isPriority = rideDetails.dispatchMethod === 'priority_override';
+    const isAuto = !isManual && !isPriority; // Default to auto
+
+    let text = "";
+    let icon = CheckCircle;
+    let bgColorClassName = "bg-green-600"; // Default to AUTO green
+
+    if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
+      if (isManual) {
+        text = "Dispatched By App: MANUAL MODE";
+        icon = Briefcase;
+        bgColorClassName = "bg-blue-600";
+      } else { // Includes auto_system or undefined for OP001
+        text = "Dispatched By App: AUTO MODE";
+        icon = CheckCircle;
+        bgColorClassName = "bg-green-600";
+      }
+    } else if (driverUser && rideDetails.requiredOperatorId === driverUser.operatorCode) {
+      if (isManual) {
+        text = "Dispatched By YOUR BASE: MANUAL MODE";
+        icon = Briefcase;
+        bgColorClassName = "bg-blue-600";
+      } else { // Assumes auto dispatch from their own base
+        text = "Dispatched By YOUR BASE: AUTO MODE";
+        icon = CheckCircle;
+        bgColorClassName = "bg-green-600";
+      }
+    } else { // General pool or other operator
+      if (isManual) {
+        text = rideDetails.requiredOperatorId 
+          ? `Manual Dispatch from ${rideDetails.requiredOperatorId}`
+          : "Manually Dispatched by Platform Admin";
+        icon = Briefcase;
+        bgColorClassName = "bg-blue-600";
+      } else if (isPriority) {
+        text = "Dispatched by Operator (Priority)";
+        icon = AlertOctagon;
+        bgColorClassName = "bg-purple-600";
+      } else { // Default to auto_system for general pool
+        text = "Dispatched By App (Auto)";
+        icon = CheckCircle;
+        bgColorClassName = "bg-green-600";
+      }
     }
+    return { text, icon, bgColorClassName };
   };
   const dispatchInfo = getDispatchMethodText();
 
@@ -225,8 +240,20 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         )}
       >
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
-          <DialogTitle className="text-xl md:text-xl font-headline text-primary flex items-center gap-2">
-            <Car className="w-6 h-6" /> New Ride Offer!
+          <DialogTitle className={cn(
+            "text-xl md:text-xl font-headline flex items-center gap-2",
+            dispatchInfo?.bgColorClassName === "bg-green-600" && "text-green-700 dark:text-green-400",
+            dispatchInfo?.bgColorClassName === "bg-blue-600" && "text-blue-700 dark:text-blue-400",
+            dispatchInfo?.bgColorClassName === "bg-purple-600" && "text-purple-700 dark:text-purple-400",
+            !dispatchInfo?.bgColorClassName && "text-primary" // Fallback
+            )}>
+            <Car className={cn(
+              "w-6 h-6",
+              dispatchInfo?.bgColorClassName === "bg-green-600" && "text-green-600 dark:text-green-500",
+              dispatchInfo?.bgColorClassName === "bg-blue-600" && "text-blue-600 dark:text-blue-500",
+              dispatchInfo?.bgColorClassName === "bg-purple-600" && "text-purple-600 dark:text-purple-500",
+              !dispatchInfo?.bgColorClassName && "text-primary"
+            )} /> New Ride Offer!
             {rideDetails.isPriorityPickup && (
                 <Badge variant="outline" className="ml-auto text-xs border-orange-500 text-orange-600 bg-orange-500/10 py-0.5 px-1.5 flex items-center gap-1">
                     <Crown className="w-3 h-3"/> Priority
@@ -255,7 +282,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
             </div>
             <div className="space-y-2.5">
-              {/* Display requiredOperatorId only if it's NOT the platform operator, AND not the driver's own operator (as that's covered by dispatchInfo) */}
               {rideDetails.requiredOperatorId && 
                rideDetails.requiredOperatorId !== PLATFORM_OPERATOR_CODE && 
                (!driverUser || rideDetails.requiredOperatorId !== driverUser.operatorCode) && (
@@ -266,9 +292,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 </div>
               )}
                {dispatchInfo && (
-                <div className={`p-2 bg-muted/70 border border-border rounded-lg text-center`}>
-                  <p className={`text-sm font-medium ${dispatchInfo.color} flex items-center justify-center gap-1`}>
-                    <dispatchInfo.icon className="w-4 h-4"/> {dispatchInfo.text}
+                <div className={cn("p-2 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
+                  <p className="text-sm font-medium flex items-center justify-center gap-1">
+                    <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                   </p>
                 </div>
               )}
