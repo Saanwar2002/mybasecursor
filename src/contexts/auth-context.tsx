@@ -26,6 +26,16 @@ export interface User {
   phoneVerificationDeadline?: string | null; 
   acceptsPetFriendlyJobs?: boolean; 
 
+  // Driver-specific vehicle & compliance details
+  vehicleMakeModel?: string;
+  vehicleRegistration?: string;
+  vehicleColor?: string;
+  insurancePolicyNumber?: string;
+  insuranceExpiryDate?: string; // Store as YYYY-MM-DD string
+  motExpiryDate?: string; // Store as YYYY-MM-DD string
+  taxiLicenseNumber?: string;
+  taxiLicenseExpiryDate?: string; // Store as YYYY-MM-DD string
+
   // Conceptual fields for Fair Ride Assignment (populated by backend)
   currentSessionId?: string | null;
   lastLoginAt?: string | null; // ISO string representation of Timestamp
@@ -86,7 +96,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
               : null,
             acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
-            // Initialize conceptual fields for fairness system (backend would populate these)
+            // Driver-specific details
+            vehicleMakeModel: firestoreUser.vehicleMakeModel,
+            vehicleRegistration: firestoreUser.vehicleRegistration,
+            vehicleColor: firestoreUser.vehicleColor,
+            insurancePolicyNumber: firestoreUser.insurancePolicyNumber,
+            insuranceExpiryDate: firestoreUser.insuranceExpiryDate, // Assuming stored as string
+            motExpiryDate: firestoreUser.motExpiryDate, // Assuming stored as string
+            taxiLicenseNumber: firestoreUser.taxiLicenseNumber,
+            taxiLicenseExpiryDate: firestoreUser.taxiLicenseExpiryDate, // Assuming stored as string
+            // Conceptual fields for fairness system (backend would populate these)
             currentSessionId: firestoreUser.currentSessionId || null,
             lastLoginAt: firestoreUser.lastLoginAt ? (firestoreUser.lastLoginAt as Timestamp).toDate().toISOString() : null,
             totalEarningsCurrentSession: firestoreUser.totalEarningsCurrentSession || null,
@@ -221,7 +240,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           driverIdentifier: 'DR-GUEST',
           vehicleCategory: 'car',
           customId: 'DR-GUEST', 
-          acceptsPetFriendlyJobs: Math.random() < 0.5, 
+          acceptsPetFriendlyJobs: Math.random() < 0.5,
+          vehicleMakeModel: 'Toyota Prius (Guest)',
+          vehicleRegistration: 'GUEST123',
+          vehicleColor: 'Silver',
+          insurancePolicyNumber: 'POL-GUEST-123',
+          insuranceExpiryDate: '2025-12-31',
+          motExpiryDate: '2025-06-30',
+          taxiLicenseNumber: 'PLATE-GUEST-789',
+          taxiLicenseExpiryDate: '2026-03-31',
         };
         break;
       case 'operator':
@@ -328,5 +355,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-    

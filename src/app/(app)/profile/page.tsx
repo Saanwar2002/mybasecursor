@@ -6,33 +6,55 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, AlertTriangle, Users, Car as CarIcon } from "lucide-react"; // Removed KeyRound
+import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, AlertTriangle, Users, Car as CarIcon, FileText, CalendarDays, Palette } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-// Removed Zod and react-hook-form imports if no longer needed after PIN removal
-// import { zodResolver } from "@hookform/resolvers/zod";
-// import { useForm } from "react-hook-form";
-// import * as z from "zod";
-// import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { format, parseISO, isValid } from 'date-fns';
 
-// PIN Schema and related types are removed from here
+// Helper to safely format date strings
+const formatDateString = (dateString?: string): string => {
+  if (!dateString) return "Not set";
+  try {
+    // Check if it's already YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return format(parseISO(dateString), "PPP"); // Format as "Oct 28th, 2023"
+    }
+    // Try to parse if it's another valid date string
+    const date = parseISO(dateString);
+    if (isValid(date)) {
+      return format(date, "PPP");
+    }
+    return "Invalid Date";
+  } catch (e) {
+    return "Date Error";
+  }
+};
+
 
 export default function ProfilePage() {
   const { user, login, updateUserProfileInContext } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Basic profile fields
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  // Removed PIN related state
-  // const [currentPin, setCurrentPin] = useState<string | null>(null);
-  // const [isSettingPin, setIsSettingPin] = useState(false);
+
+  // Driver-specific vehicle & compliance fields
+  const [vehicleMakeModel, setVehicleMakeModel] = useState("");
+  const [vehicleRegistration, setVehicleRegistration] = useState("");
+  const [vehicleColor, setVehicleColor] = useState("");
+  const [insurancePolicyNumber, setInsurancePolicyNumber] = useState("");
+  const [insuranceExpiryDate, setInsuranceExpiryDate] = useState("");
+  const [motExpiryDate, setMotExpiryDate] = useState("");
+  const [taxiLicenseNumber, setTaxiLicenseNumber] = useState("");
+  const [taxiLicenseExpiryDate, setTaxiLicenseExpiryDate] = useState("");
   
-  // Removed PIN form initialization
 
   useEffect(() => {
     if (user) {
@@ -40,7 +62,16 @@ export default function ProfilePage() {
       setEmail(user.email || "");
       setPhone(user.phoneNumber || (user.role === 'driver' ? "555-0101" : ""));
 
-      // Removed PIN loading from localStorage
+      if (user.role === 'driver') {
+        setVehicleMakeModel(user.vehicleMakeModel || "");
+        setVehicleRegistration(user.vehicleRegistration || "");
+        setVehicleColor(user.vehicleColor || "");
+        setInsurancePolicyNumber(user.insurancePolicyNumber || "");
+        setInsuranceExpiryDate(user.insuranceExpiryDate || "");
+        setMotExpiryDate(user.motExpiryDate || "");
+        setTaxiLicenseNumber(user.taxiLicenseNumber || "");
+        setTaxiLicenseExpiryDate(user.taxiLicenseExpiryDate || "");
+      }
     }
   }, [user]);
 
@@ -48,15 +79,25 @@ export default function ProfilePage() {
     if (!user) return;
     const updatedDetails: Partial<User> = {};
     if (name !== user.name) updatedDetails.name = name;
-    if (email !== user.email) updatedDetails.email = email;
+    if (email !== user.email) updatedDetails.email = email; // Though not editable here
     if (phone !== user.phoneNumber) updatedDetails.phoneNumber = phone;
+
+    if (user.role === 'driver') {
+      if (vehicleMakeModel !== user.vehicleMakeModel) updatedDetails.vehicleMakeModel = vehicleMakeModel;
+      if (vehicleRegistration !== user.vehicleRegistration) updatedDetails.vehicleRegistration = vehicleRegistration;
+      if (vehicleColor !== user.vehicleColor) updatedDetails.vehicleColor = vehicleColor;
+      if (insurancePolicyNumber !== user.insurancePolicyNumber) updatedDetails.insurancePolicyNumber = insurancePolicyNumber;
+      if (insuranceExpiryDate !== user.insuranceExpiryDate) updatedDetails.insuranceExpiryDate = insuranceExpiryDate;
+      if (motExpiryDate !== user.motExpiryDate) updatedDetails.motExpiryDate = motExpiryDate;
+      if (taxiLicenseNumber !== user.taxiLicenseNumber) updatedDetails.taxiLicenseNumber = taxiLicenseNumber;
+      if (taxiLicenseExpiryDate !== user.taxiLicenseExpiryDate) updatedDetails.taxiLicenseExpiryDate = taxiLicenseExpiryDate;
+    }
 
     if (Object.keys(updatedDetails).length > 0) { updateUserProfileInContext(updatedDetails); }
     setIsEditing(false);
     toast({ title: "Profile Changes Applied (Mock)", description: "Your profile display has been updated." });
   };
 
-  // Removed PIN handler functions (handleSetPin, handleRemovePin)
 
   if (!user) {
     return ( <div className="flex justify-center items-center h-screen"> <Loader2 className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg text-muted-foreground">Loading profile...</p> </div> );
@@ -102,13 +143,64 @@ export default function ProfilePage() {
             {user.phoneVerified === true && (<p className="text-sm text-green-600 mt-1">Phone verified.</p>)}
           </div>
           
-          {isEditing && (<Button onClick={handleSaveProfile} className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">Save Profile Changes</Button>)}
+          {user.role === 'driver' && (
+            <>
+              <Separator />
+              <CardTitle className="text-xl font-headline pt-4 flex items-center gap-2">
+                <CarIcon className="w-6 h-6 text-primary" /> Vehicle & Compliance
+              </CardTitle>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div>
+                  <Label htmlFor="vehicleMakeModel"><span className="flex items-center gap-1"><CarIcon className="w-4 h-4 text-muted-foreground" /> Make & Model</span></Label>
+                  {isEditing ? <Input id="vehicleMakeModel" value={vehicleMakeModel} onChange={(e) => setVehicleMakeModel(e.target.value)} placeholder="e.g., Toyota Prius" /> : <p className="text-md p-2 rounded-md bg-muted/50">{user.vehicleMakeModel || "Not set"}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="vehicleRegistration"><span className="flex items-center gap-1"><FileText className="w-4 h-4 text-muted-foreground" /> Registration</span></Label>
+                  {isEditing ? <Input id="vehicleRegistration" value={vehicleRegistration} onChange={(e) => setVehicleRegistration(e.target.value)} placeholder="e.g., AB12 CDE" /> : <p className="text-md p-2 rounded-md bg-muted/50">{user.vehicleRegistration || "Not set"}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="vehicleColor"><span className="flex items-center gap-1"><Palette className="w-4 h-4 text-muted-foreground" /> Color</span></Label>
+                  {isEditing ? <Input id="vehicleColor" value={vehicleColor} onChange={(e) => setVehicleColor(e.target.value)} placeholder="e.g., Silver" /> : <p className="text-md p-2 rounded-md bg-muted/50">{user.vehicleColor || "Not set"}</p>}
+                </div>
+
+                <Separator className="md:col-span-2 my-2" />
+
+                <div>
+                  <Label htmlFor="insurancePolicyNumber"><span className="flex items-center gap-1"><FileText className="w-4 h-4 text-muted-foreground" /> Insurance Policy No.</span></Label>
+                  {isEditing ? <Input id="insurancePolicyNumber" value={insurancePolicyNumber} onChange={(e) => setInsurancePolicyNumber(e.target.value)} placeholder="e.g., POLICY12345" /> : <p className="text-md p-2 rounded-md bg-muted/50">{user.insurancePolicyNumber || "Not set"}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="insuranceExpiryDate"><span className="flex items-center gap-1"><CalendarDays className="w-4 h-4 text-muted-foreground" /> Insurance Expiry</span></Label>
+                  {isEditing ? <Input id="insuranceExpiryDate" type="date" value={insuranceExpiryDate} onChange={(e) => setInsuranceExpiryDate(e.target.value)} /> : <p className="text-md p-2 rounded-md bg-muted/50">{formatDateString(user.insuranceExpiryDate)}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="motExpiryDate"><span className="flex items-center gap-1"><CalendarDays className="w-4 h-4 text-muted-foreground" /> MOT Expiry</span></Label>
+                  {isEditing ? <Input id="motExpiryDate" type="date" value={motExpiryDate} onChange={(e) => setMotExpiryDate(e.target.value)} /> : <p className="text-md p-2 rounded-md bg-muted/50">{formatDateString(user.motExpiryDate)}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="taxiLicenseNumber"><span className="flex items-center gap-1"><FileText className="w-4 h-4 text-muted-foreground" /> Taxi Plate/License No.</span></Label>
+                  {isEditing ? <Input id="taxiLicenseNumber" value={taxiLicenseNumber} onChange={(e) => setTaxiLicenseNumber(e.target.value)} placeholder="e.g., PLATE789" /> : <p className="text-md p-2 rounded-md bg-muted/50">{user.taxiLicenseNumber || "Not set"}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="taxiLicenseExpiryDate"><span className="flex items-center gap-1"><CalendarDays className="w-4 h-4 text-muted-foreground" /> Taxi License Expiry</span></Label>
+                  {isEditing ? <Input id="taxiLicenseExpiryDate" type="date" value={taxiLicenseExpiryDate} onChange={(e) => setTaxiLicenseExpiryDate(e.target.value)} /> : <p className="text-md p-2 rounded-md bg-muted/50">{formatDateString(user.taxiLicenseExpiryDate)}</p>}
+                </div>
+              </div>
+              <Alert variant="default" className="mt-4 bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300">
+                <AlertTriangle className="h-4 w-4 !text-blue-600 dark:!text-blue-400" />
+                <AlertTitle className="font-semibold">Reminder</AlertTitle>
+                <AlertDescription>
+                  Keep these details up-to-date for compliance. Renewal notifications will be implemented soon.
+                </AlertDescription>
+              </Alert>
+            </>
+          )}
+
+          {isEditing && (<Button onClick={handleSaveProfile} className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground mt-6">Save Profile Changes</Button>)}
         </CardContent>
         <CardFooter className="border-t pt-6"> <div className="flex items-center gap-2 text-sm text-muted-foreground"> <Shield className="w-5 h-5 text-green-500" /> Your information is kept secure. </div> </CardFooter>
       </Card>
       
-      {/* PIN Setup Card Removed From Here */}
-
       {user.role === 'passenger' && 
         <Card>
           <CardHeader><CardTitle className="text-xl flex items-center gap-2"><CreditCard className="w-5 h-5 text-muted-foreground"/>Payment Methods</CardTitle></CardHeader>
