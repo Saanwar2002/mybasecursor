@@ -147,7 +147,7 @@ export async function POST(request: NextRequest, context: PostContext) {
         isPriorityPickup: offer.isPriorityPickup || updateDataFromPayload.isPriorityPickup || false,
         priorityFeeAmount: offer.priorityFeeAmount || updateDataFromPayload.priorityFeeAmount || 0,
         
-        dispatchMethod: offer.dispatchMethod || updateDataFromPayload.dispatchMethod || 'auto_system',
+        dispatchMethod: offer.dispatchMethod || 'auto_system', // Use offer.dispatchMethod directly, fallback to auto_system
 
         driverId: updateDataFromPayload.driverId,
         driverName: updateDataFromPayload.driverName,
