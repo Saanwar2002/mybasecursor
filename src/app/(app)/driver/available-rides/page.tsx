@@ -431,15 +431,16 @@ export default function AvailableRidesPage() {
     const priorityFee = isPriority ? parseFloat((Math.random() * 3 + 1).toFixed(2)) : undefined;
     const dispatchMethods: RideOffer['dispatchMethod'][] = ['auto_system', 'manual_operator', 'priority_override'];
     const randomDispatchMethod = dispatchMethods[Math.floor(Math.random() * dispatchMethods.length)];
+    const mockPassengerId = `pass-mock-${Date.now().toString().slice(-5)}`;
 
 
     if (randomScenario < 0.33 && currentDriverOperatorPrefix) {
       const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001";
-      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-mismatch-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, passengerId: mockPassengerId, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) {
-      mockOffer = { id: `mock-offer-match-${Date.now()}`, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-match-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+      mockOffer = { id: `mock-offer-match-${Date.now()}`, passengerId: mockPassengerId, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     } else {
-      mockOffer = { id: `mock-offer-general-${Date.now()}`, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, passengerId: `pass-general-${Date.now()}`, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+      mockOffer = { id: `mock-offer-general-${Date.now()}`, passengerId: mockPassengerId, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
     }
 
     if (mockOffer.requiredOperatorId && currentDriverOperatorPrefix && mockOffer.requiredOperatorId !== currentDriverOperatorPrefix) {
@@ -456,7 +457,7 @@ export default function AvailableRidesPage() {
       clearInterval(rideRefreshIntervalIdRef.current);
       rideRefreshIntervalIdRef.current = null;
     }
-    setConsecutiveMissedOffers(0); // Reset missed offers on acceptance
+    setConsecutiveMissedOffers(0); 
 
     setIsOfferModalOpen(false);
     const offerToAccept = currentOfferDetails;
@@ -504,13 +505,15 @@ export default function AvailableRidesPage() {
             try {
                 const rawResponseText = await clonedResponse.text();
                 errorDetailsText += ` Non-JSON response from server. Response text: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
-                console.error("Raw non-JSON server response from handleAcceptOffer:", rawResponseText);
             } catch (textReadError) {
                 errorDetailsText += " Additionally, failed to read response body as text.";
-                console.error("Failed to read response body as text after JSON parse failed:", textReadError);
             }
         }
-        throw new Error(errorDetailsText);
+        console.error("handleAcceptOffer - Server error:", errorDetailsText);
+        toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
+        setIsPollingEnabled(true); 
+        setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
+        return; 
       }
       
       const serverBooking = updatedBookingDataFromServer.booking;
@@ -558,9 +561,9 @@ export default function AvailableRidesPage() {
       toast({title: "Ride Accepted!", description: toastDesc});
       
     } catch(error) {
-      console.error("Error in handleAcceptOffer process:", error);
+      console.error("Error in handleAcceptOffer process (outer catch):", error);
       const message = error instanceof Error ? error.message : "An unknown error occurred while trying to accept the ride.";
-      toast({title: "Acceptance Process Failed", description: message, variant: "destructive"});
+      toast({title: "Acceptance Process Failed", description: `Client-side error or network issue: ${message}`, variant: "destructive"});
       setIsPollingEnabled(true); 
     } finally {
       setActionLoading(prev => ({ ...prev, [offerToAccept.id]: false }));
@@ -778,15 +781,13 @@ export default function AvailableRidesPage() {
 
   const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
     setIsDriverOnline(newOnlineStatus);
-    if (newOnlineStatus) { // If toggling TO online
-        setConsecutiveMissedOffers(0); // Reset miss count
+    if (newOnlineStatus) { 
+        setConsecutiveMissedOffers(0); 
         if (geolocationError) {
             setGeolocationError(null); 
-            // Geolocation watch will be re-attempted by its own useEffect
         }
-        // Start polling for active ride / offers if not already
         setIsPollingEnabled(true);
-    } else { // If toggling TO offline manually
+    } else { 
         setRideRequests([]); 
         setIsPollingEnabled(false); 
         if (watchIdRef.current !== null) {
@@ -794,8 +795,6 @@ export default function AvailableRidesPage() {
             watchIdRef.current = null;
         }
     }
-    // In a real app, you'd also update the driver's status on the backend
-    // e.g., updateDriverBackendStatus(driverUser?.id, newOnlineStatus);
   };
 
 

@@ -26,6 +26,7 @@ export interface RideOffer {
   dropoffCoords: { lat: number; lng: number };
   fareEstimate: number;
   passengerCount: number;
+  passengerId: string; // Added passengerId
   passengerName?: string;
   notes?: string;
   requiredOperatorId?: string;
@@ -33,7 +34,7 @@ export interface RideOffer {
   paymentMethod?: 'card' | 'cash';
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
-  dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override'; // Added
+  dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override';
 }
 
 interface RideOfferModalProps {
