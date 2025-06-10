@@ -7,13 +7,14 @@ import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2, ListChec
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { LucideIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge'; // Added Badge
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -28,17 +29,15 @@ const mockFleetMarkersData = [
     { position: {lat: 53.6400, lng: -1.7900}, title: "Driver 4 (Sarah W) - Available", label: { text: "D4", color: "white", fontWeight: "bold"} },
 ];
 
-interface Ride { id: string; status: string; }
-interface Driver { id: string; status: string; }
-
 type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
 interface ActionableItem {
   id: string;
   label: string;
-  completed: boolean; // For checkbox state
+  completed: boolean;
   priority?: 'high' | 'medium' | 'low';
   details?: string;
+  link?: string;
 }
 
 interface ActionableCategory {
@@ -47,37 +46,6 @@ interface ActionableCategory {
   icon: LucideIcon;
   items: ActionableItem[];
 }
-
-const initialOperatorActionItems: ActionableCategory[] = [
-  {
-    id: 'driver-management',
-    name: 'Driver Management',
-    icon: Users,
-    items: [
-      { id: 'op-task-1', label: 'Review 2 new driver applications.', completed: false, priority: 'high', details: 'Check documents for Smith J. and Ali K.' },
-      { id: 'op-task-2', label: 'Driver Patel R. - PCO license expiring in 7 days.', completed: false, priority: 'medium', details: 'Send reminder or check renewal status.' },
-      { id: 'op-task-3', label: 'Investigate low acceptance rate for Driver Evans.', completed: false, priority: 'low' },
-    ],
-  },
-  {
-    id: 'ride-operations',
-    name: 'Ride Operations',
-    icon: Car,
-    items: [
-      { id: 'op-task-4', label: 'High demand reported in "Town Centre" zone. Monitor driver availability.', completed: false, priority: 'high' },
-      { id: 'op-task-5', label: 'Address passenger complaint re: Ride #12345 (vehicle cleanliness).', completed: false, priority: 'medium' },
-    ],
-  },
-  {
-    id: 'fleet-alerts',
-    name: 'Fleet Alerts',
-    icon: AlertTriangle,
-    items: [
-      { id: 'op-task-6', label: 'Vehicle BZ68 XYZ - MOT due next month.', completed: true, priority: 'medium' },
-      { id: 'op-task-7', label: 'Surge pricing automatically activated in "Stadium Zone" due to event.', completed: false, priority: 'low', details: 'Monitor and adjust if needed.' },
-    ],
-  },
-];
 
 const mapOperatorPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
   switch (priority) {
@@ -96,11 +64,11 @@ export default function OperatorDashboardPage() {
   const [totalDriversCount, setTotalDriversCount] = useState<number | string>("...");
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
-  const [operatorActionItems, setOperatorActionItems] = useState<ActionableCategory[]>(initialOperatorActionItems);
+  const [operatorActionItems, setOperatorActionItems] = useState<ActionableCategory[]>([]);
+  const [isLoadingActionItems, setIsLoadingActionItems] = useState(true);
+  const [pendingDriverApprovals, setPendingDriverApprovals] = useState(0);
+  const [pendingSupportTickets, setPendingSupportTickets] = useState(0);
 
-
-  // Mocked: In a real app, fetch actual issues
-  const issuesReported = 3; // This could be derived from operatorActionItems count where priority is high
 
    useEffect(() => {
     const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
@@ -109,91 +77,77 @@ export default function OperatorDashboardPage() {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
     }, 4000); 
-
     return () => clearInterval(intervalId);
   }, []);
 
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-      setIsLoadingStats(true);
-      try {
-        const ridesResponseAssigned = await fetch(`/api/operator/bookings?status=Assigned&limit=100`); 
-        const ridesResponseInProgress = await fetch(`/api/operator/bookings?status=In%20Progress&limit=100`);
+  const fetchDashboardData = useCallback(async () => {
+    setIsLoadingStats(true);
+    setIsLoadingActionItems(true);
+    try {
+      // Simulate fetching counts
+      const mockAssignedRides = Math.floor(Math.random() * 5) + 2; // 2-6
+      const mockInProgressRides = Math.floor(Math.random() * 8) + 3; // 3-10
+      setActiveRidesCount(mockAssignedRides + mockInProgressRides);
 
-        let assignedErrorText = "";
-        let inProgressErrorText = "";
+      const mockTotalDrivers = Math.floor(Math.random() * 20) + 15; // 15-34
+      const mockAvailableDrivers = Math.floor(Math.random() * (mockTotalDrivers - 5)) + 5; // 5 to (total-5)
+      setAvailableDriversCount(mockAvailableDrivers);
+      setTotalDriversCount(mockTotalDrivers);
+      
+      const mockPendingApprovals = Math.floor(Math.random() * 3); // 0-2
+      setPendingDriverApprovals(mockPendingApprovals);
 
-        if (!ridesResponseAssigned.ok) {
-            assignedErrorText = await ridesResponseAssigned.text();
-            console.error("Failed to fetch assigned rides", assignedErrorText);
-        }
-        if (!ridesResponseInProgress.ok) {
-            inProgressErrorText = await ridesResponseInProgress.text();
-            console.error("Failed to fetch in-progress rides", inProgressErrorText);
-        }
+      const mockPendingTickets = Math.floor(Math.random() * 5); // 0-4
+      setPendingSupportTickets(mockPendingTickets);
 
-        if (!ridesResponseAssigned.ok || !ridesResponseInProgress.ok) {
-            let errorDetails = 'Failed to fetch ride data for dashboard.';
-            if (assignedErrorText.includes("Query requires a Firestore index") || assignedErrorText.includes("Invalid query parameters")) {
-                 errorDetails = `Error fetching assigned rides: ${assignedErrorText}`;
-            } else if (inProgressErrorText.includes("Query requires a Firestore index") || inProgressErrorText.includes("Invalid query parameters")) {
-                 errorDetails = `Error fetching in-progress rides: ${inProgressErrorText}`;
-            }
-            throw new Error(errorDetails);
-        }
-        
-        const assignedData = await ridesResponseAssigned.json();
-        const inProgressData = await ridesResponseInProgress.json();
-        const activeRides = (assignedData.bookings?.length || 0) + (inProgressData.bookings?.length || 0);
-        setActiveRidesCount(activeRides);
+      // Simulate fetching action items
+      const fetchedActionItems: ActionableCategory[] = [
+        {
+          id: 'driver-management',
+          name: 'Driver Management',
+          icon: UserPlus,
+          items: [
+            { id: 'op-task-1', label: `Review ${mockPendingApprovals} new driver application(s).`, completed: false, priority: mockPendingApprovals > 0 ? 'high' : 'low', details: 'Check documents and approve/reject.', link: '/operator/manage-drivers?status=Pending%20Approval' },
+            { id: 'op-task-2', label: 'Driver Patel R. - PCO license expiring in 7 days.', completed: false, priority: 'medium', details: 'Send reminder or check renewal status.' },
+          ],
+        },
+        {
+          id: 'ride-operations',
+          name: 'Ride Operations',
+          icon: Car,
+          items: [
+            { id: 'op-task-4', label: 'High demand reported in "Town Centre" zone. Monitor driver availability.', completed: false, priority: 'high' },
+            { id: 'op-task-5', label: `Address ${mockPendingTickets} new/pending support tickets.`, completed: false, priority: mockPendingTickets > 2 ? 'medium' : 'low', link: '/operator/support-tickets' },
+          ],
+        },
+        {
+          id: 'fleet-alerts',
+          name: 'Fleet Alerts & Settings',
+          icon: AlertTriangle,
+          items: [
+            { id: 'op-task-6', label: 'Vehicle BZ68 XYZ - MOT due next month.', completed: true, priority: 'medium' },
+            { id: 'op-task-7', label: 'Review current surge pricing settings.', completed: false, priority: 'low', details: 'Ensure it aligns with current demand.', link: '/operator/settings/pricing-settings' },
+          ],
+        },
+      ];
+      setOperatorActionItems(fetchedActionItems);
 
-        const availableDriversResponse = await fetch(`/api/operator/drivers?status=Active&limit=100`); 
-        if (!availableDriversResponse.ok) {
-            const errorText = await availableDriversResponse.text();
-            console.error("Failed to fetch available drivers", errorText);
-            let errorDetails = 'Failed to fetch available drivers.';
-            if (errorText.includes("Query requires a Firestore index") || errorText.includes("Invalid query parameters")) {
-                errorDetails = `Error fetching available drivers: ${errorText}`;
-            }
-            throw new Error(errorDetails);
-        }
-        const availableDriversData = await availableDriversResponse.json();
-        setAvailableDriversCount(availableDriversData.drivers?.length || 0);
-
-        const totalDriversResponse = await fetch(`/api/operator/drivers?limit=100`); 
-        if (!totalDriversResponse.ok) {
-            const errorText = await totalDriversResponse.text();
-            console.error("Failed to fetch total drivers", errorText);
-            let errorDetails = 'Failed to fetch total drivers.';
-             if (errorText.includes("Query requires a Firestore index") || errorText.includes("Invalid query parameters")) { 
-                errorDetails = `Error fetching total drivers: ${errorText}`;
-            }
-            throw new Error(errorDetails);
-        }
-        const totalDriversData = await totalDriversResponse.json();
-        setTotalDriversCount(totalDriversData.drivers?.length || 0);
-
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-        const description = error instanceof Error ? error.message : "Could not load some dashboard statistics.";
-        toast({
-          title: "Error Loading Stats",
-          description: description,
-          variant: "destructive",
-          duration: 10000,
-        });
-        setActiveRidesCount("N/A");
-        setAvailableDriversCount("N/A");
-        setTotalDriversCount("N/A");
-      } finally {
-        setIsLoadingStats(false);
-      }
-    };
-
-    if (user) {
-      fetchDashboardStats();
+    } catch (error) {
+      console.error("Error fetching dashboard data (mock):", error);
+      toast({ title: "Error Loading Dashboard Data", description: "Could not load some dashboard statistics or action items.", variant: "destructive" });
+      setActiveRidesCount("N/A"); setAvailableDriversCount("N/A"); setTotalDriversCount("N/A");
+      setOperatorActionItems([]);
+    } finally {
+      setIsLoadingStats(false);
+      setIsLoadingActionItems(false);
     }
-  }, [user, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, toast]); // Removed API calls, so user is the main dep for re-fetch trigger (e.g., on login)
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
 
   const mapContainerClasses = cn(
     "h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border-4",
@@ -215,6 +169,8 @@ export default function OperatorDashboardPage() {
     );
   };
 
+  const issuesReported = operatorActionItems.reduce((acc, category) => 
+    acc + category.items.filter(item => !item.completed && item.priority === 'high').length, 0);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -222,7 +178,7 @@ export default function OperatorDashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-3xl font-headline">Taxi Base Control Panel</CardTitle>
-            <CardDescription>Welcome, {user?.name || 'Operator'}. Manage your fleet and operations efficiently.</CardDescription>
+            <CardDescription>Welcome, {user?.name || 'Operator'} ({user?.operatorCode || user?.customId || "ID N/A"}). Manage your fleet and operations efficiently.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col md:flex-row items-center gap-6">
             <div className="flex-1 space-y-4">
@@ -239,7 +195,7 @@ export default function OperatorDashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatCard title="Active Rides" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : String(activeRidesCount)} icon={Car} color="text-green-500" />
           <StatCard title="Available Drivers" value={isLoadingStats ? <Loader2 className="animate-spin h-5 w-5" /> : `${availableDriversCount} / ${totalDriversCount}`} icon={Users} color="text-blue-500" />
-          <StatCard title="Issues Reported" value={issuesReported.toString()} icon={AlertTriangle} color="text-red-500" />
+          <StatCard title="Urgent Issues" value={isLoadingActionItems ? <Loader2 className="animate-spin h-5 w-5" /> : issuesReported.toString()} icon={AlertTriangle} color="text-red-500" />
           <StatCard title="System Status" value="Operational" icon={Briefcase} color="text-green-500" />
         </div>
 
@@ -285,23 +241,28 @@ export default function OperatorDashboardPage() {
         </div>
       </div>
       
-      {/* Action Items Side Panel Column */}
       <div className="lg:w-1/3 space-y-6">
         <Card className="shadow-lg sticky top-20">
           <CardHeader>
             <CardTitle className="text-xl font-headline flex items-center gap-2">
-              <ListChecks className="w-6 h-6 text-accent" /> Fleet Status &amp; Alerts
+              <ListChecks className="w-6 h-6 text-accent" /> Fleet Status & Alerts
             </CardTitle>
             <CardDescription>Actionable insights and tasks for your fleet.</CardDescription>
           </CardHeader>
           <CardContent className="max-h-[calc(100vh-12rem)] overflow-y-auto">
+            {isLoadingActionItems ? (
+                <div className="flex justify-center items-center p-6"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div>
+            ) : operatorActionItems.length > 0 ? (
             <Accordion type="multiple" defaultValue={operatorActionItems.map(cat => cat.id)} className="w-full">
               {operatorActionItems.map((category) => (
                 <AccordionItem value={category.id} key={category.id}>
                   <AccordionTrigger className="text-base hover:no-underline font-semibold">
                     <span className="flex items-center gap-1.5">
                       <category.icon className="w-5 h-5 text-muted-foreground" />
-                      {category.name} ({category.items.filter(i => !i.completed).length})
+                      {category.name} 
+                      {category.items.filter(i => !i.completed).length > 0 && (
+                        <Badge variant="secondary" className="ml-2">{category.items.filter(i => !i.completed).length} pending</Badge>
+                      )}
                     </span>
                   </AccordionTrigger>
                   <AccordionContent>
@@ -316,12 +277,23 @@ export default function OperatorDashboardPage() {
                               className="mt-1"
                             />
                             <div className="flex-1">
-                              <Label
-                                htmlFor={`op-item-${item.id}`}
-                                className={cn("text-sm cursor-pointer", mapOperatorPriorityToStyle(item.priority), item.completed ? 'line-through text-muted-foreground/70' : '')}
-                              >
-                                {item.label}
-                              </Label>
+                              {item.link ? (
+                                <Link href={item.link} className="hover:underline text-primary">
+                                   <Label
+                                    htmlFor={`op-item-${item.id}`}
+                                    className={cn("text-sm cursor-pointer", mapOperatorPriorityToStyle(item.priority), item.completed ? 'line-through text-muted-foreground/70' : '')}
+                                  >
+                                    {item.label}
+                                  </Label>
+                                </Link>
+                              ) : (
+                                 <Label
+                                  htmlFor={`op-item-${item.id}`}
+                                  className={cn("text-sm cursor-pointer", mapOperatorPriorityToStyle(item.priority), item.completed ? 'line-through text-muted-foreground/70' : '')}
+                                >
+                                  {item.label}
+                                </Label>
+                              )}
                               {item.details && !item.completed && <p className="text-xs text-muted-foreground">{item.details}</p>}
                             </div>
                           </li>
@@ -334,7 +306,7 @@ export default function OperatorDashboardPage() {
                 </AccordionItem>
               ))}
             </Accordion>
-            {operatorActionItems.length === 0 && (
+            ) : (
               <p className="text-muted-foreground text-sm text-center py-4">No specific action items currently.</p>
             )}
           </CardContent>
