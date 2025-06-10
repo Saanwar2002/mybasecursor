@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
       dropoffCoords: data.dropoffLocation ? { lat: data.dropoffLocation.latitude, lng: data.dropoffLocation.longitude } : undefined,
       distanceMiles: data.distanceMiles,
       passengerCount: data.passengers || 1,
-      passengerPhone: data.passengerPhone,
+      passengerPhone: data.passengerPhone || data.customerPhoneNumber, // Check both fields
       passengerRating: data.passengerRating,
       notes: data.driverNotes || data.notes, 
       driverId: data.driverId,

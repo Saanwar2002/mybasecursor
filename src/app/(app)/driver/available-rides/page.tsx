@@ -99,7 +99,6 @@ const blueDotSvg = `
 `;
 const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
 
-type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
 const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
@@ -170,7 +169,6 @@ export default function AvailableRidesPage() {
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
 
   const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string | null>(null);
-  // const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle'); // Flickering issue
   const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
 
   const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
@@ -583,7 +581,7 @@ export default function AvailableRidesPage() {
         rideStartedAt: serverBooking.rideStartedAt, 
         driverCurrentLocation: serverBooking.driverCurrentLocation,
         driverEtaMinutes: serverBooking.driverEtaMinutes,
-        passengerPhone: serverBooking.passengerPhone,
+        passengerPhone: serverBooking.passengerPhone || serverBooking.customerPhoneNumber,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
       };
@@ -1220,7 +1218,6 @@ export default function AvailableRidesPage() {
     );
   }
 
-  // const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4", { 'border-border': mapBusynessLevel === 'idle', 'animate-flash-yellow-border': mapBusynessLevel === 'moderate', 'animate-flash-red-border': mapBusynessLevel === 'high', } ); // Flickering issue
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
   return ( <div className="flex flex-col h-full space-y-2"> 
     <div className={mapContainerClasses}> 
