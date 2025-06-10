@@ -7,13 +7,15 @@ import { Shield, Building, Users, BarChart3, Settings, Loader2, AlertTriangle } 
 import { useAuth } from '@/contexts/auth-context';
 import { useState, useEffect } from 'react';
 import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItemType } from '@/ai/flows/admin-action-items-flow';
-import { AdminActionItemsDisplay } from '@/components/admin/AdminActionItemsDisplay'; // New import
+import { AdminActionItemsDisplay } from '@/components/admin/AdminActionItemsDisplay';
+import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   const [adminActionItems, setAdminActionItems] = useState<AiActionItemType[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [tasksError, setTasksError] = useState<string | null>(null);
+  const [pendingOperatorCount, setPendingOperatorCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -28,12 +30,14 @@ export default function AdminDashboardPage() {
           recentFeatureFeedbackCount: Math.floor(Math.random() * 25),// 0 to 24
           platformLoadPercentage: Math.floor(Math.random() * 70) + 20, // 20 to 89
         };
+        setPendingOperatorCount(mockInput.pendingOperatorApprovals); // Set the count for the card
         const result = await getAdminActionItems(mockInput);
         setAdminActionItems(result.actionItems || []);
       } catch (error) {
         console.error("Failed to fetch admin action items:", error);
         setTasksError(error instanceof Error ? error.message : "An unknown error occurred while fetching tasks.");
         setAdminActionItems([]);
+        setPendingOperatorCount(0);
       } finally {
         setIsLoadingTasks(false);
       }
@@ -91,6 +95,7 @@ export default function AdminDashboardPage() {
           icon={Building}
           link="/admin/manage-operators"
           actionText="Go to Operator Management"
+          notificationCount={pendingOperatorCount}
         />
         <FeatureCard
           title="Platform Users"
@@ -124,13 +129,21 @@ interface FeatureCardProps {
   icon: React.ElementType;
   link: string;
   actionText: string;
+  notificationCount?: number; // Added notificationCount
 }
 
-function FeatureCard({ title, description, icon: Icon, link, actionText }: FeatureCardProps) {
+function FeatureCard({ title, description, icon: Icon, link, actionText, notificationCount }: FeatureCardProps) {
   return (
     <Card className="hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="items-center pb-4">
-        <Icon className="w-10 h-10 text-accent mb-3" />
+        <div className="relative">
+          <Icon className="w-10 h-10 text-accent mb-3" />
+          {notificationCount && notificationCount > 0 && (
+            <Badge variant="destructive" className="absolute -top-1 -right-2 text-xs px-1.5 py-0.5 h-5 min-w-[1.25rem] flex items-center justify-center rounded-full">
+              {notificationCount}
+            </Badge>
+          )}
+        </div>
         <CardTitle className="font-headline text-xl">{title}</CardTitle>
       </CardHeader>
       <CardContent className="text-center space-y-4">
@@ -142,4 +155,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
-
