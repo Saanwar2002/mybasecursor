@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall } from "lucide-react"; // Added PhoneCall
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone } from "lucide-react"; // Added TrafficCone
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -98,6 +98,14 @@ interface ActiveRide {
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
+}
+
+interface MapHazard {
+  id: string;
+  hazardType: string;
+  location: { latitude: number; longitude: number };
+  reportedAt: string; // ISO string
+  status: string;
 }
 
 
@@ -211,12 +219,58 @@ export default function AvailableRidesPage() {
   const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
   const [isRequestingWR, setIsRequestingWR] = useState(false);
 
+  const [isHazardReportDialogOpen, setIsHazardReportDialogOpen] = useState(false);
+  const [reportingHazard, setReportingHazard] = useState(false);
+
+  const [activeMapHazards, setActiveMapHazards] = useState<MapHazard[]>([]);
+  const [isLoadingHazards, setIsLoadingHazards] = useState(false);
+  const hazardRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
+
+
+  const fetchActiveHazards = useCallback(async () => {
+    if (!isDriverOnline) return;
+    setIsLoadingHazards(true);
+    try {
+      const response = await fetch('/api/driver/map-hazards/active');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch active hazards.' }));
+        throw new Error(errorData.message);
+      }
+      const data = await response.json();
+      setActiveMapHazards(data.hazards || []);
+    } catch (err) {
+      console.warn("Error fetching active map hazards:", err);
+      // Optionally, show a non-intrusive toast for hazard loading errors
+      // toast({ title: "Could not load map hazards", description: err.message, variant: "default", duration: 3000 });
+    } finally {
+      setIsLoadingHazards(false);
+    }
+  }, [isDriverOnline]);
+
+  useEffect(() => {
+    if (isDriverOnline) {
+      fetchActiveHazards(); // Fetch on initial load/online status change
+      hazardRefreshIntervalIdRef.current = setInterval(fetchActiveHazards, 60000); // Poll every 60 seconds
+    } else {
+      if (hazardRefreshIntervalIdRef.current) {
+        clearInterval(hazardRefreshIntervalIdRef.current);
+        hazardRefreshIntervalIdRef.current = null;
+      }
+      setActiveMapHazards([]); // Clear hazards when offline
+    }
+    return () => {
+      if (hazardRefreshIntervalIdRef.current) {
+        clearInterval(hazardRefreshIntervalIdRef.current);
+      }
+    };
+  }, [isDriverOnline, fetchActiveHazards]);
+
 
   useEffect(() => {
     if (activeRide) {
       let labelContent: string | null = null;
       let labelPosition: google.maps.LatLngLiteral | null = null;
-      let labelType: LabelType = 'pickup';
+      let labelType: LabelType = 'pickup'; // Default to pickup
 
       const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
       const dropoffStreet = activeRide.dropoffLocation.address.split(',')[0];
@@ -299,7 +353,7 @@ export default function AvailableRidesPage() {
           let message = "Could not get your location. Please enable location services.";
           if (error.code === error.PERMISSION_DENIED) {
             message = "Location access denied. Please enable it in your browser settings.";
-            setIsDriverOnline(false); // Automatically turn off if permission denied
+            setIsDriverOnline(false); 
             setIsPollingEnabled(false);
             if (watchIdRef.current !== null) {
                 navigator.geolocation.clearWatch(watchIdRef.current);
@@ -345,9 +399,6 @@ export default function AvailableRidesPage() {
       const data: ActiveRide | null = await response.json();
       console.log("fetchActiveRide - Data received:", data);
       setActiveRide(data); 
-      // Removed automatic setting of driverLocation from here to prefer live GPS if available
-      // if (data?.driverCurrentLocation) { setDriverLocation(data.driverCurrentLocation); }
-      // else if (data?.pickupLocation && !watchIdRef.current) { setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude }); }
       if (data && error) setError(null); 
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; console.error("Error in fetchActiveRide:", message); if (!activeRide) setError(message); 
     } finally {
@@ -837,25 +888,48 @@ export default function AvailableRidesPage() {
     }
   };
 
+  const formatHazardType = (type: string) => {
+    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const getHazardMarkerLabel = (type: string): string => {
+    switch (type) {
+        case 'mobile_speed_camera': return 'SC';
+        case 'roadside_taxi_checking': return 'TC';
+        case 'road_closure': return 'RC';
+        case 'accident': return 'AC';
+        case 'road_works': return 'RW';
+        case 'heavy_traffic': return 'HT';
+        default: return '!';
+    }
+  };
+
   const memoizedMapMarkers = useMemo(() => {
     if (!activeRide && !isDriverOnline) return []; 
-    if (!activeRide && isDriverOnline && driverLocation) { 
-      return [{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} }];
-    }
-    if (!activeRide) return []; 
-
-    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    let baseMarkers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     
-    const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation ? driverLocation : activeRide.driverCurrentLocation;
-
-    if (currentLocToDisplay) { 
-        markers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+    if (activeRide) {
+        const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation ? driverLocation : activeRide.driverCurrentLocation;
+        if (currentLocToDisplay) { 
+            baseMarkers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+        }
+        if (activeRide.pickupLocation) { baseMarkers.push({ position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude}, title: `Pickup: ${activeRide.pickupLocation.address}`, label: { text: "P", color: "white", fontWeight: "bold"} }); }
+        if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) { baseMarkers.push({ position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude}, title: `Dropoff: ${activeRide.dropoffLocation.address}`, label: { text: "D", color: "white", fontWeight: "bold" } }); }
+        activeRide.stops?.forEach((stop, index) => { if(stop.latitude && stop.longitude) { baseMarkers.push({ position: {lat: stop.latitude, lng: stop.longitude}, title: `Stop ${index + 1}: ${stop.address}`, label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" } }); } });
+    } else if (isDriverOnline && driverLocation) { // No active ride, but driver is online
+        baseMarkers.push({ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
     }
-    if (activeRide.pickupLocation) { markers.push({ position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude}, title: `Pickup: ${activeRide.pickupLocation.address}`, label: { text: "P", color: "white", fontWeight: "bold"} }); }
-    if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) { markers.push({ position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude}, title: `Dropoff: ${activeRide.dropoffLocation.address}`, label: { text: "D", color: "white", fontWeight: "bold" } }); }
-    activeRide.stops?.forEach((stop, index) => { if(stop.latitude && stop.longitude) { markers.push({ position: {lat: stop.latitude, lng: stop.longitude}, title: `Stop ${index + 1}: ${stop.address}`, label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" } }); } });
-    return markers;
-  }, [activeRide, driverLocation, isDriverOnline]);
+
+    const hazardMarkers = activeMapHazards.map(hazard => ({
+      position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
+      title: formatHazardType(hazard.hazardType),
+      label: { text: getHazardMarkerLabel(hazard.hazardType), color: 'black', fontWeight: 'bold', fontSize: '11px' }, 
+      // Consider adding a distinct default icon for hazards or color-coding labels later
+      // For now, label differentiates. Google default marker is red.
+    }));
+
+    return [...baseMarkers, ...hazardMarkers];
+  }, [activeRide, driverLocation, isDriverOnline, activeMapHazards]);
 
   const memoizedMapCenter = useMemo(() => {
     if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
@@ -986,6 +1060,41 @@ export default function AvailableRidesPage() {
     }
   };
 
+  const handleReportHazard = async (hazardType: string) => {
+    if (!driverUser || !driverLocation) {
+      toast({ title: "Error", description: "Driver location or ID missing.", variant: "destructive" });
+      return;
+    }
+    setReportingHazard(true);
+    setIsHazardReportDialogOpen(false);
+    toast({ title: "Reporting Hazard...", description: `Sending report for ${formatHazardType(hazardType)}.`});
+
+    try {
+      const response = await fetch('/api/driver/map-hazards/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: driverUser.id,
+          hazardType: hazardType,
+          latitude: driverLocation.lat,
+          longitude: driverLocation.lng,
+          reportedAt: new Date().toISOString(),
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({message: "Failed to report hazard."}));
+        throw new Error(errorData.message);
+      }
+      toast({ title: "Hazard Reported!", description: `${formatHazardType(hazardType)} reported successfully.`, duration: 5000 });
+      fetchActiveHazards(); // Refresh hazards on map
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error reporting hazard.";
+      toast({ title: "Report Failed", description: message, variant: "destructive" });
+    } finally {
+      setReportingHazard(false);
+    }
+  };
+
 
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -1035,81 +1144,77 @@ export default function AvailableRidesPage() {
         {(!showCompletedStatus && !showCancelledByDriverStatus && ( 
         <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
             <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} customMapLabel={customMapLabel} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
-            <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
-              <AlertDialogTrigger asChild>
+            <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
                 <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute bottom-4 right-4 rounded-full h-12 w-12 shadow-lg z-20 animate-pulse"
-                  onClick={() => setIsSosDialogOpen(true)}
-                  aria-label="SOS Panic Button"
+                    variant="default" size="icon"
+                    className="rounded-full h-12 w-12 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
+                    onClick={() => setIsHazardReportDialogOpen(true)}
+                    aria-label="Report Hazard Button"
+                    disabled={reportingHazard}
                 >
-                  <ShieldAlert className="h-6 w-6" />
+                    {reportingHazard ? <Loader2 className="h-6 w-6 animate-spin"/> : <TrafficCone className="h-6 w-6" />}
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Select the type of assistance needed. Your current location will be shared with your operator.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="space-y-3 py-2">
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    onClick={() => {
-                      setIsSosDialogOpen(false); 
-                      setIsConfirmEmergencyOpen(true); 
-                    }}
-                  >
-                    Emergency (Alert & Sound)
-                  </Button>
-                <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                    toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." });
-                    setIsSosDialogOpen(false);
-                }}
-                >
-                Vehicle Breakdown
-                </Button>
-                <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                    toast({ title: "Callback Requested", description: "Operator has been asked to call you back." });
-                    setIsSosDialogOpen(false);
-                }}
-                >
-                Request Operator Callback
-                </Button>
+                <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive" size="icon"
+                      className="rounded-full h-12 w-12 shadow-lg animate-pulse"
+                      onClick={() => setIsSosDialogOpen(true)}
+                      aria-label="SOS Panic Button"
+                    >
+                      <ShieldAlert className="h-6 w-6" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Select the type of assistance needed. Your current location will be shared with your operator.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-3 py-2">
+                      <Button
+                        variant="destructive" className="w-full"
+                        onClick={() => { setIsSosDialogOpen(false); setIsConfirmEmergencyOpen(true); }}
+                      >
+                        Emergency (Alert & Sound)
+                      </Button>
+                      <Button variant="outline" className="w-full"
+                        onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
+                      >
+                        Vehicle Breakdown
+                      </Button>
+                      <Button variant="outline" className="w-full"
+                        onClick={() => { toast({ title: "Callback Requested", description: "Operator has been asked to call you back." }); setIsSosDialogOpen(false); }}
+                      >
+                        Request Operator Callback
+                      </Button>
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
             </div>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
-            </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
         
-        <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle className="text-destructive flex items-center gap-2">
-                        <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This will immediately alert your operator. Proceed with caution.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
-                        Yes, Confirm Emergency!
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+            <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                            <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will immediately alert your operator. Proceed with caution.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
+                            Yes, Confirm Emergency!
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div> 
         ))}
         <Card className={cn( "flex-1 flex flex-col rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card overflow-hidden", (showCompletedStatus || showCancelledByDriverStatus) ? "mt-0 rounded-b-xl" : " " )}>
@@ -1350,6 +1455,42 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
+              <DialogDescription>
+                Select the type of hazard or observation you want to report at your current location.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-3 py-4">
+              {[
+                { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
+                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheck },
+                { label: "Road Closure", type: "road_closure", icon: MinusCircle },
+                { label: "Accident", type: "accident", icon: CarCrash },
+                { label: "Road Works", type: "road_works", icon: Construction },
+                { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
+              ].map(hazard => (
+                <Button
+                  key={hazard.type}
+                  variant="outline"
+                  className="flex flex-col items-center justify-center h-20 text-center"
+                  onClick={() => handleReportHazard(hazard.type)}
+                  disabled={reportingHazard}
+                >
+                  <hazard.icon className="w-6 h-6 mb-1 text-primary" />
+                  <span className="text-xs">{hazard.label}</span>
+                </Button>
+              ))}
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="ghost" disabled={reportingHazard}>Cancel</Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -1359,62 +1500,59 @@ export default function AvailableRidesPage() {
   return ( <div className="flex flex-col h-full space-y-2"> 
     <div className={mapContainerClasses}> 
         <GoogleMapDisplay center={driverLocation} zoom={13} markers={memoizedMapMarkers} customMapLabel={customMapLabel} className="w-full h-full" disableDefaultUI={true} />
-        <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
-            <AlertDialogTrigger asChild>
+        <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
             <Button
-                variant="destructive"
-                size="icon"
-                className="absolute bottom-4 right-4 rounded-full h-12 w-12 shadow-lg z-20 animate-pulse"
-                onClick={() => setIsSosDialogOpen(true)}
-                aria-label="SOS Panic Button"
+                variant="default" size="icon"
+                className="rounded-full h-12 w-12 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
+                onClick={() => setIsHazardReportDialogOpen(true)}
+                aria-label="Report Hazard Button"
+                disabled={reportingHazard || !isDriverOnline}
             >
-                <ShieldAlert className="h-6 w-6" />
+                {reportingHazard ? <Loader2 className="h-6 w-6 animate-spin"/> : <TrafficCone className="h-6 w-6" />}
             </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
-                <AlertDialogDescription>
-                Select the type of assistance needed. Your current location will be shared with your operator.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="space-y-3 py-2">
-                 <Button
-                    variant="destructive"
-                    className="w-full"
-                    onClick={() => {
-                      setIsSosDialogOpen(false);
-                      setIsConfirmEmergencyOpen(true);
-                    }}
-                  >
-                    Emergency (Alert & Sound)
-                  </Button>
+            <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
+                <AlertDialogTrigger asChild>
                 <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                    toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." });
-                    setIsSosDialogOpen(false);
-                }}
+                    variant="destructive" size="icon"
+                    className="rounded-full h-12 w-12 shadow-lg animate-pulse"
+                    onClick={() => setIsSosDialogOpen(true)}
+                    aria-label="SOS Panic Button"
+                    disabled={!isDriverOnline}
                 >
-                Vehicle Breakdown
+                    <ShieldAlert className="h-6 w-6" />
                 </Button>
-                <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                    toast({ title: "Callback Requested", description: "Operator has been asked to call you back." });
-                    setIsSosDialogOpen(false);
-                }}
-                >
-                Request Operator Callback
-                </Button>
-            </div>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
-            </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    Select the type of assistance needed. Your current location will be shared with your operator.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-3 py-2">
+                    <Button
+                        variant="destructive" className="w-full"
+                        onClick={() => { setIsSosDialogOpen(false); setIsConfirmEmergencyOpen(true); }}
+                    >
+                        Emergency (Alert & Sound)
+                    </Button>
+                    <Button variant="outline" className="w-full"
+                        onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
+                    >
+                        Vehicle Breakdown
+                    </Button>
+                    <Button variant="outline" className="w-full"
+                        onClick={() => { toast({ title: "Callback Requested", description: "Operator has been asked to call you back." }); setIsSosDialogOpen(false); }}
+                    >
+                        Request Operator Callback
+                    </Button>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
         
         <AlertDialog open={isConfirmEmergencyOpen} onOpenChange={setIsConfirmEmergencyOpen}>
             <AlertDialogContent>
@@ -1434,6 +1572,42 @@ export default function AvailableRidesPage() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+        <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
+              <DialogDescription>
+                Select the type of hazard or observation you want to report at your current location.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-3 py-4">
+              {[
+                { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
+                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheck },
+                { label: "Road Closure", type: "road_closure", icon: MinusCircle },
+                { label: "Accident", type: "accident", icon: CarCrash },
+                { label: "Road Works", type: "road_works", icon: Construction },
+                { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
+              ].map(hazard => (
+                <Button
+                  key={hazard.type}
+                  variant="outline"
+                  className="flex flex-col items-center justify-center h-20 text-center"
+                  onClick={() => handleReportHazard(hazard.type)}
+                  disabled={reportingHazard}
+                >
+                  <hazard.icon className="w-6 h-6 mb-1 text-primary" />
+                  <span className="text-xs">{hazard.label}</span>
+                </Button>
+              ))}
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="ghost" disabled={reportingHazard}>Cancel</Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div> 
     <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1"> 
     {geolocationError && isDriverOnline && (
@@ -1501,3 +1675,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
