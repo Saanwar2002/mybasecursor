@@ -72,13 +72,9 @@ export const navItems: NavItem[] = [
     roles: ['admin'],
     subItems: [
       { href: '/admin/user-feedback/list', label: 'User Feedback', icon: MessageSquareHeart, roles: ['admin'] },
-      { href: '/admin/support-scalability', label: 'Support Scalability', icon: Users, roles: ['admin']},
       { href: '/admin/driver-incentives', label: 'Driver Incentives (Platform)', icon: Award, roles: ['admin'] }, 
       { href: '/admin/loyalty-program', label: 'Loyalty Program', icon: Star, roles: ['admin'] },
       { href: '/admin/server-monitoring', label: 'Server Monitoring', icon: ServerCog, roles: ['admin'] },
-      { href: '/admin/financial-sop', label: 'Financial SOPs', icon: FileText, roles: ['admin'] },
-      { href: '/admin/security-audit', label: 'Security Audits', icon: ShieldCheck, roles: ['admin'] },
-      { href: '/admin/sustainability-initiatives', label: 'Sustainability', icon: Leaf, roles: ['admin'] },
     ]
   },
   { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
@@ -108,5 +104,3 @@ export const getNavItemsForRole = (role: UserRole | undefined): NavItem[] => {
   });
   return filteredNavItems;
 };
-
-
