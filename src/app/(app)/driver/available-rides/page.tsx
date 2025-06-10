@@ -53,7 +53,7 @@ interface ActiveRide {
   passengerId: string;
   passengerName: string;
   passengerAvatar?: string;
-  passengerPhone?: string; // Added this
+  passengerPhone?: string; 
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: Array<LocationPoint>;
@@ -238,7 +238,7 @@ export default function AvailableRidesPage() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
-          setGeolocationError(null); // Clear any previous error on success
+          setGeolocationError(null); 
         },
         (error) => {
           console.warn("Geolocation Error:", error.message);
@@ -285,7 +285,7 @@ export default function AvailableRidesPage() {
       if (data?.driverCurrentLocation) { 
         // Do not setDriverLocation here if geolocation is active and working
         // setDriverLocation(data.driverCurrentLocation);
-      } else if (data?.pickupLocation && !watchIdRef.current) { // Only set if not actively watching GPS
+      } else if (data?.pickupLocation && !watchIdRef.current) { 
         setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
       }
       if (data && error) setError(null); 
@@ -731,7 +731,7 @@ export default function AvailableRidesPage() {
       console.log(`handleRideAction (${actionType}): API success for ${rideId}. Server data:`, updatedBookingFromServer.booking);
 
       setActiveRide(prev => {
-        if (!prev || prev.id !== rideId) { // Defensive check
+        if (!prev || prev.id !== rideId) { 
              console.warn(`handleRideAction (${actionType}): setActiveRide callback - prev.id (${prev?.id}) !== rideId (${rideId}). This shouldn't happen if activeRide is the source of truth.`);
              return prev; 
         }
@@ -775,15 +775,14 @@ export default function AvailableRidesPage() {
   };
 
   const memoizedMapMarkers = useMemo(() => {
-    if (!activeRide && !isDriverOnline) return []; // No markers if no active ride AND driver is offline
-    if (!activeRide && isDriverOnline && driverLocation) { // Driver online, no active ride
+    if (!activeRide && !isDriverOnline) return []; 
+    if (!activeRide && isDriverOnline && driverLocation) { 
       return [{ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} }];
     }
-    if (!activeRide) return []; // Should be covered above, but as a fallback
+    if (!activeRide) return []; 
 
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     
-    // Use live driverLocation if online, otherwise fallback to activeRide.driverCurrentLocation (which might be stale or from server)
     const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation ? driverLocation : activeRide.driverCurrentLocation;
 
     if (currentLocToDisplay) { 
@@ -801,7 +800,7 @@ export default function AvailableRidesPage() {
     if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
     if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
     if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    return driverLocation; // Fallback to live driverLocation
+    return driverLocation; 
   }, [activeRide, driverLocation]);
 
 
@@ -938,7 +937,7 @@ export default function AvailableRidesPage() {
     return (
       <div className="flex flex-col h-full">
         {(!showCompletedStatus && !showCancelledByDriverStatus && ( 
-        <div className="h-[calc(60%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
+        <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative"> 
             <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
               <AlertDialogTrigger asChild>
@@ -1172,7 +1171,7 @@ export default function AvailableRidesPage() {
                         setCurrentWaitingCharge(0); 
                         setIsCancelSwitchOn(false);
                         setActiveRide(null); 
-                        setIsPollingEnabled(true); // Allow polling for new offers
+                        setIsPollingEnabled(true); 
                     }} 
                     disabled={activeRide ? !!actionLoading[activeRide.id] : false} 
                 > 
@@ -1230,8 +1229,7 @@ export default function AvailableRidesPage() {
     );
   }
 
-  // const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
-  // Remove mapBusynessLevel from available rides page
+  
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
   return ( <div className="flex flex-col h-full space-y-2"> 
     <div className={mapContainerClasses}> 
@@ -1378,3 +1376,4 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
+
