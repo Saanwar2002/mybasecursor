@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard } from 'lucide-react'; // Added CreditCard
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award } from 'lucide-react'; // Added Award
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -39,7 +39,7 @@ export const navItems: NavItem[] = [
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
   { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
-  { href: '/operator/credit-accounts', label: 'Credit Accounts', icon: CreditCard, roles: ['operator'] }, // New Item
+  { href: '/operator/credit-accounts', label: 'Credit Accounts', icon: CreditCard, roles: ['operator'] }, 
   { href: '/operator/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['operator'] },
 
 
@@ -61,6 +61,18 @@ export const navItems: NavItem[] = [
   },
   { href: '/admin/user-blocks', label: 'User Blocks', icon: UserX, roles: ['admin'] },
   { href: '/admin/analytics', label: 'System Analytics', icon: BarChart3, roles: ['admin'] },
+  { 
+    href: '#', // Parent item, not a direct link
+    label: 'Operations & Strategy', 
+    icon: Activity, // Or BrainCircuit or another suitable icon
+    roles: ['admin'],
+    subItems: [
+      { href: '/admin/user-feedback/list', label: 'User Feedback', icon: MessageSquareHeart, roles: ['admin'] },
+      { href: '/admin/support-scalability', label: 'Support Scalability', icon: Users, roles: ['admin']},
+      { href: '/admin/driver-incentives', label: 'Driver Incentives', icon: Award, roles: ['admin'] }, // New
+      // Add other strategic pages here as they are created
+    ]
+  },
   { href: '/admin/global-settings', label: 'Global Settings', icon: Settings, roles: ['admin'] },
   { href: '/admin/ai-system-health', label: 'AI System Health', icon: BrainCircuit, roles: ['admin'] },
   { href: '/admin/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['admin'] },
