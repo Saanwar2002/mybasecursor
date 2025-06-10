@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import * as LucideIcons from 'lucide-react';
+import Link from 'next/link'; // Added Link import
 
 const DefaultAiTaskIcon = LucideIcons.ListChecks;
 
@@ -57,7 +58,6 @@ export function AdminActionItemsDisplay({
     });
 
     const initialCategories = Object.entries(groupedTasks).map(([catName, tasks]) => {
-        // Sort tasks within each category: High -> Medium -> Low -> No Priority
         tasks.sort((a, b) => {
             const priorityOrder = { high: 0, medium: 1, low: 2 };
             const priorityA = a.priority ? priorityOrder[a.priority] : 3;
@@ -73,7 +73,6 @@ export function AdminActionItemsDisplay({
         };
     });
     
-    // Sort categories: Operational first, then Post-Launch Roadmap, then others alphabetically
     initialCategories.sort((a, b) => {
         if (a.name.includes('Operational') && !b.name.includes('Operational')) return -1;
         if (!a.name.includes('Operational') && b.name.includes('Operational')) return 1;
@@ -83,7 +82,6 @@ export function AdminActionItemsDisplay({
     });
 
     setCategorizedTasks(initialCategories);
-    // Automatically open categories that have high-priority, non-completed tasks or are operational/roadmap
     const defaultOpen = initialCategories
         .filter(cat => 
             cat.tasks.some(task => task.priority === 'high' && !task.completed) || 
@@ -151,36 +149,69 @@ export function AdminActionItemsDisplay({
                 <AccordionContent>
                   {category.tasks.length > 0 ? (
                     <ul className="space-y-2.5 pl-2">
-                      {category.tasks.map(task => (
-                        <li key={task.id} className="flex items-start space-x-2 p-1.5 rounded-md hover:bg-muted/50">
-                          <Checkbox
-                            id={`admin-task-${task.id}`}
-                            checked={task.completed}
-                            onCheckedChange={() => toggleTaskCompletion(category.id, task.id)}
-                            className="mt-1 shrink-0"
-                          />
-                          <div className="flex-1">
-                            <Label
-                              htmlFor={`admin-task-${task.id}`}
-                              className={cn(
-                                "text-sm cursor-pointer",
-                                mapPriorityToStyle(task.priority),
-                                task.completed && "line-through text-muted-foreground/70"
+                      {category.tasks.map(task => {
+                        const isReviewOpsTask = task.id === 'review-ops' || (task.category === 'Operator Management' && task.label.toLowerCase().includes('pending operator'));
+                        const isSystemAlertsTask = task.id === 'check-alerts' || (task.category === 'System Monitoring' && task.label.toLowerCase().includes('system alert'));
+
+                        return (
+                          <li key={task.id} className="flex items-start space-x-2 p-1.5 rounded-md hover:bg-muted/50">
+                            <Checkbox
+                              id={`admin-task-${task.id}`}
+                              checked={task.completed}
+                              onCheckedChange={() => toggleTaskCompletion(category.id, task.id)}
+                              className="mt-1 shrink-0"
+                            />
+                            <div className="flex-1">
+                              {isReviewOpsTask ? (
+                                <Link href="/admin/manage-operators?status=Pending%20Approval" className="hover:underline text-primary">
+                                  <Label
+                                    htmlFor={`admin-task-${task.id}`}
+                                    className={cn(
+                                      "text-sm cursor-pointer",
+                                      mapPriorityToStyle(task.priority),
+                                      task.completed && "line-through text-muted-foreground/70"
+                                    )}
+                                  >
+                                    {task.label}
+                                  </Label>
+                                </Link>
+                              ) : isSystemAlertsTask ? (
+                                <Link href="/admin/ai-system-health" className="hover:underline text-primary">
+                                  <Label
+                                    htmlFor={`admin-task-${task.id}`}
+                                    className={cn(
+                                      "text-sm cursor-pointer",
+                                      mapPriorityToStyle(task.priority),
+                                      task.completed && "line-through text-muted-foreground/70"
+                                    )}
+                                  >
+                                    {task.label}
+                                  </Label>
+                                </Link>
+                              ) : (
+                                <Label
+                                  htmlFor={`admin-task-${task.id}`}
+                                  className={cn(
+                                    "text-sm cursor-pointer",
+                                    mapPriorityToStyle(task.priority),
+                                    task.completed && "line-through text-muted-foreground/70"
+                                  )}
+                                >
+                                  {task.label}
+                                </Label>
                               )}
-                            >
-                              {task.label}
-                            </Label>
-                            {task.priority && !task.completed && (
-                              <Badge variant={
-                                task.priority === 'high' ? 'destructive' :
-                                task.priority === 'medium' ? 'secondary' : 'outline'
-                              } className="ml-2 text-xs capitalize py-0 px-1.5 h-5">
-                                {task.priority}
-                              </Badge>
-                            )}
-                          </div>
-                        </li>
-                      ))}
+                              {task.priority && !task.completed && (
+                                <Badge variant={
+                                  task.priority === 'high' ? 'destructive' :
+                                  task.priority === 'medium' ? 'secondary' : 'outline'
+                                } className="ml-2 text-xs capitalize py-0 px-1.5 h-5">
+                                  {task.priority}
+                                </Badge>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
                   ) : (
                     <p className="text-sm text-muted-foreground pl-2 py-1">No tasks in this category.</p>
@@ -194,4 +225,3 @@ export function AdminActionItemsDisplay({
     </Card>
   );
 }
-
