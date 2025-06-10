@@ -3,11 +3,45 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Shield, Building, Users, BarChart3, Settings } from 'lucide-react';
+import { Shield, Building, Users, BarChart3, Settings, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { useState, useEffect } from 'react';
+import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItemType } from '@/ai/flows/admin-action-items-flow';
+import { AdminActionItemsDisplay } from '@/components/admin/AdminActionItemsDisplay'; // New import
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
+  const [adminActionItems, setAdminActionItems] = useState<AiActionItemType[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [tasksError, setTasksError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      setIsLoadingTasks(true);
+      setTasksError(null);
+      try {
+        // Mock input data for the AI flow
+        const mockInput: AdminActionItemsInput = {
+          pendingOperatorApprovals: Math.floor(Math.random() * 5) + 1, // 1 to 5
+          activeSystemAlerts: Math.floor(Math.random() * 3),       // 0 to 2
+          unresolvedSupportTickets: Math.floor(Math.random() * 10), // 0 to 9
+          recentFeatureFeedbackCount: Math.floor(Math.random() * 25),// 0 to 24
+          platformLoadPercentage: Math.floor(Math.random() * 70) + 20, // 20 to 89
+        };
+        const result = await getAdminActionItems(mockInput);
+        setAdminActionItems(result.actionItems || []);
+      } catch (error) {
+        console.error("Failed to fetch admin action items:", error);
+        setTasksError(error instanceof Error ? error.message : "An unknown error occurred while fetching tasks.");
+        setAdminActionItems([]);
+      } finally {
+        setIsLoadingTasks(false);
+      }
+    };
+
+    fetchTasks();
+  }, []);
+
 
   return (
     <div className="space-y-6">
@@ -25,6 +59,30 @@ export default function AdminDashboardPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Admin Action Items Display */}
+      <div className="my-6">
+        {isLoadingTasks && (
+          <Card>
+            <CardHeader><CardTitle>Loading AI Action Items...</CardTitle></CardHeader>
+            <CardContent className="flex items-center justify-center p-10">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </CardContent>
+          </Card>
+        )}
+        {tasksError && !isLoadingTasks && (
+          <Card className="border-destructive">
+            <CardHeader><CardTitle className="text-destructive">Error Loading Tasks</CardTitle></CardHeader>
+            <CardContent className="text-destructive-foreground bg-destructive/10 p-4 rounded-md">
+              <p className="flex items-center gap-2"><AlertTriangle /> {tasksError}</p>
+            </CardContent>
+          </Card>
+        )}
+        {!isLoadingTasks && !tasksError && (
+          <AdminActionItemsDisplay items={adminActionItems} />
+        )}
+      </div>
+
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <FeatureCard
@@ -84,3 +142,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+
