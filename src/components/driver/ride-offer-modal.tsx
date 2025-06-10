@@ -12,7 +12,7 @@ import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { PLATFORM_OPERATOR_CODE } from '@/contexts/auth-context'; // Import PLATFORM_OPERATOR_CODE
+import { PLATFORM_OPERATOR_CODE } from '@/contexts/auth-context'; 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -157,28 +157,28 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const totalFareForDriver = rideDetails.fareEstimate + (rideDetails.priorityFeeAmount || 0);
 
   const getDispatchMethodText = () => {
-    if (!rideDetails.dispatchMethod && rideDetails.requiredOperatorId !== PLATFORM_OPERATOR_CODE) return null;
+    if (!rideDetails) return null;
 
-    // If the ride is specifically for the platform operator (OP001), always show "Dispatched By App (Auto)"
+    // Case 1: Ride is specifically for the platform operator (OP001)
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
-      return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
+      if (rideDetails.dispatchMethod === 'manual_operator') {
+        return { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, color: "text-blue-600" };
+      }
+      // Default for OP001 rides (includes 'auto_system' or undefined dispatchMethod)
+      return { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, color: "text-green-600" };
     }
 
-    switch (rideDetails.dispatchMethod) {
-      case 'auto_system':
-        return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
-      case 'manual_operator':
-        return { text: "Dispatched Manually By Your Base", icon: Briefcase, color: "text-blue-600" };
-      case 'priority_override':
-        return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, color: "text-purple-600" };
-      default:
-        // If dispatchMethod is undefined BUT requiredOperatorId is not OP001 (and not null/undefined, implying it's for a specific non-platform operator)
-        // it might be considered manually dispatched by that operator.
-        if (rideDetails.requiredOperatorId) {
-            return { text: `Dispatched By Operator (${rideDetails.requiredOperatorId})`, icon: Briefcase, color: "text-blue-600" };
-        }
-        return null; // Or a default if no dispatch method and no specific operator implies general pool
+    // Case 2: Ride is for another operator or general pool
+    if (rideDetails.dispatchMethod === 'manual_operator') {
+      return { text: "Dispatched Manually By Your Base", icon: Briefcase, color: "text-blue-600" };
     }
+    if (rideDetails.dispatchMethod === 'priority_override') {
+      return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, color: "text-purple-600" };
+    }
+    
+    // Default for non-OP001 rides if no specific manual/priority dispatch method.
+    // This implies the platform is automatically routing this job.
+    return { text: "Dispatched By App (Auto)", icon: CheckCircle, color: "text-green-600" };
   };
   const dispatchInfo = getDispatchMethodText();
 
@@ -243,6 +243,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
             </div>
             <div className="space-y-2.5">
+              {/* Display requiredOperatorId only if it's NOT the platform operator */}
               {rideDetails.requiredOperatorId && rideDetails.requiredOperatorId !== PLATFORM_OPERATOR_CODE && (
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-lg text-center">
                   <p className="text-sm font-semibold text-purple-700 dark:text-purple-200 flex items-center justify-center gap-1">
@@ -319,4 +320,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
