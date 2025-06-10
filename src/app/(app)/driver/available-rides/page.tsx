@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall } from "lucide-react"; // Added PhoneCall
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -39,7 +39,8 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
-import type { LabelType } from '@/components/ui/custom-map-label-overlay';
+import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
+import { Separator } from '@/components/ui/separator';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -203,6 +204,7 @@ export default function AvailableRidesPage() {
   const MAX_CONSECUTIVE_MISSED_OFFERS = 3;
   
   const [customMapLabel, setCustomMapLabel] = useState<{ position: google.maps.LatLngLiteral; content: string; type: LabelType } | null>(null);
+  const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
 
 
   const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
@@ -297,6 +299,12 @@ export default function AvailableRidesPage() {
           let message = "Could not get your location. Please enable location services.";
           if (error.code === error.PERMISSION_DENIED) {
             message = "Location access denied. Please enable it in your browser settings.";
+            setIsDriverOnline(false); // Automatically turn off if permission denied
+            setIsPollingEnabled(false);
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
           } else if (error.code === error.POSITION_UNAVAILABLE) {
             message = "Location information is unavailable at the moment.";
           } else if (error.code === error.TIMEOUT) {
@@ -337,11 +345,9 @@ export default function AvailableRidesPage() {
       const data: ActiveRide | null = await response.json();
       console.log("fetchActiveRide - Data received:", data);
       setActiveRide(data); 
-      if (data?.driverCurrentLocation) { 
-        // setDriverLocation(data.driverCurrentLocation); // Only set if GPS is not active
-      } else if (data?.pickupLocation && !watchIdRef.current) { 
-        setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude });
-      }
+      // Removed automatic setting of driverLocation from here to prefer live GPS if available
+      // if (data?.driverCurrentLocation) { setDriverLocation(data.driverCurrentLocation); }
+      // else if (data?.pickupLocation && !watchIdRef.current) { setDriverLocation({ lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude }); }
       if (data && error) setError(null); 
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; console.error("Error in fetchActiveRide:", message); if (!activeRide) setError(message); 
     } finally {
@@ -649,23 +655,17 @@ export default function AvailableRidesPage() {
       
     } catch(error) {
       console.error(`Error in handleAcceptOffer process for ${currentActionRideId} (outer catch):`, error);
-      console.error("Type of error object in outer catch:", typeof error);
-      console.error("Error object stringified:", JSON.stringify(error, Object.getOwnPropertyNames(error))); 
-
-      let detailedMessage = "An unknown server error occurred.";
+      
+      let detailedMessage = "An unknown error occurred during ride acceptance.";
       if (error instanceof Error) {
-        detailedMessage = error.message;
-      } else if (typeof error === 'string') {
-        detailedMessage = error;
+          detailedMessage = error.message;
       } else if (typeof error === 'object' && error !== null && (error as any).message) {
-        detailedMessage = (error as any).message;
-      } else if (typeof error === 'object' && error !== null) {
-        detailedMessage = "Received a non-standard error object from the server. Check console for details.";
+          detailedMessage = (error as any).message;
+      } else if (typeof error === 'string') {
+          detailedMessage = error;
       }
       
-      const finalMessage = detailedMessage || "Server Error Encountered";
-
-      toast({ title: "Acceptance Failed on Server", description: finalMessage, variant: "destructive" });
+      toast({ title: "Acceptance Failed", description: detailedMessage, variant: "destructive" });
       setIsPollingEnabled(true); 
     } finally {
       console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
@@ -790,18 +790,29 @@ export default function AvailableRidesPage() {
              return prev; 
         }
         const serverData = updatedBookingFromServer.booking;
-        const newClientState = {
+        const newClientState: ActiveRide = {
           ...prev,
           status: serverData.status || prev.status,
-          notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp,
-          passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp,
-          rideStartedAt: serverData.rideStartedAt,
-          completedAt: serverData.completedAt,
+          notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
+          passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
+          rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
+          completedAt: serverData.completedAt || prev.completedAt,
           fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
           waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
           estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
           isPriorityPickup: serverData.isPriorityPickup ?? prev.isPriorityPickup,
           priorityFeeAmount: serverData.priorityFeeAmount ?? prev.priorityFeeAmount,
+          // Add other fields from ActiveRide if they are returned and need updating
+          passengerId: serverData.passengerId || prev.passengerId,
+          passengerName: serverData.passengerName || prev.passengerName,
+          passengerAvatar: serverData.passengerAvatar || prev.passengerAvatar,
+          passengerPhone: serverData.passengerPhone || prev.passengerPhone,
+          pickupLocation: serverData.pickupLocation || prev.pickupLocation,
+          dropoffLocation: serverData.dropoffLocation || prev.dropoffLocation,
+          stops: serverData.stops || prev.stops,
+          vehicleType: serverData.vehicleType || prev.vehicleType,
+          paymentMethod: serverData.paymentMethod || prev.paymentMethod,
+          notes: serverData.notes || prev.notes,
         };
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
@@ -1119,7 +1130,7 @@ export default function AvailableRidesPage() {
                   {activeRide.passengerPhone && (
                     <Button asChild variant="outline" size="icon" className="h-9 w-9">
                       <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
-                        <Phone className="w-4 h-4" />
+                        <PhoneCall className="w-4 h-4" />
                       </a>
                     </Button>
                   )}
@@ -1218,10 +1229,10 @@ export default function AvailableRidesPage() {
                   </AlertDialog>
                 </div>
               )}
-
              {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
-                <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName}:</p>
+                <p style={{color: 'lime', fontSize: '18px', fontWeight: 'bold'}}>DEBUG: RATING SECTION SHOULD BE VISIBLE HERE</p>
+                <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName || "Passenger"}:</p>
                 <div className="flex justify-center space-x-1 mb-2">
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -1248,7 +1259,7 @@ export default function AvailableRidesPage() {
                     className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto" 
                     onClick={() => { 
                         console.log("Done button clicked. Current status:", activeRide.status, "Rating given:", driverRatingForPassenger);
-                        if(showCompletedStatus && driverRatingForPassenger > 0) { 
+                        if(showCompletedStatus && driverRatingForPassenger > 0 && activeRide.passengerName) { 
                             console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`); 
                             toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`}); 
                         } 
@@ -1490,4 +1501,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
