@@ -221,13 +221,13 @@ export default function MyActiveRidePage() {
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) { console.warn("Maps API Key missing."); return; }
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) { console.warn("Google Maps API Key missing."); return; }
     const loader = new GoogleApiLoader({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["geocoding", "maps", "marker", "places"]});
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
       placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
       autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
-    }).catch(e => console.error("Failed to load Maps API", e));
+    }).catch(e => console.error("Failed to load Google Maps API for MyRidesPage", e));
   }, []);
 
   const fetchActiveRide = useCallback(async () => {
@@ -744,19 +744,17 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="flex items-center justify-center">
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                      <React.Fragment>
-                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                        <span>Cancelling...</span>
-                      </React.Fragment>
-                    ) : (
-                      <React.Fragment>
-                        <ShieldX className="mr-2 h-4 w-4" />
-                        <span>Confirm Cancel</span>
-                      </React.Fragment>
-                    )}
-                  </span>
+                 {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                      <span>Cancelling...</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      <ShieldX className="mr-2 h-4 w-4" />
+                      <span>Confirm Cancel</span>
+                    </span>
+                  )}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -795,7 +793,7 @@ export default function MyActiveRidePage() {
         <DialogContent className="sm:max-w-sm">
           <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
           <ShadDialogDescription>
-            Estimate your additional waiting time at the current drop-off point. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
+            Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
           </ShadDialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
