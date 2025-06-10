@@ -18,7 +18,7 @@ const ActionItemSchema = z.object({
   category: z.string().describe("The general category of the task, e.g., 'User Management', 'System Health', 'Post-Launch Roadmap', 'Operational Review'.."),
   label: z.string().describe("A concise description of the task to be done."),
   priority: z.enum(['high', 'medium', 'low']).describe("The priority of the task."),
-  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'Megaphone', 'MessageSquarePlus', 'BarChart3', 'Award', 'CreditCard', 'FileText', 'Workflow', 'Leaf', 'DatabaseBackup', 'Globe', 'Waypoints') relevant to the task. If unsure, omit.")
+  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'Megaphone', 'MessageSquarePlus', 'BarChart3', 'Award', 'CreditCard', 'FileText', 'Workflow', 'Leaf', 'DatabaseBackup', 'Globe', 'Waypoints', 'Palette', 'Gavel', 'UserCheck', 'Lightbulb') relevant to the task. If unsure, omit.")
 });
 export type ActionItem = z.infer<typeof ActionItemSchema>;
 
@@ -69,7 +69,7 @@ const prompt = ai.definePrompt({
     - category: A brief category (e.g., "Operator Management", "System Monitoring", "Support", "Feature Development", "Strategic Planning", "Post-Launch Roadmap").
     - label: A clear, concise action item (e.g., "Review 7 pending operator applications", "Investigate 2 critical system alerts").
     - priority: 'high', 'medium', or 'low'.
-    - iconName: (Optional) Suggest a relevant Lucide icon name (e.g., Users, ShieldAlert, MessageSquare, Lightbulb, ClipboardList, ServerCog, Megaphone, MessageSquarePlus, BarChart3, Award, CreditCard, FileText, Workflow, Leaf, DatabaseBackup, Globe, Waypoints). If unsure, omit it.
+    - iconName: (Optional) Suggest a relevant Lucide icon name (e.g., Users, ShieldAlert, ClipboardList, ServerCog, Megaphone, MessageSquarePlus, BarChart3, Award, CreditCard, FileText, Workflow, Leaf, DatabaseBackup, Globe, Waypoints, Palette, Gavel, UserCheck, Lightbulb). If unsure, omit it.
 
     Additionally, ALWAYS include the following Post-Launch Roadmap items. These are standing tasks/reminders for future development and operational excellence:
     1.  id: 'post-live-monitoring-setup', category: 'Post-Launch Roadmap', label: 'Setup comprehensive server performance & error monitoring (e.g., Sentry, New Relic).', priority: 'high', iconName: 'ServerCog'
@@ -86,6 +86,10 @@ const prompt = ai.definePrompt({
     12. id: 'post-live-automated-onboarding', category: 'Post-Launch Roadmap', label: 'Scope feasibility of more automated driver/operator onboarding workflows.', priority: 'medium', iconName: 'Workflow'
     13. id: 'post-live-sustainability-initiatives', category: 'Post-Launch Roadmap', label: 'Investigate and plan for sustainability initiatives (e.g., EV incentives, carbon offset).', priority: 'low', iconName: 'Leaf'
     14. id: 'post-live-data-backup-dr-review', category: 'Post-Launch Roadmap', label: 'Review and test data backup and disaster recovery plans.', priority: 'high', iconName: 'DatabaseBackup'
+    15. id: 'post-live-ui-ux-iteration', category: 'Post-Launch Roadmap', label: 'Establish iterative UI/UX improvement cycle based on analytics and user feedback.', priority: 'medium', iconName: 'Palette'
+    16. id: 'post-live-legal-compliance-review', category: 'Post-Launch Roadmap', label: 'Schedule periodic legal & regulatory compliance reviews (GDPR, local taxi laws).', priority: 'high', iconName: 'Gavel'
+    17. id: 'post-live-driver-engagement-program', category: 'Post-Launch Roadmap', label: 'Develop ongoing driver training & engagement programs for retention and quality.', priority: 'medium', iconName: 'UserCheck'
+    18. id: 'post-live-new-revenue-streams', category: 'Post-Launch Roadmap', label: 'Explore new revenue streams or service tiers (e.g., premium rides, delivery partnerships).', priority: 'low', iconName: 'Lightbulb'
     
     Generate a list of 2-4 operational tasks based on the metrics, plus the Post-Launch Roadmap items mentioned above. Ensure the labels are actionable.
   `,
