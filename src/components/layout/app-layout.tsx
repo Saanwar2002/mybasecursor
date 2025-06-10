@@ -58,6 +58,53 @@ const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
   }
 };
 
+// Moved from driver/page.tsx
+const initialDriverToDoData: TaskCategory[] = [
+  {
+    id: 'cat1',
+    name: 'Vehicle Maintenance Checks',
+    icon: Wrench,
+    tasks: [
+      { id: 't1', label: 'Check Tire Pressure (Weekly)', completed: false, priority: 'medium' },
+      { id: 't2', label: 'Top Up Windscreen Washer Fluid', completed: true },
+      { id: 't2a', label: 'Inspect Wiper Blades', completed: false, priority: 'low' },
+    ]
+  },
+  {
+    id: 'cat2',
+    name: 'Driver Documentation',
+    icon: UserCogIcon,
+    subCategories: [
+      {
+        id: 'sc1',
+        name: 'License & Permits',
+        tasks: [
+          { id: 't3', label: 'Driving License Renewal (Due: Jan 2025)', completed: false, priority: 'high' },
+          { id: 't4', label: 'Taxi Permit Check (Due: Mar 2025)', completed: false, priority: 'medium' },
+        ]
+      },
+      {
+        id: 'sc2',
+        name: 'Insurance Policy',
+        tasks: [
+          { id: 't5', label: 'Vehicle Insurance Renewal (Due: Jun 2024)', completed: true, priority: 'high' },
+          { id: 't5a', label: 'Public Liability Insurance (Due: Aug 2024)', completed: false, priority: 'medium' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'cat3',
+    name: 'Account & Platform Setup',
+    icon: Settings,
+    tasks: [
+        { id: 't6', label: 'Upload Updated Profile Picture', completed: false, priority: 'low' },
+        { id: 't7', label: 'Link Bank Account for Payouts', completed: true },
+        { id: 't8', label: 'Complete Platform Training Module', completed: false, priority: 'medium' },
+    ]
+  }
+];
+
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, loading } = useAuth();
@@ -67,6 +114,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
   const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
   const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
+
+  // State and toggle function for driver's to-do list
+  const [driverToDoList, setDriverToDoList] = useState<TaskCategory[]>(initialDriverToDoData);
+
+  const toggleDriverTaskCompletion = (taskId: string) => {
+    setDriverToDoList(prevList =>
+      prevList.map(category => ({
+        ...category,
+        tasks: category.tasks?.map(task =>
+          task.id === taskId ? { ...task, completed: !task.completed } : task
+        ),
+        subCategories: category.subCategories?.map(subCategory => ({
+          ...subCategory,
+          tasks: subCategory.tasks.map(task =>
+            task.id === taskId ? { ...task, completed: !task.completed } : task
+          ),
+        })),
+      }))
+    );
+  };
+
+
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('sidebarState') !== 'collapsed'; 
@@ -264,6 +333,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                               {category.tasks.map(task => (
                                 <li key={task.id} className="flex items-center space-x-1.5">
                                   <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {
+                                      // Dummy toggle for AI tasks, in real app this would be an API call
                                       setAdminToDoList(prev => prev.map(cat => ({
                                           ...cat,
                                           tasks: cat.tasks?.map(t => t.id === task.id ? {...t, completed: !t.completed} : t)
@@ -283,6 +353,70 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 ) : (<p className="text-muted-foreground text-center text-xs py-2">No urgent admin tasks from AI.</p>)
               }
             </CardContent>
+          </Card>
+        )}
+        {user.role === 'driver' && shouldShowLabels && (
+          <Card className="m-2 bg-card/50">
+            <CardHeader className="p-3">
+              <CardTitle className="text-base font-headline flex items-center gap-1.5">
+                <ListChecks className="w-5 h-5 text-accent" /> Driver To-Do
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
+              {driverToDoList.length > 0 ? (
+                  <Accordion type="multiple" className="w-full" defaultValue={driverToDoList.map(c => c.id)}>
+                    {driverToDoList.map((category) => (
+                      <AccordionItem value={category.id} key={category.id} className="border-b-0">
+                        <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
+                          <span className="flex items-center gap-1.5">
+                            {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <ListChecks className="w-3.5 h-3.5 text-muted-foreground" />}
+                            <span>{category.name}</span>
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-1">
+                          {category.tasks && category.tasks.length > 0 && (
+                            <ul className="space-y-1 pl-1">
+                              {category.tasks.map(task => (
+                                <li key={task.id} className="flex items-center space-x-1.5">
+                                  <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5" />
+                                  <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
+                                    {task.label}
+                                  </Label>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                           {category.subCategories && category.subCategories.map(subCat => (
+                            <Accordion key={subCat.id} type="single" collapsible className="w-full pl-1 my-0.5">
+                                <AccordionItem value={subCat.id} className="border-l-2 border-primary/20 pl-1.5 rounded-r-md">
+                                    <AccordionTrigger className="text-xs hover:no-underline py-1 font-normal">
+                                        {subCat.name}
+                                    </AccordionTrigger>
+                                    <AccordionContent className="pb-1">
+                                        <ul className="space-y-1 pl-1.5">
+                                            {subCat.tasks.map(task => (
+                                                <li key={task.id} className="flex items-center space-x-1.5">
+                                                    <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5"/>
+                                                    <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
+                                                        {task.label}
+                                                    </Label>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                           ))}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                ) : (<p className="text-muted-foreground text-center text-xs py-2">No tasks for you currently.</p>)
+              }
+            </CardContent>
+             <CardFooter className="border-t pt-2 pb-2 p-3 text-xs text-muted-foreground">
+                Document and maintenance reminders.
+            </CardFooter>
           </Card>
         )}
       </>
@@ -358,3 +492,4 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

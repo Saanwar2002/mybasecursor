@@ -13,93 +13,15 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; // Added import
 
-interface TaskItem {
-  id: string;
-  label: string;
-  completed: boolean;
-}
-
-interface TaskSubCategory {
-  id: string;
-  name: string;
-  tasks: TaskItem[];
-}
-
-interface TaskCategory {
-  id: string;
-  name: string;
-  subCategories?: TaskSubCategory[];
-  tasks?: TaskItem[];
-}
-
-const initialToDoData: TaskCategory[] = [
-  {
-    id: 'cat1',
-    name: 'Vehicle Maintenance Checks',
-    tasks: [
-      { id: 't1', label: 'Check Tire Pressure (Weekly)', completed: false },
-      { id: 't2', label: 'Top Up Windscreen Washer Fluid', completed: true },
-      { id: 't2a', label: 'Inspect Wiper Blades', completed: false },
-    ]
-  },
-  {
-    id: 'cat2',
-    name: 'Driver Documentation',
-    subCategories: [
-      {
-        id: 'sc1',
-        name: 'License & Permits',
-        tasks: [
-          { id: 't3', label: 'Driving License Renewal (Due: Jan 2025)', completed: false },
-          { id: 't4', label: 'Taxi Permit Check (Due: Mar 2025)', completed: false },
-        ]
-      },
-      {
-        id: 'sc2',
-        name: 'Insurance Policy',
-        tasks: [
-          { id: 't5', label: 'Vehicle Insurance Renewal (Due: Jun 2024)', completed: true },
-          { id: 't5a', label: 'Public Liability Insurance (Due: Aug 2024)', completed: false },
-        ]
-      }
-    ]
-  },
-  {
-    id: 'cat3',
-    name: 'Account & Platform Setup',
-    tasks: [
-        { id: 't6', label: 'Upload Updated Profile Picture', completed: false },
-        { id: 't7', label: 'Link Bank Account for Payouts', completed: true },
-        { id: 't8', label: 'Complete Platform Training Module', completed: false },
-    ]
-  }
-];
-
+// Removed TaskItem, TaskSubCategory, TaskCategory interfaces and initialToDoData as it's now in AppLayout
 
 export default function DriverDashboardPage() {
   const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
-  const [toDoList, setToDoList] = useState<TaskCategory[]>(initialToDoData);
+  // Removed toDoList and toggleTaskCompletion as they are now in AppLayout
 
   const activeRide = null; 
   const earningsToday = 75.50;
-
-  const toggleTaskCompletion = (taskId: string) => {
-    setToDoList(prevList =>
-      prevList.map(category => ({
-        ...category,
-        tasks: category.tasks?.map(task =>
-          task.id === taskId ? { ...task, completed: !task.completed } : task
-        ),
-        subCategories: category.subCategories?.map(subCategory => ({
-          ...subCategory,
-          tasks: subCategory.tasks.map(task =>
-            task.id === taskId ? { ...task, completed: !task.completed } : task
-          ),
-        })),
-      }))
-    );
-  };
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -188,88 +110,8 @@ export default function DriverDashboardPage() {
         </div>
       </div>
 
-      {/* "To Be Done" Side Panel Column */}
-      <div className="lg:w-1/3 space-y-6">
-        <Card className="shadow-lg sticky top-20">
-          <CardHeader>
-            <CardTitle className="text-xl font-headline flex items-center gap-2">
-              <ListChecks className="w-6 h-6 text-accent" /> To Be Done
-            </CardTitle>
-            <CardDescription>Tasks and reminders for your attention.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="multiple" className="w-full">
-              {toDoList.map((category) => (
-                <AccordionItem value={category.id} key={category.id}>
-                  <AccordionTrigger className="text-base hover:no-underline font-semibold">
-                    {category.name}
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    {category.tasks && category.tasks.length > 0 && (
-                      <ul className="space-y-2 pl-2">
-                        {category.tasks.map(task => (
-                          <li key={task.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={task.id}
-                              checked={task.completed}
-                              onCheckedChange={() => toggleTaskCompletion(task.id)}
-                            />
-                            <Label
-                              htmlFor={task.id}
-                              className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}
-                            >
-                              {task.label}
-                            </Label>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {category.subCategories && category.subCategories.length > 0 && (
-                      <Accordion type="multiple" className="w-full pl-2">
-                        {category.subCategories.map(subCat => (
-                          <AccordionItem value={subCat.id} key={subCat.id} className="border-l-2 border-primary/20 pl-2 my-1 rounded-r-md">
-                            <AccordionTrigger className="text-sm hover:no-underline py-2 font-medium">
-                              {subCat.name}
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <ul className="space-y-2 pl-2">
-                                {subCat.tasks.map(task => (
-                                  <li key={task.id} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={task.id}
-                                      checked={task.completed}
-                                      onCheckedChange={() => toggleTaskCompletion(task.id)}
-                                    />
-                                    <Label
-                                      htmlFor={task.id}
-                                      className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}
-                                    >
-                                      {task.label}
-                                    </Label>
-                                  </li>
-                                ))}
-                              </ul>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-            {toDoList.length === 0 && (
-              <p className="text-muted-foreground text-sm text-center py-4">No tasks pending. Well done!</p>
-            )}
-          </CardContent>
-           <CardFooter className="border-t pt-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Keep this list updated. Document and maintenance reminders will appear here.</span>
-                </div>
-            </CardFooter>
-        </Card>
-      </div>
+      {/* "To Be Done" Side Panel Column - REMOVED from here */}
+      {/* The "To Be Done" card logic is now in AppLayout */}
     </div>
   );
 }
