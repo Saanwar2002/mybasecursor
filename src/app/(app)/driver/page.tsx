@@ -12,16 +12,24 @@ import Image from 'next/image';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; // Added import
-
-// Removed TaskItem, TaskSubCategory, TaskCategory interfaces and initialToDoData as it's now in AppLayout
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 export default function DriverDashboardPage() {
   const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
-  // Removed toDoList and toggleTaskCompletion as they are now in AppLayout
+  const router = useRouter(); // Initialize useRouter
 
   const activeRide = null; 
   const earningsToday = 75.50;
+
+  const handleOnlineStatusChange = (checked: boolean) => {
+    setIsOnline(checked);
+    if (checked) {
+      router.push('/driver/available-rides');
+    }
+    // In a real app, you'd also send this status update to your backend here.
+    // e.g., updateDriverStatus(user.id, checked);
+  };
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -32,7 +40,11 @@ export default function DriverDashboardPage() {
             <div className="flex justify-between items-center">
               <CardTitle className="text-3xl font-headline">Welcome, {user?.name || 'Driver'}!</CardTitle>
               <div className="flex items-center space-x-2">
-                <Switch id="online-status" checked={isOnline} onCheckedChange={setIsOnline} />
+                <Switch 
+                  id="online-status" 
+                  checked={isOnline} 
+                  onCheckedChange={handleOnlineStatusChange} // Updated handler
+                />
                 <Label htmlFor="online-status" className={isOnline ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
                   {isOnline ? "Online" : "Offline"}
                 </Label>
@@ -40,8 +52,8 @@ export default function DriverDashboardPage() {
             </div>
             <CardDescription>Manage your rides, track earnings, and stay connected.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-start gap-6"> {/* Changed md:flex-row and items-center to items-start */}
-            <div className="w-full space-y-4"> {/* Changed flex-1 to w-full */}
+          <CardContent className="flex flex-col items-start gap-6">
+            <div className="w-full space-y-4">
               <p className="text-lg">You are currently <span className={isOnline ? "text-green-500 font-bold" : "text-red-500 font-bold"}>{isOnline ? "Online and available" : "Offline"}</span> for new ride offers.</p>
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Link href="/driver/available-rides">
@@ -49,11 +61,9 @@ export default function DriverDashboardPage() {
                 </Link>
               </Button>
             </div>
-            {/* Removed the Image component and its div wrapper */}
           </CardContent>
         </Card>
 
-        {/* Account Health Card added here */}
         <DriverAccountHealthCard />
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -109,9 +119,6 @@ export default function DriverDashboardPage() {
           />
         </div>
       </div>
-
-      {/* "To Be Done" Side Panel Column - REMOVED from here */}
-      {/* The "To Be Done" card logic is now in AppLayout */}
     </div>
   );
 }
@@ -140,4 +147,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
-
