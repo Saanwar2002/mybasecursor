@@ -1,6 +1,6 @@
 
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award } from 'lucide-react'; // Added Award
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp } from 'lucide-react'; // Added ThumbsUp
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -19,8 +19,10 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/track-ride', label: 'My Active Ride', icon: MapPin, roles: ['passenger'] },
   { href: '/dashboard/my-rides', label: 'Rides History', icon: History, roles: ['passenger'] },
   { href: '/dashboard/scheduled-rides', label: 'Scheduled Rides', icon: CalendarClock, roles: ['passenger'] },
-  { href: '/dashboard/favorites', label: 'Favorites', icon: Star, roles: ['passenger'] },
+  { href: '/dashboard/favorites', label: 'Favorite Locations', icon: Star, roles: ['passenger'] },
+  { href: '/dashboard/favorite-drivers', label: 'Favorite Drivers', icon: ThumbsUp, roles: ['passenger'] },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle, roles: ['passenger'] },
+  { href: '/dashboard/help-support', label: 'Help & Support', icon: HelpCircle, roles: ['passenger'] },
   
   // Driver
   { href: '/driver', label: 'Driver Dashboard', icon: LayoutDashboard, roles: ['driver'] },
