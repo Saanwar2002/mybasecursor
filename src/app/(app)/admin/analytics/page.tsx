@@ -14,7 +14,7 @@ interface PlatformSummaryStats {
   totalOperators: number;
   totalAdmins: number;
   totalRidesLast30Days: number;
-  totalRevenueLast30Days: number; // Mocked
+  totalRevenueLast30Days: number;
 }
 
 interface DailyRideData {
@@ -49,11 +49,14 @@ export default function AdminAnalyticsPage() {
     setIsLoadingSummary(true); setErrorSummary(null);
     try {
       const response = await fetch('/api/admin/analytics/platform-summary');
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Failed to load summary stats: ${response.status} ${errorBody}`);
+      }
       const data = await response.json();
       setSummaryStats(data);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load summary stats.";
+      const msg = err instanceof Error ? err.message : "An unknown error occurred while fetching summary stats.";
       setErrorSummary(msg);
       toast({ title: "Error Loading Summary Stats", description: msg, variant: "destructive" });
     } finally { setIsLoadingSummary(false); }
@@ -63,11 +66,14 @@ export default function AdminAnalyticsPage() {
     setIsLoadingDailyRides(true); setErrorDailyRides(null);
     try {
       const response = await fetch('/api/admin/analytics/platform-rides-daily?days=30');
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Failed to load daily rides: ${response.status} ${errorBody}`);
+      }
       const data = await response.json();
       setDailyRidesData(data.dailyPlatformRides);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load daily rides data.";
+      const msg = err instanceof Error ? err.message : "An unknown error occurred while fetching daily rides data.";
       setErrorDailyRides(msg);
       toast({ title: "Error Loading Daily Rides", description: msg, variant: "destructive" });
     } finally { setIsLoadingDailyRides(false); }
@@ -77,11 +83,14 @@ export default function AdminAnalyticsPage() {
     setIsLoadingUserRegistrations(true); setErrorUserRegistrations(null);
     try {
       const response = await fetch('/api/admin/analytics/platform-user-registrations?months=6');
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Failed to load user registrations: ${response.status} ${errorBody}`);
+      }
       const data = await response.json();
       setUserRegistrationsData(data.monthlyRegistrations);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load user registration data.";
+      const msg = err instanceof Error ? err.message : "An unknown error occurred while fetching user registration data.";
       setErrorUserRegistrations(msg);
       toast({ title: "Error Loading User Registrations", description: msg, variant: "destructive" });
     } finally { setIsLoadingUserRegistrations(false); }
@@ -104,16 +113,34 @@ export default function AdminAnalyticsPage() {
           <CardDescription>Global insights into the TaxiNow platform's performance and user base.</CardDescription>
         </CardHeader>
       </Card>
+      
+      {isLoadingSummary && (
+        <Card>
+            <CardContent className="p-6 flex items-center justify-center text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2"/> Loading summary data...
+            </CardContent>
+        </Card>
+      )}
+      {errorSummary && !isLoadingSummary && (
+         <Card className="border-destructive">
+            <CardContent className="p-4">
+              <ErrorDisplay message={errorSummary} onRetry={fetchSummaryStats}/>
+            </CardContent>
+        </Card>
+      )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <StatCard title="Total Users" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalUsers ?? 'N/A'} icon={Users2} />
-        <StatCard title="Total Passengers" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalPassengers ?? 'N/A'} icon={Users} />
-        <StatCard title="Total Drivers" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalDrivers ?? 'N/A'} icon={CarIcon} />
-        <StatCard title="Total Operators" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalOperators ?? 'N/A'} icon={Building} />
-        <StatCard title="Total Admins" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalAdmins ?? 'N/A'} icon={Shield} />
-        <StatCard title="Rides (Last 30d)" value={isLoadingSummary ? <Loader2Icon /> : summaryStats?.totalRidesLast30Days ?? 'N/A'} icon={TrendingUp} color="text-green-500"/>
-        <StatCard title="Revenue (Last 30d)" value={isLoadingSummary ? <Loader2Icon /> : `£${(summaryStats?.totalRevenueLast30Days ?? 0).toLocaleString()}`} icon={DollarSign} color="text-green-500" description="(Mock Data)"/>
-      </div>
+      {!isLoadingSummary && !errorSummary && summaryStats && (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <StatCard title="Total Users" value={summaryStats.totalUsers} icon={Users2} />
+          <StatCard title="Total Passengers" value={summaryStats.totalPassengers} icon={Users} />
+          <StatCard title="Total Drivers" value={summaryStats.totalDrivers} icon={CarIcon} />
+          <StatCard title="Total Operators" value={summaryStats.totalOperators} icon={Building} />
+          <StatCard title="Total Admins" value={summaryStats.totalAdmins} icon={Shield} />
+          <StatCard title="Rides (Last 30d)" value={summaryStats.totalRidesLast30Days} icon={TrendingUp} color="text-green-500"/>
+          <StatCard title="Revenue (Last 30d)" value={`£${summaryStats.totalRevenueLast30Days.toLocaleString()}`} icon={DollarSign} color="text-green-500" description="(Mock Data)"/>
+        </div>
+      )}
+
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Daily Rides (Platform-Wide, Last 30 Days)" description="Number of completed rides across the entire platform.">
@@ -232,5 +259,3 @@ function ErrorDisplay({ message, onRetry }: { message: string; onRetry?: () => v
 function NoDataDisplay() {
   return <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No data available for this period.</p></div>;
 }
-
-    
