@@ -211,17 +211,17 @@ export default function AvailableRidesPage() {
     if (activeRide) {
       let labelContent: string | null = null;
       let labelPosition: google.maps.LatLngLiteral | null = null;
+      const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
+      const dropoffStreet = activeRide.dropoffLocation.address.split(',')[0];
 
       if (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') {
         if (activeRide.pickupLocation) {
           labelPosition = { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
-          const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
-          labelContent = `Meet at\n${pickupStreet}`;
+          labelContent = `Pickup at\n${pickupStreet}`;
         }
       } else if (activeRide.status.toLowerCase().includes('in_progress')) {
         if (activeRide.dropoffLocation) {
           labelPosition = { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude };
-          const dropoffStreet = activeRide.dropoffLocation.address.split(',')[0];
           labelContent = `Dropoff at\n${dropoffStreet}`;
         }
       }

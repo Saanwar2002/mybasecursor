@@ -45,8 +45,8 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       this.div = document.createElement('div');
       this.div.style.position = 'absolute';
       this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-12px)';
-      this.div.style.background = 'hsl(var(--destructive))'; 
-      this.div.style.color = 'hsl(var(--destructive-foreground))'; 
+      this.div.style.background = 'rgb(22, 163, 74)'; // Changed to Green
+      this.div.style.color = '#FFFFFF'; // Changed to White
       this.div.style.padding = '6px 10px';
       this.div.style.borderRadius = '16px';
       this.div.style.fontSize = '13px';
@@ -56,7 +56,7 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       this.div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
       this.div.style.pointerEvents = 'none'; 
       this.div.style.zIndex = '101'; 
-      this.div.style.border = '1px solid hsl(var(--destructive-foreground) / 0.5)';
+      this.div.style.border = '1px solid rgba(255, 255, 255, 0.5)'; // Changed to white border
       this.div.innerHTML = this.content;
 
       const panes = this.getPanes();
