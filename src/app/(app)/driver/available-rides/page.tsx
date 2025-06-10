@@ -1147,12 +1147,12 @@ export default function AvailableRidesPage() {
             <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
                 <Button
                     variant="default" size="icon"
-                    className="rounded-full h-12 w-12 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
+                    className="rounded-full h-8 w-8 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
                     onClick={() => setIsHazardReportDialogOpen(true)}
                     aria-label="Report Hazard Button"
-                    disabled={reportingHazard}
+                    disabled={reportingHazard || !isDriverOnline}
                 >
-                    {reportingHazard ? <Loader2 className="h-6 w-6 animate-spin"/> : <TrafficCone className="h-6 w-6" />}
+                    {reportingHazard ? <Loader2 className="h-4 w-4 animate-spin"/> : <TrafficCone className="h-4 w-4" />}
                 </Button>
                 <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
                   <AlertDialogTrigger asChild>
@@ -1161,6 +1161,7 @@ export default function AvailableRidesPage() {
                       className="rounded-full h-12 w-12 shadow-lg animate-pulse"
                       onClick={() => setIsSosDialogOpen(true)}
                       aria-label="SOS Panic Button"
+                      disabled={!isDriverOnline}
                     >
                       <ShieldAlert className="h-6 w-6" />
                     </Button>
@@ -1503,12 +1504,12 @@ export default function AvailableRidesPage() {
         <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
             <Button
                 variant="default" size="icon"
-                className="rounded-full h-12 w-12 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
+                className="rounded-full h-8 w-8 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
                 onClick={() => setIsHazardReportDialogOpen(true)}
                 aria-label="Report Hazard Button"
                 disabled={reportingHazard || !isDriverOnline}
             >
-                {reportingHazard ? <Loader2 className="h-6 w-6 animate-spin"/> : <TrafficCone className="h-6 w-6" />}
+                {reportingHazard ? <Loader2 className="h-4 w-4 animate-spin"/> : <TrafficCone className="h-4 w-4" />}
             </Button>
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
                 <AlertDialogTrigger asChild>
