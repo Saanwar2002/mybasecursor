@@ -680,34 +680,114 @@ export default function AvailableRidesPage() {
 
 
   const handleSimulateOffer = () => {
-    const randomScenario = Math.random();
-    let mockOffer: RideOffer;
+    if (!driverUser) {
+        toast({ title: "Driver Info Missing", description: "Cannot simulate offer without driver details.", variant: "destructive" });
+        return;
+    }
+
+    const operatorCode = driverUser.operatorCode || driverUser.customId || "OP_DefaultGuest";
+    const acceptsPlatformJobs = driverUser.acceptsPlatformJobs || false;
+
+    let simulatedOfferType: 'own_operator' | 'platform_op001' | 'general_pool';
+    const canReceivePlatformOrGeneral = acceptsPlatformJobs || operatorCode === 'OP001';
+
+    if (canReceivePlatformOrGeneral) {
+        const rand = Math.random();
+        if (rand < 0.4) simulatedOfferType = 'own_operator';
+        else if (rand < 0.8) simulatedOfferType = 'platform_op001';
+        else simulatedOfferType = 'general_pool';
+    } else {
+        simulatedOfferType = 'own_operator';
+    }
+    
     const distance = parseFloat((Math.random() * 10 + 2).toFixed(1));
-    const paymentMethod: 'card' | 'cash' = Math.random() < 0.5 ? 'card' : 'cash';
-    const isPriority = Math.random() < 0.4;
-    const priorityFee = isPriority ? parseFloat((Math.random() * 3 + 1).toFixed(2)) : undefined;
+    const paymentMethod: 'card' | 'cash' = Math.random() < 0.7 ? 'card' : 'cash';
+    const isPriority = Math.random() < 0.3;
+    const priorityFee = isPriority ? parseFloat((Math.random() * 2.5 + 0.5).toFixed(2)) : undefined;
     const dispatchMethods: RideOffer['dispatchMethod'][] = ['auto_system', 'manual_operator', 'priority_override'];
     const randomDispatchMethod = dispatchMethods[Math.floor(Math.random() * dispatchMethods.length)];
     const mockPassengerId = `pass-mock-${Date.now().toString().slice(-5)}`;
-    const mockPhone = `+447700900${Math.floor(Math.random()*900)+100}`;
+    const mockPhone = `+447700900${Math.floor(Math.random() * 900) + 100}`;
 
+    let requiredOperatorIdForOffer: string | undefined = undefined;
+    let passengerNameForOffer = "Simulated Passenger";
+    let offerContextDescription = ""; // For the toast if skipped
 
-    if (randomScenario < 0.33 && currentDriverOperatorPrefix) {
-      const mismatchedOperatorId = currentDriverOperatorPrefix === "OP001" ? "OP002" : "OP001";
-      mockOffer = { id: `mock-offer-mismatch-${Date.now()}`, passengerId: mockPassengerId, passengerPhone: mockPhone, pickupLocation: "Tech Park Canteen, Leeds LS1 1AA", pickupCoords: { lat: 53.7986, lng: -1.5492 }, dropoffLocation: "Art Gallery, The Headrow, Leeds LS1 3AA", dropoffCoords: { lat: 53.8008, lng: -1.5472 }, fareEstimate: 9.00, passengerCount: 1, passengerName: "Mike Misken", notes: "Waiting by the main entrance, blue jacket.", requiredOperatorId: mismatchedOperatorId, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
-    } else if (randomScenario < 0.66 && currentDriverOperatorPrefix) {
-      mockOffer = { id: `mock-offer-match-${Date.now()}`, passengerId: mockPassengerId, passengerPhone: mockPhone, pickupLocation: "Huddersfield Station, HD1 1JB", pickupCoords: { lat: 53.6488, lng: -1.7805 }, dropoffLocation: "University of Huddersfield, Queensgate, HD1 3DH", dropoffCoords: { lat: 53.6430, lng: -1.7797 }, fareEstimate: 6.50, passengerCount: 2, passengerName: "Alice Matching", notes: "2 small bags.", requiredOperatorId: currentDriverOperatorPrefix, distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+    switch (simulatedOfferType) {
+        case 'own_operator':
+            requiredOperatorIdForOffer = operatorCode;
+            passengerNameForOffer = `Passenger (for ${operatorCode})`;
+            offerContextDescription = `for your operator (${operatorCode})`;
+            break;
+        case 'platform_op001':
+            requiredOperatorIdForOffer = 'OP001';
+            passengerNameForOffer = "Passenger (Platform MyBase)";
+            offerContextDescription = `from MyBase platform pool (OP001)`;
+            break;
+        case 'general_pool':
+            requiredOperatorIdForOffer = undefined;
+            passengerNameForOffer = "Passenger (General Pool)";
+            offerContextDescription = `from the general MyBase pool`;
+            break;
+    }
+
+    const mockOffer: RideOffer = {
+        id: `mock-offer-${simulatedOfferType}-${Date.now()}`,
+        passengerId: mockPassengerId,
+        passengerName: passengerNameForOffer,
+        passengerPhone: mockPhone,
+        pickupLocation: "Simulated Pickup St, Townsville",
+        pickupCoords: { lat: 53.6488 + (Math.random() - 0.5) * 0.02, lng: -1.7805 + (Math.random() - 0.5) * 0.02 },
+        dropoffLocation: "Simulated Dropoff Ave, Cityburg",
+        dropoffCoords: { lat: 53.6430 + (Math.random() - 0.5) * 0.02, lng: -1.7797 + (Math.random() - 0.5) * 0.02 },
+        fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)),
+        passengerCount: Math.floor(Math.random() * 3) + 1,
+        notes: Math.random() < 0.3 ? "Simulated passenger note: please call on arrival." : undefined,
+        requiredOperatorId: requiredOperatorIdForOffer,
+        distanceMiles: distance,
+        paymentMethod: paymentMethod,
+        isPriorityPickup: isPriority,
+        priorityFeeAmount: priorityFee,
+        dispatchMethod: randomDispatchMethod,
+    };
+
+    // Determine if THIS driver should see THIS offer based on their preferences
+    let showThisOfferToDriver = false;
+    if (mockOffer.requiredOperatorId === operatorCode) { // Offer is explicitly for this driver's operator
+        showThisOfferToDriver = true;
+    } else if ((!mockOffer.requiredOperatorId || mockOffer.requiredOperatorId === 'OP001') && canReceivePlatformOrGeneral) {
+        // Offer is general pool or platform (OP001) AND driver accepts these types
+        showThisOfferToDriver = true;
+    }
+
+    if (showThisOfferToDriver) {
+        setCurrentOfferDetails(mockOffer);
+        setIsOfferModalOpen(true);
     } else {
-      mockOffer = { id: `mock-offer-general-${Date.now()}`, passengerId: mockPassengerId, passengerPhone: mockPhone, pickupLocation: "Kingsgate Shopping Centre, Huddersfield HD1 2QB", pickupCoords: { lat: 53.6455, lng: -1.7850 }, dropoffLocation: "Greenhead Park, Huddersfield HD1 4HS", dropoffCoords: { lat: 53.6520, lng: -1.7960 }, fareEstimate: 7.50, passengerCount: 1, passengerName: "Gary General", notes: "Please call on arrival.", distanceMiles: distance, paymentMethod: paymentMethod, isPriorityPickup: isPriority, priorityFeeAmount: priorityFee, dispatchMethod: randomDispatchMethod };
+        // Offer was generated but shouldn't be shown due to preferences
+        const currentOperatorDisplay = operatorCode || "N/A";
+        toast({
+            title: "Offer Skipped (Simulation)",
+            description: `An offer ${offerContextDescription} was received, but your current preferences (${acceptsPlatformJobs ? 'Accepting Platform' : 'Operator Only'}) mean it wasn't shown to you. Your operator: ${currentOperatorDisplay}.`,
+            variant: "default",
+            duration: 8000,
+        });
+        
+        const newMissedCount = consecutiveMissedOffers + 1;
+        setConsecutiveMissedOffers(newMissedCount);
+        if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
+            setIsDriverOnline(false); 
+            toast({
+                title: "Automatically Set Offline (Simulation)",
+                description: `You've missed/skipped ${MAX_CONSECUTIVE_MISSED_OFFERS} simulated offers and have been set to Offline. Please go Online manually if you wish to continue receiving offers.`,
+                variant: "default",
+                duration: 10000,
+            });
+            setConsecutiveMissedOffers(0);
+        }
     }
+};
 
-    if (mockOffer.requiredOperatorId && currentDriverOperatorPrefix && mockOffer.requiredOperatorId !== currentDriverOperatorPrefix) {
-      toast({ title: "Offer Skipped", description: `An offer restricted to ${mockOffer.requiredOperatorId} was received, but it's not for your operator group (${currentDriverOperatorPrefix}).`, variant: "default", duration: 7000, }); return;
-    }
-    if (mockOffer.requiredOperatorId && !currentDriverOperatorPrefix) { toast({ title: "Offer Skipped", description: `An offer restricted to ${mockOffer.requiredOperatorId} was received, but your operator details are not clear.`, variant: "default", duration: 7000, }); return; }
-
-    setCurrentOfferDetails(mockOffer); setIsOfferModalOpen(true);
-  };
 
   const handleAcceptOffer = async (rideId: string) => {
     console.log(`Attempting to accept offer: ${rideId}`);
@@ -812,7 +892,7 @@ export default function AvailableRidesPage() {
         passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp, 
         rideStartedAt: serverBooking.rideStartedAt, 
         completedAt: serverBooking.completedAt,
-        driverCurrentLocation: serverBooking.driverCurrentLocation,
+        driverCurrentLocation: serverBooking.driverCurrentLocation || driverLocation,
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
@@ -1002,7 +1082,7 @@ export default function AvailableRidesPage() {
           notes: serverData.notes || prev.notes,
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
-          driverCurrentLocation: serverData.driverCurrentLocation || driverLocation, // Use live driverLocation if server doesn't provide
+          driverCurrentLocation: serverData.driverCurrentLocation || driverLocation, 
         };
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
@@ -1847,4 +1927,3 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
-
