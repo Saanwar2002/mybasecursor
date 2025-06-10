@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, X } from "lucide-react"; // Added X icon
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ChatUser {
@@ -169,7 +169,7 @@ export default function ChatPage() {
       <Card className="flex-1 flex flex-col rounded-l-none shadow-lg">
         {selectedChat ? (
           <>
-            <CardHeader className="border-b p-4">
+            <CardHeader className="border-b p-4 flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar>
                   <AvatarImage src={selectedChat.avatar} alt={selectedChat.name} data-ai-hint="avatar profile" />
@@ -177,6 +177,10 @@ export default function ChatPage() {
                 </Avatar>
                 <CardTitle className="text-xl font-headline">{selectedChat.name}</CardTitle>
               </div>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close chat</span>
+              </Button>
             </CardHeader>
             <ScrollArea className="flex-1 p-4 space-y-4 bg-muted/20">
               {messages.map(msg => (
