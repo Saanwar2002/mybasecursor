@@ -44,6 +44,7 @@ export const navItems: NavItem[] = [
   { href: '/operator/settings/pricing-settings', label: 'Pricing Settings', icon: DollarSign, roles: ['operator'] },
   { href: '/operator/credit-accounts', label: 'Credit Accounts', icon: CreditCard, roles: ['operator'] }, 
   { href: '/operator/support-tickets', label: 'Support Tickets', icon: MessageSquareWarning, roles: ['operator'] },
+  { href: '/operator/help-support', label: 'Support & Feedback', icon: HelpCircle, roles: ['operator'] },
 
 
   // Admin
