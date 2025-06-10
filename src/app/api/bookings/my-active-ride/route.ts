@@ -24,7 +24,7 @@ interface Ride {
   stops?: LocationPoint[];
   driver?: string;
   driverAvatar?: string;
-  driverVehicleDetails?: string; // Added field
+  driverVehicleDetails?: string;
   vehicleType: string;
   fareEstimate: number;
   status: string;
@@ -32,7 +32,6 @@ interface Ride {
   passengerName: string;
   isSurgeApplied?: boolean;
   paymentMethod?: "card" | "cash";
-  // Fields from driver's active ride that might be useful for passenger context too
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
@@ -49,7 +48,6 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): Serialized
       _nanoseconds: timestamp.nanoseconds,
     };
   }
-   // Handle cases where it might already be an object like { seconds: ..., nanoseconds: ... }
   if (typeof timestamp === 'object' && timestamp !== null && ('_seconds'in timestamp || 'seconds' in timestamp)) {
      return {
       _seconds: (timestamp as any)._seconds ?? (timestamp as any).seconds,
@@ -72,11 +70,9 @@ export async function GET(request: NextRequest) {
     const bookingsRef = collection(db, 'bookings');
     const activeStatuses = [
       'pending_assignment',
-      'driver_assigned',
-      'Assigned', 
+      'driver_assigned', // Standardized
       'arrived_at_pickup',
       'in_progress',
-      'In Progress',
       'pending_driver_wait_and_return_approval',
       'in_progress_wait_and_return'
     ];
@@ -98,17 +94,16 @@ export async function GET(request: NextRequest) {
     const doc = querySnapshot.docs[0];
     const data = doc.data();
 
-    // Helper to convert potential actual Firestore Timestamps or already serialized string timestamps
     const processTimestampField = (fieldValue: any): SerializedTimestamp | string | null => {
         if (!fieldValue) return null;
         if (fieldValue instanceof Timestamp) {
             return serializeTimestamp(fieldValue);
         }
-        if (typeof fieldValue === 'string') { // Assuming ISO string if it's already a string
+        if (typeof fieldValue === 'string') {
             return fieldValue;
         }
          if (typeof fieldValue === 'object' && ('_seconds' in fieldValue || 'seconds' in fieldValue)) {
-            return serializeTimestamp(fieldValue as Timestamp); // Cast if it matches structure
+            return serializeTimestamp(fieldValue as Timestamp);
         }
         return null;
     };
@@ -125,7 +120,7 @@ export async function GET(request: NextRequest) {
       status: data.status,
       driver: data.driverName,
       driverAvatar: data.driverAvatar,
-      driverVehicleDetails: data.driverVehicleDetails, // Added this line
+      driverVehicleDetails: data.driverVehicleDetails,
       isSurgeApplied: data.isSurgeApplied,
       paymentMethod: data.paymentMethod,
       bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),

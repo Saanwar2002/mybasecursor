@@ -3,9 +3,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
-import type { RideOffer } from '@/components/driver/ride-offer-modal'; // Assuming this might contain dispatchMethod type
+import type { RideOffer } from '@/components/driver/ride-offer-modal';
 
-// Helper to serialize Timestamp
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
   if (!timestamp) return null;
   if (timestamp instanceof Timestamp) {
@@ -14,7 +13,6 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
       _nanoseconds: timestamp.nanoseconds,
     };
   }
-   // Handle cases where it might already be an object like { seconds: ..., nanoseconds: ... }
   if (typeof timestamp === 'object' && timestamp !== null && ('_seconds'in timestamp || 'seconds' in timestamp)) {
      return {
       _seconds: (timestamp as any)._seconds ?? (timestamp as any).seconds,
@@ -33,7 +31,7 @@ interface ActiveDriverRide {
   pickupLocation: { address: string; latitude: number; longitude: number; doorOrFlat?: string; };
   dropoffLocation: { address: string; latitude: number; longitude: number; doorOrFlat?: string; };
   stops?: Array<{ address: string; latitude: number; longitude: number; doorOrFlat?: string; }>;
-  fareEstimate: number; // Base fare estimate
+  fareEstimate: number;
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
   status: string;
@@ -43,20 +41,20 @@ interface ActiveDriverRide {
   driverId?: string;
   bookingTimestamp?: { _seconds: number; _nanoseconds: number } | null;
   scheduledPickupAt?: string | null;
-  vehicleType?: string; // Requested vehicle type
+  vehicleType?: string;
   isSurgeApplied?: boolean;
   paymentMethod?: 'card' | 'cash';
   notifiedPassengerArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | null;
   passengerAcknowledgedArrivalTimestamp?: { _seconds: number; _nanoseconds: number } | null;
   rideStartedAt?: { _seconds: number; _nanoseconds: number } | null;
   completedAt?: { _seconds: number; _nanoseconds: number } | null;
-  driverCurrentLocation?: { lat: number; lng: number }; // Driver's own current location (not from booking)
-  driverEtaMinutes?: number; // Driver's ETA to pickup (not from booking)
-  driverVehicleDetails?: string; // Driver's actual vehicle details (set upon assignment)
+  driverCurrentLocation?: { lat: number; lng: number };
+  driverEtaMinutes?: number;
+  driverVehicleDetails?: string;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   requiredOperatorId?: string;
-  dispatchMethod?: RideOffer['dispatchMethod']; // 'auto_system' | 'manual_operator' | 'priority_override'
+  dispatchMethod?: RideOffer['dispatchMethod'];
 }
 
 export async function GET(request: NextRequest) {
@@ -75,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     const bookingsRef = collection(db, 'bookings');
     const activeDriverStatuses = [
-      'driver_assigned',
+      'driver_assigned', // Standardized
       'arrived_at_pickup',
       'in_progress',
       'pending_driver_wait_and_return_approval',
@@ -115,7 +113,7 @@ export async function GET(request: NextRequest) {
       passengerCount: data.passengers || 1,
       passengerRating: data.passengerRating,
       notes: data.driverNotes || data.notes,
-      driverId: data.driverId, // Will be same as query param
+      driverId: data.driverId,
       bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
       scheduledPickupAt: data.scheduledPickupAt || null,
       vehicleType: data.vehicleType,
@@ -125,8 +123,8 @@ export async function GET(request: NextRequest) {
       passengerAcknowledgedArrivalTimestamp: serializeTimestamp(data.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
       rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
       completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
-      driverCurrentLocation: data.driverCurrentLocation, // This is ephemeral state, not usually on booking doc
-      driverEtaMinutes: data.driverEtaMinutes, // This is ephemeral state
+      driverCurrentLocation: data.driverCurrentLocation,
+      driverEtaMinutes: data.driverEtaMinutes,
       driverVehicleDetails: data.driverVehicleDetails || `${data.vehicleType || 'Vehicle'} - Reg N/A`,
       waitAndReturn: data.waitAndReturn,
       estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,

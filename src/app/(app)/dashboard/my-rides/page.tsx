@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX } from "lucide-react"; // Added UserX
+import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
@@ -18,7 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Import AlertDialogTrigger
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,7 +55,7 @@ interface Ride {
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: LocationPoint[];
-  driverId?: string; // Added driverId
+  driverId?: string;
   driver?: string;
   driverAvatar?: string;
   vehicleType: string;
@@ -173,7 +173,7 @@ export default function MyRidesPage() {
     } else setIsLoading(false);
   }, [user, toast]);
 
-  const displayedRides = allFetchedRides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled');
+  const displayedRides = allFetchedRides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver');
 
   const handleRateRide = (ride: Ride) => { setSelectedRideForRating(ride); setCurrentRating(ride.rating || 0); };
   const submitRating = async () => {
@@ -240,8 +240,16 @@ export default function MyRidesPage() {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div><CardTitle className="text-xl flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> {ride.vehicleType?.charAt(0).toUpperCase() + ride.vehicleType?.slice(1).replace(/_/g, ' ') || 'Vehicle'}</CardTitle><CardDescription className="flex items-center gap-1 text-sm"><CalendarIconLucide className="w-4 h-4" /> Booked: {formatDate(ride.bookingTimestamp)}</CardDescription></div>
-                <Badge variant={ ride.status === 'completed' ? 'default' : ride.status === 'cancelled' ? 'destructive' : 'secondary' }
-                  className={ cn( ride.status === 'completed' && 'bg-green-500/80 text-green-950', ride.status === 'cancelled' && 'bg-red-500/80 text-red-950' )}>
+                <Badge variant={
+                    ride.status === 'completed' ? 'default' :
+                    ride.status === 'cancelled' || ride.status === 'cancelled_by_driver' ? 'destructive' :
+                    'secondary'
+                  }
+                  className={cn(
+                    ride.status === 'completed' && 'bg-green-500/80 text-green-950',
+                    (ride.status === 'cancelled' || ride.status === 'cancelled_by_driver') && 'bg-red-500/80 text-red-950'
+                  )}
+                >
                   {ride.status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}
                 </Badge>
               </div>

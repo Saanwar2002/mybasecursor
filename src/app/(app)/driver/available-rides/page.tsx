@@ -71,7 +71,7 @@ interface ActiveRide {
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: Array<LocationPoint>;
-  fareEstimate: number; // This is the base fare
+  fareEstimate: number;
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
   status: string; 
@@ -88,11 +88,11 @@ interface ActiveRide {
   driverId?: string;
   bookingTimestamp?: SerializedTimestamp | null;
   scheduledPickupAt?: string | null;
-  vehicleType?: string; // Requested vehicle type
+  vehicleType?: string;
   isSurgeApplied?: boolean;
-  driverCurrentLocation?: { lat: number; lng: number }; // This is from the booking doc, if stored
+  driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
-  driverVehicleDetails?: string; // Driver's actual vehicle details
+  driverVehicleDetails?: string;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
@@ -102,7 +102,7 @@ interface MapHazard {
   id: string;
   hazardType: string;
   location: { latitude: number; longitude: number };
-  reportedAt: string; // ISO string
+  reportedAt: string;
   status: string;
 }
 
@@ -170,8 +170,8 @@ const MOCK_HAZARDS_TO_SEED = [
   { id: 'mock-hazard-speedcam-001', hazardType: 'mobile_speed_camera', location: { latitude: 53.6450, longitude: -1.7850 } },
   { id: 'mock-hazard-roadworks-002', hazardType: 'road_works', location: { latitude: 53.6400, longitude: -1.7700 } },
   { id: 'mock-hazard-accident-003', hazardType: 'accident', location: { latitude: 53.6500, longitude: -1.7900 } },
-  { id: 'mock-hazard-taxi-check-004', hazardType: 'roadside_taxi_checking', location: { latitude: 53.6488, longitude: -1.7805 } }, // Near station
-  { id: 'mock-hazard-traffic-005', hazardType: 'heavy_traffic', location: { latitude: 53.6430, longitude: -1.7797 } }, // Near university
+  { id: 'mock-hazard-taxi-check-004', hazardType: 'roadside_taxi_checking', location: { latitude: 53.6488, longitude: -1.7805 } },
+  { id: 'mock-hazard-traffic-005', hazardType: 'heavy_traffic', location: { latitude: 53.6430, longitude: -1.7797 } },
 ];
 
 
@@ -742,7 +742,7 @@ export default function AvailableRidesPage() {
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
-        driverCurrentLocation: driverLocation, // Add current driver location on acceptance
+        driverCurrentLocation: driverLocation,
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
@@ -890,7 +890,6 @@ export default function AvailableRidesPage() {
     let toastMessage = ""; let toastTitle = "";
     let payload: any = { action: actionType };
 
-    // Include current driver location for actions that imply movement or arrival
     if (['notify_arrival', 'start_ride'].includes(actionType) && driverLocation) {
       payload.driverCurrentLocation = driverLocation;
     }
@@ -916,7 +915,7 @@ export default function AvailableRidesPage() {
             if(activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
                 wrCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
             }
-            const finalFare = baseFare + priorityFee + currentWaitingCharge + wrCharge; // Added wrCharge
+            const finalFare = baseFare + priorityFee + currentWaitingCharge + wrCharge;
 
             toastTitle = "Ride Completed";
             toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, waiting, W&R): £${finalFare.toFixed(2)}.`;
@@ -930,6 +929,7 @@ export default function AvailableRidesPage() {
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             setAckWindowSecondsLeft(null);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
+            payload.status = 'cancelled_by_driver'; // Explicitly set status for cancellation
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
@@ -984,7 +984,7 @@ export default function AvailableRidesPage() {
           notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
           passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
           rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
-          completedAt: serverData.completedAt || prev.completedAt, // Ensure completedAt is updated
+          completedAt: serverData.completedAt || prev.completedAt,
           fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
           waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
           estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
@@ -1002,7 +1002,7 @@ export default function AvailableRidesPage() {
           notes: serverData.notes || prev.notes,
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
-          driverCurrentLocation: serverData.driverCurrentLocation || prev.driverCurrentLocation, // Update from server
+          driverCurrentLocation: serverData.driverCurrentLocation || prev.driverCurrentLocation,
         };
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
@@ -1048,10 +1048,9 @@ export default function AvailableRidesPage() {
     let baseMarkers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     
     if (activeRide) {
-        // Use driver's live GPS location if online, otherwise use location from booking (if available)
         const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation 
             ? driverLocation 
-            : activeRide.driverCurrentLocation; // This is the one from the booking doc
+            : activeRide.driverCurrentLocation; 
 
         if (currentLocToDisplay) { 
             baseMarkers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
@@ -1059,7 +1058,7 @@ export default function AvailableRidesPage() {
         if (activeRide.pickupLocation) { baseMarkers.push({ position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude}, title: `Pickup: ${activeRide.pickupLocation.address}`, label: { text: "P", color: "white", fontWeight: "bold"} }); }
         if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) { baseMarkers.push({ position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude}, title: `Dropoff: ${activeRide.dropoffLocation.address}`, label: { text: "D", color: "white", fontWeight: "bold" } }); }
         activeRide.stops?.forEach((stop, index) => { if(stop.latitude && stop.longitude) { baseMarkers.push({ position: {lat: stop.latitude, lng: stop.longitude}, title: `Stop ${index + 1}: ${stop.address}`, label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" } }); } });
-    } else if (isDriverOnline && driverLocation) { // No active ride, but driver is online
+    } else if (isDriverOnline && driverLocation) {
         baseMarkers.push({ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
     }
 
@@ -1125,7 +1124,7 @@ export default function AvailableRidesPage() {
   };
 
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
-    if (!ride) return null;
+    if (!ride || !['driver_assigned', 'arrived_at_pickup'].includes(ride.status.toLowerCase())) return null;
     return (
         <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
         <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm">
@@ -1369,7 +1368,7 @@ export default function AvailableRidesPage() {
             {showPendingWRApprovalStatus && ( <div className="flex justify-center mb-2"> <Badge variant="secondary" className="text-sm w-fit mx-auto bg-purple-500 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> W&R Request Pending </Badge> </div> )}
             {showInProgressWRStatus && ( <div className="flex justify-center mb-2"> <Badge variant="default" className="text-sm w-fit mx-auto bg-teal-600 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> Ride In Progress (W&R) </Badge> </div> )}
             {showCompletedStatus && ( <div className="flex justify-center my-4"> <Badge variant="default" className="text-lg w-fit mx-auto bg-primary text-primary-foreground py-2 px-6 rounded-lg font-bold shadow-lg flex items-center gap-2"> <CheckCircle className="w-6 h-6" /> Ride Completed </Badge> </div> )}
-            {showCancelledByDriverStatus && ( <div className="flex justify-center my-4"> <Badge variant="destructive" className="text-lg w-fit mx-auto py-2 px-6 rounded-lg font-bold shadow-lg flex items-center gap-2"> <XCircle className="w-6 h-6" /> Ride Cancelled by You </Badge> </div> )}
+            {showCancelledByDriverStatus && ( <div className="flex justify-center my-4"> <Badge variant="destructive" className="text-lg w-fit mx-auto py-2 px-6 rounded-lg font-bold shadow-lg flex items-center gap-2"> <XCircle className="w-6 h-6" /> Ride Cancelled By You </Badge> </div> )}
 
             <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border">
               <Avatar className="h-12 w-12"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/48x48.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar>
