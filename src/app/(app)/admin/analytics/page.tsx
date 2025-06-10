@@ -1,7 +1,7 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, TrendingUp, Users, Car as CarIcon, DollarSign, AlertTriangle, Loader2, Users2, Building, Shield } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Car as CarIcon, DollarSign, AlertTriangle, Loader2, Users2, Building, Shield, Lightbulb, BrainCircuit } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -184,11 +184,27 @@ export default function AdminAnalyticsPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>More Platform Analytics Coming Soon!</CardTitle>
+            <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <BrainCircuit className="w-6 h-6 text-accent" /> Future: Advanced Analytics Dashboards (Scoping)
+            </CardTitle>
+            <CardDescription>
+                This section outlines potential advanced analytics dashboards and metrics for future development to provide deeper insights into platform operations.
+            </CardDescription>
         </CardHeader>
         <CardContent>
-            <p className="text-muted-foreground">
-                Future insights could include platform-wide active users, churn rates, popular routes, average ride ratings, and financial performance metrics.
+            <ul className="list-disc space-y-2 pl-5 text-muted-foreground">
+                <li><strong>User Acquisition & Retention Funnels:</strong> Track user journey from registration to first ride and beyond to identify drop-off points.</li>
+                <li><strong>Churn Rate Analysis:</strong> Monitor passenger and driver churn rates, identify reasons, and predict at-risk users.</li>
+                <li><strong>Marketing Campaign Performance:</strong> Detailed ROI and effectiveness tracking for various marketing initiatives.</li>
+                <li><strong>Driver Performance Scorecards:</strong> Platform-wide benchmarks for driver acceptance rates, completion rates, ratings, and earnings.</li>
+                <li><strong>Fraud Detection Metrics:</strong> Advanced patterns and anomaly detection for potentially fraudulent activities.</li>
+                <li><strong>Predictive Demand Forecasting:</strong> AI-driven models to predict high-demand periods and locations.</li>
+                <li><strong>Geospatial Heatmaps:</strong> Dynamic maps showing demand vs. supply, popular routes, and surge pricing effectiveness over time.</li>
+                <li><strong>Detailed Financial Performance:</strong> Profitability per ride, operational cost breakdowns, and revenue optimization insights.</li>
+                <li><strong>Service Quality Metrics:</strong> Analysis of average wait times, ride durations, cancellation reasons, and passenger feedback trends.</li>
+            </ul>
+            <p className="mt-4 text-sm text-accent-foreground/80">
+                These advanced dashboards will require further data collection, backend processing, and potentially integration with specialized analytics tools.
             </p>
         </CardContent>
       </Card>
@@ -259,3 +275,4 @@ function ErrorDisplay({ message, onRetry }: { message: string; onRetry?: () => v
 function NoDataDisplay() {
   return <div className="h-[300px] flex items-center justify-center text-muted-foreground"><p>No data available for this period.</p></div>;
 }
+
