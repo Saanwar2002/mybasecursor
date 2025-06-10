@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone } from "lucide-react"; // Added TrafficCone
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck } from "lucide-react"; // Added ShieldCheck
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -238,7 +238,7 @@ export default function AvailableRidesPage() {
       }
       const data = await response.json();
       setActiveMapHazards(data.hazards || []);
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Error fetching active map hazards:", err);
       // Optionally, show a non-intrusive toast for hazard loading errors
       // toast({ title: "Could not load map hazards", description: err.message, variant: "default", duration: 3000 });
@@ -270,7 +270,7 @@ export default function AvailableRidesPage() {
     if (activeRide) {
       let labelContent: string | null = null;
       let labelPosition: google.maps.LatLngLiteral | null = null;
-      let labelType: LabelType = 'pickup'; // Default to pickup
+      let labelType: LabelType = 'pickup'; 
 
       const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
       const dropoffStreet = activeRide.dropoffLocation.address.split(',')[0];
@@ -400,7 +400,7 @@ export default function AvailableRidesPage() {
       console.log("fetchActiveRide - Data received:", data);
       setActiveRide(data); 
       if (data && error) setError(null); 
-    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; console.error("Error in fetchActiveRide:", message); if (!activeRide) setError(message); 
+    } catch (err: any) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; console.error("Error in fetchActiveRide:", message); if (!activeRide) setError(message); 
     } finally {
       if (!activeRide) setIsLoading(false);
     }
@@ -704,7 +704,7 @@ export default function AvailableRidesPage() {
       }
       toast({title: "Ride Accepted!", description: toastDesc});
       
-    } catch(error) {
+    } catch(error: any) {
       console.error(`Error in handleAcceptOffer process for ${currentActionRideId} (outer catch):`, error);
       
       let detailedMessage = "An unknown error occurred during ride acceptance.";
@@ -876,7 +876,7 @@ export default function AvailableRidesPage() {
       }
 
 
-    } catch(err) {
+    } catch(err: any) {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       console.error(`handleRideAction (${actionType}) for ${rideId}: Error caught:`, message);
       toast({ title: "Action Failed", description: message, variant: "destructive" });
@@ -975,7 +975,7 @@ export default function AvailableRidesPage() {
         throw new Error(result.message || `Failed to block passenger. Status: ${response.status}`);
       }
       toast({ title: "Passenger Blocked", description: `${activeRide.passengerName} has been added to your block list.` });
-    } catch (error) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : "Unknown error while blocking passenger.";
       toast({ title: "Blocking Failed", description: message, variant: "destructive" });
     } finally {
@@ -1052,7 +1052,7 @@ export default function AvailableRidesPage() {
       setActiveRide(updatedBooking.booking); 
       toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
       setIsWRRequestDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : "Unknown error.";
       toast({ title: "Request Failed", description: message, variant: "destructive" });
     } finally {
@@ -1087,7 +1087,7 @@ export default function AvailableRidesPage() {
       }
       toast({ title: "Hazard Reported!", description: `${formatHazardType(hazardType)} reported successfully.`, duration: 5000 });
       fetchActiveHazards(); // Refresh hazards on map
-    } catch (error) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : "Unknown error reporting hazard.";
       toast({ title: "Report Failed", description: message, variant: "destructive" });
     } finally {
@@ -1675,4 +1675,3 @@ export default function AvailableRidesPage() {
     </AlertDialog>
   </div> );
 }
-
