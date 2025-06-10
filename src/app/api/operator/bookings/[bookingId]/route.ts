@@ -146,7 +146,9 @@ export async function POST(request: NextRequest, context: PostContext) {
         requiredOperatorId: offer.requiredOperatorId,
         isPriorityPickup: offer.isPriorityPickup || updateDataFromPayload.isPriorityPickup || false,
         priorityFeeAmount: offer.priorityFeeAmount || updateDataFromPayload.priorityFeeAmount || 0,
-        dispatchMethod: offer.dispatchMethod || updateDataFromPayload.dispatchMethod || 'auto_system',
+        
+        // When an operator accepts a mock offer (which implies they are manually assigning it)
+        dispatchMethod: 'manual_operator',
 
         driverId: updateDataFromPayload.driverId,
         driverName: updateDataFromPayload.driverName,
@@ -189,9 +191,16 @@ export async function POST(request: NextRequest, context: PostContext) {
 
       const updatePayloadFirestore: any = { ...updateDataFromPayload };
       delete updatePayloadFirestore.action;
-      delete updatePayloadFirestore.offerDetails; // Ensure offerDetails (specific to mock offers) isn't written to existing bookings
+      delete updatePayloadFirestore.offerDetails; 
 
       const existingBookingDbData = bookingSnap.data();
+
+      // If a driverId is being set (i.e., an operator is assigning a driver manually)
+      if (updateDataFromPayload.driverId && !existingBookingDbData?.driverId) {
+        updatePayloadFirestore.dispatchMethod = 'manual_operator';
+        console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Manual assignment by operator - setting dispatchMethod to 'manual_operator'.`);
+      }
+
 
       // Explicitly set status based on action
       if (updateDataFromPayload.action === 'notify_arrival') {
@@ -210,8 +219,6 @@ export async function POST(request: NextRequest, context: PostContext) {
           if (updateDataFromPayload.finalFare !== undefined) {
               updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare;
           }
-          // Conceptually, the accountJobPin would be "consumed" or marked as used here.
-          // For simplicity, we don't remove it, but its single-use nature is implied.
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
           updatePayloadFirestore.cancelledAt = Timestamp.now();
@@ -226,9 +233,10 @@ export async function POST(request: NextRequest, context: PostContext) {
           if (existingBookingDbData?.status !== 'pending_assignment') {
             return NextResponse.json({ message: 'Only "Pending Assignment" rides can be cancelled by the operator this way.' }, { status: 400 });
           }
-          updatePayloadFirestore.status = 'cancelled_by_operator'; // Differentiated cancellation
+          updatePayloadFirestore.status = 'cancelled_by_operator';
           updatePayloadFirestore.cancelledAt = Timestamp.now();
       } else if (updateDataFromPayload.status) {
+          // If status is directly provided in payload (e.g., driver assignment)
           updatePayloadFirestore.status = updateDataFromPayload.status;
       }
 
@@ -343,3 +351,4 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: "Server Error During GET", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
+
