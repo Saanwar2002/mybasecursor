@@ -41,8 +41,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from '@/components/ui/separator';
-import { db } from '@/lib/firebase'; // Added for mock hazard seeding
-import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'; // Added for mock hazard seeding
+import { db } from '@/lib/firebase'; 
+import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore'; 
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -314,18 +314,17 @@ export default function AvailableRidesPage() {
 
   useEffect(() => {
     if (!driverLocation || !activeMapHazards.length || !isDriverOnline) {
-      if(approachingHazardInfo) setApproachingHazardInfo(null); // Clear existing alert if conditions no longer met
+      if(approachingHazardInfo) setApproachingHazardInfo(null); 
       return;
     }
   
-    if (approachingHazardInfo) { // If an alert is already active, don't process new ones
+    if (approachingHazardInfo) { 
       const distanceToCurrentAlertedHazard = getDistanceBetweenPointsInMeters(driverLocation, activeMapHazards.find(h => h.id === approachingHazardInfo.id)?.location || null);
       if (distanceToCurrentAlertedHazard > HAZARD_ALERT_RESET_DISTANCE_METERS) {
-        // User has moved away from the currently alerted hazard significantly
         alertedForThisApproachRef.current.delete(approachingHazardInfo.id);
-        setApproachingHazardInfo(null); // Allow new alerts
+        setApproachingHazardInfo(null); 
       }
-      return; // Still handling an active alert dialog or just dismissed it
+      return; 
     }
   
     let foundApproachingHazard = false;
@@ -334,14 +333,11 @@ export default function AvailableRidesPage() {
   
       if (distance < HAZARD_ALERT_DISTANCE_METERS && !alertedForThisApproachRef.current.has(hazard.id)) {
         setApproachingHazardInfo({ id: hazard.id, hazardType: hazard.hazardType, reportedAt: hazard.reportedAt });
-        // alertedForThisApproachRef.current.add(hazard.id); // Add when dialog is shown, not here
         foundApproachingHazard = true;
         break;
       }
     }
   
-    // Clean up alertedForThisApproachRef for hazards that are now far away (outside the reset distance)
-    // This logic needs to run even if no new hazard is immediately approached to clear old entries.
     const newAlertedSet = new Set<string>();
     alertedForThisApproachRef.current.forEach(alertedId => {
       const hazard = activeMapHazards.find(h => h.id === alertedId);
@@ -357,13 +353,13 @@ export default function AvailableRidesPage() {
   }, [driverLocation, activeMapHazards, isDriverOnline, approachingHazardInfo]);
   
 
-  const handleHazardAlertResponse = async (hazardId: string, isStillThere: boolean) => {
-    console.log(`Hazard ${hazardId} response: ${isStillThere ? 'Yes, still there' : 'No, it\'s gone'}`);
-    setApproachingHazardInfo(null); 
-    alertedForThisApproachRef.current.add(hazardId); // Mark as alerted for this approach cycle AFTER response
-
+  const handleHazardAlertResponse = async (hazardId: string, isStillPresent: boolean) => {
+    console.log(`Hazard ${hazardId} response: ${isStillPresent ? 'Yes, still there' : 'No, it\'s gone'}`);
+    
     if (!driverUser) {
-      toast({ title: "Error", description: "Driver not identified.", variant: "destructive"});
+      toast({ title: "Error", description: "Driver not identified for feedback.", variant: "destructive"});
+      setApproachingHazardInfo(null); 
+      alertedForThisApproachRef.current.add(hazardId); 
       return;
     }
     
@@ -383,11 +379,13 @@ export default function AvailableRidesPage() {
         throw new Error(errorData.message);
       }
       toast({ title: "Feedback Submitted", description: "Thank you for helping keep the map accurate!"});
-      // Optionally, re-fetch active hazards if a hazard might have been cleared
-      if (!isStillThere) fetchActiveHazards();
+      if (!isStillPresent) fetchActiveHazards();
 
     } catch (err: any) {
       toast({ title: "Feedback Error", description: err.message || "Could not submit feedback.", variant: "destructive"});
+    } finally {
+       setApproachingHazardInfo(null); 
+       alertedForThisApproachRef.current.add(hazardId); 
     }
   };
 
@@ -405,14 +403,14 @@ export default function AvailableRidesPage() {
         const hazardRef = doc(db, 'mapHazards', mock.id);
         await setDoc(hazardRef, {
           hazardType: mock.hazardType,
-          location: mock.location, // Firestore will convert {latitude, longitude} to GeoPoint
+          location: mock.location, 
           reportedByDriverId: driverUser?.id || "mock-seeder",
           reportedAt: serverTimestamp(),
           status: 'active',
           confirmations: 0,
           negations: 0,
           lastConfirmedAt: serverTimestamp(),
-        }, { merge: true }); // Use merge to create or overwrite
+        }, { merge: true }); 
         successCount++;
       } catch (e) {
         console.error(`Failed to seed hazard ${mock.id}:`, e);
@@ -425,7 +423,7 @@ export default function AvailableRidesPage() {
     } else {
       toast({ title: "Mock Hazards Seeded", description: `${successCount} hazards added or updated in Firestore.` });
     }
-    fetchActiveHazards(); // Refresh the map
+    fetchActiveHazards(); 
   };
 
 
@@ -1285,12 +1283,12 @@ export default function AvailableRidesPage() {
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="destructive" size="icon"
-                      className="rounded-full h-12 w-12 shadow-lg animate-pulse"
+                      className="rounded-full h-8 w-8 shadow-lg animate-pulse"
                       onClick={() => setIsSosDialogOpen(true)}
                       aria-label="SOS Panic Button"
                       disabled={!isDriverOnline}
                     >
-                      <ShieldAlert className="h-6 w-6" />
+                      <ShieldAlert className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -1642,12 +1640,12 @@ export default function AvailableRidesPage() {
                 <AlertDialogTrigger asChild>
                 <Button
                     variant="destructive" size="icon"
-                    className="rounded-full h-12 w-12 shadow-lg animate-pulse"
+                    className="rounded-full h-8 w-8 shadow-lg animate-pulse"
                     onClick={() => setIsSosDialogOpen(true)}
                     aria-label="SOS Panic Button"
                     disabled={!isDriverOnline}
                 >
-                    <ShieldAlert className="h-6 w-6" />
+                    <ShieldAlert className="h-4 w-4" />
                 </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
