@@ -187,30 +187,55 @@ interface DispatchDisplayInfo {
 
 function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
   if (!fullAddress) return `${type}:\nN/A`;
-  const parts = fullAddress.split(',').map(p => p.trim());
-  const street = parts[0] || "Unknown Street";
-  let area = "";
-  let postcode = "";
 
-  const postcodeRegex = /([A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2})$/i;
+  let addressRemainder = fullAddress;
+  let outwardPostcode = "";
+  
+  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
+  const postcodeMatch = fullAddress.match(postcodeRegex);
+
+  if (postcodeMatch) {
+    outwardPostcode = postcodeMatch[1].toUpperCase();
+    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
+  }
+
+  const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
+  
+  let street = parts[0] || "Location";
+  let area = "";
+
   if (parts.length > 1) {
-    const lastPart = parts[parts.length - 1];
-    if (postcodeRegex.test(lastPart)) {
-      postcode = lastPart;
-      if (parts.length > 2) {
-        area = parts[parts.length - 2];
-      } else {
-        area = street; 
-      }
-    } else {
-      area = parts.length > 1 ? parts[1] : ""; 
+    area = parts[1]; 
+    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
+        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
-  } else {
-    area = "Details N/A"; 
+  } else if (parts.length === 0 && outwardPostcode) {
+    street = "Area"; 
   }
   
-  const areaPostcode = [area, postcode].filter(Boolean).join(', ');
-  return `${type}:\n${street}\n${areaPostcode || "Location details unavailable"}`;
+  if (!area && parts.length > 2) {
+      area = parts.slice(1).join(', '); 
+  }
+
+  let locationLine = area;
+  if (outwardPostcode) {
+    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
+  }
+  
+  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
+      street = ""; 
+  }
+  if (street && !locationLine) { 
+     return `${type}:\n${street}`;
+  }
+  if (!street && locationLine) { 
+     return `${type}:\n${locationLine}`;
+  }
+  if (!street && !locationLine) {
+      return `${type}:\nDetails N/A`;
+  }
+
+  return `${type}:\n${street}\n${locationLine}`;
 }
 
 export default function AvailableRidesPage() {
@@ -593,7 +618,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id]);
+  }, [driverUser?.id, activeRide]);
 
 
  useEffect(() => {
@@ -2258,3 +2283,4 @@ export default function AvailableRidesPage() {
         </Dialog>
   </div> );
 }
+

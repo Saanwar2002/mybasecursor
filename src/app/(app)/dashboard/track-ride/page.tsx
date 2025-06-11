@@ -162,33 +162,57 @@ const formatTimerPassenger = (totalSeconds: number): string => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-function formatAddressForLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
+function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
   if (!fullAddress) return `${type}:\nN/A`;
-  const parts = fullAddress.split(',').map(p => p.trim());
-  const street = parts[0] || "Unknown Street";
-  let area = "";
-  let postcode = "";
 
-  // UK Postcode Regex (simplified)
-  const postcodeRegex = /([A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2})$/i;
+  let addressRemainder = fullAddress;
+  let outwardPostcode = "";
+  
+  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
+  const postcodeMatch = fullAddress.match(postcodeRegex);
+
+  if (postcodeMatch) {
+    outwardPostcode = postcodeMatch[1].toUpperCase();
+    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
+  }
+
+  const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
+  
+  let street = parts[0] || "Location";
+  let area = "";
+
   if (parts.length > 1) {
-    const lastPart = parts[parts.length - 1];
-    if (postcodeRegex.test(lastPart)) {
-      postcode = lastPart;
-      if (parts.length > 2) {
-        area = parts[parts.length - 2];
-      } else {
-        area = street; // Fallback if only street and postcode
-      }
-    } else {
-      area = parts.length > 1 ? parts[1] : ""; // Use second part as area if no postcode
+    area = parts[1]; 
+    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
+        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
-  } else {
-    area = "Details N/A"; // Only street name available
+  } else if (parts.length === 0 && outwardPostcode) {
+    street = "Area"; 
   }
   
-  const areaPostcode = [area, postcode].filter(Boolean).join(', ');
-  return `${type}:\n${street}\n${areaPostcode || "Location details unavailable"}`;
+  if (!area && parts.length > 2) {
+      area = parts.slice(1).join(', '); 
+  }
+
+  let locationLine = area;
+  if (outwardPostcode) {
+    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
+  }
+  
+  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
+      street = ""; // If we only have a postcode, don't show "Location" or "Area" as street
+  }
+  if (street && !locationLine) { // If only street is available (e.g. "Some Road" and no postcode/area extracted)
+     return `${type}:\n${street}`;
+  }
+  if (!street && locationLine) { // If only area/postcode is available
+     return `${type}:\n${locationLine}`;
+  }
+  if (!street && !locationLine) {
+      return `${type}:\nDetails N/A`;
+  }
+
+  return `${type}:\n${street}\n${locationLine}`;
 }
 
 
@@ -602,7 +626,7 @@ export default function MyActiveRidePage() {
       });
       labels.push({
         position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-        content: formatAddressForLabel(activeRide.pickupLocation.address, 'Pickup'),
+        content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
         type: 'pickup'
       });
     }
@@ -614,7 +638,7 @@ export default function MyActiveRidePage() {
       });
        labels.push({
         position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-        content: formatAddressForLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
         type: 'dropoff'
       });
     }
@@ -819,7 +843,7 @@ export default function MyActiveRidePage() {
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
                     disabled={activeRide ? actionLoading[activeRide.id] : false}
                 >
-                  Keep Ride
+                 <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
@@ -828,7 +852,16 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {renderCancelAlertDialogActionContent()}
+                   <span className="inline-flex items-center justify-center gap-2">
+                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                      <Loader2 className="animate-spin h-4 w-4" />
+                    ) : (
+                      <ShieldX className="h-4 w-4" />
+                    )}
+                    <span>
+                      {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
+                    </span>
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -895,3 +928,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
