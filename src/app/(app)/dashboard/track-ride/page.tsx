@@ -171,48 +171,43 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
   const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
   const postcodeMatch = fullAddress.match(postcodeRegex);
 
-  if (postcodeMatch) {
+  if (postcodeMatch && postcodeMatch[1]) {
     outwardPostcode = postcodeMatch[1].toUpperCase();
     addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
   }
 
   const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
   
-  let street = parts[0] || "Location";
-  let area = "";
+  let street = parts[0] || "";
+  let area = parts[1] || "";
 
-  if (parts.length > 1) {
-    area = parts[1]; 
-    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
-        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
-    }
-  } else if (parts.length === 0 && outwardPostcode) {
+  if (parts.length === 0 && outwardPostcode) {
     street = "Area"; 
-  }
-  
-  if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', '); 
+  } else if (parts.length === 1 && outwardPostcode && !street) {
+    street = parts[0]; // If only one part remains and it's not the postcode, use it as street.
+  } else if (street.toLowerCase().includes(area.toLowerCase()) && area.length > 0 && street.length > area.length + 2) {
+      street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
   }
 
   let locationLine = area;
   if (outwardPostcode) {
-    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
+    locationLine = (area ? `${area} ` : "") + outwardPostcode;
   }
   
-  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = ""; // If we only have a postcode, don't show "Location" or "Area" as street
-  }
-  if (street && !locationLine) { // If only street is available (e.g. "Some Road" and no postcode/area extracted)
-     return `${type}:\n${street}`;
-  }
-  if (!street && locationLine) { // If only area/postcode is available
-     return `${type}:\n${locationLine}`;
-  }
-  if (!street && !locationLine) {
-      return `${type}:\nDetails N/A`;
+  if (locationLine.trim() === outwardPostcode && street.toLowerCase() === "area") {
+      street = ""; 
   }
 
-  return `${type}:\n${street}\n${locationLine}`;
+  const line1 = street || (locationLine && !area ? "" : "Details N/A"); // Show street, or if no street but locationLine has more than just postcode.
+  const line2 = locationLine || (street ? "" : "Address N/A");
+
+
+  if (line1 === "Details N/A" && line2 === "Address N/A") return `${type}:\n${fullAddress.split(',')[0]}`; // Fallback to first part of address
+  if (line1 === "Details N/A") return `${type}:\n${line2}`;
+  if (line2 === "Address N/A" && line1) return `${type}:\n${line1}`;
+  if (!line1 && line2) return `${type}:\n${line2}`; // Only postcode/area
+
+  return `${type}:\n${line1}\n${line2}`;
 }
 
 
@@ -236,12 +231,14 @@ export default function MyActiveRidePage() {
   const [dialogPickupInputValue, setDialogPickupInputValue] = useState("");
   const [dialogPickupSuggestions, setDialogPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showDialogPickupSuggestions, setShowDialogPickupSuggestions] = useState(false);
+  const [isFetchingDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions] = useState(false);
   const [isFetchingDialogPickupDetails, setIsFetchingDialogPickupDetails] = useState(false);
   const [dialogPickupCoords, setDialogPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
   const [dialogDropoffInputValue, setDialogDropoffInputValue] = useState("");
   const [dialogDropoffSuggestions, setDialogDropoffSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showDialogDropoffSuggestions, setShowDialogDropoffSuggestions] = useState(false);
+  const [isFetchingDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions] = useState(false);
   const [isFetchingDialogDropoffDetails, setIsFetchingDialogDropoffDetails] = useState(false);
   const [dialogDropoffCoords, setDialogDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
@@ -448,30 +445,103 @@ export default function MyActiveRidePage() {
   };
 
   const handleEditAddressInputChangeFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (inputValue: string, formOnChange: (value: string) => void) => {
-    formOnChange(inputValue);
-    const setCoordsFunc = (typeof formFieldNameOrStopIndex === 'number') ? (coords: google.maps.LatLngLiteral | null) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords} : item)) : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupCoords : setDialogDropoffCoords);
+    formOnChange(inputValue); 
+
+    const setInputValFunc = (typeof formFieldNameOrStopIndex === 'number') 
+        ? (val: string) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val, coords: null } : item))
+        : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupInputValue : setDialogDropoffInputValue);
+    setInputValFunc(inputValue);
+
+    const setCoordsFunc = (typeof formFieldNameOrStopIndex === 'number')
+      ? (coords: google.maps.LatLngLiteral | null) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords} : item))
+      : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupCoords : setDialogDropoffCoords);
     setCoordsFunc(null);
-    const setShowSuggestionsFunc = (show: boolean) => { if (typeof formFieldNameOrStopIndex === 'number') { setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show, inputValue } : item)); } else if (formFieldNameOrStopIndex === 'pickupLocation') { setShowDialogPickupSuggestions(show); setDialogPickupInputValue(inputValue); } else { setShowDialogDropoffSuggestions(show); setDialogDropoffInputValue(inputValue); } };
+    
+    const setShowSuggestionsFunc = (show: boolean) => {
+      if (typeof formFieldNameOrStopIndex === 'number') {
+        setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show } : item));
+      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        setShowDialogPickupSuggestions(show);
+      } else {
+        setShowDialogDropoffSuggestions(show);
+      }
+    };
     setShowSuggestionsFunc(inputValue.length >= 2);
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current); if (inputValue.length < 2) return;
-    debounceTimeoutRef.current = setTimeout(() => { if (!autocompleteServiceRef.current) return;
-      const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => { if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg, isFetchingSuggestions: false} : item)); else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg); else setDialogDropoffSuggestions(sugg); };
-      const setIsFetchingFunc = (fetch: boolean) => {  if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch} : item));  else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(fetch); else setIsFetchingDialogDropoffDetails(fetch); };
-      setIsFetchingFunc(true); autocompleteServiceRef.current.getPlacePredictions({ input: inputValue, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } }, (predictions, status) => { setIsFetchingFunc(false); setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []); });
+
+    const setIsFetchingSuggFunc = (fetch: boolean) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch} : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupSuggestions(fetch);
+        else setIsFetchingDialogDropoffSuggestions(fetch);
+    };
+
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (inputValue.length < 2) { setIsFetchingSuggFunc(false); return;}
+    
+    setIsFetchingSuggFunc(true);
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (!autocompleteServiceRef.current) { setIsFetchingSuggFunc(false); return; }
+      
+      const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
+        else setDialogDropoffSuggestions(sugg);
+      };
+      
+      autocompleteServiceRef.current.getPlacePredictions(
+        { input: inputValue, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } },
+        (predictions, status) => {
+          setIsFetchingSuggFunc(false);
+          setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
+        }
+      );
     }, 300);
-  }, []);
+  }, [setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupSuggestions, setIsFetchingDialogDropoffSuggestions]);
+
 
  const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
-    const addressText = suggestion?.description; if (!addressText || !placesServiceRef.current || !suggestion.place_id) return; formOnChange(addressText);
-    const setIsFetchingDetailsFunc = (isFetching: boolean) => { if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item)); else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(isFetching); else setIsFetchingDialogDropoffDetails(isFetching); };
-    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null) => { if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: addressText, showSuggestions: false } : item)); else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupCoords(coords); setDialogPickupInputValue(addressText); setShowDialogPickupSuggestions(false); } else { setDialogDropoffCoords(coords); setDialogDropoffInputValue(addressText); setShowDialogDropoffSuggestions(false); } };
+    const addressText = suggestion?.description; if (!addressText || !placesServiceRef.current || !suggestion.place_id) return; 
+    
+    const setInputValFunc = (val: string) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val, showSuggestions: false } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupInputValue(val); setShowDialogPickupSuggestions(false); }
+        else { setDialogDropoffInputValue(val); setShowDialogDropoffSuggestions(false); }
+    };
+    setInputValFunc(addressText); // Set input value immediately for responsiveness
+    formOnChange(addressText); // Update react-hook-form state as well
+
+
+    const setIsFetchingDetailsFunc = (isFetching: boolean) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(isFetching);
+        else setIsFetchingDialogDropoffDetails(isFetching);
+    };
+    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null, finalAddress: string) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddress } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupCoords(coords); setDialogPickupInputValue(finalAddress); }
+        else { setDialogDropoffCoords(coords); setDialogDropoffInputValue(finalAddress); }
+    };
+
     setIsFetchingDetailsFunc(true);
-    placesServiceRef.current.getDetails({ placeId: suggestion.place_id, fields: ['geometry.location'], sessionToken: autocompleteSessionTokenRef.current }, (place, status) => {
-      setIsFetchingDetailsFunc(false); setCoordsFunc(status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
-      if (status !== google.maps.places.PlacesServiceStatus.OK) toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"}); else toast({ title: "Location Updated", description: `${addressText} selected.`});
-      autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
-    });
-  }, [toast]);
+    placesServiceRef.current.getDetails(
+        { placeId: suggestion.place_id, fields: ['geometry.location', 'formatted_address', 'address_components'], sessionToken: autocompleteSessionTokenRef.current }, 
+        (place, status) => {
+            setIsFetchingDetailsFunc(false);
+            const finalAddressToSet = place?.formatted_address || addressText;
+            formOnChange(finalAddressToSet); // Ensure react-hook-form gets the formatted address
+            setInputValFunc(finalAddressToSet); // Update local input display again with formatted address
+
+            if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+                setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
+                toast({ title: "Location Updated", description: `${finalAddressToSet} selected.`});
+            } else { 
+                setCoordsFunc(null, finalAddressToSet); 
+                toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"});
+            }
+            autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+        }
+    );
+  }, [toast, setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupDetails, setIsFetchingDialogDropoffDetails]);
+
 
   const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
     if (typeof fieldNameOrIndex === 'number') { const stop = dialogStopAutocompleteData[fieldNameOrIndex]; if (stop?.inputValue.length >= 2 && stop.suggestions.length > 0) setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
@@ -689,15 +759,18 @@ export default function MyActiveRidePage() {
 
   const renderCancelAlertDialogActionContent = () => {
     return (
-      <span className="inline-flex items-center justify-center gap-2">
+      <span className="flex items-center justify-center"> {/* Single direct child */}
         {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-          <Loader2 className="animate-spin h-4 w-4" />
+          <React.Fragment>
+            <Loader2 className="animate-spin mr-2 h-4 w-4" />
+            <span>Cancelling...</span>
+          </React.Fragment>
         ) : (
-          <ShieldX className="h-4 w-4" />
+          <React.Fragment>
+            <ShieldX className="mr-2 h-4 w-4" />
+            <span>Confirm Cancel</span>
+          </React.Fragment>
         )}
-        <span>
-          {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
-        </span>
       </span>
     );
   };
@@ -852,16 +925,7 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                   <span className="inline-flex items-center justify-center gap-2">
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                      <Loader2 className="animate-spin h-4 w-4" />
-                    ) : (
-                      <ShieldX className="h-4 w-4" />
-                    )}
-                    <span>
-                      {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
-                    </span>
-                  </span>
+                  {renderCancelAlertDialogActionContent()}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -871,11 +935,11 @@ export default function MyActiveRidePage() {
           <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescription> </DialogHeader>
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
           <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupDetails, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
+          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
                   {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel>Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
                   <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
                   <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-                  <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffDetails, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
+                  <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffSuggestions, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
                   <div className="grid grid-cols-2 gap-4"> <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => ( <FormItem><FormLabel>Pickup Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} /> <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => ( <FormItem><FormLabel>Pickup Time</FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem> )} /> </div>
                   {!editDetailsForm.watch('desiredPickupDate') && <p className="text-xs text-muted-foreground text-center">Leave date/time blank for ASAP booking.</p>}
                 </form> </Form> </div> </ScrollArea>
