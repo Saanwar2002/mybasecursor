@@ -37,7 +37,9 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-import type { LabelType } from '@/components/ui/custom-map-label-overlay';
+import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader';
+import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
+import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -168,11 +170,12 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
   let addressRemainder = fullAddress;
   let outwardPostcode = "";
   
-  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
+  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)(?:\s*[0-9][A-Z]{2})?\b/i;
   const postcodeMatch = fullAddress.match(postcodeRegex);
 
   if (postcodeMatch && postcodeMatch[1]) {
     outwardPostcode = postcodeMatch[1].toUpperCase();
+    // Remove the whole postcode match to clean up the address string
     addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
   }
 
@@ -181,33 +184,31 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
   let street = parts[0] || "";
   let area = parts[1] || "";
 
-  if (parts.length === 0 && outwardPostcode) {
-    street = "Area"; 
-  } else if (parts.length === 1 && outwardPostcode && !street) {
-    street = parts[0]; // If only one part remains and it's not the postcode, use it as street.
-  } else if (street.toLowerCase().includes(area.toLowerCase()) && area.length > 0 && street.length > area.length + 2) {
-      street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
+  // Refine area if it's just a city/county that might be redundant or too broad
+  if (parts.length > 2 && (area.toLowerCase() === "huddersfield" || area.toLowerCase() === "west yorkshire")) {
+      area = parts[1]; // Keep it if it's specific like "Paddock"
+  } else if (parts.length === 1 && street) { // Only street was left
+      area = ""; // No distinct area
   }
 
-  let locationLine = area;
+
+  let line1 = street;
+  let line2 = area;
+
   if (outwardPostcode) {
-    locationLine = (area ? `${area} ` : "") + outwardPostcode;
+    if (line2) {
+      line2 += ` ${outwardPostcode}`;
+    } else if (line1 && line1.toLowerCase() !== "area" && line1.toLowerCase() !== "location") { // If no area but street exists
+      line2 = outwardPostcode;
+    } else { // No street, no area, just postcode
+      line1 = outwardPostcode;
+      line2 = "";
+    }
   }
   
-  if (locationLine.trim() === outwardPostcode && street.toLowerCase() === "area") {
-      street = ""; 
-  }
+  if (!line1 && !line2) return `${type}:\n${fullAddress.split(',')[0]}`; // Fallback to first part of address
 
-  const line1 = street || (locationLine && !area ? "" : "Details N/A"); // Show street, or if no street but locationLine has more than just postcode.
-  const line2 = locationLine || (street ? "" : "Address N/A");
-
-
-  if (line1 === "Details N/A" && line2 === "Address N/A") return `${type}:\n${fullAddress.split(',')[0]}`; // Fallback to first part of address
-  if (line1 === "Details N/A") return `${type}:\n${line2}`;
-  if (line2 === "Address N/A" && line1) return `${type}:\n${line1}`;
-  if (!line1 && line2) return `${type}:\n${line2}`; // Only postcode/area
-
-  return `${type}:\n${line1}\n${line2}`;
+  return `${type}:\n${line1}${line2 ? `\n${line2}` : ''}`.trim();
 }
 
 
@@ -276,7 +277,7 @@ export default function MyActiveRidePage() {
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
 
    useEffect(() => {
-    if (isMapSdkLoaded && window.google && window.google.maps && window.google.maps.Geocoder) {
+    if (isMapSdkLoaded && typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.Geocoder) {
       geocoderRef.current = new window.google.maps.Geocoder();
     }
   }, [isMapSdkLoaded]);
@@ -444,7 +445,12 @@ export default function MyActiveRidePage() {
     setDialogStopAutocompleteData(initialStopData); setIsEditDetailsDialogOpen(true);
   };
 
-  const handleEditAddressInputChangeFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (inputValue: string, formOnChange: (value: string) => void) => {
+  const handleEditAddressInputChangeFactory = useCallback((
+    formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
+  ) => (
+    inputValue: string,
+    formOnChange: (value: string) => void,
+  ) => {
     formOnChange(inputValue); 
 
     const setInputValFunc = (typeof formFieldNameOrStopIndex === 'number') 
@@ -475,27 +481,31 @@ export default function MyActiveRidePage() {
     };
 
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    if (inputValue.length < 2) { setIsFetchingSuggFunc(false); return;}
+    if (inputValue.length < 2) { setIsFetchingSuggFunc(false); return; }
     
-    setIsFetchingSuggFunc(true);
+    setIsFetchingSuggFunc(true); 
     debounceTimeoutRef.current = setTimeout(() => {
-      if (!autocompleteServiceRef.current) { setIsFetchingSuggFunc(false); return; }
-      
-      const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
-        else setDialogDropoffSuggestions(sugg);
-      };
-      
+      if (!autocompleteServiceRef.current) { 
+        console.warn("[EditDialog] Autocomplete service not ready for input change factory.");
+        setIsFetchingSuggFunc(false);
+        return;
+      }
+      console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
       autocompleteServiceRef.current.getPlacePredictions(
         { input: inputValue, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } },
         (predictions, status) => {
           setIsFetchingSuggFunc(false);
-          setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
+          console.log(`[EditDialog] getPlacePredictions for "${inputValue}": Status - ${status}`, predictions);
+          const setSuggestionsFuncForDebounce = (sugg: google.maps.places.AutocompletePrediction[]) => {
+            if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
+            else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
+            else setDialogDropoffSuggestions(sugg);
+          };
+          setSuggestionsFuncForDebounce(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
         }
       );
     }, 300);
-  }, [setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupSuggestions, setIsFetchingDialogDropoffSuggestions]);
+  }, [setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupSuggestions, setIsFetchingDialogDropoffSuggestions, autocompleteServiceRef, autocompleteSessionTokenRef]);
 
 
  const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
@@ -506,8 +516,8 @@ export default function MyActiveRidePage() {
         else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupInputValue(val); setShowDialogPickupSuggestions(false); }
         else { setDialogDropoffInputValue(val); setShowDialogDropoffSuggestions(false); }
     };
-    setInputValFunc(addressText); // Set input value immediately for responsiveness
-    formOnChange(addressText); // Update react-hook-form state as well
+    setInputValFunc(addressText); 
+    formOnChange(addressText); 
 
 
     const setIsFetchingDetailsFunc = (isFetching: boolean) => {
@@ -527,8 +537,8 @@ export default function MyActiveRidePage() {
         (place, status) => {
             setIsFetchingDetailsFunc(false);
             const finalAddressToSet = place?.formatted_address || addressText;
-            formOnChange(finalAddressToSet); // Ensure react-hook-form gets the formatted address
-            setInputValFunc(finalAddressToSet); // Update local input display again with formatted address
+            formOnChange(finalAddressToSet); 
+            setInputValFunc(finalAddressToSet); 
 
             if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
                 setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
@@ -540,16 +550,31 @@ export default function MyActiveRidePage() {
             autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
     );
-  }, [toast, setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupDetails, setIsFetchingDialogDropoffDetails]);
+  }, [toast, setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupDetails, setIsFetchingDialogDropoffDetails, placesServiceRef, autocompleteSessionTokenRef]);
 
 
   const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
-    if (typeof fieldNameOrIndex === 'number') { const stop = dialogStopAutocompleteData[fieldNameOrIndex]; if (stop?.inputValue.length >= 2 && stop.suggestions.length > 0) setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
-    } else if (fieldNameOrIndex === 'pickupLocation' && dialogPickupInputValue.length >= 2 && dialogPickupSuggestions.length > 0) setShowDialogPickupSuggestions(true);
-    else if (fieldNameOrIndex === 'dropoffLocation' && dialogDropoffInputValue.length >= 2 && dialogDropoffSuggestions.length > 0) setShowDialogDropoffSuggestions(true);
+    if (typeof fieldNameOrIndex === 'number') {
+      const stop = dialogStopAutocompleteData[fieldNameOrIndex];
+      if (stop?.inputValue.length >= 2) {
+        setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
+      }
+    } else if (fieldNameOrIndex === 'pickupLocation') {
+      if (dialogPickupInputValue.length >= 2) {
+        setShowDialogPickupSuggestions(true);
+      }
+    } else if (fieldNameOrIndex === 'dropoffLocation') {
+      if (dialogDropoffInputValue.length >= 2) {
+        setShowDialogDropoffSuggestions(true);
+      }
+    }
   };
   const handleEditBlurFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
-    setTimeout(() => { if (typeof fieldNameOrIndex === 'number') setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: false} : item)); else if (fieldNameOrIndex === 'pickupLocation') setShowDialogPickupSuggestions(false); else setShowDialogDropoffSuggestions(false); }, 150);
+    setTimeout(() => { 
+        if (typeof fieldNameOrIndex === 'number') setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: false} : item)); 
+        else if (fieldNameOrIndex === 'pickupLocation') setShowDialogPickupSuggestions(false); 
+        else setShowDialogDropoffSuggestions(false); 
+    }, 500); // Increased timeout
   };
 
   const onEditDetailsSubmit = async (values: EditDetailsFormValues) => {
@@ -761,7 +786,7 @@ export default function MyActiveRidePage() {
     return (
       <span className="flex items-center justify-center"> {/* Single direct child */}
         {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-          <React.Fragment>
+          <React.Fragment> {/* Fragment is NOT a direct child of AlertDialogAction */}
             <Loader2 className="animate-spin mr-2 h-4 w-4" />
             <span>Cancelling...</span>
           </React.Fragment>
@@ -922,10 +947,10 @@ export default function MyActiveRidePage() {
                   onClick={() => { 
                     if (activeRide) { handleInitiateCancelRide(); }
                   }}
-                  disabled={!activeRide || (actionLoading[activeRide.id] || false)}
+                  disabled={!activeRide || (actionLoading[activeRide?.id || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {renderCancelAlertDialogActionContent()}
+                 {renderCancelAlertDialogActionContent()}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
