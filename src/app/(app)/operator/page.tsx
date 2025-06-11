@@ -15,6 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge'; // Added Badge
+import { Separator } from '@/components/ui/separator';
+
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -150,7 +152,7 @@ export default function OperatorDashboardPage() {
 
 
   const mapContainerClasses = cn(
-    "h-80 md:h-96 bg-muted/50 rounded-md overflow-hidden border-4",
+    "h-80 md:h-96 rounded-md overflow-hidden border-4", // Removed bg-muted/50
     {
       'border-border': mapBusynessLevel === 'idle',
       'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
@@ -205,7 +207,7 @@ export default function OperatorDashboardPage() {
                   <Map className="w-6 h-6 text-primary" /> Live Fleet Overview
               </CardTitle>
           </CardHeader>
-          <CardContent className={mapContainerClasses}>
+          <CardContent className={cn(mapContainerClasses, "p-0")}>
               <GoogleMapDisplay
                   center={huddersfieldCenterGoogle}
                   zoom={13}
