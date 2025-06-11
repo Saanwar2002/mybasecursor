@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MessageCircle, X } from "lucide-react"; 
+import { Send, MessageCircle, X, ListPlus } from "lucide-react"; 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useRouter } from 'next/navigation'; // Added useRouter
+import { useRouter } from 'next/navigation';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Added Popover imports
 
 interface ChatUser {
   id: string;
@@ -58,6 +59,15 @@ const contextualInitialMessages: { [key: string]: Message[] } = {
   [dispatchIdForContext]: allMockMessages[dispatchIdForContext] || [],
 };
 
+const quickReplies = [
+  { id: "qr1", text: "I'm on my way." },
+  { id: "qr2", text: "I have arrived at the pickup location." },
+  { id: "qr3", text: "I'm stuck in traffic, I might be a few minutes late." },
+  { id: "qr4", text: "Okay, thank you." },
+  { id: "qr5", text: "Can you please confirm your exact pickup spot?" },
+  { id: "qr6", text: "Running slightly late, be there soon." },
+];
+
 
 export default function DriverChatPage() {
   const [chatUsersList, setChatUsersList] = useState<ChatUser[]>(contextualInitialChatUsers);
@@ -68,7 +78,9 @@ export default function DriverChatPage() {
   const [messagesData, setMessagesData] = useState<{ [key: string]: Message[] }>(contextualInitialMessages);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter(); 
+  const [isQuickReplyOpen, setIsQuickReplyOpen] = useState(false);
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -148,6 +160,11 @@ export default function DriverChatPage() {
     }, 1200);
   };
 
+  const handleQuickReplySelect = (replyText: string) => {
+    setNewMessage(replyText);
+    setIsQuickReplyOpen(false); // Close popover after selection
+  };
+
   return (
     <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-7rem)]">
       <Card className="w-1/3 border-r-0 rounded-r-none shadow-lg">
@@ -215,6 +232,29 @@ export default function DriverChatPage() {
             </ScrollArea>
             <CardContent className="p-4 border-t">
               <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                <Popover open={isQuickReplyOpen} onOpenChange={setIsQuickReplyOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" size="icon" className="shrink-0">
+                      <ListPlus className="w-5 h-5" />
+                      <span className="sr-only">Quick Replies</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2 max-h-60 overflow-y-auto">
+                    <div className="space-y-1">
+                      {quickReplies.map((reply) => (
+                        <Button
+                          key={reply.id}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start text-left h-auto py-1.5 px-2"
+                          onClick={() => handleQuickReplySelect(reply.text)}
+                        >
+                          {reply.text}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <Input
                   type="text"
                   placeholder="Type your message..."
@@ -239,3 +279,4 @@ export default function DriverChatPage() {
     </div>
   );
 }
+
