@@ -666,8 +666,6 @@ export default function BookRidePage() {
       return;
     }
 
-    formOnChange(addressText);
-
     const setIsFetchingDetailsFunc = (isFetching: boolean) => {
       if (typeof formFieldNameOrStopIndex === 'number') {
         setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
@@ -699,29 +697,55 @@ export default function BookRidePage() {
       placesServiceRef.current.getDetails(
         {
           placeId: suggestion.place_id,
-          fields: ['geometry.location'],
+          fields: ['geometry.location', 'formatted_address', 'address_components'], // Updated fields
           sessionToken: autocompleteSessionTokenRef.current
         },
         (place, status) => {
           setIsFetchingDetailsFunc(false);
           if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+            const finalAddressToSet = place.formatted_address || addressText;
             setCoordsFunc({
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
             });
-            toast({ title: "Location Selected", description: `${addressText} coordinates captured.`});
+            formOnChange(finalAddressToSet); // Update the form field with the full address
+            
+            // Update the local input value state
+             if (typeof formFieldNameOrStopIndex === 'number') {
+                setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, inputValue: finalAddressToSet, showSuggestions: false } : item));
+            } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+                setPickupInputValue(finalAddressToSet); setShowPickupSuggestions(false);
+            } else {
+                setDropoffInputValue(finalAddressToSet); setShowDropoffSuggestions(false);
+            }
+
+            toast({ title: "Location Selected", description: `${finalAddressToSet} coordinates captured.`});
           } else {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
+            formOnChange(addressText); // Fallback to original suggestion text
             setCoordsFunc(null);
-            if (formFieldNameOrStopIndex === 'pickupLocation') {}
+             if (typeof formFieldNameOrStopIndex === 'number') {
+                setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, inputValue: addressText, showSuggestions: false } : item));
+            } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+                setPickupInputValue(addressText); setShowPickupSuggestions(false);
+            } else {
+                setDropoffInputValue(addressText); setShowDropoffSuggestions(false);
+            }
           }
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
     } else {
       setIsFetchingDetailsFunc(false);
+      formOnChange(addressText); // Fallback to original suggestion text
       setCoordsFunc(null);
-      if (formFieldNameOrStopIndex === 'pickupLocation') {}
+       if (typeof formFieldNameOrStopIndex === 'number') {
+          setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, inputValue: addressText, showSuggestions: false } : item));
+      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+          setPickupInputValue(addressText); setShowPickupSuggestions(false);
+      } else {
+          setDropoffInputValue(addressText); setShowDropoffSuggestions(false);
+      }
       toast({ title: "Warning", description: "Could not fetch location details (missing place ID or service).", variant: "default" });
     }
   }, [toast, placesServiceRef, autocompleteSessionTokenRef, form]);
@@ -1263,7 +1287,7 @@ export default function BookRidePage() {
           if (status === google.maps.places.PlacesServiceStatus.OK && predictions && predictions[0]) {
             const firstPrediction = predictions[0];
             placesServiceRef.current!.getDetails(
-              { placeId: firstPrediction.place_id!, fields: ['geometry.location', 'formatted_address'], sessionToken: autocompleteSessionTokenRef.current },
+              { placeId: firstPrediction.place_id!, fields: ['geometry.location', 'formatted_address', 'address_components'], sessionToken: autocompleteSessionTokenRef.current },
               (place, detailStatus) => {
                 if (detailStatus === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
                   const coords = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
@@ -2187,7 +2211,7 @@ const handleProceedToConfirmation = async () => {
                   </Button>
 
                   <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
-                    <DialogContent className="sm:max-w-md grid grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] p-0">
+                    <DialogContent className="book-ride-confirmation-dialog sm:max-w-md grid grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] p-0">
                       <DialogHeader className="p-6 pb-4 border-b">
                         <ShadDialogTitle className="text-xl font-headline">Confirm Your Booking</ShadDialogTitle>
                         <ShadDialogDescription>

@@ -434,29 +434,43 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
   ) => {
     const addressText = suggestion?.description;
     if (!addressText) return;
-    formOnChange(addressText);
+    
     const setIsFetchingDetailsFunc = (isFetching: boolean) => {
       if (typeof formFieldNameOrStopIndex === 'number') setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
       else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingPickupDetails(isFetching); else setIsFetchingDropoffDetails(isFetching);
     };
-    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null) => {
-      if (typeof formFieldNameOrStopIndex === 'number') setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: addressText, showSuggestions: false } : item));
-      else if (formFieldNameOrStopIndex === 'pickupLocation') { setPickupCoords(coords); setPickupInputValue(addressText); setShowPickupSuggestions(false); }
-      else { setDropoffCoords(coords); setDropoffInputValue(addressText); setShowDropoffSuggestions(false); }
+    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null, finalAddress: string) => {
+      if (typeof formFieldNameOrStopIndex === 'number') setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddress, showSuggestions: false } : item));
+      else if (formFieldNameOrStopIndex === 'pickupLocation') { setPickupCoords(coords); setPickupInputValue(finalAddress); setShowPickupSuggestions(false); }
+      else { setDropoffCoords(coords); setDropoffInputValue(finalAddress); setShowDropoffSuggestions(false); }
     };
+
     setIsFetchingDetailsFunc(true);
     if (placesServiceRef.current && suggestion.place_id) {
       placesServiceRef.current.getDetails(
-        { placeId: suggestion.place_id, fields: ['geometry.location'], sessionToken: autocompleteSessionTokenRef.current },
+        { placeId: suggestion.place_id, fields: ['geometry.location', 'formatted_address', 'address_components'], sessionToken: autocompleteSessionTokenRef.current }, // Updated fields
         (place, status) => {
           setIsFetchingDetailsFunc(false);
-          setCoordsFunc(status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : null);
-          if (status !== google.maps.places.PlacesServiceStatus.OK) toast({ title: "Error", description: "Could not get location details.", variant: "destructive"}); else toast({ title: "Location Selected", description: `${addressText} coordinates captured.`});
+          const finalAddressToSet = place?.formatted_address || addressText;
+          formOnChange(finalAddressToSet); // Update the form field with the full address
+          
+          if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+            setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
+            toast({ title: "Location Selected", description: `${finalAddressToSet} coordinates captured.`});
+          } else { 
+            setCoordsFunc(null, finalAddressToSet); // Keep the selected text even if coords fail
+            toast({ title: "Error", description: "Could not get location details. Address set, but coordinates missing.", variant: "destructive"});
+          }
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
       );
-    } else { setIsFetchingDetailsFunc(false); setCoordsFunc(null); toast({ title: "Warning", description: "Could not fetch location details."}); }
-  }, [toast]);
+    } else { 
+      setIsFetchingDetailsFunc(false); 
+      formOnChange(addressText); // Fallback to original suggestion text
+      setCoordsFunc(null, addressText); 
+      toast({ title: "Warning", description: "Could not fetch location details."}); 
+    }
+  }, [toast, form.setValue]); // Added form.setValue as it's used indirectly via formOnChange
 
   const handleFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
      if (typeof fieldNameOrIndex === 'number') {
