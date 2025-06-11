@@ -181,9 +181,9 @@ export default function ProfilePage() {
           {user.role === 'driver' && (
             <>
               <Separator />
-              <div className="flex justify-between items-center pt-4">
+              <div className="flex flex-wrap justify-between items-start gap-2 pt-4">
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
-                  <CarIcon className="w-6 h-6 text-primary" /> Vehicle & Compliance
+                  <CarIcon className="w-6 h-6 text-primary" /> Vehicle &amp; Compliance
                 </CardTitle>
                 <Button variant={isEditingVehicleInfo ? "destructive" : "outline"} size="sm" onClick={() => isEditingVehicleInfo ? handleCancelVehicleInfoEdit() : setIsEditingVehicleInfo(true)}>
                     <span className="flex items-center justify-center">
@@ -194,7 +194,7 @@ export default function ProfilePage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div>
-                  <Label htmlFor="vehicleMakeModel"><span className="flex items-center gap-1"><CarIcon className="w-4 h-4 text-muted-foreground" /> Make & Model</span></Label>
+                  <Label htmlFor="vehicleMakeModel"><span className="flex items-center gap-1"><CarIcon className="w-4 h-4 text-muted-foreground" /> Make &amp; Model</span></Label>
                   {isEditingVehicleInfo ? <Input id="vehicleMakeModel" value={vehicleMakeModel} onChange={(e) => setVehicleMakeModel(e.target.value)} placeholder="e.g., Toyota Prius" /> : <p className="text-md p-2 rounded-md bg-muted/50">{user.vehicleMakeModel || "Not set"}</p>}
                 </div>
                 <div>
