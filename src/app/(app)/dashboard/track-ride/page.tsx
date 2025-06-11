@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase } from "lucide-react";
 import dynamic from 'next/dynamic';
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'; 
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth, UserRole } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -198,7 +198,7 @@ export default function MyActiveRidePage() {
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
-  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
+  const driverLocation = useMemo(() => activeRide?.driverCurrentLocation || huddersfieldCenterGoogle, [activeRide?.driverCurrentLocation]);
 
   const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
   const [freeWaitingSecondsLeft, setFreeWaitingSecondsLeft] = useState<number | null>(null);
@@ -238,7 +238,6 @@ export default function MyActiveRidePage() {
       if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`})); throw new Error(errorData.details || errorData.message); }
       const data: ActiveRide | null = await response.json();
       setActiveRide(data);
-      if (data?.pickupLocation) { setDriverLocation({lat: data.pickupLocation.latitude, lng: data.pickupLocation.longitude}); }
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; setError(message); toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" });
     } finally { setIsLoading(false); }
   }, [user, toast]);
@@ -348,8 +347,6 @@ export default function MyActiveRidePage() {
       if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
       toast({ title: "Ride Cancelled", description: `Your ride ${activeRide.id} has been cancelled.` });
       setActiveRide(null);
-      // setShowCancelConfirmationDialog(false); // Dialog state managed by onOpenChange
-      // setIsCancelSwitchOn(false); // Switch state managed by onOpenChange of dialog
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
     } finally {
         if (activeRide) setActionLoading(prev => ({ ...prev, [activeRide.id]: false }));
@@ -593,6 +590,22 @@ export default function MyActiveRidePage() {
     </div>
   );
 
+  const renderAlertDialogActionContent = () => {
+    const isLoadingAction = activeRide && (actionLoading[activeRide.id] || false);
+    return (
+      <span className="inline-flex items-center justify-center gap-2">
+        {isLoadingAction ? (
+          <Loader2 className="animate-spin h-4 w-4" />
+        ) : (
+          <ShieldX className="h-4 w-4" />
+        )}
+        <span>
+          {isLoadingAction ? 'Cancelling...' : 'Confirm Cancel'}
+        </span>
+      </span>
+    );
+  };
+
 
   return (
     <div className="space-y-6">
@@ -723,23 +736,14 @@ export default function MyActiveRidePage() {
                   <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => { 
-                    if (activeRide) { handleInitiateCancelRide(); } 
-                    setShowCancelConfirmationDialog(false); // Explicitly close on action
+                  onClick={() => {
+                    if (activeRide) { handleInitiateCancelRide(); }
+                    setShowCancelConfirmationDialog(false);
                   }}
-                  disabled={!activeRide || (actionLoading[activeRide.id] || false)}
+                  disabled={!activeRide || !!actionLoading[activeRide.id]}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                 <span className="inline-flex items-center justify-center gap-2">
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                      <Loader2 className="animate-spin h-4 w-4" />
-                    ) : (
-                      <ShieldX className="h-4 w-4" />
-                    )}
-                    <span>
-                      {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
-                    </span>
-                  </span>
+                 {renderAlertDialogActionContent()}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -806,4 +810,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
