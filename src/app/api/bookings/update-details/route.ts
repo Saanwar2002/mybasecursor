@@ -8,6 +8,7 @@ interface LocationPointPayload {
   address: string;
   latitude: number;
   longitude: number;
+  doorOrFlat?: string;
 }
 
 interface UpdateDetailsPayload {
@@ -17,6 +18,7 @@ interface UpdateDetailsPayload {
   dropoffLocation: LocationPointPayload;
   stops: LocationPointPayload[];
   scheduledPickupAt: string | null; // ISO string or null to make it ASAP
+  fareEstimate?: number | null; // Added fareEstimate
 }
 
 export async function POST(request: NextRequest) {
@@ -27,7 +29,8 @@ export async function POST(request: NextRequest) {
         pickupLocation,
         dropoffLocation,
         stops,
-        scheduledPickupAt 
+        scheduledPickupAt,
+        fareEstimate // Destructure fareEstimate
     } = (await request.json()) as UpdateDetailsPayload;
 
     if (!bookingId || !passengerId || !pickupLocation || !dropoffLocation) {
@@ -86,6 +89,10 @@ export async function POST(request: NextRequest) {
         updatedAt: Timestamp.now(),
     };
 
+    if (fareEstimate !== undefined && fareEstimate !== null) {
+        updateData.fareEstimate = fareEstimate;
+    }
+
     if (scheduledPickupAt === null) {
         updateData.scheduledPickupAt = deleteField(); 
     } else {
@@ -94,14 +101,18 @@ export async function POST(request: NextRequest) {
     
     await updateDoc(bookingRef, updateData);
     
-    // Return the updated fields so the client can refresh its state accurately
+    // Fetch the updated document to return the most current data
+    const updatedBookingSnap = await getDoc(bookingRef);
+    const updatedBookingData = updatedBookingSnap.data();
+
     return NextResponse.json({ 
         message: 'Booking details updated successfully', 
         bookingId,
-        pickupLocation,
-        dropoffLocation,
-        stops,
-        scheduledPickupAt 
+        pickupLocation: updatedBookingData?.pickupLocation,
+        dropoffLocation: updatedBookingData?.dropoffLocation,
+        stops: updatedBookingData?.stops,
+        scheduledPickupAt: updatedBookingData?.scheduledPickupAt,
+        fareEstimate: updatedBookingData?.fareEstimate // Return the potentially updated fare
     }, { status: 200 });
 
   } catch (error) {
@@ -113,6 +124,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Failed to update booking details', details: errorMessage }, { status: 500 });
   }
 }
-
-
-    

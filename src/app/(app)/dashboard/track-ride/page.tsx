@@ -315,9 +315,11 @@ export default function MyActiveRidePage() {
 
   useEffect(() => {
     if (isEditDetailsDialogOpen) {
-      editDetailsForm.setFocus('pickupLocation');
+        if (editStopsFields.length === 0) { // Only focus pickup if no stops exist initially
+             editDetailsForm.setFocus('pickupLocation');
+        }
     }
-  }, [isEditDetailsDialogOpen, editDetailsForm]);
+  }, [isEditDetailsDialogOpen, editDetailsForm, editStopsFields.length]);
 
   useEffect(() => {
     if (editStopsFields.length > previousEditStopsLengthRef.current) {
@@ -519,7 +521,7 @@ export default function MyActiveRidePage() {
         }
       );
     },
-    [isMapSdkLoaded, toast] // isMapSdkLoaded ensures this re-memoizes when SDK is ready
+    [isMapSdkLoaded] 
   );
 
   const handleEditAddressInputChangeFactory = useCallback((
@@ -612,16 +614,28 @@ export default function MyActiveRidePage() {
   const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
     if (typeof fieldNameOrIndex === 'number') {
       const stop = dialogStopAutocompleteData[fieldNameOrIndex];
-      if (stop?.inputValue.length >= 2) {
+      if (stop?.inputValue.length >= 2) { // No need to check suggestions length here, just trigger fetch
         setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
+        if (!stop.suggestions?.length && !stop.isFetchingSuggestions) { // Fetch if no suggestions and not already fetching
+            fetchAddressSuggestions(stop.inputValue, 
+                (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, suggestions: sugg} : item)),
+                (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, isFetchingSuggestions: fetch} : item))
+            );
+        }
       }
     } else if (fieldNameOrIndex === 'pickupLocation') {
       if (dialogPickupInputValue.length >= 2) {
         setShowDialogPickupSuggestions(true);
+        if (!dialogPickupSuggestions?.length && !isFetchingDialogPickupSuggestions) {
+            fetchAddressSuggestions(dialogPickupInputValue, setDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions);
+        }
       }
     } else if (fieldNameOrIndex === 'dropoffLocation') {
       if (dialogDropoffInputValue.length >= 2) {
         setShowDialogDropoffSuggestions(true);
+        if (!dialogDropoffSuggestions?.length && !isFetchingDialogDropoffSuggestions) {
+            fetchAddressSuggestions(dialogDropoffInputValue, setDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions);
+        }
       }
     }
   };
@@ -639,12 +653,34 @@ export default function MyActiveRidePage() {
     for (let i = 0; i < (values.stops?.length || 0); i++) { const stopValue = values.stops?.[i]; const stopCoordsData = dialogStopAutocompleteData[i]; if (stopValue?.location && stopValue.location.trim() !== "" && !stopCoordsData?.coords) { toast({ title: `Stop ${i + 1} Incomplete`, description: `Please ensure Stop ${i + 1} has coordinates by selecting from suggestions.`, variant: "destructive" }); return; } if (stopValue?.location && stopValue.location.trim() !== "" && stopCoordsData?.coords) { validStopsData.push({ address: stopValue.location, latitude: stopCoordsData.coords.lat, longitude: stopCoordsData.coords.lng, doorOrFlat: stopValue.doorOrFlat }); } }
     setIsUpdatingDetails(true); let scheduledAtISO: string | null = null;
     if (values.desiredPickupDate && values.desiredPickupTime) { const [hours, minutes] = values.desiredPickupTime.split(':').map(Number); const combinedDateTime = new Date(values.desiredPickupDate); combinedDateTime.setHours(hours, minutes, 0, 0); scheduledAtISO = combinedDateTime.toISOString(); }
-    const payload: BookingUpdatePayload = {  bookingId: rideToEditDetails.id, passengerId: user.id, pickupLocation: { address: values.pickupLocation, latitude: dialogPickupCoords.lat, longitude: dialogPickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat }, dropoffLocation: { address: values.dropoffLocation, latitude: dialogDropoffCoords.lat, longitude: dialogDropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat }, stops: validStopsData, scheduledPickupAt: scheduledAtISO, };
+    
+    const payload: any = {  
+        bookingId: rideToEditDetails.id, 
+        passengerId: user.id, 
+        pickupLocation: { address: values.pickupLocation, latitude: dialogPickupCoords.lat, longitude: dialogPickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat }, 
+        dropoffLocation: { address: values.dropoffLocation, latitude: dialogDropoffCoords.lat, longitude: dialogDropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat }, 
+        stops: validStopsData, 
+        scheduledPickupAt: scheduledAtISO, 
+    };
+    if (dialogFareEstimate !== null) {
+        payload.fareEstimate = dialogFareEstimate;
+    }
+
+
     try {
         const response = await fetch(`/api/bookings/update-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)});
         if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to update booking.'); }
         const updatedRideDataFromServer = await response.json();
-        setActiveRide(prev => prev ? { ...prev,  pickupLocation: updatedRideDataFromServer.pickupLocation, dropoffLocation: updatedRideDataFromServer.dropoffLocation, stops: updatedRideDataFromServer.stops, scheduledPickupAt: updatedRideDataFromServer.scheduledPickupAt, } : null );
+        
+        setActiveRide(prev => prev ? { 
+            ...prev,  
+            pickupLocation: updatedRideDataFromServer.pickupLocation, 
+            dropoffLocation: updatedRideDataFromServer.dropoffLocation, 
+            stops: updatedRideDataFromServer.stops, 
+            scheduledPickupAt: updatedRideDataFromServer.scheduledPickupAt,
+            fareEstimate: updatedRideDataFromServer.fareEstimate !== undefined ? updatedRideDataFromServer.fareEstimate : prev.fareEstimate,
+        } : null );
+
         toast({ title: "Booking Updated", description: "Your ride details have been successfully changed." }); setIsEditDetailsDialogOpen(false);
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error."; toast({ title: "Update Failed", description: message, variant: "destructive" });
     } finally { setIsUpdatingDetails(false); }
