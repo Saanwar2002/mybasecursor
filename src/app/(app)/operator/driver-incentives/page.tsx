@@ -12,6 +12,7 @@ import { Award, DollarSign, Target, PlusCircle, TrendingUp, CalendarDays, AlertT
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge"; // Added Badge import
 import { useAuth } from "@/contexts/auth-context"; // Added useAuth
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Added Alert imports
 
 // Mock Data - Scoped to this operator
 const mockOperatorPrograms = [
