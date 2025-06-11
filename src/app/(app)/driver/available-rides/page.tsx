@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, CarCrash, TrafficCone, ShieldCheck, LockKeyhole, AlertOctagon, type LucideIcon } from "lucide-react";
+import { MapPin, User, Clock, Check, X, Navigation, Route, CheckCircle, XCircle, MessageSquare, Users as UsersIcon, Info, Phone, Star, BellRing, CheckCheck, Loader2, Building, Car as CarIcon, Power, AlertTriangle, DollarSign as DollarSignIcon, MessageCircle as ChatIcon, Briefcase, CreditCard, Coins, Timer, UserX, RefreshCw, Crown, ShieldX, ShieldAlert, PhoneCall, Construction, Gauge, MinusCircle, TrafficCone, ShieldCheck, LockKeyhole, AlertOctagon, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -526,10 +526,9 @@ export default function AvailableRidesPage() {
       return;
     }
 
-    // Only set loading true for the initial fetch or if there's currently no active ride
     const initialLoadOrNoRide = !activeRide; 
     if (initialLoadOrNoRide) setIsLoading(true);
-    setError(null); // Reset error at the start of each fetch
+    setError(null); 
 
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
@@ -557,12 +556,11 @@ export default function AvailableRidesPage() {
     } catch (err: any) { 
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; 
       console.error("Error in fetchActiveRide:", message); 
-      setError(message); // Set error state for UI display
-      // Do not toast here, as it can be annoying with polling
+      setError(message); 
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, toast]); // Removed activeRide and error from dependencies
+  }, [driverUser?.id, toast]);
 
 
  useEffect(() => {
@@ -856,7 +854,6 @@ export default function AvailableRidesPage() {
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
-      // Removed setIsPollingEnabled(true) from here. Polling is controlled by useEffect based on activeRide status.
       return;
     }
 
@@ -911,7 +908,6 @@ export default function AvailableRidesPage() {
         }
         console.error(`Accept offer for ${currentActionRideId} - Server error:`, errorDetailsText);
         toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
-        // Removed setIsPollingEnabled(true) from here.
         setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
         console.log(`Reset actionLoading for ${currentActionRideId} to false after server error.`);
         return;
@@ -978,7 +974,6 @@ export default function AvailableRidesPage() {
       }
 
       toast({ title: "Acceptance Failed", description: detailedMessage, variant: "destructive" });
-      // Removed setIsPollingEnabled(true) from here.
     } finally {
       console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
       setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
@@ -995,7 +990,7 @@ export default function AvailableRidesPage() {
     setConsecutiveMissedOffers(newMissedCount);
 
     if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
-        setIsDriverOnline(false); // This will trigger the useEffect for polling to stop.
+        setIsDriverOnline(false); 
         toast({
             title: "Automatically Set Offline",
             description: `You've missed ${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive offers and have been set to Offline. You can go online again manually.`,
@@ -1162,7 +1157,6 @@ export default function AvailableRidesPage() {
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
         console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Polling might resume if driver is online.`);
-        // No direct setIsPollingEnabled(true) here; polling is controlled by useEffect based on activeRide status & isDriverOnline.
       }
 
 
@@ -1303,10 +1297,10 @@ export default function AvailableRidesPage() {
         if (geolocationError) {
             setGeolocationError(null);
         }
-        setIsPollingEnabled(true); // Ensure polling restarts when going online
+        setIsPollingEnabled(true); 
     } else {
         setRideRequests([]);
-        setIsPollingEnabled(false); // Stop polling when going offline
+        setIsPollingEnabled(false); 
         if (watchIdRef.current !== null) {
             navigator.geolocation.clearWatch(watchIdRef.current);
             watchIdRef.current = null;
@@ -1413,7 +1407,6 @@ export default function AvailableRidesPage() {
     if (isPriorityOverride) {
       return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
     }
-    // Default for general pool auto-dispatches if not fitting above conditions
     return { text: "Dispatched By App (Auto)", icon: CheckCircle, bgColorClassName: "bg-green-600" };
   };
   const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
@@ -1422,7 +1415,7 @@ export default function AvailableRidesPage() {
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
-  if (error && !activeRide && !isLoading) { // Show error only if not loading and no active ride
+  if (error && !activeRide && !isLoading) { 
     return <div className="flex flex-col justify-center items-center h-full text-center p-4">
         <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
         <p className="text-lg font-semibold text-destructive">Error Loading Ride Data</p>
@@ -1702,7 +1695,6 @@ export default function AvailableRidesPage() {
                         setCurrentWaitingCharge(0);
                         setIsCancelSwitchOn(false);
                         setActiveRide(null); 
-                        // setIsPollingEnabled(true); // This is handled by useEffect
                     }}
                     disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
@@ -1836,7 +1828,7 @@ export default function AvailableRidesPage() {
                 { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
                 { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheck },
                 { label: "Road Closure", type: "road_closure", icon: MinusCircle },
-                { label: "Accident", type: "accident", icon: CarCrash },
+                { label: "Accident", type: "accident", icon: AlertTriangle },
                 { label: "Road Works", type: "road_works", icon: Construction },
                 { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
               ].map(hazard => (
@@ -1958,7 +1950,7 @@ export default function AvailableRidesPage() {
                 { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
                 { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheck },
                 { label: "Road Closure", type: "road_closure", icon: MinusCircle },
-                { label: "Accident", type: "accident", icon: CarCrash },
+                { label: "Accident", type: "accident", icon: AlertTriangle },
                 { label: "Road Works", type: "road_works", icon: Construction },
                 { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
               ].map(hazard => (
@@ -2068,4 +2060,3 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
-
