@@ -328,7 +328,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     </div>
                   )}
                 {rideDetails.distanceMiles && (
-                  <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Distance:</strong> {rideDetails.distanceMiles.toFixed(1)} mi</p>
+                  <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Distance:</strong> ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
                 )}
               </div>
 

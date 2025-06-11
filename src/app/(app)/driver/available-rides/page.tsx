@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, ShieldAlert, CheckCircle } from "lucide-react"; // Added CheckCircle
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, ShieldAlert, CheckCircle as CheckCircleIcon, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -535,9 +535,7 @@ export default function AvailableRidesPage() {
 
     const initialLoadOrNoRide = !activeRide; 
     if (initialLoadOrNoRide) setIsLoading(true);
-    // Don't set error to null here, so it persists until a successful fetch
-    // setError(null); 
-
+    
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
       console.log("fetchActiveRide response status:", response.status);
@@ -548,7 +546,7 @@ export default function AvailableRidesPage() {
       const data: ActiveRide | null = await response.json();
       console.log("fetchActiveRide - Data received from API:", data);
       
-      setError(null); // Clear error on successful fetch
+      setError(null);
 
       setActiveRide(currentClientRide => {
         if (data === null && currentClientRide?.status === 'completed') {
@@ -566,12 +564,11 @@ export default function AvailableRidesPage() {
     } catch (err: any) { 
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; 
       console.error("Error in fetchActiveRide:", message); 
-      setError(message); // Set error if fetch fails
-      // toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" }); // Toast handled below
+      setError(message);
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, toast, activeRide]);
+  }, [driverUser?.id, toast]);
 
 
  useEffect(() => {
@@ -664,20 +661,6 @@ export default function AvailableRidesPage() {
     };
   }, [driverUser, fetchActiveRide, isPollingEnabled]);
 
-
-  useEffect(() => {
-    if (activeRide && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup')) {
-      const interval = setInterval(() => {
-        setActiveRide(prev => {
-          if (!prev) return null;
-          let newEta = prev.driverEtaMinutes ? Math.max(0, prev.driverEtaMinutes - 1) : (Math.floor(Math.random() * 5) + 2);
-          if (prev.status === 'arrived_at_pickup') newEta = 0;
-          return { ...prev, driverEtaMinutes: newEta };
-        });
-      }, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [activeRide]);
 
   useEffect(() => {
     const clearStationaryLogic = () => {
@@ -1233,7 +1216,7 @@ export default function AvailableRidesPage() {
         case 'mobile_speed_camera': return 'SC';
         case 'roadside_taxi_checking': return 'TC';
         case 'road_closure': return 'RC';
-        case 'accident': return 'AC'; // Using AlertTriangle as general for now
+        case 'accident': return 'AC'; 
         case 'road_works': return 'RW';
         case 'heavy_traffic': return 'HT';
         default: return '!';
@@ -1292,7 +1275,6 @@ export default function AvailableRidesPage() {
 
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
     if (!ride || !['driver_assigned'].includes(ride.status.toLowerCase())) return null;
-    // Hide if "Report No Show" is available or ride is beyond driver_assigned
     if (ride.status.toLowerCase() === 'arrived_at_pickup') return null;
 
     return (
@@ -1416,17 +1398,16 @@ export default function AvailableRidesPage() {
     
     const isManualDispatch = ride.dispatchMethod === 'manual_operator';
     const isPriorityOverride = ride.dispatchMethod === 'priority_override';
-    const isAutoSystem = ride.dispatchMethod === 'auto_system' || !ride.dispatchMethod;
-  
+    
     if (isPlatformRide) {
       return isManualDispatch 
         ? { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
-        : { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+        : { text: "Dispatched By App: AUTO MODE", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
     }
     if (isOwnOperatorRide) {
       return isManualDispatch
         ? { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
-        : { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+        : { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
     }
     
     if (isManualDispatch) {
@@ -1436,7 +1417,7 @@ export default function AvailableRidesPage() {
     if (isPriorityOverride) {
       return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
     }
-    return { text: "Dispatched By App (Auto)", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+    return { text: "Dispatched By App (Auto)", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
   };
   const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
 
@@ -1585,7 +1566,7 @@ export default function AvailableRidesPage() {
             {showInProgressStatus && ( <div className="flex justify-center mb-2"> <Badge variant="default" className="text-sm w-fit mx-auto bg-green-600 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> Ride In Progress </Badge> </div> )}
             {showPendingWRApprovalStatus && ( <div className="flex justify-center mb-2"> <Badge variant="secondary" className="text-sm w-fit mx-auto bg-purple-500 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> W&R Request Pending </Badge> </div> )}
             {showInProgressWRStatus && ( <div className="flex justify-center mb-2"> <Badge variant="default" className="text-sm w-fit mx-auto bg-teal-600 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> Ride In Progress (W&R) </Badge> </div> )}
-            {showCompletedStatus && ( <div className="flex justify-center my-4"> <Badge variant="default" className="text-lg w-fit mx-auto bg-primary text-primary-foreground py-2 px-6 rounded-lg font-bold shadow-lg flex items-center gap-2"> <CheckCircle className="w-6 h-6" /> Ride Completed </Badge> </div> )}
+            {showCompletedStatus && ( <div className="flex justify-center my-4"> <Badge variant="default" className="text-lg w-fit mx-auto bg-primary text-primary-foreground py-2 px-6 rounded-lg font-bold shadow-lg flex items-center gap-2"> <CheckCircleIcon className="w-6 h-6" /> Ride Completed </Badge> </div> )}
             {showCancelledByDriverStatus && ( <div className="flex justify-center my-4"> <Badge variant="destructive" className="text-lg w-fit mx-auto py-2 px-6 rounded-lg font-bold shadow-lg flex items-center gap-2"> <XCircle className="w-6 h-6" /> Ride Cancelled By You </Badge> </div> )}
             {showCancelledNoShowStatus && ( <div className="flex justify-center my-4"> <Badge variant="destructive" className="text-lg w-fit mx-auto py-2 px-6 rounded-lg font-bold shadow-lg flex items-center gap-2"> <UserXIcon className="w-6 h-6" /> Passenger No-Show </Badge> </div> )}
 
@@ -1684,7 +1665,7 @@ export default function AvailableRidesPage() {
                     </p>
                     <p className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
                     {activeRide.distanceMiles != null && (
-                      <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> {activeRide.distanceMiles.toFixed(1)} mi</p>
+                      <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                     )}
                     {activeRide.paymentMethod && ( <p className="flex items-center gap-1 col-span-2 mt-1"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'account' ? 'Account (PIN)' : 'Cash'} </p> )}
                  </div>
@@ -1752,7 +1733,7 @@ export default function AvailableRidesPage() {
                         setCurrentWaitingCharge(0);
                         setIsCancelSwitchOn(false);
                         setActiveRide(null); 
-                        setIsPollingEnabled(true); // Re-enable polling when ride is fully finished
+                        setIsPollingEnabled(true);
                     }}
                     disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
