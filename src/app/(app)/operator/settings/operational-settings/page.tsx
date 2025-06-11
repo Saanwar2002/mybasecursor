@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { DollarSign, Loader2, AlertTriangle, Zap, SlidersHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
-import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton import
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function OperatorOperationalSettingsPage() {
   const { user, updateUserProfileInContext } = useAuth();
@@ -156,8 +156,7 @@ export default function OperatorOperationalSettingsPage() {
                 <Skeleton className="h-6 w-11 rounded-full" />
                 <Skeleton className="h-6 w-48 rounded-md" />
               </div>
-              <Skeleton className="h-4 w-full rounded-md" />
-              <Skeleton className="h-4 w-3/4 rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" /> 
             </div>
           </CardContent>
         ) : errorDispatch ? (
@@ -207,7 +206,7 @@ export default function OperatorOperationalSettingsPage() {
                 <Skeleton className="h-6 w-11 rounded-full" />
                 <Skeleton className="h-6 w-64 rounded-md" />
               </div>
-              <Skeleton className="h-4 w-full rounded-md mt-3" />
+              <Skeleton className="h-10 w-full rounded-md mt-3" />
             </div>
           </CardContent>
         ) : errorSurge ? (
