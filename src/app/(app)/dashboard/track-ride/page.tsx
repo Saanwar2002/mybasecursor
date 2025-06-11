@@ -2,7 +2,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, Route } from "lucide-react";
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -294,7 +294,6 @@ export default function MyActiveRidePage() {
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
   const previousEditStopsLengthRef = useRef(editStopsFields.length);
 
-
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
       if (!autocompleteServiceRef.current && window.google.maps.places) {
@@ -312,6 +311,7 @@ export default function MyActiveRidePage() {
       }
     }
   }, [isMapSdkLoaded]);
+
 
   useEffect(() => {
     if (isEditDetailsDialogOpen) {
@@ -493,6 +493,35 @@ export default function MyActiveRidePage() {
     setDialogStopAutocompleteData(initialStopData); setIsEditDetailsDialogOpen(true);
   };
 
+  const fetchAddressSuggestions = useCallback(
+    (
+      inputValue: string,
+      setSuggestionsFunc: (suggestions: google.maps.places.AutocompletePrediction[]) => void,
+      setIsFetchingFunc: (isFetching: boolean) => void
+    ) => {
+      if (!isMapSdkLoaded || !autocompleteServiceRef.current || inputValue.length < 2) {
+        setSuggestionsFunc([]);
+        setIsFetchingFunc(false);
+        return;
+      }
+      setIsFetchingFunc(true);
+      console.log(`[EditDialog] Fetching predictions for (from fetchAddressSuggestions): "${inputValue}"`);
+      autocompleteServiceRef.current.getPlacePredictions(
+        {
+          input: inputValue,
+          sessionToken: autocompleteSessionTokenRef.current,
+          componentRestrictions: { country: 'gb' },
+        },
+        (predictions, status) => {
+          setIsFetchingFunc(false);
+          console.log(`[EditDialog] getPlacePredictions for "${inputValue}": Status - ${status}`, predictions);
+          setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
+        }
+      );
+    },
+    [isMapSdkLoaded, toast] // isMapSdkLoaded ensures this re-memoizes when SDK is ready
+  );
+
   const handleEditAddressInputChangeFactory = useCallback((
     formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
   ) => (
@@ -500,45 +529,40 @@ export default function MyActiveRidePage() {
     formOnChange: (value: string) => void,
   ) => {
     formOnChange(inputValue); 
+    setDialogFareEstimate(null);
     
-    const setIsFetchingSuggFunc = (fetch: boolean) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch, inputValue } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') { setIsFetchingDialogPickupSuggestions(fetch); setDialogPickupInputValue(inputValue); setDialogPickupCoords(null); setShowDialogPickupSuggestions(inputValue.length >=2); }
-        else { setIsFetchingDialogDropoffSuggestions(fetch); setDialogDropoffInputValue(inputValue); setDialogDropoffCoords(null); setShowDialogDropoffSuggestions(inputValue.length >=2); }
-    };
-    const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
-        else setDialogDropoffSuggestions(sugg);
-    };
+    let setSuggestionsFunc: (s: google.maps.places.AutocompletePrediction[]) => void;
+    let setIsFetchingSuggFunc: (f: boolean) => void;
+    let setShowSuggFunc: (s: boolean) => void;
+    let setCoordsFunc: (c: google.maps.LatLngLiteral | null) => void;
+    let setInputValFunc: (v: string) => void;
 
-    if (!isMapSdkLoaded || !autocompleteServiceRef.current || !autocompleteSessionTokenRef.current) {
-        console.warn(`[EditDialog] Autocomplete service NOT READY for input. Input: "${inputValue}"`);
-        setIsFetchingSuggFunc(false);
-        setSuggestionsFunc([]);
-        return;
+    if (typeof formFieldNameOrStopIndex === 'number') {
+        setInputValFunc = (val) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val } : item));
+        setCoordsFunc = (coords) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords: coords } : item));
+        setShowSuggFunc = (show) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show } : item));
+        setIsFetchingSuggFunc = (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch } : item));
+        setSuggestionsFunc = (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
+    } else if (formFieldNameOrStopIndex === 'pickupLocation') {
+        setInputValFunc = setDialogPickupInputValue; setCoordsFunc = setDialogPickupCoords; setShowSuggFunc = setShowDialogPickupSuggestions; setIsFetchingSuggFunc = setIsFetchingDialogPickupSuggestions; setSuggestionsFunc = setDialogPickupSuggestions;
+    } else {
+        setInputValFunc = setDialogDropoffInputValue; setCoordsFunc = setDialogDropoffCoords; setShowSuggFunc = setShowDialogDropoffSuggestions; setIsFetchingSuggFunc = setIsFetchingDialogDropoffSuggestions; setSuggestionsFunc = setDialogDropoffSuggestions;
     }
+    
+    setInputValFunc(inputValue);
+    setCoordsFunc(null);
+    setShowSuggFunc(inputValue.length >=2);
 
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     if (inputValue.length < 2) { setIsFetchingSuggFunc(false); setSuggestionsFunc([]); return; }
     
     setIsFetchingSuggFunc(true); 
+    setSuggestionsFunc([]);
     console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
     debounceTimeoutRef.current = setTimeout(() => {
-      autocompleteServiceRef.current!.getPlacePredictions(
-        { input: inputValue, sessionToken: autocompleteSessionTokenRef.current!, componentRestrictions: { country: 'gb' } },
-        (predictions, status) => {
-          setIsFetchingSuggFunc(false);
-          console.log(`[EditDialog] getPlacePredictions for "${inputValue}": Status - ${status}`, predictions);
-          setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
-        }
-      );
+      fetchAddressSuggestions(inputValue, setSuggestionsFunc, setIsFetchingSuggFunc);
     }, 300);
-  }, [
-    isMapSdkLoaded,
-    // No need for dialog input values/setters here as they are handled by local funcs passed to this factory
-    toast // Keep toast if used inside for error reporting
-  ]);
+  }, [isMapSdkLoaded, fetchAddressSuggestions]);
 
 
  const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
@@ -575,17 +599,14 @@ export default function MyActiveRidePage() {
                 setCoordsFunc(null, finalAddressToSet); 
                 toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"});
             }
-            autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken(); 
+            if (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.places) {
+                 autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken(); 
+            } else {
+                console.warn("[EditDialog] Google Places API not fully available to refresh session token.");
+            }
         }
     );
-  }, [
-    isMapSdkLoaded, 
-    toast, 
-    setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, 
-    setDialogPickupInputValue, setDialogDropoffInputValue, 
-    setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, 
-    setIsFetchingDialogPickupDetails, setIsFetchingDialogDropoffDetails
-  ]);
+  }, [isMapSdkLoaded, toast]);
 
 
   const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
@@ -855,7 +876,7 @@ export default function MyActiveRidePage() {
   if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
 
-  const renderAutocompleteSuggestions = ( suggestions: google.maps.places.AutocompletePrediction[], isFetchingSugg: boolean, isFetchingDet: boolean, inputValue: string, onSuggClick: (suggestion: google.maps.places.AutocompletePrediction) => void, fieldKey: string ) => ( <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60"> <div className="space-y-1 p-1"> {isFetchingSugg && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</div>} {isFetchingDet && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</div>} {!isFetchingSugg && !isFetchingDet && suggestions.length === 0 && inputValue.length >= 2 && <div className="p-2 text-sm text-muted-foreground">No suggestions.</div>} {!isFetchingSugg && !isFetchingDet && suggestions.map((s) => ( <div key={`${fieldKey}-${s.place_id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm" onMouseDown={() => onSuggClick(s)}>{s.description}</div> ))} </div> </ScrollArea> );
+  const renderAutocompleteSuggestions = ( suggestions: google.maps.places.AutocompletePrediction[], isFetchingSugg: boolean, isFetchingDet: boolean, inputValue: string, onSuggClick: (suggestion: google.maps.places.AutocompletePrediction) => void, fieldKey: string ) => ( <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60"> <div className="space-y-1 p-1"> {isFetchingSugg && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</div>} {isFetchingDet && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</div>} {!isFetchingSugg && !isFetchingDet && suggestions.length === 0 && inputValue.length >= 2 && <div className="p-2 text-sm text-muted-foreground">No suggestions.</div>} {!isFetchingSugg && !isFetchingDet && suggestions.map((s) => { console.log(`[RenderSuggestions DEBUG for ${fieldKey}] Rendering suggestion: ${s.description}`); return( <div key={`${fieldKey}-${s.place_id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm" onMouseDown={() => onSuggClick(s)}>{s.description}</div> );})} </div> </ScrollArea> );
   const vehicleTypeDisplay = activeRide?.vehicleType ? activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ')  : 'Vehicle N/A';
   const statusDisplay = activeRide?.status ? activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Status N/A';
   const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
