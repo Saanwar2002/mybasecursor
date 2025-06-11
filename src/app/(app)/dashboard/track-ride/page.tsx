@@ -730,7 +730,7 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                  {activeRide && (actionLoading[activeRide.id] || false) ? (
                     <React.Fragment>
                       <Loader2 className="animate-spin mr-2 h-4 w-4" />
                       <span>Cancelling...</span>
@@ -807,3 +807,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
