@@ -107,7 +107,7 @@ const bookingFormSchema = z.object({
   isPriorityPickup: z.boolean().optional().default(false),
   priorityFeeAmount: z.number().min(0, "Priority fee cannot be negative.").optional(),
   promoCode: z.string().optional(),
-  paymentMethod: z.enum(["card", "cash", "account"], { required_error: "Please select a payment method." }), // Added "account"
+  paymentMethod: z.enum(["card", "cash", "account"], { required_error: "Please select a payment method." }), 
 }).superRefine((data, ctx) => {
   if (data.bookingType === "scheduled") {
     if (!data.desiredPickupDate) {
@@ -329,12 +329,14 @@ export default function BookRidePage() {
   useEffect(() => {
     if (isWaitTimeDialogOpen && waitTimeInputRef.current) {
       waitTimeInputRef.current.focus();
+      waitTimeInputRef.current.select();
     }
   }, [isWaitTimeDialogOpen]);
 
   useEffect(() => {
     if (isPriorityFeeDialogOpen && priorityFeeInputRef.current) {
       priorityFeeInputRef.current.focus();
+      priorityFeeInputRef.current.select();
     }
   }, [isPriorityFeeDialogOpen]);
 
@@ -1103,6 +1105,8 @@ export default function BookRidePage() {
       setCalculatedChargedWaitMinutes(0);
       setEstimatedWaitMinutesInput("10");
       setPriorityFeeInput("2.00");
+      
+      router.push('/dashboard/track-ride');
 
 
     } catch (error) {
@@ -2183,118 +2187,120 @@ const handleProceedToConfirmation = async () => {
                   </Button>
 
                   <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
-                    <DialogContent className="sm:max-w-md grid grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh]">
-                      <DialogHeader>
-                        <ShadDialogTitle className="text-2xl font-headline">Confirm Your Booking</ShadDialogTitle>
+                    <DialogContent className="sm:max-w-md grid grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] p-0">
+                      <DialogHeader className="p-6 pb-4 border-b">
+                        <ShadDialogTitle className="text-xl font-headline">Confirm Your Booking</ShadDialogTitle>
                         <ShadDialogDescription>
                           Please review your ride details and confirm payment.
                         </ShadDialogDescription>
                       </DialogHeader>
-                      <div className="py-4 overflow-y-auto">
-                        <Card className="w-full text-center shadow-md mb-4">
-                          <CardHeader className="p-3">
-                            <CardTitle className="text-xl font-headline flex items-center justify-center gap-2">
-                              <DollarSign className="w-5 h-5 text-primary" /> Fare Details
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-3 pt-0 space-y-1">
-                            {anyFetchingDetails && pickupCoords ? (
-                              <div className="flex flex-col items-center justify-center space-y-1">
-                                  <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
-                                  <p className="text-lg font-bold text-muted-foreground">Calculating...</p>
-                              </div>
-                            ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
-                              <>
-                                <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
-                                {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access Surcharge Applied</p>}
-                                {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
-                                  <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
-                                ) : null}
-                                <p className="text-3xl font-bold text-primary">Total: £{totalFareEstimate.toFixed(2)}</p>
-                                {isSurgeActive && (
-                                  <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
-                                    <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                      <ScrollArea className="overflow-y-auto">
+                        <div className="p-6 space-y-4">
+                          <Card className="w-full text-center shadow-md">
+                            <CardHeader className="p-3">
+                              <CardTitle className="text-lg font-headline flex items-center justify-center gap-2">
+                                <DollarSign className="w-5 h-5 text-primary" /> Fare Details
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 pt-0 space-y-1">
+                              {anyFetchingDetails && pickupCoords ? (
+                                <div className="flex flex-col items-center justify-center space-y-1">
+                                    <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+                                    <p className="text-lg font-bold text-muted-foreground">Calculating...</p>
+                                </div>
+                              ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
+                                <>
+                                  <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
+                                  {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
+                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access Surcharge Applied</p>}
+                                  {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
+                                    <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
+                                  ) : null}
+                                  <p className="text-2xl font-bold text-primary">Total: £{totalFareEstimate.toFixed(2)}</p>
+                                  {isSurgeActive && (
+                                    <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
+                                      <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                                    </p>
+                                  )}
+                                   {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">(Includes Wait & Return Surcharges)</p>}
+                                   <p className="text-xs text-muted-foreground mt-1">
+                                      Estimates may vary based on real-time conditions.
                                   </p>
-                                )}
-                                 {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">(Includes Wait & Return Surcharges)</p>}
-                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Estimates may vary based on real-time conditions.
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-lg text-muted-foreground">Enter pickup & drop-off to see fare.</p>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
-                          <CardHeader>
-                            <CardTitle className="text-xl font-headline flex items-center gap-2">
-                              <CreditCard className="w-6 h-6 text-primary" /> Payment Method
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <FormField
-                              control={form.control}
-                              name="paymentMethod"
-                              render={({ field }) => (
-                                <FormItem className="space-y-3">
-                                  <FormControl>
-                                    <RadioGroup
-                                      onValueChange={field.onChange}
-                                      defaultValue={field.value}
-                                      className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                                    >
-                                      <FormItem className="flex-1">
-                                        <FormControl>
-                                          <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
-                                        </FormControl>
-                                        <Label
-                                          htmlFor="dialog-card"
-                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                        >
-                                          <CreditCard className="mb-3 h-8 w-8 text-primary peer-data-[state=checked]:text-primary" />
-                                          Pay by Card
-                                          <span className="text-xs text-muted-foreground mt-1">(pay driver directly with your card)</span>
-                                        </Label>
-                                      </FormItem>
-                                      <FormItem className="flex-1">
-                                        <FormControl>
-                                          <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
-                                        </FormControl>
-                                        <Label
-                                          htmlFor="dialog-cash"
-                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                        >
-                                          <Coins className="mb-3 h-8 w-8 text-green-600 peer-data-[state=checked]:text-green-600" />
-                                          Pay with Cash
-                                          <span className="text-xs text-muted-foreground mt-1">(pay cash to driver)</span>
-                                        </Label>
-                                      </FormItem>
-                                       <FormItem className="flex-1 sm:col-span-2">
-                                        <FormControl>
-                                          <RadioGroupItem value="account" id="dialog-account" className="sr-only peer" />
-                                        </FormControl>
-                                        <Label
-                                          htmlFor="dialog-account"
-                                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                        >
-                                          <Briefcase className="mb-3 h-8 w-8 text-purple-600 peer-data-[state=checked]:text-purple-600" />
-                                          Pay via Account
-                                          <span className="text-xs text-muted-foreground mt-1">(If eligible, operator will bill)</span>
-                                        </Label>
-                                      </FormItem>
-                                    </RadioGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
+                                </>
+                              ) : (
+                                <p className="text-lg text-muted-foreground">Enter pickup & drop-off to see fare.</p>
                               )}
-                            />
-                          </CardContent>
-                        </Card>
-                      </div>
-                      <DialogFooter>
+                            </CardContent>
+                          </Card>
+
+                          <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                            <CardHeader className="p-3">
+                              <CardTitle className="text-lg font-headline flex items-center gap-2">
+                                <CreditCard className="w-5 h-5 text-primary" /> Payment Method
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 pt-0">
+                              <FormField
+                                control={form.control}
+                                name="paymentMethod"
+                                render={({ field }) => (
+                                  <FormItem className="space-y-3">
+                                    <FormControl>
+                                      <RadioGroup
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                        className="grid grid-cols-1 gap-3"
+                                      >
+                                        <FormItem className="flex-1">
+                                          <FormControl>
+                                            <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
+                                          </FormControl>
+                                          <Label
+                                            htmlFor="dialog-card"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                          >
+                                            <CreditCard className="mb-2 h-6 w-6 text-primary peer-data-[state=checked]:text-primary" />
+                                            Pay by Card
+                                            <span className="text-xs text-muted-foreground mt-0.5">(pay driver directly)</span>
+                                          </Label>
+                                        </FormItem>
+                                        <FormItem className="flex-1">
+                                          <FormControl>
+                                            <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
+                                          </FormControl>
+                                          <Label
+                                            htmlFor="dialog-cash"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                          >
+                                            <Coins className="mb-2 h-6 w-6 text-green-600 peer-data-[state=checked]:text-green-600" />
+                                            Pay with Cash
+                                            <span className="text-xs text-muted-foreground mt-0.5">(pay cash to driver)</span>
+                                          </Label>
+                                        </FormItem>
+                                         <FormItem className="flex-1">
+                                          <FormControl>
+                                            <RadioGroupItem value="account" id="dialog-account" className="sr-only peer" />
+                                          </FormControl>
+                                          <Label
+                                            htmlFor="dialog-account"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                          >
+                                            <Briefcase className="mb-2 h-6 w-6 text-purple-600 peer-data-[state=checked]:text-purple-600" />
+                                            Pay via Account
+                                            <span className="text-xs text-muted-foreground mt-0.5">(If eligible, operator will bill)</span>
+                                          </Label>
+                                        </FormItem>
+                                      </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </CardContent>
+                          </Card>
+                        </div> 
+                      </ScrollArea>
+                      <DialogFooter className="p-6 pt-4 border-t">
                         <DialogClose asChild>
                           <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
                         </DialogClose>

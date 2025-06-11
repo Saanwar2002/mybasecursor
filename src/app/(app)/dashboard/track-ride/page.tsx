@@ -347,6 +347,8 @@ export default function MyActiveRidePage() {
       if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
       toast({ title: "Ride Cancelled", description: `Your ride ${activeRide.id} has been cancelled.` });
       setActiveRide(null);
+      setShowCancelConfirmationDialog(false); 
+      setIsCancelSwitchOn(false);
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
     } finally {
         if (activeRide) setActionLoading(prev => ({ ...prev, [activeRide.id]: false }));
@@ -581,14 +583,20 @@ export default function MyActiveRidePage() {
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
-  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => (
-    <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
-      <Label htmlFor={`cancel-ride-switch-${ride?.id}`} className="text-destructive font-medium text-sm">
-        <span>Initiate Cancellation</span>
-      </Label>
-      <Switch id={`cancel-ride-switch-${ride?.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoadingProp} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
-    </div>
-  );
+  const renderAlertDialogActionContent = () => {
+    return (
+      <span className="inline-flex items-center justify-center gap-2">
+        {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+          <Loader2 className="animate-spin h-4 w-4" />
+        ) : (
+          <ShieldX className="h-4 w-4" />
+        )}
+        <span>
+          {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
+        </span>
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -691,7 +699,12 @@ export default function MyActiveRidePage() {
                       </ShadAlertDescription>
                     </Alert>
                   )}
-                  <CancelRideInteraction ride={activeRide} isLoading={actionLoading[activeRide.id]} />
+                   <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3 w-full sm:w-auto">
+                        <Label htmlFor={`cancel-ride-switch-${activeRide.id}`} className="text-destructive font-medium text-sm">
+                            <span>Initiate Cancellation</span>
+                        </Label>
+                        <Switch id={`cancel-ride-switch-${activeRide.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionLoading[activeRide.id]} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
+                    </div>
                 </CardFooter>
             )}
           </Card>
@@ -725,19 +738,7 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="flex items-center justify-center">
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                       <React.Fragment>
-                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                         <span>Cancelling...</span>
-                       </React.Fragment>
-                    ) : (
-                       <React.Fragment>
-                         <ShieldX className="mr-2 h-4 w-4" />
-                         <span>Confirm Cancel</span>
-                      </React.Fragment>
-                    )}
-                  </span>
+                  {renderAlertDialogActionContent()}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -804,3 +805,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+

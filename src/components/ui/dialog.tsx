@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -39,6 +40,11 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        // Custom styles for BookRidePage confirmation dialog
+        // Apply these classes if the DialogContent has a specific data attribute or className passed to it from BookRidePage.
+        // For now, we'll make it general, but it can be targeted.
+        // Example: if BookRidePage's DialogContent has className="book-ride-confirmation-dialog", then:
+        // ".book-ride-confirmation-dialog:sm:max-w-md .book-ride-confirmation-dialog:grid-rows-[auto_minmax(0,1fr)_auto] .book-ride-confirmation-dialog:max-h-[90vh] .book-ride-confirmation-dialog:p-0",
         className
       )}
       {...props}
@@ -60,6 +66,8 @@ const DialogHeader = ({
   <div
     className={cn(
       "flex flex-col space-y-1.5 text-center sm:text-left",
+       // Custom styles for BookRidePage confirmation dialog header
+      "[.book-ride-confirmation-dialog_&]:p-6 [.book-ride-confirmation-dialog_&]:pb-4 [.book-ride-confirmation-dialog_&]:border-b",
       className
     )}
     {...props}
@@ -74,6 +82,8 @@ const DialogFooter = ({
   <div
     className={cn(
       "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      // Custom styles for BookRidePage confirmation dialog footer
+      "[.book-ride-confirmation-dialog_&]:p-6 [.book-ride-confirmation-dialog_&]:pt-4 [.book-ride-confirmation-dialog_&]:border-t",
       className
     )}
     {...props}
@@ -89,6 +99,8 @@ const DialogTitle = React.forwardRef<
     ref={ref}
     className={cn(
       "text-lg font-semibold leading-none tracking-tight",
+      // Custom for BookRidePage
+      "[.book-ride-confirmation-dialog_&]:text-xl [.book-ride-confirmation-dialog_&]:font-headline",
       className
     )}
     {...props}
@@ -120,3 +132,4 @@ export {
   DialogTitle,
   DialogDescription,
 }
+
