@@ -32,7 +32,6 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-// Removed GoogleApiLoader as SDK load status will be handled locally for geocoder
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -162,6 +161,36 @@ const formatTimerPassenger = (totalSeconds: number): string => {
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
+
+function formatAddressForLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
+  if (!fullAddress) return `${type}:\nN/A`;
+  const parts = fullAddress.split(',').map(p => p.trim());
+  const street = parts[0] || "Unknown Street";
+  let area = "";
+  let postcode = "";
+
+  // UK Postcode Regex (simplified)
+  const postcodeRegex = /([A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2})$/i;
+  if (parts.length > 1) {
+    const lastPart = parts[parts.length - 1];
+    if (postcodeRegex.test(lastPart)) {
+      postcode = lastPart;
+      if (parts.length > 2) {
+        area = parts[parts.length - 2];
+      } else {
+        area = street; // Fallback if only street and postcode
+      }
+    } else {
+      area = parts.length > 1 ? parts[1] : ""; // Use second part as area if no postcode
+    }
+  } else {
+    area = "Details N/A"; // Only street name available
+  }
+  
+  const areaPostcode = [area, postcode].filter(Boolean).join(', ');
+  return `${type}:\n${street}\n${areaPostcode || "Location details unavailable"}`;
+}
+
 
 export default function MyActiveRidePage() {
   const { user } = useAuth();
@@ -573,11 +602,11 @@ export default function MyActiveRidePage() {
       });
       labels.push({
         position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-        content: `Pickup:\n${activeRide.pickupLocation.address.split(',')[0]}`,
+        content: formatAddressForLabel(activeRide.pickupLocation.address, 'Pickup'),
         type: 'pickup'
       });
     }
-    if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) {
+    if (activeRide.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) {
       markers.push({
         position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
         title: `Dropoff: ${activeRide.dropoffLocation.address}`,
@@ -585,7 +614,7 @@ export default function MyActiveRidePage() {
       });
        labels.push({
         position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-        content: `Dropoff:\n${activeRide.dropoffLocation.address.split(',')[0]}`,
+        content: formatAddressForLabel(activeRide.dropoffLocation.address, 'Dropoff'),
         type: 'dropoff'
       });
     }
@@ -634,7 +663,7 @@ export default function MyActiveRidePage() {
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
-  const renderAlertDialogActionContent = () => {
+  const renderCancelAlertDialogActionContent = () => {
     return (
       <span className="inline-flex items-center justify-center gap-2">
         {(activeRide && (actionLoading[activeRide.id] || false)) ? (
@@ -648,6 +677,7 @@ export default function MyActiveRidePage() {
       </span>
     );
   };
+
 
   return (
     <div className="space-y-6">
@@ -787,7 +817,7 @@ export default function MyActiveRidePage() {
             <AlertDialogFooter>
                 <AlertDialogCancel
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-                    disabled={activeRide ? (actionLoading[activeRide.id] || false) : false}
+                    disabled={activeRide ? actionLoading[activeRide.id] : false}
                 >
                   Keep Ride
                 </AlertDialogCancel>
@@ -798,7 +828,7 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {renderAlertDialogActionContent()}
+                  {renderCancelAlertDialogActionContent()}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>

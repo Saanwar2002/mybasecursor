@@ -185,6 +185,34 @@ interface DispatchDisplayInfo {
   bgColorClassName: string;
 }
 
+function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
+  if (!fullAddress) return `${type}:\nN/A`;
+  const parts = fullAddress.split(',').map(p => p.trim());
+  const street = parts[0] || "Unknown Street";
+  let area = "";
+  let postcode = "";
+
+  const postcodeRegex = /([A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2})$/i;
+  if (parts.length > 1) {
+    const lastPart = parts[parts.length - 1];
+    if (postcodeRegex.test(lastPart)) {
+      postcode = lastPart;
+      if (parts.length > 2) {
+        area = parts[parts.length - 2];
+      } else {
+        area = street; 
+      }
+    } else {
+      area = parts.length > 1 ? parts[1] : ""; 
+    }
+  } else {
+    area = "Details N/A"; 
+  }
+  
+  const areaPostcode = [area, postcode].filter(Boolean).join(', ');
+  return `${type}:\n${street}\n${areaPostcode || "Location details unavailable"}`;
+}
+
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
@@ -299,19 +327,16 @@ export default function AvailableRidesPage() {
       let labelPosition: google.maps.LatLngLiteral | null = null;
       let labelType: LabelType = 'pickup';
 
-      const pickupStreet = activeRide.pickupLocation.address.split(',')[0];
-      const dropoffStreet = activeRide.dropoffLocation.address.split(',')[0];
-
       if (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') {
         if (activeRide.pickupLocation) {
           labelPosition = { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
-          labelContent = `Pickup at\n${pickupStreet}`;
+          labelContent = formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup');
           labelType = 'pickup';
         }
       } else if (activeRide.status.toLowerCase().includes('in_progress')) {
         if (activeRide.dropoffLocation) {
           labelPosition = { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude };
-          labelContent = `Dropoff at\n${dropoffStreet}`;
+          labelContent = formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff');
           labelType = 'dropoff';
         }
       }
@@ -1745,25 +1770,25 @@ export default function AvailableRidesPage() {
         <AlertDialog
           open={showCancelConfirmationDialog}
           onOpenChange={(isOpen) => {
-              console.log("Cancel Dialog onOpenChange, isOpen:", isOpen);
+              console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen);
               setShowCancelConfirmationDialog(isOpen);
               if (!isOpen && activeRide && isCancelSwitchOn) {
-                  console.log("Cancel Dialog closing, resetting isCancelSwitchOn from true to false.");
+                  console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false.");
                   setIsCancelSwitchOn(false);
               }
           }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+              <ShadAlertDialogTitle>Are you sure you want to cancel this ride?</ShadAlertDialogTitle>
+              <AlertDialogDescription>This action cannot be undone. The passenger will be notified.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
                     onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
                     disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
-                  <span>Keep Ride</span>
+                  Keep Ride
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
@@ -2079,13 +2104,13 @@ export default function AvailableRidesPage() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel
-            onClick={() => { console.log("Cancel Dialog Main: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+            onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
             disabled={activeRide ? !!actionLoading[activeRide.id] : false}
           >
             <span>Keep Ride</span>
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => { if (activeRide) { console.log("Cancel Dialog Main: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
+            onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
             disabled={!activeRide || (!!actionLoading[activeRide.id])}
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
           >

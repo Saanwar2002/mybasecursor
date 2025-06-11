@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-export type LabelType = 'pickup' | 'dropoff' | 'driver'; // Added 'driver' type
+export type LabelType = 'pickup' | 'dropoff' | 'driver';
 
 // Define an interface for the instance methods we expect
 export interface ICustomMapLabelOverlay extends google.maps.OverlayView {
@@ -49,29 +49,33 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       if (!this.div) return;
 
       // Common styles
-      this.div.style.padding = '4px 8px';
-      this.div.style.borderRadius = '8px';
-      this.div.style.fontSize = '11px';
-      this.div.style.fontWeight = '600';
+      this.div.style.padding = '3px 6px'; // Reduced padding
+      this.div.style.borderRadius = '6px'; // Slightly smaller radius
       this.div.style.textAlign = 'center';
-      this.div.style.whiteSpace = 'pre-line'; // Allows \n for newlines
-      this.div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
+      this.div.style.whiteSpace = 'pre-line'; 
+      this.div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
       this.div.style.zIndex = '101'; 
-      this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-15px)'; // Adjust offset
+      this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-12px)'; // Adjusted offset
 
       if (this.type === 'pickup') {
         this.div.style.background = 'rgb(22, 163, 74)'; // Green
-        this.div.style.border = '1px solid rgba(255, 255, 255, 0.5)';
+        this.div.style.border = '1px solid rgba(255, 255, 255, 0.4)';
         this.div.style.color = '#FFFFFF';
+        this.div.style.fontSize = '10px'; // Reduced font size
+        this.div.style.fontWeight = '500';
       } else if (this.type === 'dropoff') { 
         this.div.style.background = 'rgb(220, 38, 38)'; // Red
-        this.div.style.border = '1px solid rgba(255, 255, 255, 0.6)';
+        this.div.style.border = '1px solid rgba(255, 255, 255, 0.5)';
         this.div.style.color = '#FFFFFF';
+        this.div.style.fontSize = '10px'; // Reduced font size
+        this.div.style.fontWeight = '500';
       } else if (this.type === 'driver') {
-        this.div.style.background = 'rgba(0, 0, 0, 0.75)'; // Dark semi-transparent
+        this.div.style.background = 'rgba(0, 0, 0, 0.75)'; 
         this.div.style.border = '1px solid rgba(255, 255, 255, 0.75)';
         this.div.style.color = '#FFFFFF';
-        this.div.style.minWidth = '120px'; // Ensure it's wide enough for ETA
+        this.div.style.minWidth = '110px'; 
+        this.div.style.fontSize = '11px'; // Kept driver font size slightly larger
+        this.div.style.fontWeight = '600';
       }
     }
 
@@ -125,10 +129,10 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
 
     updateContent(newContent: string, newType: LabelType) {
       this.content = newContent;
-      this.type = newType; // Update type as it might change styling
+      this.type = newType; 
       if (this.div) {
         this.div.innerHTML = this.content;
-        this._applyStyles(); // Re-apply styles if type or content requires it
+        this._applyStyles(); 
       }
     }
 
