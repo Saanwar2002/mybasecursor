@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField, GeoPoint } from 'firebase/firestore'; // Added GeoPoint
 import { z } from 'zod';
 
 // Helper to serialize Timestamp for the response
@@ -152,22 +152,24 @@ export async function POST(request: NextRequest, context: PostContext) {
         },
         fareEstimate: offer.fareEstimate,
         passengers: offer.passengerCount,
-        paymentMethod: offer.paymentMethod || 'card',
-        notes: offer.notes || null,
-        requiredOperatorId: offer.requiredOperatorId || null,
+        paymentMethod: offer.paymentMethod ?? 'card',
+        notes: offer.notes ?? null,
+        requiredOperatorId: offer.requiredOperatorId ?? null,
         isPriorityPickup: offer.isPriorityPickup ?? (updateDataFromPayload.isPriorityPickup ?? false),
         priorityFeeAmount: offer.priorityFeeAmount ?? (updateDataFromPayload.priorityFeeAmount ?? 0),
-        dispatchMethod: offer.dispatchMethod || 'auto_system',
-        accountJobPin: offer.accountJobPin || null,
-        distanceMiles: offer.distanceMiles || null,
+        dispatchMethod: offer.dispatchMethod ?? 'auto_system',
+        accountJobPin: offer.accountJobPin ?? null,
+        distanceMiles: offer.distanceMiles ?? null,
         
         // Fields from updateDataFromPayload (driver info & status)
-        driverId: updateDataFromPayload.driverId || null,
-        driverName: updateDataFromPayload.driverName || null,
-        status: updateDataFromPayload.status || 'driver_assigned',
-        vehicleType: updateDataFromPayload.vehicleType || null,
-        driverVehicleDetails: updateDataFromPayload.driverVehicleDetails || null,
-        driverCurrentLocation: updateDataFromPayload.driverCurrentLocation || null,
+        driverId: updateDataFromPayload.driverId ?? null,
+        driverName: updateDataFromPayload.driverName ?? null,
+        status: updateDataFromPayload.status ?? 'driver_assigned',
+        vehicleType: updateDataFromPayload.vehicleType ?? null, 
+        driverVehicleDetails: updateDataFromPayload.driverVehicleDetails ?? null,
+        driverCurrentLocation: updateDataFromPayload.driverCurrentLocation
+          ? new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng)
+          : null,
 
         // Firestore Timestamps
         bookingTimestamp: serverTimestamp(),
@@ -191,11 +193,21 @@ export async function POST(request: NextRequest, context: PostContext) {
         return NextResponse.json({ message: 'Mock offer accepted, new booking created.', booking: responseData }, { status: 201 });
 
       } catch (addDocError: any) {
-        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Firestore addDoc FAILED. Error Code: ${addDocError.code}, Message: ${addDocError.message}`, addDocError);
+        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Firestore addDoc FAILED. Raw Error:`, addDocError);
+        let details = 'Firestore addDoc operation failed.';
+        if (addDocError.message) {
+            details += ` Message: ${addDocError.message}.`;
+        }
+        if (addDocError.code) {
+            details += ` Code: ${addDocError.code}.`;
+        }
+        if (addDocError.stack) {
+            console.error("addDocError STACK:", addDocError.stack);
+        }
         return NextResponse.json({ 
             message: 'Failed to create new booking in database.', 
-            details: `Firestore addDoc error: ${addDocError.message}`, 
-            code: addDocError.code || 'FIRESTORE_ADD_DOC_ERROR' 
+            details: details, 
+            code: addDocError.code || 'FIRESTORE_ADD_DOC_ERROR_UNKNOWN' 
         }, { status: 500 });
       }
     } else {
@@ -223,6 +235,9 @@ export async function POST(request: NextRequest, context: PostContext) {
       if (updateDataFromPayload.action === 'notify_arrival') {
           updatePayloadFirestore.status = 'arrived_at_pickup';
           updatePayloadFirestore.notifiedPassengerArrivalTimestampActual = Timestamp.now();
+          if (updateDataFromPayload.driverCurrentLocation) {
+            updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
+          }
       } else if (updateDataFromPayload.action === 'start_ride') {
           if (existingBookingDbData?.waitAndReturn === true && (existingBookingDbData?.status === 'pending_driver_wait_and_return_approval' || existingBookingDbData?.status === 'in_progress_wait_and_return' || existingBookingDbData?.status === 'arrived_at_pickup')) {
             updatePayloadFirestore.status = 'in_progress_wait_and_return';
@@ -230,6 +245,9 @@ export async function POST(request: NextRequest, context: PostContext) {
             updatePayloadFirestore.status = 'in_progress';
           }
           updatePayloadFirestore.rideStartedAtActual = Timestamp.now();
+          if (updateDataFromPayload.driverCurrentLocation) {
+            updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
+          }
       } else if (updateDataFromPayload.action === 'complete_ride') {
           updatePayloadFirestore.status = 'completed';
           updatePayloadFirestore.completedAtActual = Timestamp.now();
@@ -259,6 +277,10 @@ export async function POST(request: NextRequest, context: PostContext) {
           updatePayloadFirestore.cancelledAt = Timestamp.now();
       } else if (updateDataFromPayload.status) {
           updatePayloadFirestore.status = updateDataFromPayload.status;
+      }
+      
+      if (updateDataFromPayload.driverCurrentLocation && !updatePayloadFirestore.driverCurrentLocation) {
+        updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
       }
 
 
@@ -294,7 +316,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedData.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
           rideStartedAt: serializeTimestamp(updatedData.rideStartedAtActual as Timestamp | undefined),
           completedAt: serializeTimestamp(updatedData.completedAtActual as Timestamp | undefined),
-          driverCurrentLocation: updatedData.driverCurrentLocation,
+          driverCurrentLocation: updatedData.driverCurrentLocation, // This will be the GeoPoint object or null
       };
 
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Update successful. Returning:`, JSON.stringify(responseData, null, 2));
@@ -366,7 +388,7 @@ export async function GET(request: NextRequest, context: GetContext) {
         passengerAcknowledgedArrivalTimestamp: serializeTimestamp(data.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
         rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
         completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
-        driverCurrentLocation: data.driverCurrentLocation,
+        driverCurrentLocation: data.driverCurrentLocation, // This will be the GeoPoint object or null
     };
     return NextResponse.json({ booking: responseData }, { status: 200 });
   } catch (error: any) {
@@ -376,3 +398,4 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: "Server Error During GET", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
+
