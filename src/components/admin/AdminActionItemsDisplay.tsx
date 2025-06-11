@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import * as LucideIcons from 'lucide-react';
-import Link from 'next/link'; // Added Link import
+import Link from 'next/link';
 
 const DefaultAiTaskIcon = LucideIcons.ListChecks;
 
@@ -39,10 +39,10 @@ const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
   }
 };
 
-export function AdminActionItemsDisplay({ 
+export function AdminActionItemsDisplay({
   items,
   title = "AI Generated Action Items",
-  description = "Prioritized tasks and roadmap items suggested by AI." 
+  description = "Prioritized tasks and roadmap items suggested by AI."
 }: AdminActionItemsDisplayProps) {
   const [categorizedTasks, setCategorizedTasks] = useState<ActionableCategory[]>([]);
   const [openAccordions, setOpenAccordions] = useState<string[]>([]);
@@ -64,7 +64,7 @@ export function AdminActionItemsDisplay({
             const priorityB = b.priority ? priorityOrder[b.priority] : 3;
             return priorityA - priorityB;
         });
-        
+
         return {
           id: catName.toLowerCase().replace(/\s+/g, '-'),
           name: catName,
@@ -72,7 +72,7 @@ export function AdminActionItemsDisplay({
           tasks: tasks,
         };
     });
-    
+
     initialCategories.sort((a, b) => {
         if (a.name.includes('Operational') && !b.name.includes('Operational')) return -1;
         if (!a.name.includes('Operational') && b.name.includes('Operational')) return 1;
@@ -83,9 +83,9 @@ export function AdminActionItemsDisplay({
 
     setCategorizedTasks(initialCategories);
     const defaultOpen = initialCategories
-        .filter(cat => 
-            cat.tasks.some(task => task.priority === 'high' && !task.completed) || 
-            cat.name.includes('Operational') || 
+        .filter(cat =>
+            cat.tasks.some(task => task.priority === 'high' && !task.completed) ||
+            cat.name.includes('Operational') ||
             cat.name.includes('Post-Launch Roadmap'))
         .map(cat => cat.id);
     setOpenAccordions(defaultOpen);
@@ -107,21 +107,17 @@ export function AdminActionItemsDisplay({
     );
   };
 
-  if (items.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">No action items generated at this time.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
+  const renderedContent = items.length === 0 ? (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground">No action items generated at this time.</p>
+      </CardContent>
+    </Card>
+  ) : (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="text-xl font-headline flex items-center gap-2">
@@ -140,7 +136,7 @@ export function AdminActionItemsDisplay({
                 <AccordionTrigger className="text-base hover:no-underline font-semibold">
                   <span className="flex items-center gap-2">
                     <CategoryIcon className="w-5 h-5 text-muted-foreground" />
-                    {category.name} 
+                    {category.name}
                     {pendingTasksCount > 0 && (
                         <Badge variant="secondary" className="ml-2">{pendingTasksCount} pending</Badge>
                     )}
@@ -224,4 +220,6 @@ export function AdminActionItemsDisplay({
       </CardContent>
     </Card>
   );
+
+  return renderedContent;
 }
