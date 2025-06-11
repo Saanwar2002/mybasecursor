@@ -526,8 +526,10 @@ export default function AvailableRidesPage() {
       return;
     }
 
-    const initialLoad = !activeRide;
-    if (initialLoad && !error) setIsLoading(true);
+    // Only set loading true for the initial fetch or if there's currently no active ride
+    const initialLoadOrNoRide = !activeRide; 
+    if (initialLoadOrNoRide) setIsLoading(true);
+    setError(null); // Reset error at the start of each fetch
 
     try {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
@@ -552,15 +554,15 @@ export default function AvailableRidesPage() {
         return currentClientRide;
       });
 
-      if (data && error) setError(null); 
     } catch (err: any) { 
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; 
       console.error("Error in fetchActiveRide:", message); 
-      if (initialLoad) setError(message);
+      setError(message); // Set error state for UI display
+      // Do not toast here, as it can be annoying with polling
     } finally {
-      if (initialLoad) setIsLoading(false);
+      if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, error, activeRide, toast]);
+  }, [driverUser?.id, toast]); // Removed activeRide and error from dependencies
 
 
  useEffect(() => {
@@ -854,7 +856,7 @@ export default function AvailableRidesPage() {
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
-      setIsPollingEnabled(true);
+      // Removed setIsPollingEnabled(true) from here. Polling is controlled by useEffect based on activeRide status.
       return;
     }
 
@@ -909,7 +911,7 @@ export default function AvailableRidesPage() {
         }
         console.error(`Accept offer for ${currentActionRideId} - Server error:`, errorDetailsText);
         toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
-        setIsPollingEnabled(true);
+        // Removed setIsPollingEnabled(true) from here.
         setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
         console.log(`Reset actionLoading for ${currentActionRideId} to false after server error.`);
         return;
@@ -976,7 +978,7 @@ export default function AvailableRidesPage() {
       }
 
       toast({ title: "Acceptance Failed", description: detailedMessage, variant: "destructive" });
-      setIsPollingEnabled(true);
+      // Removed setIsPollingEnabled(true) from here.
     } finally {
       console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
       setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
@@ -993,7 +995,7 @@ export default function AvailableRidesPage() {
     setConsecutiveMissedOffers(newMissedCount);
 
     if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
-        setIsDriverOnline(false);
+        setIsDriverOnline(false); // This will trigger the useEffect for polling to stop.
         toast({
             title: "Automatically Set Offline",
             description: `You've missed ${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive offers and have been set to Offline. You can go online again manually.`,
@@ -1159,11 +1161,8 @@ export default function AvailableRidesPage() {
 
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'cancel_active' || actionType === 'complete_ride') {
-        console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Enabling polling for new offers.`);
-        // Polling is managed by isPollingEnabled and activeRide.status effect, so no direct setIsPollingEnabled(true) here.
-        // The fact that activeRide.status is 'completed' or 'cancelled_by_driver' means the polling effect might stop itself.
-        // However, if we want to ensure it *restarts* for new offers after these terminal actions, we need to make sure
-        // the polling effect is re-evaluated. The state update to activeRide will trigger it.
+        console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Polling might resume if driver is online.`);
+        // No direct setIsPollingEnabled(true) here; polling is controlled by useEffect based on activeRide status & isDriverOnline.
       }
 
 
@@ -1172,7 +1171,6 @@ export default function AvailableRidesPage() {
       console.error(`handleRideAction (${actionType}) for ${rideId}: Error caught:`, message);
       toast({ title: "Action Failed", description: message, variant: "destructive" });
       fetchActiveRide(); 
-      // setIsPollingEnabled(true); // No, let the effect handle based on activeRide.status
     } finally {
       console.log(`Resetting actionLoading for ${rideId} to false after action ${actionType}`);
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
@@ -1305,10 +1303,10 @@ export default function AvailableRidesPage() {
         if (geolocationError) {
             setGeolocationError(null);
         }
-        setIsPollingEnabled(true);
+        setIsPollingEnabled(true); // Ensure polling restarts when going online
     } else {
         setRideRequests([]);
-        setIsPollingEnabled(false);
+        setIsPollingEnabled(false); // Stop polling when going offline
         if (watchIdRef.current !== null) {
             navigator.geolocation.clearWatch(watchIdRef.current);
             watchIdRef.current = null;
@@ -1424,7 +1422,7 @@ export default function AvailableRidesPage() {
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
-  if (error && !activeRide) {
+  if (error && !activeRide && !isLoading) { // Show error only if not loading and no active ride
     return <div className="flex flex-col justify-center items-center h-full text-center p-4">
         <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
         <p className="text-lg font-semibold text-destructive">Error Loading Ride Data</p>
@@ -1704,7 +1702,7 @@ export default function AvailableRidesPage() {
                         setCurrentWaitingCharge(0);
                         setIsCancelSwitchOn(false);
                         setActiveRide(null); 
-                        setIsPollingEnabled(true); 
+                        // setIsPollingEnabled(true); // This is handled by useEffect
                     }}
                     disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
@@ -2070,3 +2068,4 @@ export default function AvailableRidesPage() {
       </AlertDialog>
   </div> );
 }
+

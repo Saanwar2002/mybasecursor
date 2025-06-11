@@ -72,6 +72,9 @@ const bookingUpdateSchema = z.object({
   estimatedAdditionalWaitTimeMinutes: z.number().min(0).optional().nullable(),
   driverCurrentLocation: z.object({ lat: z.number(), lng: z.number() }).optional(),
   accountJobPin: z.string().optional(), // Added
+  noShowFeeApplicable: z.boolean().optional(), // For no-show
+  cancellationFeeApplicable: z.boolean().optional(), // For late cancel
+  cancellationType: z.string().optional(), // e.g., 'passenger_no_show', 'late_passenger_cancel'
 });
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
@@ -221,6 +224,11 @@ export async function POST(request: NextRequest, context: PostContext) {
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
           updatePayloadFirestore.cancelledAt = Timestamp.now();
+      } else if (updateDataFromPayload.action === 'report_no_show') {
+          updatePayloadFirestore.status = 'cancelled_no_show';
+          updatePayloadFirestore.cancelledAt = Timestamp.now();
+          updatePayloadFirestore.cancellationType = 'passenger_no_show';
+          updatePayloadFirestore.noShowFeeApplicable = true;
       } else if (updateDataFromPayload.action === 'accept_wait_and_return') {
           updatePayloadFirestore.status = 'in_progress_wait_and_return';
           updatePayloadFirestore.waitAndReturn = true;
@@ -303,7 +311,7 @@ export async function POST(request: NextRequest, context: PostContext) {
     }
 
     return NextResponse.json({
-        message: "Server Error Encountered During Update",
+        message: "Server Error Encountered During Update", // This specific message matches the screenshot
         details: errorMessage,
         rawErrorDetails: errorDetails
     }, { status: 500 });
