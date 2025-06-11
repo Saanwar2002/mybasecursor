@@ -350,6 +350,7 @@ export default function MyActiveRidePage() {
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
     } finally {
         if (activeRide) setActionLoading(prev => ({ ...prev, [activeRide.id]: false }));
+        setShowCancelConfirmationDialog(false); 
     }
   };
 
@@ -590,25 +591,6 @@ export default function MyActiveRidePage() {
     </div>
   );
 
-  const renderAlertDialogActionContent = () => {
-    const isLoadingAction = activeRide && (actionLoading[activeRide.id] || false);
-    return (
-      // Single span as direct child, handles its own flex layout
-      <span className="inline-flex items-center justify-center gap-2">
-        {isLoadingAction ? (
-          <Loader2 className="animate-spin h-4 w-4" />
-        ) : (
-          <ShieldX className="h-4 w-4" />
-        )}
-        {/* Inner span for text */}
-        <span>
-          {isLoadingAction ? 'Cancelling...' : 'Confirm Cancel'}
-        </span>
-      </span>
-    );
-  };
-
-
   return (
     <div className="space-y-6">
       <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live.</CardDescription> </CardHeader> </Card>
@@ -629,9 +611,9 @@ export default function MyActiveRidePage() {
                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
                   <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
                     <Info className="h-5 w-5 text-current" />
-                    <ShadAlertTitle className="font-semibold text-current">Driver Has Arrived!</ShadAlertTitle>
+                    <ShadAlertTitle className="font-semibold text-current"><span>Driver Has Arrived!</span></ShadAlertTitle>
                     <ShadAlertDescription className="text-current">
-                      Please acknowledge within <span className="font-bold">{formatTimerPassenger(ackWindowSecondsLeft)}</span> to start your 3 minutes free waiting.
+                      <span>Please acknowledge within <span className="font-bold">{formatTimerPassenger(ackWindowSecondsLeft)}</span> to start your 3 minutes free waiting.</span>
                     </ShadAlertDescription>
                   </Alert>
                 )}
@@ -639,10 +621,10 @@ export default function MyActiveRidePage() {
                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft === 0 && (
                   <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
                     <Timer className="h-5 w-5 text-current" />
-                    <ShadAlertTitle className="font-semibold text-current">Acknowledgment Window Expired</ShadAlertTitle>
+                    <ShadAlertTitle className="font-semibold text-current"><span>Acknowledgment Window Expired</span></ShadAlertTitle>
                     <ShadAlertDescription className="text-current">
-                      Your 3 mins free waiting time ({freeWaitingSecondsLeft !== null ? formatTimerPassenger(freeWaitingSecondsLeft) : 'N/A'}) has started.
-                      Waiting charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.
+                     <span>Your 3 mins free waiting time ({freeWaitingSecondsLeft !== null ? formatTimerPassenger(freeWaitingSecondsLeft) : 'N/A'}) has started.
+                      Waiting charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.</span>
                     </ShadAlertDescription>
                   </Alert>
                 )}
@@ -650,15 +632,15 @@ export default function MyActiveRidePage() {
                 {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
                   <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300">
                     <CheckCheck className="h-5 w-5 text-current" />
-                    <ShadAlertTitle className="font-semibold text-current">Arrival Acknowledged - Free Waiting</ShadAlertTitle>
+                    <ShadAlertTitle className="font-semibold text-current"><span>Arrival Acknowledged - Free Waiting</span></ShadAlertTitle>
                     <ShadAlertDescription className="text-current">
                       {freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
-                        `Free waiting time: ${formatTimerPassenger(freeWaitingSecondsLeft)}. Charges (£${WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.`
+                        <span>Free waiting time: {formatTimerPassenger(freeWaitingSecondsLeft)}. Charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.</span>
                       )}
                       {isBeyondFreeWaiting && extraWaitingSeconds !== null && (
-                        `Extra waiting: ${formatTimerPassenger(extraWaitingSeconds)}. Current Charge: £${currentWaitingCharge.toFixed(2)}`
+                        <span>Extra waiting: {formatTimerPassenger(extraWaitingSeconds)}. Current Charge: £{currentWaitingCharge.toFixed(2)}</span>
                       )}
-                      {!isBeyondFreeWaiting && freeWaitingSecondsLeft === 0 && "Free waiting time expired. Charges (£0.20/min) may apply."}
+                      {!isBeyondFreeWaiting && freeWaitingSecondsLeft === 0 && <span>Free waiting time expired. Charges (£0.20/min) may apply.</span>}
                     </ShadAlertDescription>
                   </Alert>
                 )}
@@ -680,18 +662,18 @@ export default function MyActiveRidePage() {
                  {activeRide.status === 'pending_driver_wait_and_return_approval' && (
                     <Alert variant="default" className="bg-purple-50 border-purple-300 text-purple-700 mt-2">
                         <Timer className="h-5 w-5" />
-                        <ShadAlertTitle className="font-semibold">Wait & Return Requested</ShadAlertTitle>
+                        <ShadAlertTitle className="font-semibold"><span>Wait & Return Requested</span></ShadAlertTitle>
                         <ShadAlertDescription>
-                          Your request for wait & return (approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins wait) is awaiting driver confirmation.
+                          <span>Your request for wait & return (approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins wait) is awaiting driver confirmation.</span>
                         </ShadAlertDescription>
                     </Alert>
                  )}
                  {activeRide.status === 'in_progress_wait_and_return' && (
                      <Alert variant="default" className="bg-teal-50 border-teal-300 text-teal-700 mt-2">
                         <CheckCheck className="h-5 w-5" />
-                        <ShadAlertTitle className="font-semibold">Wait & Return Active!</ShadAlertTitle>
+                        <ShadAlertTitle className="font-semibold"><span>Wait & Return Active!</span></ShadAlertTitle>
                         <ShadAlertDescription>
-                          Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {fareDisplay}.
+                          <span>Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {fareDisplay}.</span>
                         </ShadAlertDescription>
                     </Alert>
                  )}
@@ -704,9 +686,9 @@ export default function MyActiveRidePage() {
                   {isEditingDisabled && (
                     <Alert variant="default" className="w-full text-xs p-2 bg-yellow-50 border-yellow-400 dark:bg-yellow-800/30 dark:border-yellow-700">
                       <AlertTriangle className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
-                      <ShadAlertTitle className="text-yellow-700 dark:text-yellow-300 font-semibold">Editing Disabled</ShadAlertTitle>
+                      <ShadAlertTitle className="text-yellow-700 dark:text-yellow-300 font-semibold"><span>Editing Disabled</span></ShadAlertTitle>
                       <ShadAlertDescription className="text-yellow-600 dark:text-yellow-400">
-                        Ride details cannot be changed once a driver is assigned or the ride is in progress. Please cancel and rebook if major changes are needed.
+                        <span>Ride details cannot be changed once a driver is assigned or the ride is in progress. Please cancel and rebook if major changes are needed.</span>
                       </ShadAlertDescription>
                     </Alert>
                   )}
@@ -738,29 +720,31 @@ export default function MyActiveRidePage() {
                   <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => {
+                  onClick={() => { 
                     if (activeRide) { handleInitiateCancelRide(); }
-                    setShowCancelConfirmationDialog(false); 
+                    setShowCancelConfirmationDialog(false);
                   }}
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                 {renderAlertDialogActionContent()}
+                  <span>
+                    {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset();}}}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
-          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescription> </DialogHeader>
+          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle><span>Edit Booking Details</span></ShadDialogTitle> <ShadDialogDescription><span>Modify your ride details. Changes only apply if driver not yet assigned.</span></ShadDialogDescription> </DialogHeader>
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
-          <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupDetails, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
-                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel>Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
+          <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel><span>Pickup Door/Flat</span></FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
+          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel><span>Pickup Address</span></FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupDetails, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
+                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel><span>Stop Address</span></FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
                   <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
                   <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-                  <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffDetails, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
-                  <div className="grid grid-cols-2 gap-4"> <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => ( <FormItem><FormLabel>Pickup Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} /> <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => ( <FormItem><FormLabel>Pickup Time</FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem> )} /> </div>
+                  <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel><span>Dropoff Address</span></FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffDetails, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
+                  <div className="grid grid-cols-2 gap-4"> <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => ( <FormItem><FormLabel><span>Pickup Date</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} /> <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => ( <FormItem><FormLabel><span>Pickup Time</span></FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem> )} /> </div>
                   {!editDetailsForm.watch('desiredPickupDate') && <p className="text-xs text-muted-foreground text-center">Leave date/time blank for ASAP booking.</p>}
                 </form> </Form> </div> </ScrollArea>
           <DialogFooter className="p-6 pt-4 border-t"> <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingDetails}>Cancel</Button></DialogClose>
@@ -782,9 +766,9 @@ export default function MyActiveRidePage() {
       </Dialog>
        <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
+          <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> <span>Request Wait & Return</span></ShadDialogTitle>
           <ShadDialogDescription>
-            Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
+            <span>Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.</span>
           </ShadDialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
@@ -812,4 +796,5 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
 
