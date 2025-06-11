@@ -170,7 +170,7 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
     let addressRemainder = fullAddress;
     let outwardPostcode = "";
     
-    const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
+    const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)(?:\s*[0-9][A-Z]{2})?\b/i;
     const postcodeMatch = fullAddress.match(postcodeRegex);
 
     if (postcodeMatch && postcodeMatch[1]) {
@@ -182,8 +182,8 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
     
     let street = parts[0] || "";
     let area = parts[1] || "";
-
-    if (parts.length === 1 && street && !outwardPostcode) { // If only one part and no postcode found yet, it might be area
+    
+    if (parts.length === 1 && street && !outwardPostcode) { 
       area = street;
       street = "";
     }
@@ -261,6 +261,7 @@ export default function MyActiveRidePage() {
 
   const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
+  const editPickupAddressInputRef = useRef<HTMLInputElement>(null);
 
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
@@ -271,18 +272,18 @@ export default function MyActiveRidePage() {
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
 
   useEffect(() => {
-    if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps && window.google.maps.places) {
-      if (!autocompleteServiceRef.current) {
+    if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
+      if (!autocompleteServiceRef.current && window.google.maps.places) {
         autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
       }
-      if (!placesServiceRef.current) {
-        const dummyDiv = document.createElement('div'); // Required by PlacesService constructor
+      if (!placesServiceRef.current && window.google.maps.places) {
+        const dummyDiv = document.createElement('div'); 
         placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
       }
-      if (!autocompleteSessionTokenRef.current) {
+      if (!autocompleteSessionTokenRef.current && window.google.maps.places) {
         autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
       }
-      if (!geocoderRef.current) {
+      if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
       }
       console.log("[TrackRidePage Dialogs] Google Maps Places/Geocoder services initialized/confirmed based on isMapSdkLoaded:", {
@@ -292,9 +293,19 @@ export default function MyActiveRidePage() {
         geocoder: !!geocoderRef.current,
       });
     } else if (isMapSdkLoaded) {
-      console.warn("[TrackRidePage Dialogs] isMapSdkLoaded is true, but window.google.maps.places is not available.");
+      console.warn("[TrackRidePage Dialogs] isMapSdkLoaded is true, but window.google.maps or its sub-libraries are not available.");
     }
   }, [isMapSdkLoaded]);
+
+  useEffect(() => {
+    if (isEditDetailsDialogOpen && editPickupAddressInputRef.current) {
+      // Delay slightly to ensure the input is rendered and focusable
+      setTimeout(() => {
+        editPickupAddressInputRef.current?.focus();
+        // editPickupAddressInputRef.current?.select(); // Optionally select existing text
+      }, 100);
+    }
+  }, [isEditDetailsDialogOpen]);
 
 
   useEffect(() => {
@@ -1004,7 +1015,7 @@ export default function MyActiveRidePage() {
           <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescription> </DialogHeader>
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
           <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
+          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input ref={editPickupAddressInputRef} placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
                   {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel>Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
                   <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
                   <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
@@ -1061,3 +1072,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
