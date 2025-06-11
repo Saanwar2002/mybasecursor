@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 
-const DefaultAiTaskIcon = LucideIcons.ListChecks;
+const DefaultAiTaskIcon = LucideIcons.ListChecks; // Default icon
 
 interface TaskItem extends AiActionItemType {
   completed: boolean;
@@ -21,7 +21,7 @@ interface TaskItem extends AiActionItemType {
 interface ActionableCategory {
   id: string;
   name: string;
-  icon: React.ElementType;
+  icon: React.ElementType; // Keep this as ElementType
   tasks: TaskItem[];
 }
 
@@ -49,7 +49,6 @@ export function AdminActionItemsDisplay({
 
   useEffect(() => {
     const groupedTasks: Record<string, TaskItem[]> = {};
-    // Ensure items is an array before iterating
     (items || []).forEach(item => {
       const categoryName = item.category || 'General Tasks';
       if (!groupedTasks[categoryName]) {
@@ -68,12 +67,11 @@ export function AdminActionItemsDisplay({
 
         let iconToUse: React.ElementType = DefaultAiTaskIcon;
         if (tasks[0]?.iconName) {
-          const foundIcon = LucideIcons[tasks[0].iconName as keyof typeof LucideIcons] as React.ElementType | undefined;
-          if (foundIcon) {
-            iconToUse = foundIcon;
+          const FoundIcon = LucideIcons[tasks[0].iconName as keyof typeof LucideIcons] as React.ElementType | undefined;
+          if (FoundIcon) {
+            iconToUse = FoundIcon;
           }
         }
-
         return {
           id: catName.toLowerCase().replace(/\s+/g, '-'),
           name: catName,
@@ -117,17 +115,27 @@ export function AdminActionItemsDisplay({
   };
 
   const hasValidItems = items && items.length > 0;
-  const hasCategorizedTasks = categorizedTasks && categorizedTasks.length > 0;
-
-  const titleIcon = hasValidItems && hasCategorizedTasks && categorizedTasks[0].icon
-    ? <categorizedTasks[0].icon className="w-6 h-6 text-primary" />
-    : <DefaultAiTaskIcon className="w-6 h-6 text-primary" />;
+  
+  // Determine the icon component to use for the main title
+  let TitleIconComponent: React.ElementType = DefaultAiTaskIcon; // Default
+  if (hasValidItems && categorizedTasks.length > 0 && categorizedTasks[0].icon) {
+    // Ensure categorizedTasks[0].icon is a valid component type before assigning
+    const firstCategoryIconCandidate = categorizedTasks[0].icon;
+     if (typeof firstCategoryIconCandidate === 'function' || 
+        typeof firstCategoryIconCandidate === 'string' || 
+        (typeof firstCategoryIconCandidate === 'object' && 
+         firstCategoryIconCandidate !== null && 
+         'render' in firstCategoryIconCandidate)) { // A more robust check for React component types
+      TitleIconComponent = firstCategoryIconCandidate;
+    }
+  }
 
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="text-xl font-headline flex items-center gap-2">
-          {titleIcon}
+          {/* Render the chosen icon component using the uppercase variable */}
+          <TitleIconComponent className="w-6 h-6 text-primary" />
           {title}
         </CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
