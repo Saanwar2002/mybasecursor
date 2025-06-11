@@ -350,7 +350,6 @@ export default function MyActiveRidePage() {
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
     } finally {
         if (activeRide) setActionLoading(prev => ({ ...prev, [activeRide.id]: false }));
-        setShowCancelConfirmationDialog(false); 
     }
   };
 
@@ -715,20 +714,29 @@ export default function MyActiveRidePage() {
             <AlertDialogFooter>
                 <AlertDialogCancel
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-                    disabled={activeRide ? actionLoading[activeRide.id] : false}
+                    disabled={activeRide ? actionLoading[activeRide.id] || false : false}
                 >
                   <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
                     if (activeRide) { handleInitiateCancelRide(); }
-                    setShowCancelConfirmationDialog(false);
                   }}
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span>
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
+                  <span className="flex items-center justify-center">
+                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                       <React.Fragment>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </React.Fragment>
+                    ) : (
+                       <React.Fragment>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </React.Fragment>
+                    )}
                   </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
@@ -796,5 +804,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
-
