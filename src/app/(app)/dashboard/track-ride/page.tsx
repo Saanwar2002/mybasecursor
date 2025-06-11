@@ -593,12 +593,14 @@ export default function MyActiveRidePage() {
   const renderAlertDialogActionContent = () => {
     const isLoadingAction = activeRide && (actionLoading[activeRide.id] || false);
     return (
+      // Single span as direct child, handles its own flex layout
       <span className="inline-flex items-center justify-center gap-2">
         {isLoadingAction ? (
           <Loader2 className="animate-spin h-4 w-4" />
         ) : (
           <ShieldX className="h-4 w-4" />
         )}
+        {/* Inner span for text */}
         <span>
           {isLoadingAction ? 'Cancelling...' : 'Confirm Cancel'}
         </span>
@@ -738,9 +740,9 @@ export default function MyActiveRidePage() {
                 <AlertDialogAction
                   onClick={() => {
                     if (activeRide) { handleInitiateCancelRide(); }
-                    setShowCancelConfirmationDialog(false);
+                    setShowCancelConfirmationDialog(false); 
                   }}
-                  disabled={!activeRide || !!actionLoading[activeRide.id]}
+                  disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
                  {renderAlertDialogActionContent()}
@@ -810,3 +812,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
