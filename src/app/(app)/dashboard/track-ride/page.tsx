@@ -725,22 +725,18 @@ export default function MyActiveRidePage() {
                 <AlertDialogAction
                   onClick={() => { 
                     if (activeRide) { handleInitiateCancelRide(); } 
-                    setShowCancelConfirmationDialog(false); 
                   }}
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                        <React.Fragment>
+                    {activeRide && (actionLoading[activeRide.id] || false) ? (
                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                        <span>Cancelling...</span>
-                        </React.Fragment>
                     ) : (
-                        <React.Fragment>
                         <ShieldX className="mr-2 h-4 w-4" />
-                        <span>Confirm Cancel</span>
-                        </React.Fragment>
                     )}
+                    <span>
+                        {activeRide && (actionLoading[activeRide.id] || false) ? 'Cancelling...' : 'Confirm Cancel'}
+                    </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
