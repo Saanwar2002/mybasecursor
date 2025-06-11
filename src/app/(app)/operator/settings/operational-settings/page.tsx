@@ -57,9 +57,7 @@ export default function OperatorOperationalSettingsPage() {
       }
       const data = await response.json();
       setEnableAutoDispatch(data.dispatchMode === 'auto');
-      if (user) {
-        updateUserProfileInContext({ dispatchMode: data.dispatchMode });
-      }
+      // Removed updateUserProfileInContext call from here
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load dispatch settings.";
       setErrorDispatch(message);
@@ -68,7 +66,7 @@ export default function OperatorOperationalSettingsPage() {
     } finally {
       setIsLoadingDispatch(false);
     }
-  }, [toast, user, updateUserProfileInContext]);
+  }, [toast]); // Dependencies updated
 
   useEffect(() => {
     fetchPricingSettings();
