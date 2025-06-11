@@ -584,12 +584,12 @@ export default function MyActiveRidePage() {
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
-  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide, isLoading: boolean }) => (
+  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => (
     <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
-      <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="text-destructive font-medium text-sm">
-        Initiate Cancellation
+      <Label htmlFor={`cancel-ride-switch-${ride?.id}`} className="text-destructive font-medium text-sm">
+        <span>Initiate Cancellation</span>
       </Label>
-      <Switch id={`cancel-ride-switch-${ride.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoadingProp} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
+      <Switch id={`cancel-ride-switch-${ride?.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionIsLoadingProp} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
     </div>
   );
 
@@ -729,16 +729,16 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <React.Fragment>
+                 <span className="inline-flex items-center justify-center gap-2">
                     {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                      <Loader2 className="animate-spin h-4 w-4" />
                     ) : (
-                      <ShieldX className="mr-2 h-4 w-4" />
+                      <ShieldX className="h-4 w-4" />
                     )}
                     <span>
                       {(activeRide && (actionLoading[activeRide.id] || false)) ? 'Cancelling...' : 'Confirm Cancel'}
                     </span>
-                  </React.Fragment>
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
