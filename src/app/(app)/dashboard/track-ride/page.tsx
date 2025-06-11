@@ -170,45 +170,46 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
   let addressRemainder = fullAddress;
   let outwardPostcode = "";
   
-  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)(?:\s*[0-9][A-Z]{2})?\b/i;
+  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
   const postcodeMatch = fullAddress.match(postcodeRegex);
 
-  if (postcodeMatch && postcodeMatch[1]) {
+  if (postcodeMatch) {
     outwardPostcode = postcodeMatch[1].toUpperCase();
-    // Remove the whole postcode match to clean up the address string
     addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
   }
 
   const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
   
-  let street = parts[0] || "";
-  let area = parts[1] || "";
+  let street = parts[0] || "Location";
+  let area = "";
 
-  // Refine area if it's just a city/county that might be redundant or too broad
-  if (parts.length > 2 && (area.toLowerCase() === "huddersfield" || area.toLowerCase() === "west yorkshire")) {
-      area = parts[1]; // Keep it if it's specific like "Paddock"
-  } else if (parts.length === 1 && street) { // Only street was left
-      area = ""; // No distinct area
-  }
-
-
-  let line1 = street;
-  let line2 = area;
-
-  if (outwardPostcode) {
-    if (line2) {
-      line2 += ` ${outwardPostcode}`;
-    } else if (line1 && line1.toLowerCase() !== "area" && line1.toLowerCase() !== "location") { // If no area but street exists
-      line2 = outwardPostcode;
-    } else { // No street, no area, just postcode
-      line1 = outwardPostcode;
-      line2 = "";
+  if (parts.length > 1) {
+    area = parts[1]; // Take the part after the street as the area
+    // Optional: attempt to clean up street if area is part of it (e.g. "Longwood Gate, Longwood" -> "Longwood Gate")
+    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) { // +2 for comma and space
+        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
+  } else if (parts.length === 0 && outwardPostcode) {
+    // If only postcode was found, addressRemainder might be empty
+    street = "Area"; // Default street name
   }
   
-  if (!line1 && !line2) return `${type}:\n${fullAddress.split(',')[0]}`; // Fallback to first part of address
+  // Construct the second line with area and outward postcode
+  let locationLine = area;
+  if (outwardPostcode) {
+    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
+  }
+  
+  // Handle cases where street might be empty or generic
+  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
+      street = ""; // Don't show generic "Location" if postcode line is more specific
+  }
 
-  return `${type}:\n${line1}${line2 ? `\n${line2}` : ''}`.trim();
+  if (!street && !locationLine) { // Fallback if both are empty
+      return `${type}:\n${fullAddress.split(',')[0]}`; 
+  }
+
+  return `${type}:\n${street}${locationLine ? `\n${locationLine}` : ''}`.trim();
 }
 
 
@@ -266,7 +267,7 @@ export default function MyActiveRidePage() {
 
   const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
+  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false); // For the page itself
 
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
@@ -276,11 +277,40 @@ export default function MyActiveRidePage() {
 
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
 
-   useEffect(() => {
-    if (isMapSdkLoaded && typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.Geocoder) {
-      geocoderRef.current = new window.google.maps.Geocoder();
+  // Initialize Maps SDK and Services for this page
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      console.warn("Google Maps API Key missing for TrackRidePage.");
+      setError("Map services unavailable (config error).");
+      setIsMapSdkLoaded(false);
+      return;
     }
-  }, [isMapSdkLoaded]);
+    const loader = new GoogleApiLoader({
+      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+      version: "weekly",
+      libraries: ["geocoding", "maps", "marker", "places"],
+    });
+
+    loader.load().then((google) => {
+      if (typeof window !== 'undefined' && google && google.maps) {
+        autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+        placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
+        autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+        geocoderRef.current = new google.maps.Geocoder();
+        console.log("[TrackRidePage] Google Maps SDK and services initialized for dialogs.");
+        setIsMapSdkLoaded(true);
+      } else {
+        console.error("[TrackRidePage] Failed to initialize Google Maps services after SDK load for dialogs.");
+        setError("Map services failed to initialize for editing.");
+        setIsMapSdkLoaded(false);
+      }
+    }).catch(e => {
+      console.error("[TrackRidePage] Failed to load Google Maps SDK for dialogs:", e);
+      setError(`Map SDK Load Error: ${e.message}`);
+      setIsMapSdkLoaded(false);
+    });
+  }, []);
+
 
   useEffect(() => {
     if (activeRide?.driverCurrentLocation && geocoderRef.current && isMapSdkLoaded) {
@@ -486,8 +516,14 @@ export default function MyActiveRidePage() {
     setIsFetchingSuggFunc(true); 
     debounceTimeoutRef.current = setTimeout(() => {
       if (!autocompleteServiceRef.current) { 
-        console.warn("[EditDialog] Autocomplete service not ready for input change factory.");
+        console.warn(`[EditDialog] Autocomplete service not ready for input change factory. Input: "${inputValue}"`);
         setIsFetchingSuggFunc(false);
+        const setSuggestionsFuncForDebounce = (sugg: google.maps.places.AutocompletePrediction[]) => {
+            if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
+            else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
+            else setDialogDropoffSuggestions(sugg);
+        };
+        setSuggestionsFuncForDebounce([]);
         return;
       }
       console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
@@ -505,7 +541,20 @@ export default function MyActiveRidePage() {
         }
       );
     }, 300);
-  }, [setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupSuggestions, setIsFetchingDialogDropoffSuggestions, autocompleteServiceRef, autocompleteSessionTokenRef]);
+  }, [
+    isMapSdkLoaded, // Added: Recreate handler when SDK is ready
+    setDialogPickupCoords,
+    setDialogDropoffCoords,
+    setDialogStopAutocompleteData,
+    setDialogPickupInputValue,
+    setDialogDropoffInputValue,
+    setShowDialogPickupSuggestions,
+    setShowDialogDropoffSuggestions,
+    setIsFetchingDialogPickupSuggestions,
+    setIsFetchingDialogDropoffSuggestions,
+    autocompleteServiceRef, 
+    autocompleteSessionTokenRef
+  ]);
 
 
  const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
@@ -550,7 +599,21 @@ export default function MyActiveRidePage() {
             autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
         }
     );
-  }, [toast, setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, setDialogPickupInputValue, setDialogDropoffInputValue, setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, setIsFetchingDialogPickupDetails, setIsFetchingDialogDropoffDetails, placesServiceRef, autocompleteSessionTokenRef]);
+  }, [
+    toast, 
+    isMapSdkLoaded, // Added
+    setDialogPickupCoords, 
+    setDialogDropoffCoords, 
+    setDialogStopAutocompleteData, 
+    setDialogPickupInputValue, 
+    setDialogDropoffInputValue, 
+    setShowDialogPickupSuggestions, 
+    setShowDialogDropoffSuggestions, 
+    setIsFetchingDialogPickupDetails, 
+    setIsFetchingDialogDropoffDetails, 
+    placesServiceRef, 
+    autocompleteSessionTokenRef
+  ]);
 
 
   const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
@@ -574,7 +637,7 @@ export default function MyActiveRidePage() {
         if (typeof fieldNameOrIndex === 'number') setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: false} : item)); 
         else if (fieldNameOrIndex === 'pickupLocation') setShowDialogPickupSuggestions(false); 
         else setShowDialogDropoffSuggestions(false); 
-    }, 500); // Increased timeout
+    }, 500); 
   };
 
   const onEditDetailsSubmit = async (values: EditDetailsFormValues) => {
@@ -784,9 +847,9 @@ export default function MyActiveRidePage() {
 
   const renderCancelAlertDialogActionContent = () => {
     return (
-      <span className="flex items-center justify-center"> {/* Single direct child */}
+      <span className="flex items-center justify-center">
         {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-          <React.Fragment> {/* Fragment is NOT a direct child of AlertDialogAction */}
+          <React.Fragment>
             <Loader2 className="animate-spin mr-2 h-4 w-4" />
             <span>Cancelling...</span>
           </React.Fragment>
@@ -866,7 +929,7 @@ export default function MyActiveRidePage() {
 
                 {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
                 <Separator />
-                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
+                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
                  {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
                    <Button
