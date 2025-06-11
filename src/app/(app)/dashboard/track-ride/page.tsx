@@ -170,22 +170,23 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
     let addressRemainder = fullAddress;
     let outwardPostcode = "";
     
-    const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)(?:\s*[0-9][A-Z]{2})?\b/i;
+    const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
     const postcodeMatch = fullAddress.match(postcodeRegex);
 
     if (postcodeMatch && postcodeMatch[1]) {
         outwardPostcode = postcodeMatch[1].toUpperCase();
+        // Remove the whole postcode string (e.g., "HD1 3AY") to avoid it appearing in area
         addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
     }
 
     const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
     
     let street = parts[0] || "";
-    let area = parts[1] || "";
+    let area = parts[1] || ""; // Take the next part as area
     
-    if (parts.length === 1 && street && !outwardPostcode) { 
-      area = street;
-      street = "";
+    // Refine area if street might have contained it
+    if (street.toLowerCase().includes(area.toLowerCase()) && area.length > 0 && street.length > area.length + 2) {
+        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
     
     let locationLine = area;
@@ -193,14 +194,11 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
         locationLine = (area ? area + " " : "") + outwardPostcode;
     }
     
-    if (!street && !locationLine) {
-      const firstPart = fullAddress.split(',')[0];
-      return `${type}:\n${firstPart || "Location Details"}`;
-    }
+    if (!street && !locationLine) street = "Location Details"; // Fallback
     
     let finalLabel = `${type}:`;
     if (street) finalLabel += `\n${street}`;
-    if (locationLine) finalLabel += `\n${locationLine.trim()}`;
+    if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`; // Ensure this line isn't empty if only postcode existed
     
     return finalLabel;
 }
@@ -261,7 +259,6 @@ export default function MyActiveRidePage() {
 
   const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
-  const editPickupAddressInputRef = useRef<HTMLInputElement>(null);
 
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
@@ -298,14 +295,13 @@ export default function MyActiveRidePage() {
   }, [isMapSdkLoaded]);
 
   useEffect(() => {
-    if (isEditDetailsDialogOpen && editPickupAddressInputRef.current) {
-      // Delay slightly to ensure the input is rendered and focusable
+    if (isEditDetailsDialogOpen) {
+      // Delay slightly to ensure the dialog and its contents are fully rendered
       setTimeout(() => {
-        editPickupAddressInputRef.current?.focus();
-        // editPickupAddressInputRef.current?.select(); // Optionally select existing text
+        editDetailsForm.setFocus('pickupLocation');
       }, 100);
     }
-  }, [isEditDetailsDialogOpen]);
+  }, [isEditDetailsDialogOpen, editDetailsForm]);
 
 
   useEffect(() => {
@@ -1015,7 +1011,7 @@ export default function MyActiveRidePage() {
           <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescription> </DialogHeader>
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
           <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input ref={editPickupAddressInputRef} placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
+          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
                   {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel>Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
                   <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
                   <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
