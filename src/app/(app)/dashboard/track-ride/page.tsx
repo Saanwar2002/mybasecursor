@@ -37,7 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader';
+// Removed direct GoogleApiLoader import, will rely on GoogleMapDisplay's load
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
@@ -165,51 +165,44 @@ const formatTimerPassenger = (totalSeconds: number): string => {
 };
 
 function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
-  if (!fullAddress) return `${type}:\nN/A`;
+    if (!fullAddress) return `${type}:\nN/A`;
 
-  let addressRemainder = fullAddress;
-  let outwardPostcode = "";
-  
-  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
-  const postcodeMatch = fullAddress.match(postcodeRegex);
+    let addressRemainder = fullAddress;
+    let outwardPostcode = "";
+    
+    const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
+    const postcodeMatch = fullAddress.match(postcodeRegex);
 
-  if (postcodeMatch) {
-    outwardPostcode = postcodeMatch[1].toUpperCase();
-    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
-  }
-
-  const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-  
-  let street = parts[0] || "Location";
-  let area = "";
-
-  if (parts.length > 1) {
-    area = parts[1]; // Take the part after the street as the area
-    // Optional: attempt to clean up street if area is part of it (e.g. "Longwood Gate, Longwood" -> "Longwood Gate")
-    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) { // +2 for comma and space
-        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
+    if (postcodeMatch && postcodeMatch[1]) {
+        outwardPostcode = postcodeMatch[1].toUpperCase();
+        addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
     }
-  } else if (parts.length === 0 && outwardPostcode) {
-    // If only postcode was found, addressRemainder might be empty
-    street = "Area"; // Default street name
-  }
-  
-  // Construct the second line with area and outward postcode
-  let locationLine = area;
-  if (outwardPostcode) {
-    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
-  }
-  
-  // Handle cases where street might be empty or generic
-  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = ""; // Don't show generic "Location" if postcode line is more specific
-  }
 
-  if (!street && !locationLine) { // Fallback if both are empty
-      return `${type}:\n${fullAddress.split(',')[0]}`; 
-  }
+    const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
+    
+    let street = parts[0] || "";
+    let area = parts[1] || "";
 
-  return `${type}:\n${street}${locationLine ? `\n${locationLine}` : ''}`.trim();
+    if (parts.length === 1 && street && !outwardPostcode) { // If only one part and no postcode found yet, it might be area
+      area = street;
+      street = "";
+    }
+    
+    let locationLine = area;
+    if (outwardPostcode) {
+        locationLine = (area ? area + " " : "") + outwardPostcode;
+    }
+    
+    if (!street && !locationLine) {
+      const firstPart = fullAddress.split(',')[0];
+      return `${type}:\n${firstPart || "Location Details"}`;
+    }
+    
+    let finalLabel = `${type}:`;
+    if (street) finalLabel += `\n${street}`;
+    if (locationLine) finalLabel += `\n${locationLine.trim()}`;
+    
+    return finalLabel;
 }
 
 
@@ -250,6 +243,7 @@ export default function MyActiveRidePage() {
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
   const driverLocation = useMemo(() => activeRide?.driverCurrentLocation || huddersfieldCenterGoogle, [activeRide?.driverCurrentLocation]);
 
@@ -266,8 +260,7 @@ export default function MyActiveRidePage() {
   const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
 
   const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false); // For the page itself
+  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
 
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
@@ -277,39 +270,31 @@ export default function MyActiveRidePage() {
 
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
 
-  // Initialize Maps SDK and Services for this page
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      console.warn("Google Maps API Key missing for TrackRidePage.");
-      setError("Map services unavailable (config error).");
-      setIsMapSdkLoaded(false);
-      return;
-    }
-    const loader = new GoogleApiLoader({
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-      version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places"],
-    });
-
-    loader.load().then((google) => {
-      if (typeof window !== 'undefined' && google && google.maps) {
-        autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-        placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
-        autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
-        geocoderRef.current = new google.maps.Geocoder();
-        console.log("[TrackRidePage] Google Maps SDK and services initialized for dialogs.");
-        setIsMapSdkLoaded(true);
-      } else {
-        console.error("[TrackRidePage] Failed to initialize Google Maps services after SDK load for dialogs.");
-        setError("Map services failed to initialize for editing.");
-        setIsMapSdkLoaded(false);
+    if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps && window.google.maps.places) {
+      if (!autocompleteServiceRef.current) {
+        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
       }
-    }).catch(e => {
-      console.error("[TrackRidePage] Failed to load Google Maps SDK for dialogs:", e);
-      setError(`Map SDK Load Error: ${e.message}`);
-      setIsMapSdkLoaded(false);
-    });
-  }, []);
+      if (!placesServiceRef.current) {
+        const dummyDiv = document.createElement('div'); // Required by PlacesService constructor
+        placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
+      }
+      if (!autocompleteSessionTokenRef.current) {
+        autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+      }
+      if (!geocoderRef.current) {
+        geocoderRef.current = new window.google.maps.Geocoder();
+      }
+      console.log("[TrackRidePage Dialogs] Google Maps Places/Geocoder services initialized/confirmed based on isMapSdkLoaded:", {
+        auto: !!autocompleteServiceRef.current,
+        places: !!placesServiceRef.current,
+        token: !!autocompleteSessionTokenRef.current,
+        geocoder: !!geocoderRef.current,
+      });
+    } else if (isMapSdkLoaded) {
+      console.warn("[TrackRidePage Dialogs] isMapSdkLoaded is true, but window.google.maps.places is not available.");
+    }
+  }, [isMapSdkLoaded]);
 
 
   useEffect(() => {
@@ -509,26 +494,30 @@ export default function MyActiveRidePage() {
         else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupSuggestions(fetch);
         else setIsFetchingDialogDropoffSuggestions(fetch);
     };
+    
+    console.log(`[EditDialog Handler Called] isMapSdkLoaded: ${isMapSdkLoaded}, autocompleteServiceRef.current: ${autocompleteServiceRef.current ? 'EXISTS' : 'NULL'}`);
+
+    if (!isMapSdkLoaded || !autocompleteServiceRef.current || !autocompleteSessionTokenRef.current) {
+        console.warn(`[EditDialog] Autocomplete service NOT READY (isMapSdkLoaded: ${isMapSdkLoaded}) for input. Input: "${inputValue}"`);
+        setIsFetchingSuggFunc(false);
+        const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => {
+            if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
+            else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
+            else setDialogDropoffSuggestions(sugg);
+        };
+        setSuggestionsFunc([]);
+        return;
+    }
+
 
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     if (inputValue.length < 2) { setIsFetchingSuggFunc(false); return; }
     
     setIsFetchingSuggFunc(true); 
     debounceTimeoutRef.current = setTimeout(() => {
-      if (!autocompleteServiceRef.current) { 
-        console.warn(`[EditDialog] Autocomplete service not ready for input change factory. Input: "${inputValue}"`);
-        setIsFetchingSuggFunc(false);
-        const setSuggestionsFuncForDebounce = (sugg: google.maps.places.AutocompletePrediction[]) => {
-            if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
-            else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
-            else setDialogDropoffSuggestions(sugg);
-        };
-        setSuggestionsFuncForDebounce([]);
-        return;
-      }
       console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
-      autocompleteServiceRef.current.getPlacePredictions(
-        { input: inputValue, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } },
+      autocompleteServiceRef.current!.getPlacePredictions(
+        { input: inputValue, sessionToken: autocompleteSessionTokenRef.current!, componentRestrictions: { country: 'gb' } },
         (predictions, status) => {
           setIsFetchingSuggFunc(false);
           console.log(`[EditDialog] getPlacePredictions for "${inputValue}": Status - ${status}`, predictions);
@@ -542,29 +531,28 @@ export default function MyActiveRidePage() {
       );
     }, 300);
   }, [
-    isMapSdkLoaded, // Added: Recreate handler when SDK is ready
-    setDialogPickupCoords,
-    setDialogDropoffCoords,
+    isMapSdkLoaded,
+    setDialogPickupInputValue, setDialogPickupCoords, setShowDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions, setDialogPickupSuggestions,
+    setDialogDropoffInputValue, setDialogDropoffCoords, setShowDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions, setDialogDropoffSuggestions,
     setDialogStopAutocompleteData,
-    setDialogPickupInputValue,
-    setDialogDropoffInputValue,
-    setShowDialogPickupSuggestions,
-    setShowDialogDropoffSuggestions,
-    setIsFetchingDialogPickupSuggestions,
-    setIsFetchingDialogDropoffSuggestions,
-    autocompleteServiceRef, 
-    autocompleteSessionTokenRef
+    toast
   ]);
 
 
  const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
-    const addressText = suggestion?.description; if (!addressText || !placesServiceRef.current || !suggestion.place_id) return; 
+    const addressText = suggestion?.description; 
+    if (!isMapSdkLoaded || !placesServiceRef.current || !autocompleteSessionTokenRef.current || !addressText || !suggestion.place_id) {
+        console.warn(`[EditDialog] Places service, token, address, or place_id NOT READY for suggestion click. isMapSdkLoaded: ${isMapSdkLoaded}`);
+        if (addressText) formOnChange(addressText); // Fallback to description if services not ready
+        return;
+    }
     
     const setInputValFunc = (val: string) => {
         if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val, showSuggestions: false } : item));
         else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupInputValue(val); setShowDialogPickupSuggestions(false); }
         else { setDialogDropoffInputValue(val); setShowDialogDropoffSuggestions(false); }
     };
+    // Immediately update input text and form value to selected suggestion text
     setInputValFunc(addressText); 
     formOnChange(addressText); 
 
@@ -586,8 +574,8 @@ export default function MyActiveRidePage() {
         (place, status) => {
             setIsFetchingDetailsFunc(false);
             const finalAddressToSet = place?.formatted_address || addressText;
-            formOnChange(finalAddressToSet); 
-            setInputValFunc(finalAddressToSet); 
+            formOnChange(finalAddressToSet); // Update form with potentially more complete address
+            setInputValFunc(finalAddressToSet); // Update local input state too
 
             if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
                 setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
@@ -596,23 +584,16 @@ export default function MyActiveRidePage() {
                 setCoordsFunc(null, finalAddressToSet); 
                 toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"});
             }
-            autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+            autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken(); // Refresh token
         }
     );
   }, [
-    toast, 
-    isMapSdkLoaded, // Added
-    setDialogPickupCoords, 
-    setDialogDropoffCoords, 
-    setDialogStopAutocompleteData, 
-    setDialogPickupInputValue, 
-    setDialogDropoffInputValue, 
-    setShowDialogPickupSuggestions, 
-    setShowDialogDropoffSuggestions, 
-    setIsFetchingDialogPickupDetails, 
-    setIsFetchingDialogDropoffDetails, 
-    placesServiceRef, 
-    autocompleteSessionTokenRef
+    isMapSdkLoaded, 
+    toast, editDetailsForm.setValue, 
+    setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, 
+    setDialogPickupInputValue, setDialogDropoffInputValue, 
+    setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, 
+    setIsFetchingDialogPickupDetails, setIsFetchingDialogDropoffDetails
   ]);
 
 
@@ -1080,4 +1061,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
