@@ -1,4 +1,3 @@
-
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,6 +69,7 @@ interface ActiveRide {
   driverAvatar?: string;
   driverVehicleDetails?: string; 
   vehicleType: string;
+  passengers: number; // Added from BookingFormValues
   fareEstimate: number;
   status: string;
   rating?: number;
@@ -174,21 +174,24 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
 
     if (postcodeMatch && postcodeMatch[1]) {
         outwardPostcode = postcodeMatch[1].toUpperCase();
-        addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
+        // Attempt to remove the full postcode from the address string before splitting
+        const fullPostcode = postcodeMatch[0];
+        addressRemainder = addressRemainder.replace(fullPostcode, '').replace(/,\s*$/, '').trim();
     }
-
+    
     const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-    
     let street = parts[0] || "";
-    let area = parts.length > 1 ? parts[1] : ""; 
-    
-    if (street.toLowerCase().includes(area.toLowerCase()) && area.length > 0 && street.length > area.length + 2) {
-        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
+    let area = parts[1] || ""; 
+
+    // If area is very short and street is long, it might be that street contains the area.
+    if (area.length <= 3 && parts.length > 2) area = parts[1];
+    else if (parts.length > 2) area = parts[1];
+
+
+    let locationLine = area;
+    if (outwardPostcode) {
+        locationLine = area ? `${area} ${outwardPostcode}` : outwardPostcode;
     }
-    
-    let locationLine = "";
-    if (area) locationLine += area;
-    if (outwardPostcode) locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
     
     if (!street && !locationLine.trim()) street = "Location Details";
     
@@ -197,6 +200,29 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
     if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`;
     
     return finalLabel;
+}
+
+// Fare calculation constants (from book-ride page)
+const BASE_FARE = 0.00;
+const PER_MILE_RATE = 1.00;
+const FIRST_MILE_SURCHARGE = 1.99;
+const PER_MINUTE_RATE = 0.10;
+const AVERAGE_SPEED_MPH = 15;
+const BOOKING_FEE = 0.75;
+const MINIMUM_FARE = 4.00;
+const PER_STOP_SURCHARGE = 0.50;
+const PET_FRIENDLY_SURCHARGE = 2.00;
+
+function deg2rad(deg: number): number { return deg * (Math.PI / 180); }
+function getDistanceInMiles(coords1: google.maps.LatLngLiteral | null, coords2: google.maps.LatLngLiteral | null): number {
+  if (!coords1 || !coords2) return 0;
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(coords2.lat - coords1.lat);
+  const dLon = deg2rad(coords2.lng - coords1.lng);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(coords1.lat)) * Math.cos(deg2rad(coords2.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d * 0.621371; // Convert km to miles
 }
 
 
@@ -232,6 +258,8 @@ export default function MyActiveRidePage() {
   const [dialogDropoffCoords, setDialogDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
   const [dialogStopAutocompleteData, setDialogStopAutocompleteData] = useState<DialogAutocompleteData[]>([]);
+  const [dialogFareEstimate, setDialogFareEstimate] = useState<number | null>(null);
+
 
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
@@ -480,51 +508,27 @@ export default function MyActiveRidePage() {
     formOnChange: (value: string) => void,
   ) => {
     formOnChange(inputValue); 
-
-    const setInputValFunc = (typeof formFieldNameOrStopIndex === 'number') 
-        ? (val: string) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val, coords: null } : item))
-        : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupInputValue : setDialogDropoffInputValue);
-    setInputValFunc(inputValue);
-
-    const setCoordsFunc = (typeof formFieldNameOrStopIndex === 'number')
-      ? (coords: google.maps.LatLngLiteral | null) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords} : item))
-      : (formFieldNameOrStopIndex === 'pickupLocation' ? setDialogPickupCoords : setDialogDropoffCoords);
-    setCoordsFunc(null);
     
-    const setShowSuggestionsFunc = (show: boolean) => {
-      if (typeof formFieldNameOrStopIndex === 'number') {
-        setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show } : item));
-      } else if (formFieldNameOrStopIndex === 'pickupLocation') {
-        setShowDialogPickupSuggestions(show);
-      } else {
-        setShowDialogDropoffSuggestions(show);
-      }
-    };
-    setShowSuggestionsFunc(inputValue.length >= 2);
-
     const setIsFetchingSuggFunc = (fetch: boolean) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch} : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupSuggestions(fetch);
-        else setIsFetchingDialogDropoffSuggestions(fetch);
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch, inputValue } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') { setIsFetchingDialogPickupSuggestions(fetch); setDialogPickupInputValue(inputValue); setDialogPickupCoords(null); setShowDialogPickupSuggestions(inputValue.length >=2); }
+        else { setIsFetchingDialogDropoffSuggestions(fetch); setDialogDropoffInputValue(inputValue); setDialogDropoffCoords(null); setShowDialogDropoffSuggestions(inputValue.length >=2); }
     };
-    
-    console.log(`[EditDialog Handler Called] isMapSdkLoaded: ${isMapSdkLoaded}, autocompleteServiceRef.current: ${autocompleteServiceRef.current ? 'EXISTS' : 'NULL'}`);
+    const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => {
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
+        else setDialogDropoffSuggestions(sugg);
+    };
 
     if (!isMapSdkLoaded || !autocompleteServiceRef.current || !autocompleteSessionTokenRef.current) {
-        console.warn(`[EditDialog] Autocomplete service NOT READY (isMapSdkLoaded: ${isMapSdkLoaded}) for input. Input: "${inputValue}"`);
+        console.warn(`[EditDialog] Autocomplete service NOT READY for input. Input: "${inputValue}"`);
         setIsFetchingSuggFunc(false);
-        const setSuggestionsFunc = (sugg: google.maps.places.AutocompletePrediction[]) => {
-            if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
-            else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
-            else setDialogDropoffSuggestions(sugg);
-        };
         setSuggestionsFunc([]);
         return;
     }
 
-
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    if (inputValue.length < 2) { setIsFetchingSuggFunc(false); return; }
+    if (inputValue.length < 2) { setIsFetchingSuggFunc(false); setSuggestionsFunc([]); return; }
     
     setIsFetchingSuggFunc(true); 
     debounceTimeoutRef.current = setTimeout(() => {
@@ -534,18 +538,13 @@ export default function MyActiveRidePage() {
         (predictions, status) => {
           setIsFetchingSuggFunc(false);
           console.log(`[EditDialog] getPlacePredictions for "${inputValue}": Status - ${status}`, predictions);
-          const setSuggestionsFuncForDebounce = (sugg: google.maps.places.AutocompletePrediction[]) => {
-            if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
-            else if (formFieldNameOrStopIndex === 'pickupLocation') setDialogPickupSuggestions(sugg);
-            else setDialogDropoffSuggestions(sugg);
-          };
-          setSuggestionsFuncForDebounce(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
+          setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
         }
       );
     }, 300);
   }, [
     isMapSdkLoaded,
-    dialogPickupInputValue, dialogDropoffInputValue, dialogStopAutocompleteData, // For re-creation if these change (they shouldn't during handler execution)
+    dialogPickupInputValue, dialogDropoffInputValue, dialogStopAutocompleteData, 
     setDialogPickupInputValue, setDialogPickupCoords, setShowDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions, setDialogPickupSuggestions,
     setDialogDropoffInputValue, setDialogDropoffCoords, setShowDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions, setDialogDropoffSuggestions,
     setDialogStopAutocompleteData,
@@ -561,24 +560,15 @@ export default function MyActiveRidePage() {
         return;
     }
     
-    const setInputValFunc = (val: string) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val, showSuggestions: false } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupInputValue(val); setShowDialogPickupSuggestions(false); }
-        else { setDialogDropoffInputValue(val); setShowDialogDropoffSuggestions(false); }
-    };
-    setInputValFunc(addressText); 
-    formOnChange(addressText); 
-
-
     const setIsFetchingDetailsFunc = (isFetching: boolean) => {
         if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
         else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(isFetching);
         else setIsFetchingDialogDropoffDetails(isFetching);
     };
     const setCoordsFunc = (coords: google.maps.LatLngLiteral | null, finalAddress: string) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddress } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupCoords(coords); setDialogPickupInputValue(finalAddress); }
-        else { setDialogDropoffCoords(coords); setDialogDropoffInputValue(finalAddress); }
+        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddress, showSuggestions: false } : item));
+        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupCoords(coords); setDialogPickupInputValue(finalAddress); setShowDialogPickupSuggestions(false); }
+        else { setDialogDropoffCoords(coords); setDialogDropoffInputValue(finalAddress); setShowDialogDropoffSuggestions(false); }
     };
 
     setIsFetchingDetailsFunc(true);
@@ -588,7 +578,6 @@ export default function MyActiveRidePage() {
             setIsFetchingDetailsFunc(false);
             const finalAddressToSet = place?.formatted_address || addressText;
             formOnChange(finalAddressToSet); 
-            setInputValFunc(finalAddressToSet);
 
             if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
                 setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
@@ -815,6 +804,64 @@ export default function MyActiveRidePage() {
     return driverLocation || huddersfieldCenterGoogle;
   }, [activeRide, driverLocation]);
 
+  // Effect for dialog fare calculation
+  useEffect(() => {
+    if (!isEditDetailsDialogOpen || !rideToEditDetails) {
+      setDialogFareEstimate(null);
+      return;
+    }
+
+    if (dialogPickupCoords && dialogDropoffCoords) {
+      let oneWayDistanceMiles = 0;
+      let currentPoint = dialogPickupCoords;
+
+      const validStopsForFare = dialogStopAutocompleteData.filter((stopData, index) => {
+        const formStopValue = editDetailsForm.getValues(`stops.${index}.location`);
+        return stopData.coords && formStopValue && formStopValue.trim() !== "";
+      });
+
+      for (const stopData of validStopsForFare) {
+        if (stopData.coords) {
+          oneWayDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
+          currentPoint = stopData.coords;
+        }
+      }
+      oneWayDistanceMiles += getDistanceInMiles(currentPoint, dialogDropoffCoords);
+      
+      const oneWayDurationMinutes = (oneWayDistanceMiles / AVERAGE_SPEED_MPH) * 60;
+      
+      let calculatedFare = 0;
+      if (oneWayDistanceMiles > 0) {
+        const timeFareOneWay = oneWayDurationMinutes * PER_MINUTE_RATE;
+        const distanceBasedFareOneWay = (oneWayDistanceMiles * PER_MILE_RATE) + FIRST_MILE_SURCHARGE;
+        const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
+        calculatedFare = BASE_FARE + timeFareOneWay + distanceBasedFareOneWay + stopSurchargeAmount + BOOKING_FEE;
+
+        // Use original ride's vehicle type and passenger count for dialog estimate
+        let vehicleMultiplier = 1.0;
+        if (rideToEditDetails.vehicleType === "estate") vehicleMultiplier = 1.2;
+        else if (rideToEditDetails.vehicleType === "minibus_6" || rideToEditDetails.vehicleType === "minibus_6_pet_friendly") vehicleMultiplier = 1.5;
+        else if (rideToEditDetails.vehicleType === "minibus_8" || rideToEditDetails.vehicleType === "minibus_8_pet_friendly") vehicleMultiplier = 1.6;
+        else if (rideToEditDetails.vehicleType === "disable_wheelchair_access") vehicleMultiplier = 2.0;
+        
+        const passengerCount = Number(rideToEditDetails.passengers) || 1;
+        const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
+        
+        calculatedFare = calculatedFare * vehicleMultiplier * passengerAdjustment;
+        
+        if (rideToEditDetails.vehicleType === "pet_friendly_car" || rideToEditDetails.vehicleType === "minibus_6_pet_friendly" || rideToEditDetails.vehicleType === "minibus_8_pet_friendly") {
+            calculatedFare += PET_FRIENDLY_SURCHARGE;
+        }
+        calculatedFare = Math.max(calculatedFare, MINIMUM_FARE);
+      }
+      
+      setDialogFareEstimate(calculatedFare > 0 ? parseFloat(calculatedFare.toFixed(2)) : null);
+    } else {
+      setDialogFareEstimate(null);
+    }
+  }, [isEditDetailsDialogOpen, dialogPickupCoords, dialogDropoffCoords, dialogStopAutocompleteData, editDetailsForm, rideToEditDetails]);
+
+
   if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
 
@@ -1012,7 +1059,7 @@ export default function MyActiveRidePage() {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset();}}}>
+      <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset(); setDialogFareEstimate(null);}}}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
           <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescription> </DialogHeader>
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
@@ -1024,6 +1071,14 @@ export default function MyActiveRidePage() {
                   <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffSuggestions, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
                   <div className="grid grid-cols-2 gap-4"> <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => ( <FormItem><FormLabel>Pickup Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} /> <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => ( <FormItem><FormLabel>Pickup Time</FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem> )} /> </div>
                   {!editDetailsForm.watch('desiredPickupDate') && <p className="text-xs text-muted-foreground text-center">Leave date/time blank for ASAP booking.</p>}
+                  
+                  {dialogFareEstimate !== null && (
+                    <div className="mt-2 p-2 border rounded-md bg-muted/20 text-center">
+                      <p className="text-sm text-muted-foreground">New Est. Fare (Route Only): <span className="font-semibold text-primary">£{dialogFareEstimate.toFixed(2)}</span></p>
+                      <p className="text-xs text-muted-foreground">(Other factors like priority/surge from original booking may still apply)</p>
+                    </div>
+                  )}
+
                 </form> </Form> </div> </ScrollArea>
           <DialogFooter className="p-6 pt-4 border-t"> <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingDetails}>Cancel</Button></DialogClose>
             <Button type="submit" form="edit-details-form-actual" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isUpdatingDetails || !dialogPickupCoords || !dialogDropoffCoords}>
@@ -1074,4 +1129,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
