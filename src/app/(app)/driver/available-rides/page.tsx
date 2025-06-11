@@ -568,7 +568,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, toast]);
+  }, [driverUser?.id]);
 
 
  useEffect(() => {
@@ -1527,7 +1527,7 @@ export default function AvailableRidesPage() {
                     </Button>
                 </div>
                     <AlertDialogFooter>
-                      <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
+                      <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}><span>Cancel SOS</span></AlertDialogCancel>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -1544,9 +1544,9 @@ export default function AvailableRidesPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}><span>No, Cancel</span></AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
-                            Yes, Confirm Emergency!
+                            <span>Yes, Confirm Emergency!</span>
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1665,7 +1665,7 @@ export default function AvailableRidesPage() {
                     </p>
                     <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
                     {activeRide.distanceMiles != null && (
-                      <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                      <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> {activeRide.distanceMiles.toFixed(1)} mi</p>
                     )}
                     {activeRide.paymentMethod && ( <p className="flex items-center gap-1 col-span-2 mt-1"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'account' ? 'Account (PIN)' : 'Cash'} </p> )}
                  </div>
@@ -1759,17 +1759,20 @@ export default function AvailableRidesPage() {
               <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-                disabled={activeRide ? !!actionLoading[activeRide.id] : false}
-              >
-                <span>Keep Ride</span>
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
-                disabled={!activeRide || (!!actionLoading[activeRide.id])}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              >
+                <AlertDialogCancel
+                    onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
+                >
+                  <span>Keep Ride</span>
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { 
+                    if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } 
+                    setShowCancelConfirmationDialog(false); 
+                  }}
+                  disabled={!activeRide || (!!actionLoading[activeRide.id])}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
                   <span className="flex items-center justify-center">
                     {activeRide && (!!actionLoading[activeRide.id]) ? (
                        <React.Fragment>
@@ -1783,7 +1786,7 @@ export default function AvailableRidesPage() {
                       </React.Fragment>
                     )}
                   </span>
-              </AlertDialogAction>
+                </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -1796,7 +1799,7 @@ export default function AvailableRidesPage() {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}>Back</AlertDialogCancel>
+                    <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => {
                             if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
@@ -1804,7 +1807,7 @@ export default function AvailableRidesPage() {
                         }}
                         className="bg-destructive hover:bg-destructive/90"
                     >
-                        Confirm No-Show
+                       <span>Confirm No-Show</span>
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -1974,7 +1977,7 @@ export default function AvailableRidesPage() {
                     </Button>
                 </div>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}>Cancel SOS</AlertDialogCancel>
+                    <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}><span>Cancel SOS</span></AlertDialogCancel>
                 </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -1991,9 +1994,9 @@ export default function AvailableRidesPage() {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}>No, Cancel</AlertDialogCancel>
+                    <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}><span>No, Cancel</span></AlertDialogCancel>
                     <AlertDialogAction onClick={handleConfirmEmergency} className="bg-destructive hover:bg-destructive/90">
-                        Yes, Confirm Emergency!
+                        <span>Yes, Confirm Emergency!</span>
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -2112,7 +2115,7 @@ export default function AvailableRidesPage() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}>Back</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
                 <AlertDialogAction
                     onClick={() => {
                         if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
@@ -2120,7 +2123,7 @@ export default function AvailableRidesPage() {
                     }}
                     className="bg-destructive hover:bg-destructive/90"
                 >
-                    Confirm No-Show
+                   <span>Confirm No-Show</span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -2230,4 +2233,3 @@ export default function AvailableRidesPage() {
         </Dialog>
   </div> );
 }
-
