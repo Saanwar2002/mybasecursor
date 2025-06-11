@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon } from "lucide-react"; // Added UserXIcon
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole } from "lucide-react"; // Added UserXIcon, TrafficCone and other hazard icons
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -571,7 +571,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id]);
+  }, [driverUser?.id, toast]);
 
 
  useEffect(() => {
@@ -1591,7 +1591,7 @@ export default function AvailableRidesPage() {
                 <p className="font-semibold text-base">{activeRide.passengerName}</p>
                 {activeRide.passengerPhone && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Phone className="w-3 h-3"/> {activeRide.passengerPhone}
+                    <PhoneCall className="w-3 h-3"/> {activeRide.passengerPhone}
                   </p>
                 )}
                 {activeRide.passengerRating && ( <div className="flex items-center"> {[...Array(5)].map((_, i) => <Star key={i} className={cn("w-3.5 h-3.5", i < Math.round(activeRide.passengerRating!) ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />)} <span className="ml-1 text-xs text-muted-foreground">({activeRide.passengerRating.toFixed(1)})</span> </div> )}
@@ -1606,7 +1606,7 @@ export default function AvailableRidesPage() {
                     </Button>
                   )}
                   <Button asChild variant="outline" size="icon" className="h-9 w-9">
-                      <Link href="/driver/chat"><ChatIcon className="w-4 h-4" /></Link>
+                      <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
                   </Button>
                 </div>
                )}
@@ -1658,7 +1658,7 @@ export default function AvailableRidesPage() {
                     <ShadAlertDescription className="text-current text-xs">
                         Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.
                         <br />
-                        New estimated total fare (if accepted): ~£{((baseFare + priorityFee) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER)).toFixed(2)}.
+                        New estimated total fare (if accepted): £{((baseFare + priorityFee) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER)).toFixed(2)}.
                         <div className="flex gap-2 mt-2">
                             <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Accept W&R</Button>
                             <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Decline W&R</Button>
@@ -1674,10 +1674,10 @@ export default function AvailableRidesPage() {
                  <p className={cn("flex items-start gap-1.5", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) ? "text-muted-foreground" : "text-orange-500")} /> <span className={cn((showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground")}> <strong>Dropoff:</strong> {activeRide.dropoffLocation.address} </span> </p>
                  <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
                     <p className="flex items-center gap-1">
-                      <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
+                      <DollarSign className="w-4 h-4 text-muted-foreground" />
                       <strong>Fare:</strong> {displayedFare}
                     </p>
-                    <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
+                    <p className="flex items-center gap-1"><Users className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
                     {activeRide.distanceMiles != null && (
                       <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> {activeRide.distanceMiles.toFixed(1)} mi</p>
                     )}
@@ -1901,7 +1901,7 @@ export default function AvailableRidesPage() {
             <div className="grid grid-cols-2 gap-3 py-4">
               {[
                 { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
-                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheck },
+                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheckIcon },
                 { label: "Road Closure", type: "road_closure", icon: MinusCircle },
                 { label: "Accident", type: "accident", icon: AlertTriangle },
                 { label: "Road Works", type: "road_works", icon: Construction },
@@ -2023,7 +2023,7 @@ export default function AvailableRidesPage() {
             <div className="grid grid-cols-2 gap-3 py-4">
               {[
                 { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
-                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheck },
+                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheckIcon },
                 { label: "Road Closure", type: "road_closure", icon: MinusCircle },
                 { label: "Accident", type: "accident", icon: AlertTriangle },
                 { label: "Road Works", type: "road_works", icon: Construction },
@@ -2217,7 +2217,7 @@ export default function AvailableRidesPage() {
             <div className="grid grid-cols-2 gap-3 py-4">
               {[
                 { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
-                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheck },
+                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheckIcon },
                 { label: "Road Closure", type: "road_closure", icon: MinusCircle },
                 { label: "Accident", type: "accident", icon: AlertTriangle },
                 { label: "Road Works", type: "road_works", icon: Construction },
