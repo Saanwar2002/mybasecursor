@@ -732,15 +732,15 @@ export default function MyActiveRidePage() {
                 >
                   <span className="flex items-center justify-center">
                     {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                      <>
+                      <React.Fragment>
                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
                         <span>Cancelling...</span>
-                      </>
+                      </React.Fragment>
                     ) : (
-                      <>
+                      <React.Fragment>
                         <ShieldX className="mr-2 h-4 w-4" />
                         <span>Confirm Cancel</span>
-                      </>
+                      </React.Fragment>
                     )}
                   </span>
                 </AlertDialogAction>
@@ -810,3 +810,6 @@ export default function MyActiveRidePage() {
   );
 }
 
+
+
+    
