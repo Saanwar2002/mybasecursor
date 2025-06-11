@@ -182,41 +182,6 @@ interface DispatchDisplayInfo {
   bgColorClassName: string;
 }
 
-const getActiveRideDispatchInfo = (
-  ride: ActiveRide | null,
-  currentUser: User | null
-): DispatchDisplayInfo | null => {
-  if (!ride || !currentUser) return null;
-
-  const isPlatformRide = ride.requiredOperatorId === PLATFORM_OPERATOR_CODE;
-  const isOwnOperatorRide = currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode && ride.requiredOperatorId !== PLATFORM_OPERATOR_CODE;
-  
-  const isManualDispatch = ride.dispatchMethod === 'manual_operator';
-  const isPriorityOverride = ride.dispatchMethod === 'priority_override';
-
-  if (isPlatformRide) {
-    return isManualDispatch 
-      ? { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
-      : { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
-  }
-  if (isOwnOperatorRide) {
-    return isManualDispatch
-      ? { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
-      : { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
-  }
-  // General pool or other operator dispatch
-  if (isManualDispatch) {
-    const dispatcher = ride.requiredOperatorId ? `Operator ${ride.requiredOperatorId}` : "Platform Admin";
-    return { text: `Manually Dispatched by ${dispatcher}`, icon: Briefcase, bgColorClassName: "bg-blue-600" };
-  }
-  if (isPriorityOverride) {
-    return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
-  }
-  // Default for general pool auto-dispatches
-  return { text: "Dispatched By App (Auto)", icon: CheckCircle, bgColorClassName: "bg-green-600" };
-};
-
-
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
@@ -595,7 +560,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoad) setIsLoading(false);
     }
-  }, [driverUser?.id, toast, error, activeRide]);
+  }, [driverUser?.id, error, activeRide]);
 
 
  useEffect(() => {
@@ -1419,6 +1384,40 @@ export default function AvailableRidesPage() {
     }
   };
 
+  const getActiveRideDispatchInfo = (
+    ride: ActiveRide | null,
+    currentUser: User | null
+  ): DispatchDisplayInfo | null => {
+    if (!ride || !currentUser) return null;
+  
+    const isPlatformRide = ride.requiredOperatorId === PLATFORM_OPERATOR_CODE;
+    const isOwnOperatorRide = currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode && ride.requiredOperatorId !== PLATFORM_OPERATOR_CODE;
+    
+    const isManualDispatch = ride.dispatchMethod === 'manual_operator';
+    const isPriorityOverride = ride.dispatchMethod === 'priority_override';
+    // const isAutoSystem = ride.dispatchMethod === 'auto_system' || !ride.dispatchMethod;
+  
+    if (isPlatformRide) {
+      return isManualDispatch 
+        ? { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
+        : { text: "Dispatched By App: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+    }
+    if (isOwnOperatorRide) {
+      return isManualDispatch
+        ? { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
+        : { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+    }
+    
+    if (isManualDispatch) {
+      const dispatcher = ride.requiredOperatorId ? `Operator ${ride.requiredOperatorId}` : "Platform Admin";
+      return { text: `Manually Dispatched by ${dispatcher}`, icon: Briefcase, bgColorClassName: "bg-blue-600" };
+    }
+    if (isPriorityOverride) {
+      return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
+    }
+    // Default for general pool auto-dispatches if not fitting above conditions
+    return { text: "Dispatched By App (Auto)", icon: CheckCircle, bgColorClassName: "bg-green-600" };
+  };
   const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
 
 
@@ -1551,8 +1550,14 @@ export default function AvailableRidesPage() {
             </AlertDialog>
         </div>
         ))}
-        <Card className={cn( "flex-1 flex flex-col rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card overflow-hidden", (showCompletedStatus || showCancelledByDriverStatus) ? "mt-0 rounded-b-xl" : " " )}>
-           <CardContent className="p-3 space-y-2 flex-1 overflow-y-auto">
+        <Card className={cn( "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card overflow-hidden", 
+          (showCompletedStatus || showCancelledByDriverStatus) ? "mt-0 rounded-b-xl" : "flex-1 flex flex-col",
+          !(showCompletedStatus || showCancelledByDriverStatus) && "flex-1 flex flex-col"
+        )}>
+           <CardContent className={cn(
+             "p-3 space-y-2 overflow-y-auto",
+             !(showCompletedStatus || showCancelledByDriverStatus) && "flex-1"
+           )}>
             {showDriverAssignedStatus && ( <div className="flex justify-center mb-2"> <Badge variant="secondary" className="text-sm w-fit mx-auto bg-sky-500 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> En Route to Pickup </Badge> </div> )}
             {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-2"> <Badge variant="outline" className="text-sm w-fit mx-auto border-blue-500 text-blue-500 py-1.5 px-4 rounded-md font-semibold shadow-md"> Arrived At Pickup </Badge> </div> )}
             {showInProgressStatus && ( <div className="flex justify-center mb-2"> <Badge variant="default" className="text-sm w-fit mx-auto bg-green-600 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> Ride In Progress </Badge> </div> )}
@@ -1589,9 +1594,9 @@ export default function AvailableRidesPage() {
             </div>
             
             {dispatchInfo && (
-              <div className={cn("p-2 my-1.5 rounded-lg text-center", dispatchInfo.bgColorClassName)}>
-                <p className="text-sm font-medium flex items-center justify-center gap-1 text-white">
-                  <dispatchInfo.icon className="w-4 h-4"/> {dispatchInfo.text}
+              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
+                <p className="text-sm font-medium flex items-center justify-center gap-1">
+                  <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
             )}
@@ -1654,7 +1659,7 @@ export default function AvailableRidesPage() {
                       <strong>Fare:</strong> {displayedFare}
                     </p>
                     <p className="flex items-center gap-1"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
-                    {activeRide.distanceMiles && (
+                    {activeRide.distanceMiles != null && (
                       <p className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                     )}
                     {activeRide.paymentMethod && ( <p className="flex items-center gap-1 col-span-2 mt-1"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'account' ? 'Account (PIN)' : 'Cash'} </p> )}
@@ -1664,7 +1669,7 @@ export default function AvailableRidesPage() {
             
             {showCompletedStatus && (
               <div className="mt-4 pt-4 border-t text-center">
-                <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName || "Passenger"}:</p>
+                <p className="text-sm font-medium mb-1">Rate {activeRide.passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
                 <div className="flex justify-center space-x-1 mb-2">
                   {[...Array(5)].map((_, i) => (
                     <Star
