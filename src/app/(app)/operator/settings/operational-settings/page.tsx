@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { DollarSign, Loader2, AlertTriangle, Zap, SlidersHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton import
 
 export default function OperatorOperationalSettingsPage() {
   const { user, updateUserProfileInContext } = useAuth();
@@ -148,20 +149,26 @@ export default function OperatorOperationalSettingsPage() {
             Control how new ride offers are handled for your fleet.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoadingDispatch && (
-            <div className="flex items-center justify-center p-6">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2">Loading dispatch settings...</p>
+        {isLoadingDispatch ? (
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Skeleton className="h-6 w-11 rounded-full" />
+                <Skeleton className="h-6 w-48 rounded-md" />
+              </div>
+              <Skeleton className="h-4 w-full rounded-md" />
+              <Skeleton className="h-4 w-3/4 rounded-md" />
             </div>
-          )}
-          {!isLoadingDispatch && errorDispatch && (
+          </CardContent>
+        ) : errorDispatch ? (
+          <CardContent>
             <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-md">
               <AlertTriangle className="h-5 w-5" />
               <p>Error: {errorDispatch}</p>
             </div>
-          )}
-          {!isLoadingDispatch && !errorDispatch && (
+          </CardContent>
+        ) : (
+          <CardContent>
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Switch
@@ -181,8 +188,8 @@ export default function OperatorOperationalSettingsPage() {
                 When OFF (Manual Mode), all new rides for your base will appear as 'Pending Assignment' on your 'Manage Rides' screen, requiring you to assign them manually.
               </p>
             </div>
-          )}
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       <Card>
@@ -193,20 +200,25 @@ export default function OperatorOperationalSettingsPage() {
             When disabled, all rides will use standard fares.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoadingSurge && (
-            <div className="flex items-center justify-center p-6">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2">Loading surge settings...</p>
+        {isLoadingSurge ? (
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Skeleton className="h-6 w-11 rounded-full" />
+                <Skeleton className="h-6 w-64 rounded-md" />
+              </div>
+              <Skeleton className="h-4 w-full rounded-md mt-3" />
             </div>
-          )}
-          {!isLoadingSurge && errorSurge && (
+          </CardContent>
+        ) : errorSurge ? (
+          <CardContent>
             <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-md">
               <AlertTriangle className="h-5 w-5" />
               <p>Error: {errorSurge}</p>
             </div>
-          )}
-          {!isLoadingSurge && !errorSurge && (
+          </CardContent>
+        ) : (
+          <CardContent>
             <div className="flex items-center space-x-3">
               <Switch
                 id="surge-pricing-switch"
@@ -219,11 +231,11 @@ export default function OperatorOperationalSettingsPage() {
               </Label>
               {isSavingSurge && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
             </div>
-          )}
-          <p className="text-sm text-muted-foreground mt-3">
-            Changes are saved automatically when you toggle the switch. (Mock API Interaction)
-          </p>
-        </CardContent>
+            <p className="text-sm text-muted-foreground mt-3">
+              Changes are saved automatically when you toggle the switch. (Mock API Interaction)
+            </p>
+          </CardContent>
+        )}
       </Card>
     </div>
   );
