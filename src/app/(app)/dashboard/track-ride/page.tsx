@@ -2,7 +2,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase } from "lucide-react"; // Added Briefcase
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase } from "lucide-react";
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'; 
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,7 +74,7 @@ interface ActiveRide {
   rating?: number;
   passengerName: string;
   isSurgeApplied?: boolean;
-  paymentMethod?: "card" | "cash" | "account"; // Added "account"
+  paymentMethod?: "card" | "cash" | "account";
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
@@ -730,19 +730,17 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="flex items-center justify-center">
-                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-                      <React.Fragment>
-                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                        <span>Cancelling...</span>
-                      </React.Fragment>
-                    ) : (
-                      <React.Fragment>
-                        <ShieldX className="mr-2 h-4 w-4" />
-                        <span>Confirm Cancel</span>
-                      </React.Fragment>
-                    )}
-                  </span>
+                  {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                    <React.Fragment>
+                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                      <span>Cancelling...</span>
+                    </React.Fragment>
+                  ) : (
+                    <React.Fragment>
+                      <ShieldX className="mr-2 h-4 w-4" />
+                      <span>Confirm Cancel</span>
+                    </React.Fragment>
+                  )}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -781,7 +779,7 @@ export default function MyActiveRidePage() {
         <DialogContent className="sm:max-w-sm">
           <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
           <ShadDialogDescription>
-            Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
+            Estimate additional waiting time at current drop-off. 10 mins free, then £{FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR.toFixed(2)}/min. Driver must approve.
           </ShadDialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
@@ -809,7 +807,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
-
-
-    
