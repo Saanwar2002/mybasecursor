@@ -37,7 +37,6 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-// Removed direct GoogleApiLoader import, will rely on GoogleMapDisplay's load
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
@@ -175,30 +174,27 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
 
     if (postcodeMatch && postcodeMatch[1]) {
         outwardPostcode = postcodeMatch[1].toUpperCase();
-        // Remove the whole postcode string (e.g., "HD1 3AY") to avoid it appearing in area
         addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
     }
 
     const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
     
     let street = parts[0] || "";
-    let area = parts[1] || ""; // Take the next part as area
+    let area = parts.length > 1 ? parts[1] : ""; 
     
-    // Refine area if street might have contained it
     if (street.toLowerCase().includes(area.toLowerCase()) && area.length > 0 && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
     
-    let locationLine = area;
-    if (outwardPostcode) {
-        locationLine = (area ? area + " " : "") + outwardPostcode;
-    }
+    let locationLine = "";
+    if (area) locationLine += area;
+    if (outwardPostcode) locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
     
-    if (!street && !locationLine) street = "Location Details"; // Fallback
+    if (!street && !locationLine.trim()) street = "Location Details";
     
     let finalLabel = `${type}:`;
     if (street) finalLabel += `\n${street}`;
-    if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`; // Ensure this line isn't empty if only postcode existed
+    if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`;
     
     return finalLabel;
 }
@@ -267,28 +263,29 @@ export default function MyActiveRidePage() {
   });
 
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
+  const previousEditStopsLengthRef = useRef(editStopsFields.length);
+
 
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
+      console.log("[TrackRidePage Dialogs] Google Maps SDK marked as loaded.");
       if (!autocompleteServiceRef.current && window.google.maps.places) {
         autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+        console.log("[TrackRidePage Dialogs] AutocompleteService initialized.");
       }
       if (!placesServiceRef.current && window.google.maps.places) {
         const dummyDiv = document.createElement('div'); 
         placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
+        console.log("[TrackRidePage Dialogs] PlacesService initialized.");
       }
       if (!autocompleteSessionTokenRef.current && window.google.maps.places) {
         autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+        console.log("[TrackRidePage Dialogs] AutocompleteSessionToken initialized.");
       }
       if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
+         console.log("[TrackRidePage Dialogs] Geocoder initialized.");
       }
-      console.log("[TrackRidePage Dialogs] Google Maps Places/Geocoder services initialized/confirmed based on isMapSdkLoaded:", {
-        auto: !!autocompleteServiceRef.current,
-        places: !!placesServiceRef.current,
-        token: !!autocompleteSessionTokenRef.current,
-        geocoder: !!geocoderRef.current,
-      });
     } else if (isMapSdkLoaded) {
       console.warn("[TrackRidePage Dialogs] isMapSdkLoaded is true, but window.google.maps or its sub-libraries are not available.");
     }
@@ -296,12 +293,21 @@ export default function MyActiveRidePage() {
 
   useEffect(() => {
     if (isEditDetailsDialogOpen) {
-      // Delay slightly to ensure the dialog and its contents are fully rendered
       setTimeout(() => {
         editDetailsForm.setFocus('pickupLocation');
       }, 100);
     }
   }, [isEditDetailsDialogOpen, editDetailsForm]);
+
+  useEffect(() => {
+    if (editStopsFields.length > previousEditStopsLengthRef.current) {
+      const newStopIndex = editStopsFields.length - 1;
+      setTimeout(() => {
+        editDetailsForm.setFocus(`stops.${newStopIndex}.location`);
+      }, 100);
+    }
+    previousEditStopsLengthRef.current = editStopsFields.length;
+  }, [editStopsFields, editDetailsForm]);
 
 
   useEffect(() => {
@@ -539,6 +545,7 @@ export default function MyActiveRidePage() {
     }, 300);
   }, [
     isMapSdkLoaded,
+    dialogPickupInputValue, dialogDropoffInputValue, dialogStopAutocompleteData, // For re-creation if these change (they shouldn't during handler execution)
     setDialogPickupInputValue, setDialogPickupCoords, setShowDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions, setDialogPickupSuggestions,
     setDialogDropoffInputValue, setDialogDropoffCoords, setShowDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions, setDialogDropoffSuggestions,
     setDialogStopAutocompleteData,
@@ -550,7 +557,7 @@ export default function MyActiveRidePage() {
     const addressText = suggestion?.description; 
     if (!isMapSdkLoaded || !placesServiceRef.current || !autocompleteSessionTokenRef.current || !addressText || !suggestion.place_id) {
         console.warn(`[EditDialog] Places service, token, address, or place_id NOT READY for suggestion click. isMapSdkLoaded: ${isMapSdkLoaded}`);
-        if (addressText) formOnChange(addressText); // Fallback to description if services not ready
+        if (addressText) formOnChange(addressText); 
         return;
     }
     
@@ -559,7 +566,6 @@ export default function MyActiveRidePage() {
         else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupInputValue(val); setShowDialogPickupSuggestions(false); }
         else { setDialogDropoffInputValue(val); setShowDialogDropoffSuggestions(false); }
     };
-    // Immediately update input text and form value to selected suggestion text
     setInputValFunc(addressText); 
     formOnChange(addressText); 
 
@@ -581,8 +587,8 @@ export default function MyActiveRidePage() {
         (place, status) => {
             setIsFetchingDetailsFunc(false);
             const finalAddressToSet = place?.formatted_address || addressText;
-            formOnChange(finalAddressToSet); // Update form with potentially more complete address
-            setInputValFunc(finalAddressToSet); // Update local input state too
+            formOnChange(finalAddressToSet); 
+            setInputValFunc(finalAddressToSet);
 
             if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
                 setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
@@ -591,12 +597,12 @@ export default function MyActiveRidePage() {
                 setCoordsFunc(null, finalAddressToSet); 
                 toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"});
             }
-            autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken(); // Refresh token
+            autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken(); 
         }
     );
   }, [
     isMapSdkLoaded, 
-    toast, editDetailsForm.setValue, 
+    toast, 
     setDialogPickupCoords, setDialogDropoffCoords, setDialogStopAutocompleteData, 
     setDialogPickupInputValue, setDialogDropoffInputValue, 
     setShowDialogPickupSuggestions, setShowDialogDropoffSuggestions, 
@@ -739,8 +745,8 @@ export default function MyActiveRidePage() {
   };
 
   const mapElements = useMemo(() => {
-    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
+    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
 
     if (!activeRide) return { markers, labels };
 
