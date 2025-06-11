@@ -6,7 +6,7 @@ import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, 
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'; 
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, UserRole } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
@@ -807,3 +807,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
