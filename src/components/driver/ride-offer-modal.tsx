@@ -312,7 +312,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               <div className="space-y-1 text-base md:text-lg font-semibold">
                 <div className="flex justify-between items-center">
                   <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <strong>Total Est. Fare:</strong> ~£{totalFareForDriver.toFixed(2)}
+                    <strong>Total Est. Fare:</strong> £{totalFareForDriver.toFixed(2)}
                   </p>
                   <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
                 </div>
@@ -328,7 +328,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     </div>
                   )}
                 {rideDetails.distanceMiles && (
-                  <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Distance:</strong> ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
+                  <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Distance:</strong> {rideDetails.distanceMiles.toFixed(1)} mi</p>
                 )}
               </div>
 
