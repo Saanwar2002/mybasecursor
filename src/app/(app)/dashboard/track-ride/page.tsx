@@ -730,17 +730,17 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  {activeRide && (actionLoading[activeRide.id] || false) ? (
-                    <React.Fragment>
-                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                      <span>Cancelling...</span>
-                    </React.Fragment>
-                  ) : (
-                    <React.Fragment>
-                      <ShieldX className="mr-2 h-4 w-4" />
-                      <span>Confirm Cancel</span>
-                    </React.Fragment>
-                  )}
+                    {(activeRide && (actionLoading[activeRide.id] || false)) ? (
+                        <React.Fragment>
+                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                        <span>Cancelling...</span>
+                        </React.Fragment>
+                    ) : (
+                        <React.Fragment>
+                        <ShieldX className="mr-2 h-4 w-4" />
+                        <span>Confirm Cancel</span>
+                        </React.Fragment>
+                    )}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -779,7 +779,7 @@ export default function MyActiveRidePage() {
         <DialogContent className="sm:max-w-sm">
           <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
           <ShadDialogDescription>
-            Estimate additional waiting time at current drop-off. 10 mins free, then £{FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR.toFixed(2)}/min. Driver must approve.
+            Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
           </ShadDialogDescription>
           <div className="py-4 space-y-2">
             <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
