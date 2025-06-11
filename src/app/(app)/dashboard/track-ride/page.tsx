@@ -348,8 +348,8 @@ export default function MyActiveRidePage() {
       if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
       toast({ title: "Ride Cancelled", description: `Your ride ${activeRide.id} has been cancelled.` });
       setActiveRide(null);
-      setShowCancelConfirmationDialog(false);
-      setIsCancelSwitchOn(false);
+      // setShowCancelConfirmationDialog(false); // Dialog state managed by onOpenChange
+      // setIsCancelSwitchOn(false); // Switch state managed by onOpenChange of dialog
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
     } finally {
         if (activeRide) setActionLoading(prev => ({ ...prev, [activeRide.id]: false }));
@@ -725,6 +725,7 @@ export default function MyActiveRidePage() {
                 <AlertDialogAction
                   onClick={() => { 
                     if (activeRide) { handleInitiateCancelRide(); } 
+                    setShowCancelConfirmationDialog(false); // Explicitly close on action
                   }}
                   disabled={!activeRide || (actionLoading[activeRide.id] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
