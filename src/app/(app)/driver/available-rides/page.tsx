@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole } from "lucide-react"; // Added UserXIcon, TrafficCone and other hazard icons
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, ShieldAlert } from "lucide-react"; // Added ShieldAlert
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1085,6 +1085,7 @@ export default function AvailableRidesPage() {
             setAckWindowSecondsLeft(null);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
             payload.status = 'cancelled_by_driver';
+            payload.cancellationType = 'driver_cancelled_active';
             break;
         case 'report_no_show':
             toastTitle = "No Show Reported";
@@ -1093,6 +1094,9 @@ export default function AvailableRidesPage() {
             setAckWindowSecondsLeft(null);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
             payload.status = 'cancelled_no_show';
+            payload.cancellationType = 'passenger_no_show';
+            payload.noShowFeeApplicable = true;
+            payload.cancelledAt = Timestamp.now();
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
@@ -1287,8 +1291,9 @@ export default function AvailableRidesPage() {
   };
 
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
-    if (!ride || !['driver_assigned', 'arrived_at_pickup'].includes(ride.status.toLowerCase())) return null;
-    if (ride.status.toLowerCase() === 'arrived_at_pickup') return null; // Hide if "Report No Show" is available
+    if (!ride || !['driver_assigned'].includes(ride.status.toLowerCase())) return null;
+    // Hide if "Report No Show" is available or ride is beyond driver_assigned
+    if (ride.status.toLowerCase() === 'arrived_at_pickup') return null;
 
     return (
         <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
@@ -2139,7 +2144,7 @@ export default function AvailableRidesPage() {
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
-     <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
+       <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
           <DialogDescription>
@@ -2244,4 +2249,3 @@ export default function AvailableRidesPage() {
         </Dialog>
   </div> );
 }
-
