@@ -1,3 +1,4 @@
+
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -172,29 +173,29 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
     const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
     const postcodeMatch = fullAddress.match(postcodeRegex);
 
-    if (postcodeMatch && postcodeMatch[1]) {
+    if (postcodeMatch) {
         outwardPostcode = postcodeMatch[1].toUpperCase();
-        // Attempt to remove the full postcode from the address string before splitting
-        const fullPostcode = postcodeMatch[0];
-        addressRemainder = addressRemainder.replace(fullPostcode, '').replace(/,\s*$/, '').trim();
+        addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
     }
     
     const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-    let street = parts[0] || "";
+    let street = parts[0] || "Location Details"; // Fallback if no parts
     let area = parts[1] || ""; 
 
-    // If area is very short and street is long, it might be that street contains the area.
-    if (area.length <= 3 && parts.length > 2) area = parts[1];
-    else if (parts.length > 2) area = parts[1];
-
+    if (parts.length > 2 && area.length <=3) { // If area is very short (like 'S' or 'N') and there are more parts, use next part for area
+        area = parts[2];
+    } else if (parts.length === 1 && outwardPostcode && street === outwardPostcode) { // e.g. "HD1" "HD1"
+        street = "Area"; // Set street to something generic if only postcode was the "street" part
+    }
 
     let locationLine = area;
     if (outwardPostcode) {
         locationLine = area ? `${area} ${outwardPostcode}` : outwardPostcode;
     }
     
-    if (!street && !locationLine.trim()) street = "Location Details";
-    
+    // Avoid "Location Details" if we have a better location line
+    if (street === "Location Details" && locationLine.trim()) street = "";
+
     let finalLabel = `${type}:`;
     if (street) finalLabel += `\n${street}`;
     if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`;
@@ -296,34 +297,25 @@ export default function MyActiveRidePage() {
 
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
-      console.log("[TrackRidePage Dialogs] Google Maps SDK marked as loaded.");
       if (!autocompleteServiceRef.current && window.google.maps.places) {
         autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-        console.log("[TrackRidePage Dialogs] AutocompleteService initialized.");
       }
       if (!placesServiceRef.current && window.google.maps.places) {
         const dummyDiv = document.createElement('div'); 
         placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
-        console.log("[TrackRidePage Dialogs] PlacesService initialized.");
       }
       if (!autocompleteSessionTokenRef.current && window.google.maps.places) {
         autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
-        console.log("[TrackRidePage Dialogs] AutocompleteSessionToken initialized.");
       }
       if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
-         console.log("[TrackRidePage Dialogs] Geocoder initialized.");
       }
-    } else if (isMapSdkLoaded) {
-      console.warn("[TrackRidePage Dialogs] isMapSdkLoaded is true, but window.google.maps or its sub-libraries are not available.");
     }
   }, [isMapSdkLoaded]);
 
   useEffect(() => {
     if (isEditDetailsDialogOpen) {
-      setTimeout(() => {
-        editDetailsForm.setFocus('pickupLocation');
-      }, 100);
+      editDetailsForm.setFocus('pickupLocation');
     }
   }, [isEditDetailsDialogOpen, editDetailsForm]);
 
@@ -531,8 +523,8 @@ export default function MyActiveRidePage() {
     if (inputValue.length < 2) { setIsFetchingSuggFunc(false); setSuggestionsFunc([]); return; }
     
     setIsFetchingSuggFunc(true); 
+    console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
     debounceTimeoutRef.current = setTimeout(() => {
-      console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
       autocompleteServiceRef.current!.getPlacePredictions(
         { input: inputValue, sessionToken: autocompleteSessionTokenRef.current!, componentRestrictions: { country: 'gb' } },
         (predictions, status) => {
@@ -544,11 +536,8 @@ export default function MyActiveRidePage() {
     }, 300);
   }, [
     isMapSdkLoaded,
-    dialogPickupInputValue, dialogDropoffInputValue, dialogStopAutocompleteData, 
-    setDialogPickupInputValue, setDialogPickupCoords, setShowDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions, setDialogPickupSuggestions,
-    setDialogDropoffInputValue, setDialogDropoffCoords, setShowDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions, setDialogDropoffSuggestions,
-    setDialogStopAutocompleteData,
-    toast
+    // No need for dialog input values/setters here as they are handled by local funcs passed to this factory
+    toast // Keep toast if used inside for error reporting
   ]);
 
 
@@ -854,12 +843,13 @@ export default function MyActiveRidePage() {
         }
         calculatedFare = Math.max(calculatedFare, MINIMUM_FARE);
       }
-      
-      setDialogFareEstimate(calculatedFare > 0 ? parseFloat(calculatedFare.toFixed(2)) : null);
+      const newFareEstimate = calculatedFare;
+      console.log("[EditDialog FareCalc] Recalculated dialog fare:", newFareEstimate);
+      setDialogFareEstimate(newFareEstimate > 0 ? parseFloat(newFareEstimate.toFixed(2)) : null);
     } else {
       setDialogFareEstimate(null);
     }
-  }, [isEditDetailsDialogOpen, dialogPickupCoords, dialogDropoffCoords, dialogStopAutocompleteData, editDetailsForm, rideToEditDetails]);
+  }, [isEditDetailsDialogOpen, dialogPickupCoords, dialogDropoffCoords, dialogStopAutocompleteData, rideToEditDetails, editDetailsForm]);
 
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -1065,7 +1055,9 @@ export default function MyActiveRidePage() {
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
           <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
           <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
-                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false, fieldId: `dialog-stop-${index}`}; return (<FormItem><FormLabel>Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
+                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { fieldId: `default-stop-${index}`, inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false };
+                        console.log(`[EditDialog Stop ${index}] Rendering. showSuggestions: ${currentStopData.showSuggestions}, inputValue: "${currentStopData.inputValue}", suggestions count: ${currentStopData.suggestions.length}`);
+                        return (<FormItem><FormLabel className="text-xs">Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
                   <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
                   <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
                   <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffSuggestions, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
@@ -1129,3 +1121,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
