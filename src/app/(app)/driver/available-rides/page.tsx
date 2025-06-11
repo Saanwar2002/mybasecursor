@@ -560,7 +560,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoad) setIsLoading(false);
     }
-  }, [driverUser?.id, error, activeRide]);
+  }, [driverUser?.id, error, activeRide, toast]);
 
 
  useEffect(() => {
@@ -1395,7 +1395,7 @@ export default function AvailableRidesPage() {
     
     const isManualDispatch = ride.dispatchMethod === 'manual_operator';
     const isPriorityOverride = ride.dispatchMethod === 'priority_override';
-    // const isAutoSystem = ride.dispatchMethod === 'auto_system' || !ride.dispatchMethod;
+    const isAutoSystem = ride.dispatchMethod === 'auto_system' || !ride.dispatchMethod;
   
     if (isPlatformRide) {
       return isManualDispatch 
@@ -1550,13 +1550,13 @@ export default function AvailableRidesPage() {
             </AlertDialog>
         </div>
         ))}
-        <Card className={cn( "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card overflow-hidden", 
-          (showCompletedStatus || showCancelledByDriverStatus) ? "mt-0 rounded-b-xl" : "flex-1 flex flex-col",
-          !(showCompletedStatus || showCancelledByDriverStatus) && "flex-1 flex flex-col"
+        <Card className={cn( 
+          "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card overflow-hidden", 
+          (showCompletedStatus || showCancelledByDriverStatus) ? "mt-0 rounded-b-xl" : "flex-1 flex flex-col"
         )}>
            <CardContent className={cn(
-             "p-3 space-y-2 overflow-y-auto",
-             !(showCompletedStatus || showCancelledByDriverStatus) && "flex-1"
+             "p-3 space-y-2",
+             !(showCompletedStatus || showCancelledByDriverStatus) && "flex-1 overflow-y-auto"
            )}>
             {showDriverAssignedStatus && ( <div className="flex justify-center mb-2"> <Badge variant="secondary" className="text-sm w-fit mx-auto bg-sky-500 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> En Route to Pickup </Badge> </div> )}
             {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-2"> <Badge variant="outline" className="text-sm w-fit mx-auto border-blue-500 text-blue-500 py-1.5 px-4 rounded-md font-semibold shadow-md"> Arrived At Pickup </Badge> </div> )}
@@ -1593,7 +1593,7 @@ export default function AvailableRidesPage() {
                )}
             </div>
             
-            {dispatchInfo && (
+            {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
               <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
                 <p className="text-sm font-medium flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
@@ -1601,7 +1601,7 @@ export default function AvailableRidesPage() {
               </div>
             )}
 
-            {activeRide.isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (
+            {activeRide.isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
                 <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-2 text-xs my-1.5">
                     <Crown className="h-4 w-4" />
                     <ShadAlertTitle className="font-medium">Priority Booking</ShadAlertTitle>
