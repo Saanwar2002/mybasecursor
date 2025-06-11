@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField } from 'firebase/firestore';
 import { z } from 'zod';
 
 // Helper to serialize Timestamp for the response
@@ -48,7 +48,7 @@ const offerDetailsSchema = z.object({
   isPriorityPickup: z.boolean().optional(),
   priorityFeeAmount: z.number().optional(),
   dispatchMethod: z.enum(['auto_system', 'manual_operator', 'priority_override']).optional(),
-  accountJobPin: z.string().optional(), // Added for account jobs
+  accountJobPin: z.string().optional(),
 });
 
 
@@ -71,10 +71,10 @@ const bookingUpdateSchema = z.object({
   waitAndReturn: z.boolean().optional(),
   estimatedAdditionalWaitTimeMinutes: z.number().min(0).optional().nullable(),
   driverCurrentLocation: z.object({ lat: z.number(), lng: z.number() }).optional(),
-  accountJobPin: z.string().optional(), // Added
-  noShowFeeApplicable: z.boolean().optional(), // For no-show
-  cancellationFeeApplicable: z.boolean().optional(), // For late cancel
-  cancellationType: z.string().optional(), // e.g., 'passenger_no_show', 'late_passenger_cancel'
+  accountJobPin: z.string().optional(),
+  noShowFeeApplicable: z.boolean().optional(),
+  cancellationFeeApplicable: z.boolean().optional(),
+  cancellationType: z.string().optional(),
 });
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
@@ -121,11 +121,10 @@ export async function POST(request: NextRequest, context: PostContext) {
     }
 
     const updateDataFromPayload = parsedPayload.data;
-    console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: RAW payload.offerDetails:`, JSON.stringify(payload.offerDetails, null, 2));
-    console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: ZOD PARSED updateDataFromPayload.offerDetails:`, JSON.stringify(updateDataFromPayload.offerDetails, null, 2));
-
+    
     if (bookingIdForHandler.startsWith('mock-offer-')) {
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as mock offer acceptance. Validating offerDetails from raw payload.`);
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Raw payload.offerDetails:`, JSON.stringify(payload.offerDetails, null, 2));
 
       const offerDetailsParseResult = offerDetailsSchema.safeParse(payload.offerDetails);
       if (!offerDetailsParseResult.success) {
@@ -134,52 +133,71 @@ export async function POST(request: NextRequest, context: PostContext) {
       }
 
       const offer = offerDetailsParseResult.data;
-      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Successfully parsed offerDetails for mock offer. Proceeding to create booking.`);
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Successfully parsed offerDetails for mock offer. Proceeding to create booking. Parsed offer:`, JSON.stringify(offer, null, 2));
 
       const newBookingData: any = {
+        // Fields directly from offer
         passengerId: offer.passengerId,
         passengerName: offer.passengerName || 'Passenger',
         passengerPhone: offer.passengerPhone || null,
-        pickupLocation: { address: offer.pickupLocation, latitude: offer.pickupCoords.lat, longitude: offer.pickupCoords.lng },
-        dropoffLocation: { address: offer.dropoffLocation, latitude: offer.dropoffCoords.lat, longitude: offer.dropoffCoords.lng },
+        pickupLocation: { 
+            address: offer.pickupLocation, 
+            latitude: offer.pickupCoords.lat, 
+            longitude: offer.pickupCoords.lng 
+        },
+        dropoffLocation: { 
+            address: offer.dropoffLocation, 
+            latitude: offer.dropoffCoords.lat, 
+            longitude: offer.dropoffCoords.lng 
+        },
         fareEstimate: offer.fareEstimate,
         passengers: offer.passengerCount,
         paymentMethod: offer.paymentMethod || 'card',
-        notes: offer.notes,
-        requiredOperatorId: offer.requiredOperatorId,
-        isPriorityPickup: offer.isPriorityPickup || updateDataFromPayload.isPriorityPickup || false,
-        priorityFeeAmount: offer.priorityFeeAmount || updateDataFromPayload.priorityFeeAmount || 0,
+        notes: offer.notes || null,
+        requiredOperatorId: offer.requiredOperatorId || null,
+        isPriorityPickup: offer.isPriorityPickup ?? (updateDataFromPayload.isPriorityPickup ?? false),
+        priorityFeeAmount: offer.priorityFeeAmount ?? (updateDataFromPayload.priorityFeeAmount ?? 0),
+        dispatchMethod: offer.dispatchMethod || 'auto_system',
+        accountJobPin: offer.accountJobPin || null,
+        distanceMiles: offer.distanceMiles || null,
         
-        dispatchMethod: offer.dispatchMethod || 'auto_system', // Use offer.dispatchMethod directly, fallback to auto_system
-
-        driverId: updateDataFromPayload.driverId,
-        driverName: updateDataFromPayload.driverName,
+        // Fields from updateDataFromPayload (driver info & status)
+        driverId: updateDataFromPayload.driverId || null,
+        driverName: updateDataFromPayload.driverName || null,
         status: updateDataFromPayload.status || 'driver_assigned',
-        vehicleType: updateDataFromPayload.vehicleType,
-        driverVehicleDetails: updateDataFromPayload.driverVehicleDetails,
-        driverCurrentLocation: updateDataFromPayload.driverCurrentLocation,
+        vehicleType: updateDataFromPayload.vehicleType || null,
+        driverVehicleDetails: updateDataFromPayload.driverVehicleDetails || null,
+        driverCurrentLocation: updateDataFromPayload.driverCurrentLocation || null,
 
+        // Firestore Timestamps
         bookingTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
+      
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Data to be written to Firestore (addDoc):`, JSON.stringify(newBookingData, null, 2));
 
-      if (newBookingData.paymentMethod === "account") {
-        newBookingData.accountJobPin = offer.accountJobPin || generateFourDigitPin(); // Use from offer if present, else generate
+      try {
+        const docRef = await addDoc(collection(db, 'bookings'), newBookingData);
+        console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: New booking created with ID: ${docRef.id} from mock offer.`);
+        
+        const newBookingSnap = await getDoc(docRef);
+        const newBookingSavedData = newBookingSnap.data();
+        const responseData = {
+            id: newBookingSnap.id,
+            ...newBookingSavedData,
+            bookingTimestamp: serializeTimestamp(newBookingSavedData?.bookingTimestamp as Timestamp | undefined),
+            updatedAt: serializeTimestamp(newBookingSavedData?.updatedAt as Timestamp | undefined),
+        };
+        return NextResponse.json({ message: 'Mock offer accepted, new booking created.', booking: responseData }, { status: 201 });
+
+      } catch (addDocError: any) {
+        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Firestore addDoc FAILED. Error Code: ${addDocError.code}, Message: ${addDocError.message}`, addDocError);
+        return NextResponse.json({ 
+            message: 'Failed to create new booking in database.', 
+            details: `Firestore addDoc error: ${addDocError.message}`, 
+            code: addDocError.code || 'FIRESTORE_ADD_DOC_ERROR' 
+        }, { status: 500 });
       }
-
-      const docRef = await addDoc(collection(db, 'bookings'), newBookingData);
-      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: New booking created with ID: ${docRef.id} from mock offer.`);
-
-      const newBookingSnap = await getDoc(docRef);
-      const newBookingSavedData = newBookingSnap.data();
-       const responseData = {
-        id: newBookingSnap.id,
-        ...newBookingSavedData,
-        bookingTimestamp: serializeTimestamp(newBookingSavedData?.bookingTimestamp as Timestamp | undefined),
-        updatedAt: serializeTimestamp(newBookingSavedData?.updatedAt as Timestamp | undefined),
-      };
-      return NextResponse.json({ message: 'Mock offer accepted, new booking created.', booking: responseData }, { status: 201 });
-
     } else {
       // This is an update to an existing booking
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as update to existing booking.`);
@@ -197,14 +215,11 @@ export async function POST(request: NextRequest, context: PostContext) {
 
       const existingBookingDbData = bookingSnap.data();
 
-      // If a driverId is being set (i.e., an operator is assigning a driver manually)
       if (updateDataFromPayload.driverId && !existingBookingDbData?.driverId) {
         updatePayloadFirestore.dispatchMethod = 'manual_operator';
         console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Manual assignment by operator - setting dispatchMethod to 'manual_operator'.`);
       }
 
-
-      // Explicitly set status based on action
       if (updateDataFromPayload.action === 'notify_arrival') {
           updatePayloadFirestore.status = 'arrived_at_pickup';
           updatePayloadFirestore.notifiedPassengerArrivalTimestampActual = Timestamp.now();
@@ -226,9 +241,9 @@ export async function POST(request: NextRequest, context: PostContext) {
           updatePayloadFirestore.cancelledAt = Timestamp.now();
       } else if (updateDataFromPayload.action === 'report_no_show') {
           updatePayloadFirestore.status = 'cancelled_no_show';
-          updatePayloadFirestore.cancelledAt = Timestamp.now();
           updatePayloadFirestore.cancellationType = 'passenger_no_show';
           updatePayloadFirestore.noShowFeeApplicable = true;
+          updatePayloadFirestore.cancelledAt = Timestamp.now();
       } else if (updateDataFromPayload.action === 'accept_wait_and_return') {
           updatePayloadFirestore.status = 'in_progress_wait_and_return';
           updatePayloadFirestore.waitAndReturn = true;
@@ -243,7 +258,6 @@ export async function POST(request: NextRequest, context: PostContext) {
           updatePayloadFirestore.status = 'cancelled_by_operator';
           updatePayloadFirestore.cancelledAt = Timestamp.now();
       } else if (updateDataFromPayload.status) {
-          // If status is directly provided in payload (e.g., driver assignment)
           updatePayloadFirestore.status = updateDataFromPayload.status;
       }
 
@@ -295,7 +309,7 @@ export async function POST(request: NextRequest, context: PostContext) {
 
     if (error instanceof Error) {
         errorMessage = error.message;
-        if ((error as any).code) { // Firebase errors have a 'code' property
+        if ((error as any).code) {
           errorDetails = `Firebase Error Code: ${(error as any).code}. ${error.stack || error.toString()}`;
         } else {
           errorDetails = error.stack || error.toString();
@@ -311,7 +325,7 @@ export async function POST(request: NextRequest, context: PostContext) {
     }
 
     return NextResponse.json({
-        message: "Server Error Encountered During Update", // This specific message matches the screenshot
+        message: "Server Error Encountered During Update",
         details: errorMessage,
         rawErrorDetails: errorDetails
     }, { status: 500 });
