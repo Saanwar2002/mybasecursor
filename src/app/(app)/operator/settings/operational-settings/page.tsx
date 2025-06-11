@@ -39,7 +39,7 @@ export default function OperatorOperationalSettingsPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load surge settings.";
       setErrorSurge(message);
-      setEnableSurgePricing(false);
+      setEnableSurgePricing(false); // Default to false on error
       toast({ title: "Error Loading Surge Settings", description: message, variant: "destructive" });
     } finally {
       setIsLoadingSurge(false);
