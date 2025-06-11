@@ -2,20 +2,25 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { DollarSign, Loader2, AlertTriangle, Zap, SlidersHorizontal } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { DollarSign, Loader2, AlertTriangle, Zap, SlidersHorizontal, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 export default function OperatorOperationalSettingsPage() {
   const { user, updateUserProfileInContext } = useAuth();
   const [enableSurgePricing, setEnableSurgePricing] = useState<boolean>(false);
-  const [isLoadingSurge, setIsLoadingSurge] = useState<boolean>(true);
-  const [isSavingSurge, setIsSavingSurge] = useState<boolean>(false);
+  const [operatorSurgePercentage, setOperatorSurgePercentage] = useState<number>(0);
+  const [surgePercentageInput, setSurgePercentageInput] = useState<string>("0");
+  const [isLoadingSurgeSettings, setIsLoadingSurgeSettings] = useState<boolean>(true);
+  const [isSavingSurgeToggle, setIsSavingSurgeToggle] = useState<boolean>(false);
+  const [isSavingSurgePercentage, setIsSavingSurgePercentage] = useState<boolean>(false);
   const [errorSurge, setErrorSurge] = useState<string | null>(null);
 
   const [enableAutoDispatch, setEnableAutoDispatch] = useState<boolean>(true);
@@ -26,7 +31,7 @@ export default function OperatorOperationalSettingsPage() {
   const { toast } = useToast();
 
   const fetchPricingSettings = useCallback(async () => {
-    setIsLoadingSurge(true);
+    setIsLoadingSurgeSettings(true);
     setErrorSurge(null);
     try {
       const response = await fetch('/api/operator/settings/pricing');
@@ -36,13 +41,17 @@ export default function OperatorOperationalSettingsPage() {
       }
       const data = await response.json();
       setEnableSurgePricing(data.enableSurgePricing || false);
+      setOperatorSurgePercentage(data.operatorSurgePercentage || 0);
+      setSurgePercentageInput(String(data.operatorSurgePercentage || 0));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load surge settings.";
       setErrorSurge(message);
-      setEnableSurgePricing(false); // Default to false on error
+      setEnableSurgePricing(false); 
+      setOperatorSurgePercentage(0);
+      setSurgePercentageInput("0");
       toast({ title: "Error Loading Surge Settings", description: message, variant: "destructive" });
     } finally {
-      setIsLoadingSurge(false);
+      setIsLoadingSurgeSettings(false);
     }
   }, [toast]);
 
@@ -57,16 +66,15 @@ export default function OperatorOperationalSettingsPage() {
       }
       const data = await response.json();
       setEnableAutoDispatch(data.dispatchMode === 'auto');
-      // Removed updateUserProfileInContext call from here
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load dispatch settings.";
       setErrorDispatch(message);
-      setEnableAutoDispatch(true); // Default to auto on error
+      setEnableAutoDispatch(true); 
       toast({ title: "Error Loading Dispatch Settings", description: message, variant: "destructive" });
     } finally {
       setIsLoadingDispatch(false);
     }
-  }, [toast]); // Dependencies updated
+  }, [toast]);
 
   useEffect(() => {
     fetchPricingSettings();
@@ -74,7 +82,7 @@ export default function OperatorOperationalSettingsPage() {
   }, [fetchPricingSettings, fetchDispatchSettings]);
 
   const handleToggleSurgePricing = async (newSetting: boolean) => {
-    setIsSavingSurge(true);
+    setIsSavingSurgeToggle(true);
     setErrorSurge(null);
     try {
       const response = await fetch('/api/operator/settings/pricing', {
@@ -88,14 +96,55 @@ export default function OperatorOperationalSettingsPage() {
       }
       const data = await response.json();
       setEnableSurgePricing(data.settings.enableSurgePricing);
-      toast({ title: "Surge Settings Updated", description: `Surge pricing is now ${data.settings.enableSurgePricing ? 'ENABLED' : 'DISABLED'}.` });
+      // If surge is disabled, we might want to reset UI percentage input, but not necessarily DB
+      if (!data.settings.enableSurgePricing) {
+        setOperatorSurgePercentage(0); // Reflect that it's not active
+        setSurgePercentageInput("0");
+      } else {
+         // If enabling, ensure the percentage displayed is what's currently saved or a default.
+         setOperatorSurgePercentage(data.settings.operatorSurgePercentage || 0);
+         setSurgePercentageInput(String(data.settings.operatorSurgePercentage || 0));
+      }
+      toast({ title: "Surge Toggle Updated", description: `Surge pricing is now ${data.settings.enableSurgePricing ? 'ENABLED' : 'DISABLED'}.` });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not update surge settings.";
+      const message = err instanceof Error ? err.message : "Could not update surge toggle.";
       setErrorSurge(message);
       fetchPricingSettings(); 
-      toast({ title: "Error Saving Surge Settings", description: message, variant: "destructive" });
+      toast({ title: "Error Saving Surge Toggle", description: message, variant: "destructive" });
     } finally {
-      setIsSavingSurge(false);
+      setIsSavingSurgeToggle(false);
+    }
+  };
+
+  const handleSaveSurgePercentage = async () => {
+    const percentageValue = parseFloat(surgePercentageInput);
+    if (isNaN(percentageValue) || percentageValue < 0 || percentageValue > 500) {
+      toast({ title: "Invalid Percentage", description: "Please enter a number between 0 and 500 for surge percentage.", variant: "destructive" });
+      return;
+    }
+    setIsSavingSurgePercentage(true);
+    setErrorSurge(null);
+    try {
+      const response = await fetch('/api/operator/settings/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operatorSurgePercentage: percentageValue }),
+      });
+       if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: 'Failed to update percentage.'}));
+        throw new Error(errData.message);
+      }
+      const data = await response.json();
+      setOperatorSurgePercentage(data.settings.operatorSurgePercentage);
+      setSurgePercentageInput(String(data.settings.operatorSurgePercentage));
+      toast({ title: "Surge Percentage Updated", description: `Custom surge percentage set to ${data.settings.operatorSurgePercentage}%.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save surge percentage.";
+      setErrorSurge(message);
+      fetchPricingSettings(); // Re-fetch to ensure consistency
+      toast({ title: "Error Saving Surge Percentage", description: message, variant: "destructive" });
+    } finally {
+      setIsSavingSurgePercentage(false);
     }
   };
 
@@ -193,46 +242,81 @@ export default function OperatorOperationalSettingsPage() {
         <CardHeader>
           <CardTitle className="text-xl font-headline flex items-center gap-2"><DollarSign className="w-5 h-5 text-muted-foreground"/> Surge Pricing Control</CardTitle>
           <CardDescription>
-            Enable or disable dynamic surge pricing for your fleet based on demand or other factors.
-            When disabled, all rides will use standard fares.
+            Enable dynamic surge pricing and set your operator-specific surge percentage.
           </CardDescription>
         </CardHeader>
-        {isLoadingSurge ? (
+        {isLoadingSurgeSettings ? (
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <Skeleton className="h-6 w-11 rounded-full" />
-                <Skeleton className="h-6 w-64 rounded-md" />
-              </div>
+              <div className="flex items-center space-x-3"> <Skeleton className="h-6 w-11 rounded-full" /> <Skeleton className="h-6 w-64 rounded-md" /> </div>
               <Skeleton className="h-10 w-full rounded-md mt-3" />
+              <Separator className="my-4" />
+              <Skeleton className="h-6 w-1/2 rounded-md" />
+              <Skeleton className="h-10 w-1/3 rounded-md" />
             </div>
           </CardContent>
         ) : errorSurge ? (
           <CardContent>
             <div className="flex items-center gap-2 p-4 bg-destructive/10 text-destructive rounded-md">
-              <AlertTriangle className="h-5 w-5" />
-              <p>Error: {errorSurge}</p>
+              <AlertTriangle className="h-5 w-5" /> <p>Error: {errorSurge}</p>
             </div>
           </CardContent>
         ) : (
           <CardContent>
-            <div className="flex items-center space-x-3">
-              <Switch
-                id="surge-pricing-switch"
-                checked={enableSurgePricing}
-                onCheckedChange={handleToggleSurgePricing}
-                disabled={isSavingSurge}
-              />
-              <Label htmlFor="surge-pricing-switch" className="text-base">
-                {enableSurgePricing ? "Surge Pricing Enabled" : "Surge Pricing Disabled (Normal Fares)"}
-              </Label>
-              {isSavingSurge && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Switch
+                  id="surge-pricing-switch"
+                  checked={enableSurgePricing}
+                  onCheckedChange={handleToggleSurgePricing}
+                  disabled={isSavingSurgeToggle || isSavingSurgePercentage}
+                />
+                <Label htmlFor="surge-pricing-switch" className="text-base">
+                  {enableSurgePricing ? "Surge Pricing Enabled" : "Surge Pricing Disabled (Normal Fares)"}
+                </Label>
+                {isSavingSurgeToggle && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+              </div>
+               <p className="text-sm text-muted-foreground">
+                When enabled, the system may apply surge multipliers. You can set your base's contribution below.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground mt-3">
-              Changes are saved automatically when you toggle the switch. (Mock API Interaction)
-            </p>
+            
+            {enableSurgePricing && (
+              <div className="mt-6 pt-4 border-t space-y-3">
+                <Label htmlFor="surge-percentage-input" className="text-base font-medium">Your Base Surge Percentage (%)</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="surge-percentage-input"
+                    type="number"
+                    value={surgePercentageInput}
+                    onChange={(e) => setSurgePercentageInput(e.target.value)}
+                    placeholder="e.g., 20 for 20%"
+                    min="0"
+                    max="500" // Example max, adjust as needed
+                    className="max-w-xs"
+                    disabled={isSavingSurgePercentage || isSavingSurgeToggle}
+                  />
+                  <Button 
+                    onClick={handleSaveSurgePercentage} 
+                    disabled={isSavingSurgePercentage || isSavingSurgeToggle || parseFloat(surgePercentageInput) === operatorSurgePercentage}
+                  >
+                    {isSavingSurgePercentage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Percentage
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter a percentage (e.g., 20 for 20%). This value will be considered by the platform's fare calculation when surge is active.
+                  Current saved: {operatorSurgePercentage}%.
+                </p>
+              </div>
+            )}
           </CardContent>
         )}
+        <CardFooter className="border-t pt-4">
+            <p className="text-xs text-muted-foreground">
+                Note: The platform might have its own base surge logic. Your settings here are applied in conjunction with platform-level rules.
+            </p>
+        </CardFooter>
       </Card>
     </div>
   );
