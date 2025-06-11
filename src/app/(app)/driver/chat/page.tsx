@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MessageCircle, X } from "lucide-react"; // Added X icon
+import { Send, MessageCircle, X } from "lucide-react"; 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRouter } from 'next/navigation'; // Added useRouter
 
 interface ChatUser {
   id: string;
@@ -37,7 +38,7 @@ const allMockMessages: { [key: string]: Message[] } = {
     { id: 'm3', sender: 'other', text: "I'm at the corner, wearing a red hat.", timestamp: "11:05 AM" },
   ],
   passenger2: [
-     { id: 'm4', sender: 'other', text: "Thanks for the ride!", timestamp: "Yesterday" },
+     { id: 'm4', sender: 'other', text: "Okay, see you soon!", timestamp: "Yesterday" },
   ],
   operator: [
      { id: 'm5', sender: 'other', text: "New high priority pickup available in your zone. Accept?", timestamp: "2 hrs ago" },
@@ -67,6 +68,7 @@ export default function DriverChatPage() {
   const [messagesData, setMessagesData] = useState<{ [key: string]: Message[] }>(contextualInitialMessages);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter(); // Initialize useRouter
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -195,9 +197,9 @@ export default function DriverChatPage() {
                 </Avatar>
                 <CardTitle className="text-xl font-headline">{selectedChat.name}</CardTitle>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
-                <span className="sr-only">Close chat</span>
+                <span className="sr-only">Go Back</span>
               </Button>
             </CardHeader>
             <ScrollArea className="flex-1 p-4 space-y-4 bg-muted/20">
