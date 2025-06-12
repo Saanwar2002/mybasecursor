@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    /* Light Theme from PRD */
+    /* Light Theme from PRD - Muted Foreground Adjusted for better contrast */
     --background: 220 20% 95%; /* Light gray (#F0F2F5) */
     --foreground: 220 40% 10%; /* Dark Grey */
 
@@ -22,7 +22,7 @@
     --secondary-foreground: 220 40% 10%;
 
     --muted: 220 10% 88%;
-    --muted-foreground: 220 25% 45%;
+    --muted-foreground: 220 25% 30%; /* ADJUSTED: Was 220 25% 45%, made darker for contrast */
 
     --accent: 270 40% 65%; /* Muted purple (#B08BCD) */
     --accent-foreground: 0 0% 100%; /* White text on muted purple */
