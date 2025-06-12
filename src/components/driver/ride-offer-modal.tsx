@@ -169,7 +169,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const mapDisplayElements = useMemo(() => {
     if (!rideDetails) return { markers: [], labels: [] };
     const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant: 'compact' | 'default' }> = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
 
     if (rideDetails.pickupCoords) {
       markers.push({ 
@@ -182,19 +182,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
         type: 'pickup',
         variant: 'compact' 
-      });
-    }
-    if (rideDetails.dropoffCoords) {
-      markers.push({ 
-        position: rideDetails.dropoffCoords, 
-        title: `Dropoff: ${rideDetails.dropoffLocation}`, 
-        label: { text: "D", color: "white", fontWeight: "bold" } 
-      });
-      labels.push({
-        position: rideDetails.dropoffCoords,
-        content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
-        type: 'dropoff',
-        variant: 'compact'
       });
     }
     rideDetails.stops?.forEach((stop, index) => {
@@ -212,6 +199,19 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         });
       }
     });
+    if (rideDetails.dropoffCoords) {
+      markers.push({ 
+        position: rideDetails.dropoffCoords, 
+        title: `Dropoff: ${rideDetails.dropoffLocation}`, 
+        label: { text: "D", color: "white", fontWeight: "bold" } 
+      });
+      labels.push({
+        position: rideDetails.dropoffCoords,
+        content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
+        type: 'dropoff',
+        variant: 'compact'
+      });
+    }
     return { markers, labels };
   }, [rideDetails]);
 
@@ -390,23 +390,20 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <MapPin className="w-4 h-4 text-primary shrink-0 mt-1" />
                   <span><strong>Pickup:</strong> {rideDetails.pickupLocation}</span>
                 </p>
+                {rideDetails.stops && rideDetails.stops.length > 0 && (
+                  <div className="mt-1.5 pl-2">
+                    {rideDetails.stops.map((stop, index) => (
+                      <p key={`stop-display-${index}`} className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
+                         <MapPin className="w-4 h-4 text-yellow-500 shrink-0 mt-1" />
+                         <span><strong>Stop {index + 1}:</strong> {stop.address}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
                 <p className="flex items-start gap-2 text-base md:text-lg font-semibold">
                   <MapPin className="w-4 h-4 text-accent shrink-0 mt-1" />
                   <span><strong>Dropoff:</strong> {rideDetails.dropoffLocation}</span>
                 </p>
-                {rideDetails.stops && rideDetails.stops.length > 0 && (
-                  <div className="mt-1.5 pl-2">
-                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Stops:</p>
-                    <ul className="list-none pl-4">
-                      {rideDetails.stops.map((stop, index) => (
-                        <li key={`stop-${index}`} className="text-sm font-semibold flex items-start gap-2">
-                           <MapPin className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" />
-                           <span>{stop.address}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
 
               <div className="space-y-1 text-base md:text-lg font-semibold">
