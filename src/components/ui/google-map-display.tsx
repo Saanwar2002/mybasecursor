@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
@@ -44,7 +45,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   disableDefaultUI = false,
   fitBoundsToMarkers = false,
   onSdkLoaded,
-  gestureHandling = 'greedy', // Default to 'greedy' for one-finger panning
+  gestureHandling = 'greedy',
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -129,7 +130,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         zoomControl: !disableDefaultUI,
         streetViewControl: !disableDefaultUI, 
         fullscreenControl: !disableDefaultUI,
-        gestureHandling: gestureHandling, // Apply the gestureHandling prop
+        gestureHandling: gestureHandling,
     };
 
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
@@ -145,8 +146,11 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         }
       }
        // Ensure gestureHandling is updated if it changes dynamically
-       if (mapInstanceRef.current.getOptions().gestureHandling !== gestureHandling) {
-        mapInstanceRef.current.setOptions({ gestureHandling });
+       if (mapInstanceRef.current && typeof mapInstanceRef.current.getOptions === 'function') {
+        const currentGestureHandling = mapInstanceRef.current.getOptions()?.gestureHandling;
+        if (currentGestureHandling !== gestureHandling) {
+          mapInstanceRef.current.setOptions({ gestureHandling });
+        }
       }
     }
 
@@ -204,7 +208,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     }
 
-  }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling]); // Added gestureHandling
+  }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling]);
 
   useEffect(() => {
     return () => {
@@ -233,3 +237,4 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 };
 
 export default GoogleMapDisplay;
+
