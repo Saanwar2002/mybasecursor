@@ -330,7 +330,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       >
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
           <DialogTitle className={cn(
-            "text-xl md:text-xl font-headline flex items-center gap-2", // Removed justify-between
+            "text-xl md:text-xl font-headline flex items-center gap-2",
             dispatchInfo?.bgColorClassName === "bg-green-600" && "text-green-700 dark:text-green-400",
             dispatchInfo?.bgColorClassName === "bg-blue-600" && "text-blue-700 dark:text-blue-400",
             dispatchInfo?.bgColorClassName === "bg-purple-600" && "text-purple-700 dark:text-purple-400",
@@ -346,7 +346,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )} />
               New Ride Offer!
             </span>
-            {/* The redundant top-right Priority badge was here and is now removed */}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground pt-1">
             Review the details below and respond quickly before the timer runs out.
@@ -381,7 +380,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             )}
             
             <div className="flex items-center justify-between gap-2 my-1.5">
-              {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 ? (
+              {(rideDetails.distanceMiles !== undefined && totalFareForDriver > 0) ? (
                 <div className="flex-grow px-3 py-1.5 bg-yellow-600 text-white font-bold rounded-md text-center shadow-sm">
                   <span className="text-lg">
                     £{totalFareForDriver.toFixed(2)}
@@ -395,7 +394,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )}
 
               {rideDetails.isPriorityPickup && (
-                  <Badge variant="outline" className="shrink-0 text-xs border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-800/30 py-1 px-2 flex items-center gap-1 h-full">
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 text-xs border-orange-400 dark:border-red-500 dark:border-2 text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-800/30 py-1 px-2 flex items-center gap-1 h-full"
+                  >
                       <Crown className="w-3.5 h-3.5"/> Priority
                   </Badge>
               )}
