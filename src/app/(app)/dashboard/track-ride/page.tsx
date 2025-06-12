@@ -2,7 +2,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, Route } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, Route, Star, ThumbsUp } from "lucide-react"; // Added Star, ThumbsUp
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -164,7 +164,7 @@ const formatTimerPassenger = (totalSeconds: number): string => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-function formatAddressForMapLabel(fullAddress: string, type: string): string { // Changed type to string
+function formatAddressForMapLabel(fullAddress: string, type: string): string { 
     if (!fullAddress) return `${type}:\nN/A`;
 
     let addressRemainder = fullAddress;
@@ -195,7 +195,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string { /
     
     if (street === "Location Details" && locationLine.trim()) street = "";
 
-    let finalLabel = `${type}:`; // Use the passed type directly
+    let finalLabel = `${type}:`; 
     if (street) finalLabel += `\n${street}`;
     if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`;
     
@@ -283,6 +283,9 @@ export default function MyActiveRidePage() {
 
   const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
+
+  const [showEndOfRideReminder, setShowEndOfRideReminder] = useState(false);
+  const endOfRideReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
 
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
@@ -457,6 +460,27 @@ export default function MyActiveRidePage() {
       }
     };
   }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
+
+
+  // End of ride reminder effect
+  useEffect(() => {
+    if (endOfRideReminderTimerRef.current) {
+      clearTimeout(endOfRideReminderTimerRef.current);
+    }
+    if (activeRide?.status === 'in_progress') {
+      setShowEndOfRideReminder(false); // Reset if status changes back to in_progress
+      endOfRideReminderTimerRef.current = setTimeout(() => {
+        setShowEndOfRideReminder(true);
+      }, 8000); // Show after 8 seconds for demo
+    } else {
+      setShowEndOfRideReminder(false); // Hide if not in_progress
+    }
+    return () => {
+      if (endOfRideReminderTimerRef.current) {
+        clearTimeout(endOfRideReminderTimerRef.current);
+      }
+    };
+  }, [activeRide?.status]);
 
 
   const handleInitiateCancelRide = async () => {
@@ -972,6 +996,25 @@ export default function MyActiveRidePage() {
               onSdkLoaded={setIsMapSdkLoaded} 
             />
           </div>
+
+          {showEndOfRideReminder && activeRide.status === 'in_progress' && (
+            <Alert variant="default" className="bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700">
+              <ThumbsUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <ShadAlertTitle className="font-semibold text-green-700 dark:text-green-300">Enjoying Your Ride?</ShadAlertTitle>
+              <AlertDescription className="text-sm text-green-600 dark:text-green-400">
+                Ride nearing destination! Please remember to rate your experience and appreciate your driver after completion. Have a great day!
+              </AlertDescription>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowEndOfRideReminder(false)}
+                className="absolute top-2 right-2 p-1 h-auto text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                >
+                <XCircle className="w-4 h-4"/>
+              </Button>
+            </Alert>
+          )}
+
           <Card className="shadow-md">
             <CardHeader className="flex flex-row justify-between items-start gap-2">
                 <div> <CardTitle className="text-xl flex items-center gap-2"> <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay} </CardTitle> <CardDescription className="text-xs">{activeRide.scheduledPickupAt ? `Scheduled: ${formatDate(null, activeRide.scheduledPickupAt)}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}</CardDescription> </div>
@@ -1180,4 +1223,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
