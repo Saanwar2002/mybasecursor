@@ -254,7 +254,7 @@ const mockHuddersfieldLocations: Array<{address: string, coords: {lat: number, l
 ];
 
 interface ActiveStopTimerDetails {
-  stopDataIndex: number; // This is the index within activeRide.stops
+  stopDataIndex: number; 
   arrivalTime: Date;
   timerId: NodeJS.Timeout | null;
 }
@@ -660,23 +660,20 @@ export default function AvailableRidesPage() {
       clearInterval(activeStopWaitTimerDetailsRef.current.timerId);
       activeStopWaitTimerDetailsRef.current.timerId = null;
     }
-    setCurrentStopTimerDisplay(null);
-
+    
     const currentLegIndex = activeRide?.driverCurrentLegIndex;
-    const currentStopDataIndex = currentLegIndex !== undefined && currentLegIndex > 0 ? currentLegIndex -1 : -1;
+    const isAtIntermediateStop = activeRide &&
+                                 (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
+                                 currentLegIndex !== undefined &&
+                                 currentLegIndex > 0 &&
+                                 currentLegIndex < journeyPoints.length -1; // Not pickup, not final dropoff
 
-    if (
-      activeRide &&
-      (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
-      currentLegIndex !== undefined && // Ensure leg index is defined
-      currentLegIndex > 0 && // Must be past pickup
-      currentLegIndex < journeyPoints.length && // Must not be for the final dropoff leg (or past it)
-      activeStopWaitTimerDetailsRef.current && // Timer details MUST be set by button click
-      activeStopWaitTimerDetailsRef.current.stopDataIndex === currentStopDataIndex // And timer is for the current stop
-    ) {
-      const { stopDataIndex, arrivalTime } = activeStopWaitTimerDetailsRef.current;
-      console.log(`Starting/Updating timer display for stop index ${stopDataIndex} (leg ${currentLegIndex}). Arrival: ${arrivalTime}`);
-      
+    if (isAtIntermediateStop && activeStopWaitTimerDetailsRef.current?.arrivalTime) {
+      const stopDataIndex = activeStopWaitTimerDetailsRef.current.stopDataIndex;
+      const arrivalTime = activeStopWaitTimerDetailsRef.current.arrivalTime;
+
+      console.log(`[StopTimerEffect] Activating timer for Stop ${stopDataIndex + 1}. Arrival: ${arrivalTime}`);
+
       const intervalId = setInterval(() => {
         const now = new Date();
         const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
@@ -697,7 +694,6 @@ export default function AvailableRidesPage() {
           charge: newCharge,
         });
       }, 1000);
-
       activeStopWaitTimerDetailsRef.current.timerId = intervalId;
 
       // Initial call to set display immediately
@@ -717,15 +713,23 @@ export default function AvailableRidesPage() {
           extraSeconds: initialExtraSeconds,
           charge: initialCharge,
       });
+
+    } else {
+      // Not at an intermediate stop or arrivalTime not set for this stop, so clear timer display
+      console.log("[StopTimerEffect] Conditions not met or arrivalTime not set for current stop. Clearing timer display.");
+      setCurrentStopTimerDisplay(null);
     }
 
     return () => {
       if (activeStopWaitTimerDetailsRef.current?.timerId) {
-        console.log("Clearing timer in useEffect cleanup for stop index", activeStopWaitTimerDetailsRef.current.stopDataIndex);
+        console.log("[StopTimerEffect Cleanup] Clearing timer for stop index", activeStopWaitTimerDetailsRef.current.stopDataIndex);
         clearInterval(activeStopWaitTimerDetailsRef.current.timerId);
-        activeStopWaitTimerDetailsRef.current.timerId = null;
+        if (activeStopWaitTimerDetailsRef.current) {
+          activeStopWaitTimerDetailsRef.current.timerId = null;
+        }
       }
     };
+  // Ensure dependencies cover all conditions for starting/stopping/recalculating
   }, [activeRide?.status, activeRide?.driverCurrentLegIndex, activeStopWaitTimerDetailsRef.current?.arrivalTime, journeyPoints.length]);
 
 
@@ -1224,8 +1228,8 @@ export default function AvailableRidesPage() {
     }
     
     let chargeForPreviousStop = 0;
-    if (actionType === 'proceed_to_next_leg' || actionType === 'complete_ride') {
-        if (activeStopWaitTimerDetailsRef.current && currentStopTimerDisplay && activeStopWaitTimerDetailsRef.current.stopDataIndex === currentStopTimerDisplay.stopDataIndex) {
+    if ((actionType === 'proceed_to_next_leg' || actionType === 'complete_ride') && currentStopTimerDisplay) {
+        if (activeStopWaitTimerDetailsRef.current && activeStopWaitTimerDetailsRef.current.stopDataIndex === currentStopTimerDisplay.stopDataIndex) {
             chargeForPreviousStop = currentStopTimerDisplay.charge;
             const stopIndexKey = activeStopWaitTimerDetailsRef.current.stopDataIndex;
             setCompletedStopWaitCharges(prev => ({...prev, [stopIndexKey]: chargeForPreviousStop }));
@@ -1238,6 +1242,7 @@ export default function AvailableRidesPage() {
             setCurrentStopTimerDisplay(null);
         }
     }
+
 
     setActionLoading(prev => ({ ...prev, [rideId]: true }));
     console.log(`actionLoading for ${rideId} SET TO TRUE`);
@@ -1294,7 +1299,6 @@ export default function AvailableRidesPage() {
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             payload.finalFare = finalFare;
             payload.completedAt = true;
-            // payload.currentLegEntryTimestamp = deleteField(); // This line was causing the error
             break;
         case 'cancel_active':
             toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
@@ -1320,7 +1324,6 @@ export default function AvailableRidesPage() {
             payload.cancellationType = 'passenger_no_show';
             payload.noShowFeeApplicable = true;
             payload.cancelledAt = Timestamp.now();
-            // payload.currentLegEntryTimestamp = deleteField(); // Also not needed here
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
@@ -1804,12 +1807,11 @@ export default function AvailableRidesPage() {
         return;
       }
       if (localCurrentLegIndex < journeyPoints.length - 1) { 
-        const currentStopIndexInStopsArray = localCurrentLegIndex - 1; // 0-indexed for activeRide.stops
+        const currentStopIndexInStopsArray = localCurrentLegIndex - 1; 
         const isAtIntermediateStopForTimer = localCurrentLegIndex > 0 && activeRide.stops && currentStopIndexInStopsArray < activeRide.stops.length;
 
         if (isAtIntermediateStopForTimer) {
           if (!activeStopWaitTimerDetailsRef.current || activeStopWaitTimerDetailsRef.current.stopDataIndex !== currentStopIndexInStopsArray) {
-            // First click at this stop: Driver is ARRIVING
             console.log(`Driver arrived at stop index ${currentStopIndexInStopsArray} (leg ${localCurrentLegIndex}). Starting local timer.`);
             if (activeStopWaitTimerDetailsRef.current?.timerId) {
               clearInterval(activeStopWaitTimerDetailsRef.current.timerId);
@@ -1821,14 +1823,12 @@ export default function AvailableRidesPage() {
             };
              setCurrentStopTimerDisplay({ stopDataIndex: currentStopIndexInStopsArray, freeSecondsLeft: STOP_FREE_WAITING_TIME_SECONDS, extraSeconds: 0, charge: 0 });
           } else {
-            // Second click at this stop: Driver is DEPARTING
             console.log(`Driver departing stop index ${currentStopIndexInStopsArray} (leg ${localCurrentLegIndex}).`);
             handleRideAction(activeRide.id, 'proceed_to_next_leg');
           }
         } else {
-          // This case should be for leaving pickup (leg 0) or if there are no stops (only pickup & dropoff)
            console.log(`Proceeding from leg ${localCurrentLegIndex} (not an intermediate stop timer case).`);
-           handleRideAction(activeRide.id, 'proceed_to_next_leg');
+           handleRideAction(activeRide.id, 'start_ride'); // Changed from 'proceed_to_next_leg'
         }
 
       } else { 
@@ -2029,20 +2029,20 @@ export default function AvailableRidesPage() {
            {currentStopTimerDisplay &&
               activeRide.driverCurrentLegIndex &&
               activeRide.driverCurrentLegIndex > 0 && 
-              activeRide.driverCurrentLegIndex < journeyPoints.length && 
+              activeRide.driverCurrentLegIndex < journeyPoints.length -1 && // Ensure it's an intermediate stop
               currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
               (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
             (
-              <Alert variant="default" className="bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 my-1">
-                <Timer className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <ShadAlertTitle className="font-semibold text-blue-700 dark:text-blue-300">
+              <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 my-1">
+                <Timer className="h-5 w-5 text-yellow-700 dark:text-yellow-400" />
+                <ShadAlertTitle className="font-bold text-yellow-800 dark:text-yellow-300">
                   Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}
                 </ShadAlertTitle>
-                <ShadAlertDescription className="text-blue-600 dark:text-blue-400 text-xs">
+                <ShadAlertDescription className="font-semibold text-yellow-700 dark:text-yellow-400 text-xs">
                   {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
                     `Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`
                   )}
-                  {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && (
+                  {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (
                     `Extra waiting: ${formatTimer(currentStopTimerDisplay.extraSeconds)}. Current Charge: £${currentStopTimerDisplay.charge.toFixed(2)}`
                   )}
                 </ShadAlertDescription>
@@ -2076,13 +2076,13 @@ export default function AvailableRidesPage() {
                     
                     if (index === 0) {
                         legType = "Pickup";
-                        iconColor = isCurrentLeg ? "text-green-500" : (isPastLeg && isRideInProgressOrFurther ? "text-muted-foreground" : "text-green-500");
+                        iconColor = isCurrentLeg ? "text-green-500" : (isPastLeg && isRideInProgressOrFurther ? "text-muted-foreground opacity-60" : "text-green-500");
                     } else if (index === journeyPoints.length - 1) {
                         legType = "Dropoff";
-                        iconColor = isCurrentLeg ? "text-orange-500" : (isPastLeg ? "text-muted-foreground" : "text-orange-500");
+                        iconColor = isCurrentLeg ? "text-orange-500" : (isPastLeg ? "text-muted-foreground opacity-60" : "text-orange-500");
                     } else {
                         legType = `Stop ${index}`;
-                        iconColor = isCurrentLeg ? "text-blue-500" : (isPastLeg ? "text-muted-foreground" : "text-blue-500");
+                        iconColor = isCurrentLeg ? "text-blue-500" : (isPastLeg ? "text-muted-foreground opacity-60" : "text-blue-500");
                     }
 
                     return (
@@ -2696,3 +2696,4 @@ export default function AvailableRidesPage() {
   </div> );
 }
     
+
