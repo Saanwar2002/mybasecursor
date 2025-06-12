@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context'; 
-import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay'; // Ensure ICustomMapLabelOverlay and CustomMapLabelOverlayConstructor are exported
+import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
 
@@ -178,8 +178,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     if (rideDetails.pickupCoords) {
         markers.push({ 
             position: rideDetails.pickupCoords, 
-            title: `Pickup: ${rideDetails.pickupLocation}`, 
-            // No explicit default label, custom label will be primary
+            title: `Pickup: ${rideDetails.pickupLocation}`,
         });
         labels.push({
             position: rideDetails.pickupCoords,
@@ -193,7 +192,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             markers.push({ 
                 position: stop.coords, 
                 title: `Stop ${index + 1}: ${stop.address}`,
-                // No explicit default label
             });
             labels.push({
                 position: stop.coords,
@@ -207,7 +205,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         markers.push({ 
             position: rideDetails.dropoffCoords, 
             title: `Dropoff: ${rideDetails.dropoffLocation}`, 
-            // No explicit default label
         });
         labels.push({
             position: rideDetails.dropoffCoords,
@@ -373,7 +370,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
             </div>
             
-            <div className="space-y-2.5"> {/* Parent for dispatch, fare, and addresses */}
+            <div className="space-y-2.5">
               {dispatchInfo && (
                 <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
                   <p className="text-sm font-medium flex items-center justify-center gap-1">
@@ -382,16 +379,26 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 </div>
               )}
 
-              {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 && (
-                <div className="my-1.5 px-3 py-1.5 bg-yellow-600 text-white font-bold rounded-md text-center shadow-md h-auto">
-                  <span className="text-lg">
-                    £{totalFareForDriver.toFixed(2)}
-                  </span>
-                  <span className="text-sm ml-2">
-                    ({rideDetails.distanceMiles.toFixed(1)} Miles)
-                  </span>
-                </div>
-              )}
+              <div className="my-1.5 flex items-center justify-between gap-2">
+                {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 ? (
+                  <div className="flex-grow px-3 py-1.5 bg-yellow-600 text-white font-bold rounded-md text-center shadow-md h-auto">
+                    <span className="text-lg">
+                      £{totalFareForDriver.toFixed(2)}
+                    </span>
+                    <span className="text-sm ml-2">
+                      ({rideDetails.distanceMiles.toFixed(1)} Miles)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex-grow"></div> 
+                )}
+
+                {rideDetails.isPriorityPickup && (
+                  <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-500/10 py-1 px-2 flex items-center gap-1 shrink-0">
+                    <Crown className="w-3.5 h-3.5"/> Priority
+                  </Badge>
+                )}
+              </div>
               
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
                 <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
