@@ -222,8 +222,10 @@ export default function SettingsPage() {
             )}
             
             <div className="pt-4 border-t space-y-2">
-              <Label htmlFor="max-journey-distance-select" className="text-base flex items-center gap-1">
-                <Route className="w-4 h-4 text-muted-foreground" /> Maximum Journey Distance
+              <Label htmlFor="max-journey-distance-select" className="text-base">
+                <span className="flex items-center gap-1">
+                  <Route className="w-4 h-4 text-muted-foreground" /> Maximum Journey Distance
+                </span>
               </Label>
               <Select value={driverMaxJourneyDistance} onValueChange={setDriverMaxJourneyDistance}>
                 <SelectTrigger id="max-journey-distance-select">
