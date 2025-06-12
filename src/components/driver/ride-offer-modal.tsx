@@ -26,7 +26,7 @@ export interface RideOffer {
   pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
   dropoffCoords: { lat: number; lng: number };
-  stops?: Array<{ address: string; coords: { lat: number; lng: number } }>; // Added stops
+  stops?: Array<{ address: string; coords: { lat: number; lng: number } }>; 
   fareEstimate: number;
   passengerCount: number;
   passengerId: string;
@@ -168,44 +168,35 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const mapDisplayElements = useMemo(() => {
     if (!rideDetails) return { markers: [], labels: [] };
-    const markers = [];
-    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
+    const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant: 'compact' | 'default' }> = [];
 
     if (rideDetails.pickupCoords) {
-      // markers.push({ // Do not add default pin for pickup
-      //   position: rideDetails.pickupCoords,
-      //   title: `Pickup: ${rideDetails.pickupLocation}`,
-      //   label: { text: "P", color: "white", fontWeight: "bold", fontSize: "14px" },
-      // });
+      // Standard pin marker for pickup is now omitted based on previous request
       labels.push({
         position: rideDetails.pickupCoords,
         content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
-        type: 'pickup'
+        type: 'pickup',
+        variant: 'compact' 
       });
     }
     if (rideDetails.dropoffCoords) {
-      // markers.push({ // Do not add default pin for dropoff
-      //   position: rideDetails.dropoffCoords,
-      //   title: `Dropoff: ${rideDetails.dropoffLocation}`,
-      //   label: { text: "D", color: "white", fontWeight: "bold", fontSize: "14px" },
-      // });
+      // Standard pin marker for dropoff is now omitted
       labels.push({
         position: rideDetails.dropoffCoords,
         content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
-        type: 'dropoff'
+        type: 'dropoff',
+        variant: 'compact'
       });
     }
     rideDetails.stops?.forEach((stop, index) => {
       if (stop.coords) {
-        // markers.push({ // Do not add default pin for stops
-        //   position: stop.coords,
-        //   title: `Stop ${index + 1}: ${stop.address}`,
-        //   label: { text: `S${index + 1}`, color: "white", fontWeight: "bold", fontSize: "14px" },
-        // });
+        // Standard pin marker for stops is now omitted
         labels.push({
           position: stop.coords,
           content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
-          type: 'stop'
+          type: 'stop',
+          variant: 'compact'
         });
       }
     });
@@ -356,7 +347,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     center={mapCenter}
                     zoom={10}
                     markers={mapDisplayElements.markers}
-                    customMapLabels={mapDisplayElements.labels} // Pass custom labels
+                    customMapLabels={mapDisplayElements.labels} 
                     className="w-full h-full"
                     disableDefaultUI={true}
                     fitBoundsToMarkers={true}
