@@ -55,7 +55,7 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       // Common styles
       this.div.style.textAlign = 'center';
       this.div.style.whiteSpace = 'pre-line';
-      this.div.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)'; // Slightly smaller shadow for compact
+      this.div.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
       this.div.style.zIndex = '101';
       
 
@@ -63,13 +63,19 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
         this.div.style.padding = '1px 3px';
         this.div.style.borderRadius = '3px';
         this.div.style.fontSize = '8px';
-        this.div.style.minWidth = '60px';
+        this.div.style.minWidth = 'auto'; // Let content dictate width for short text
+        this.div.style.maxWidth = '100px'; // Max width for very long addresses
+        this.div.style.overflow = 'hidden';
+        this.div.style.textOverflow = 'ellipsis';
         this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-8px)'; 
       } else { // Default styles
         this.div.style.padding = '3px 6px';
         this.div.style.borderRadius = '6px';
         this.div.style.fontSize = '10px';
         this.div.style.minWidth = '90px';
+        this.div.style.maxWidth = '150px';
+        this.div.style.overflow = 'hidden';
+        this.div.style.textOverflow = 'ellipsis';
         this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-10px)';
       }
 
@@ -96,7 +102,8 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
         this.div.style.fontWeight = '600';
         // Override font size and minWidth for driver if needed, based on variant
         this.div.style.fontSize = this.variant === 'compact' ? '9px' : '11px';
-        this.div.style.minWidth = this.variant === 'compact' ? '80px' : '110px';
+        this.div.style.minWidth = this.variant === 'compact' ? 'auto' : '110px'; // Allow driver label to shrink
+        this.div.style.maxWidth = this.variant === 'compact' ? '90px' : '130px';
       }
     }
 
@@ -156,7 +163,7 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       }
       if (this.div) {
         this.div.innerHTML = this.content;
-        this._applyStyles(); // Re-apply styles in case type or variant changed
+        this._applyStyles(); 
       }
     }
 
@@ -167,3 +174,4 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
   }
   return CustomMapLabelOverlayInternal;
 }
+

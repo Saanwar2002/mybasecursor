@@ -17,17 +17,18 @@ interface GoogleMapDisplayProps {
     iconUrl?: string;
     iconScaledSize?: { width: number; height: number };
   }>;
-  customMapLabels?: Array<{ // Changed from customMapLabel to customMapLabels
+  customMapLabels?: Array<{ 
     position: google.maps.LatLngLiteral;
     content: string;
     type: LabelType;
+    variant?: 'default' | 'compact'; // Added variant to customMapLabels prop
   }> | null;
   className?: string;
   style?: React.CSSProperties;
   mapId?: string;
   disableDefaultUI?: boolean;
   fitBoundsToMarkers?: boolean;
-  onSdkLoaded?: (isLoaded: boolean) => void; // Callback for SDK load status
+  onSdkLoaded?: (isLoaded: boolean) => void; 
 }
 
 const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; 
@@ -36,7 +37,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   center,
   zoom = 13,
   markers,
-  customMapLabels, // Changed prop name
+  customMapLabels, 
   className,
   style: propStyle,
   mapId: mapIdProp,
@@ -47,7 +48,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const currentMarkersRef = useRef<google.maps.Marker[]>([]);
-  const customLabelOverlaysRef = useRef<ICustomMapLabelOverlay[]>([]); // Changed to array
+  const customLabelOverlaysRef = useRef<ICustomMapLabelOverlay[]>([]); 
   const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
   const [isInternalSdkLoaded, setIsInternalSdkLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -165,7 +166,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
             mapInstanceRef.current.setCenter(bounds.getCenter());
             mapInstanceRef.current.setZoom(15); 
         } else {
-            mapInstanceRef.current.fitBounds(bounds, 60); 
+            mapInstanceRef.current.fitBounds(bounds, 20); // Reduced padding
         }
       }
     } else if (mapInstanceRef.current && (!markers || markers.length === 0)) {
@@ -180,13 +181,12 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
     const CustomMapLabelOverlay = CustomMapLabelOverlayClassRef.current;
     if (mapInstanceRef.current && CustomMapLabelOverlay) {
-      // Clear existing custom labels
       customLabelOverlaysRef.current.forEach(overlay => overlay.setMap(null));
       customLabelOverlaysRef.current = [];
 
       if (customMapLabels && customMapLabels.length > 0) {
         customMapLabels.forEach(labelData => {
-          const newLabelOverlay = new CustomMapLabelOverlay(labelData.position, labelData.content, labelData.type);
+          const newLabelOverlay = new CustomMapLabelOverlay(labelData.position, labelData.content, labelData.type, labelData.variant || 'default'); // Pass variant
           newLabelOverlay.setMap(mapInstanceRef.current);
           customLabelOverlaysRef.current.push(newLabelOverlay);
         });
@@ -222,3 +222,4 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 };
 
 export default GoogleMapDisplay;
+

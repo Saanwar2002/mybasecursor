@@ -172,7 +172,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant: 'compact' | 'default' }> = [];
 
     if (rideDetails.pickupCoords) {
-      // Standard pin marker for pickup is now omitted based on previous request
       labels.push({
         position: rideDetails.pickupCoords,
         content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
@@ -181,7 +180,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       });
     }
     if (rideDetails.dropoffCoords) {
-      // Standard pin marker for dropoff is now omitted
       labels.push({
         position: rideDetails.dropoffCoords,
         content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
@@ -191,7 +189,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     }
     rideDetails.stops?.forEach((stop, index) => {
       if (stop.coords) {
-        // Standard pin marker for stops is now omitted
         labels.push({
           position: stop.coords,
           content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
@@ -345,7 +342,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
                     center={mapCenter}
-                    zoom={10}
+                    zoom={13} 
                     markers={mapDisplayElements.markers}
                     customMapLabels={mapDisplayElements.labels} 
                     className="w-full h-full"
@@ -448,3 +445,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
