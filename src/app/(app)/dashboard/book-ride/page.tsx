@@ -357,7 +357,7 @@ export default function BookRidePage() {
     const randomWaitTimes = ["2-4 mins", "4-7 mins", "6-10 mins", "8-12 mins", "10-15 mins"];
 
     const timer = setTimeout(() => {
-        const noDriversOverall = Math.random() < 0.2; // 20% chance no drivers AT ALL
+        const noDriversOverall = Math.random() < 0.2; 
 
         if (noDriversOverall) {
             message = "Currently, no drivers are available in your area. Please try again shortly. (Mock)";
@@ -367,17 +367,22 @@ export default function BookRidePage() {
             if (operatorPreference) {
                 const preferredOpDetails = mockOperators.find(op => op.id === operatorPreference || op.name === operatorPreference);
                 const preferredOpDisplayName = preferredOpDetails ? preferredOpDetails.name : operatorPreference;
-                const preferredOpAvailable = Math.random() < 0.7;
+                const preferredOpAvailable = Math.random() < 0.7; 
 
                 if (preferredOpAvailable) {
                     message = `${preferredOpDisplayName} driver available. Est. wait: ~${randomWait}. (Mock)`;
-                } else {
+                } else { 
                     const fallbackOpCandidates = mockOperators.filter(op => (op.id !== operatorPreference && op.name !== operatorPreference));
-                    const fallbackOp = fallbackOpCandidates.length > 0 ? fallbackOpCandidates[Math.floor(Math.random() * fallbackOpCandidates.length)] : {name: "Another operator"};
-                    const fallbackWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
-                    message = `${preferredOpDisplayName} is busy. ${fallbackOp.name} driver available in ~${fallbackWait}. (Mock)`;
+                    if (fallbackOpCandidates.length > 0) {
+                        const fallbackOp = fallbackOpCandidates[Math.floor(Math.random() * fallbackOpCandidates.length)];
+                        const fallbackWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
+                        message = `Drivers from ${preferredOpDisplayName} are currently experiencing high demand. However, a ${fallbackOp.name} driver is available in ~${fallbackWait}. (Mock)`;
+                    } else {
+                        message = `Drivers from ${preferredOpDisplayName} are currently experiencing very high demand and no other drivers are available at the moment. Please try again soon. (Mock)`;
+                        setIsNoDriversAvailableMock(true);
+                    }
                 }
-            } else { // Passenger lets app decide
+            } else { 
                 const specificOpFound = Math.random() < 0.6;
                 if (specificOpFound) {
                     const bestOp = mockOperators[Math.floor(Math.random() * mockOperators.length)];
@@ -392,7 +397,7 @@ export default function BookRidePage() {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [operatorPreference, pickupCoords]); // Re-run if operatorPreference or pickupCoords changes
+  }, [operatorPreference, pickupCoords]);
 
 
   useEffect(() => {
@@ -2289,7 +2294,7 @@ const handleProceedToConfirmation = async () => {
                                           >
                                             <CreditCard className="mb-2 h-6 w-6 text-primary peer-data-[state=checked]:text-primary" />
                                             Pay by Card
-                                            <span className="text-xs text-muted-foreground mt-0.5">(pay driver directly)</span>
+                                            <span className="text-xs text-muted-foreground mt-0.5">(pay driver directly with your card)</span>
                                           </Label>
                                         </FormItem>
                                         <FormItem className="flex-1">
