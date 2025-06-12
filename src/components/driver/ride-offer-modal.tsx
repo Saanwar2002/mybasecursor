@@ -175,6 +175,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       markers.push({ 
         position: rideDetails.pickupCoords, 
         title: `Pickup: ${rideDetails.pickupLocation}`, 
+        label: { text: "P", color: "white", fontWeight: "bold" },
       });
       labels.push({
         position: rideDetails.pickupCoords,
@@ -188,6 +189,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         markers.push({ 
           position: stop.coords, 
           title: `Stop ${index + 1}: ${stop.address}`, 
+          label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" },
         });
         labels.push({
           position: stop.coords,
@@ -201,6 +203,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       markers.push({ 
         position: rideDetails.dropoffCoords, 
         title: `Dropoff: ${rideDetails.dropoffLocation}`, 
+        label: { text: "D", color: "white", fontWeight: "bold" },
       });
       labels.push({
         position: rideDetails.dropoffCoords,
@@ -364,25 +367,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <Skeleton className="w-full h-full rounded-md" />
                 )}
             </div>
-
-            {/* Quick Glance Fare/Distance Box */}
-            {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 && (
-              <div className="mb-2 p-2 bg-yellow-500 text-white font-bold rounded-md text-center shadow-md h-auto">
-                <span className="text-lg">
-                  £{totalFareForDriver.toFixed(2)}
-                </span>
-                <span className="text-sm ml-2">
-                  ({rideDetails.distanceMiles.toFixed(1)} Miles)
-                </span>
-              </div>
-            )}
-
-            <div className="space-y-2.5">
+            
+            <div className="space-y-2.5"> {/* Parent for dispatch, fare, and addresses */}
               {dispatchInfo && (
                 <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
                   <p className="text-sm font-medium flex items-center justify-center gap-1">
                     <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                   </p>
+                </div>
+              )}
+
+              {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 && (
+                <div className="my-1.5 p-2 bg-yellow-500 text-white font-bold rounded-md text-center shadow-md h-auto">
+                  <span className="text-lg">
+                    £{totalFareForDriver.toFixed(2)}
+                  </span>
+                  <span className="text-sm ml-2">
+                    ({rideDetails.distanceMiles.toFixed(1)} Miles)
+                  </span>
                 </div>
               )}
               
