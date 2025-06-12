@@ -1320,7 +1320,9 @@ export default function AvailableRidesPage() {
     }
 
     if (activeRide) {
-        const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
+        const isRideAdvancedOrOver = activeRide.status.toLowerCase().includes('in_progress') || 
+                                   activeRide.status.toLowerCase().includes('completed') || 
+                                   activeRide.status.toLowerCase().includes('cancelled');
 
         if (activeRide.pickupLocation) {
           markers.push({
@@ -1328,13 +1330,13 @@ export default function AvailableRidesPage() {
             title: `Pickup: ${activeRide.pickupLocation.address}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
           });
-          // Conditionally show pickup label
-           const showPickupLabel = !(
-            activeRide.status.toLowerCase().includes('in_progress') ||
-            activeRide.status.toLowerCase().includes('completed') ||
-            activeRide.status.toLowerCase().includes('cancelled')
-          );
-          if (showPickupLabel) {
+          // Conditionally show pickup label based on ride status
+          const showPickupCustomLabel = 
+            activeRide.status.toLowerCase() === 'pending_assignment' ||
+            activeRide.status.toLowerCase() === 'driver_assigned' ||
+            activeRide.status.toLowerCase() === 'arrived_at_pickup';
+
+          if (showPickupCustomLabel) {
             labels.push({
               position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
               content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
@@ -1342,7 +1344,7 @@ export default function AvailableRidesPage() {
             });
           }
         }
-        if (activeRide.dropoffLocation && isActiveRideState) {
+        if (activeRide.dropoffLocation) {
           markers.push({
             position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
             title: `Dropoff: ${activeRide.dropoffLocation.address}`,
@@ -1355,7 +1357,7 @@ export default function AvailableRidesPage() {
           });
         }
         activeRide.stops?.forEach((stop, index) => {
-          if(stop.latitude && stop.longitude && isActiveRideState) {
+          if(stop.latitude && stop.longitude) { 
             markers.push({
               position: {lat: stop.latitude, lng: stop.longitude},
               title: `Stop ${index+1}: ${stop.address}`,
@@ -1567,8 +1569,10 @@ export default function AvailableRidesPage() {
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
     const showCancelledNoShowStatus = activeRide.status === 'cancelled_no_show';
 
-    const isRideAdvancedOrOver = activeRide.status.toLowerCase().includes('in_progress') || 
-                                ['completed', 'cancelled_by_driver', 'cancelled_no_show', 'cancelled_by_operator'].includes(activeRide.status.toLowerCase());
+    const isRideAdvancedOrOver = 
+        activeRide.status.toLowerCase().includes('in_progress') || 
+        activeRide.status.toLowerCase().includes('completed') || 
+        activeRide.status.toLowerCase().includes('cancelled');
 
 
     const baseFare = activeRide.fareEstimate || 0;
