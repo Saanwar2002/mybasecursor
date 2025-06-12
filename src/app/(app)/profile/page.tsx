@@ -83,24 +83,25 @@ export default function ProfilePage() {
   const handleSaveProfile = () => {
     if (!user) return;
     const updatedDetails: Partial<User> = {};
+    let changesMade = false;
 
     if (isEditingBasicInfo) {
-      if (name !== user.name) updatedDetails.name = name;
-      if (phone !== user.phoneNumber) updatedDetails.phoneNumber = phone;
+      if (name !== user.name) { updatedDetails.name = name; changesMade = true; }
+      if (phone !== user.phoneNumber) { updatedDetails.phoneNumber = phone; changesMade = true; }
     }
 
     if (user.role === 'driver' && isEditingVehicleInfo) {
-      if (vehicleMakeModel !== user.vehicleMakeModel) updatedDetails.vehicleMakeModel = vehicleMakeModel;
-      if (vehicleRegistration !== user.vehicleRegistration) updatedDetails.vehicleRegistration = vehicleRegistration;
-      if (vehicleColor !== user.vehicleColor) updatedDetails.vehicleColor = vehicleColor;
-      if (insurancePolicyNumber !== user.insurancePolicyNumber) updatedDetails.insurancePolicyNumber = insurancePolicyNumber;
-      if (insuranceExpiryDate !== user.insuranceExpiryDate) updatedDetails.insuranceExpiryDate = insuranceExpiryDate;
-      if (motExpiryDate !== user.motExpiryDate) updatedDetails.motExpiryDate = motExpiryDate;
-      if (taxiLicenseNumber !== user.taxiLicenseNumber) updatedDetails.taxiLicenseNumber = taxiLicenseNumber;
-      if (taxiLicenseExpiryDate !== user.taxiLicenseExpiryDate) updatedDetails.taxiLicenseExpiryDate = taxiLicenseExpiryDate;
+      if (vehicleMakeModel !== user.vehicleMakeModel) { updatedDetails.vehicleMakeModel = vehicleMakeModel; changesMade = true; }
+      if (vehicleRegistration !== user.vehicleRegistration) { updatedDetails.vehicleRegistration = vehicleRegistration; changesMade = true; }
+      if (vehicleColor !== user.vehicleColor) { updatedDetails.vehicleColor = vehicleColor; changesMade = true; }
+      if (insurancePolicyNumber !== user.insurancePolicyNumber) { updatedDetails.insurancePolicyNumber = insurancePolicyNumber; changesMade = true; }
+      if (insuranceExpiryDate !== user.insuranceExpiryDate) { updatedDetails.insuranceExpiryDate = insuranceExpiryDate; changesMade = true; }
+      if (motExpiryDate !== user.motExpiryDate) { updatedDetails.motExpiryDate = motExpiryDate; changesMade = true; }
+      if (taxiLicenseNumber !== user.taxiLicenseNumber) { updatedDetails.taxiLicenseNumber = taxiLicenseNumber; changesMade = true; }
+      if (taxiLicenseExpiryDate !== user.taxiLicenseExpiryDate) { updatedDetails.taxiLicenseExpiryDate = taxiLicenseExpiryDate; changesMade = true; }
     }
 
-    if (Object.keys(updatedDetails).length > 0) { 
+    if (changesMade && Object.keys(updatedDetails).length > 0) { 
         updateUserProfileInContext(updatedDetails); 
         toast({ title: "Profile Changes Applied", description: "Your profile display has been updated." });
     } else {
@@ -148,12 +149,12 @@ export default function ProfilePage() {
         <CardHeader className="flex flex-col md:flex-row items-center gap-4">
           <Avatar className="h-24 w-24 border-2 border-primary"> <AvatarImage src={user?.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile large"/> <AvatarFallback className="text-3xl">{user.name.charAt(0).toUpperCase()}</AvatarFallback> </Avatar>
           <div className="flex-1 text-center md:text-left"> <CardTitle className="text-2xl font-headline">{user.name}</CardTitle> <CardDescription className="capitalize flex items-center justify-center md:justify-start gap-1"> <Briefcase className="w-4 h-4" /> {user.role} </CardDescription> </div>
-          <Button variant={isEditingBasicInfo ? "destructive" : "outline"} onClick={() => isEditingBasicInfo ? handleCancelBasicInfoEdit() : setIsEditingBasicInfo(true)}>
-            <span className="flex items-center justify-center">
+          {!isEditingVehicleInfo && (
+            <Button variant={isEditingBasicInfo ? "destructive" : "outline"} onClick={() => isEditingBasicInfo ? handleCancelBasicInfoEdit() : setIsEditingBasicInfo(true)}>
               <Edit3 className="mr-2 h-4 w-4" />
               {isEditingBasicInfo ? <span>Cancel Basic Info Edit</span> : <span>Edit Basic Info</span>}
-            </span>
-          </Button>
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           <div>
@@ -177,20 +178,25 @@ export default function ProfilePage() {
             {user.phoneVerified === false && user.phoneVerificationDeadline && (<p className="text-sm text-orange-600 mt-1">Phone not verified. Please verify by {new Date(user.phoneVerificationDeadline).toLocaleDateString()}. (Verification UI not yet implemented)</p>)}
             {user.phoneVerified === true && (<p className="text-sm text-green-600 mt-1">Phone verified.</p>)}
           </div>
+           {isEditingBasicInfo && (
+            <div className="flex justify-end">
+                 <Button onClick={handleSaveProfile} className="bg-primary hover:bg-primary/90 text-primary-foreground">Save Basic Info</Button>
+            </div>
+            )}
           
           {user.role === 'driver' && (
             <>
               <Separator />
-              <div className="flex flex-wrap justify-between items-start gap-2 pt-4">
+              <div className="flex flex-wrap justify-between items-center gap-2 pt-4">
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
                   <CarIcon className="w-6 h-6 text-primary" /> Vehicle &amp; Compliance
                 </CardTitle>
+                {!isEditingBasicInfo && (
                 <Button variant={isEditingVehicleInfo ? "destructive" : "outline"} size="sm" onClick={() => isEditingVehicleInfo ? handleCancelVehicleInfoEdit() : setIsEditingVehicleInfo(true)}>
-                    <span className="flex items-center justify-center">
                     <Edit3 className="mr-2 h-4 w-4" />
                     {isEditingVehicleInfo ? <span>Cancel Vehicle Edit</span> : <span>Edit Vehicle Info</span>}
-                    </span>
                 </Button>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div>
@@ -229,6 +235,11 @@ export default function ProfilePage() {
                   {isEditingVehicleInfo ? <Input id="taxiLicenseExpiryDate" type="date" value={taxiLicenseExpiryDate} onChange={(e) => setTaxiLicenseExpiryDate(e.target.value)} /> : <p className="text-md p-2 rounded-md bg-muted/50">{formatDateString(user.taxiLicenseExpiryDate)}</p>}
                 </div>
               </div>
+              {isEditingVehicleInfo && (
+                <div className="flex justify-end mt-4">
+                    <Button onClick={handleSaveProfile} className="bg-primary hover:bg-primary/90 text-primary-foreground">Save Vehicle Info</Button>
+                </div>
+                )}
               <Alert variant="default" className="mt-4 bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300">
                 <AlertTriangle className="h-4 w-4 !text-blue-600 dark:!text-blue-400" />
                 <AlertTitle className="font-semibold">Reminder</AlertTitle>
@@ -238,8 +249,6 @@ export default function ProfilePage() {
               </Alert>
             </>
           )}
-
-          {(isEditingBasicInfo || isEditingVehicleInfo) && (<Button onClick={handleSaveProfile} className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground mt-6">Save All Changes</Button>)}
         </CardContent>
         <CardFooter className="border-t pt-6"> <div className="flex items-center gap-2 text-sm text-muted-foreground"> <Shield className="w-5 h-5 text-green-500" /> Your information is kept secure. </div> </CardFooter>
       </Card>
@@ -250,13 +259,13 @@ export default function ProfilePage() {
           <CardContent className="flex flex-col items-center text-center">
             <CreditCard className="w-16 h-16 text-primary mb-4 opacity-50" />
             <p className="text-muted-foreground mb-3">
-              Securely manage your payment methods here.
+              Manage your saved payment methods for quick and easy booking.
             </p>
             <Button disabled className="bg-primary/80 hover:bg-primary/70">
               Add Payment Method (Coming Soon)
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              Integration with Stripe (Test Mode) is planned for future updates.
+              Secure payment processing via Stripe (Test Mode) is planned.
             </p>
           </CardContent>
         </Card>
@@ -264,5 +273,6 @@ export default function ProfilePage() {
     </div>
   );
 }
+    
 
     
