@@ -5,15 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers, Info, Route, CreditCard } from "lucide-react"; 
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, Layers, Info, Route, CreditCard } from "lucide-react"; 
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, UserRole, User, PLATFORM_OPERATOR_CODE } from "@/contexts/auth-context"; 
-import { zodResolver } from "@hookform/resolvers/zod"; 
-import { useForm } from "react-hook-form"; 
-import * as z from "zod"; 
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; 
-import { Input } from "@/components/ui/input"; 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
 import { cn } from "@/lib/utils"; 
 
@@ -24,19 +19,6 @@ interface BlockedUserDisplay {
   blockedUserRole: UserRole;
   createdAt: string;
 }
-
-interface StoredPinUser extends User {
-  pin: string;
-}
-
-const pinSetupSchema = z.object({
-  newPin: z.string().length(4, { message: "PIN must be 4 digits." }).regex(/^\d{4}$/, { message: "PIN must be 4 digits." }),
-  confirmNewPin: z.string().length(4, { message: "PIN must be 4 digits." }),
-}).refine((data) => data.newPin === data.confirmNewPin, {
-  message: "PINs do not match.",
-  path: ["confirmNewPin"],
-});
-
 
 export default function SettingsPage() {
   const { user, updateUserProfileInContext } = useAuth(); 
@@ -56,21 +38,12 @@ export default function SettingsPage() {
   const [driverAcceptsPets, setDriverAcceptsPets] = useState(false); 
   const [driverAcceptsPlatformJobs, setDriverAcceptsPlatformJobs] = useState(false); 
   const [driverMaxJourneyDistance, setDriverMaxJourneyDistance] = useState("no_limit");
-  const [driverAcceptsAccountJobs, setDriverAcceptsAccountJobs] = useState(true); // New state
+  const [driverAcceptsAccountJobs, setDriverAcceptsAccountJobs] = useState(true);
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
   const [errorBlockedUsers, setErrorBlockedUsers] = useState<string | null>(null);
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
-
-  const [currentPin, setCurrentPin] = useState<string | null>(null);
-  const [isSettingPin, setIsSettingPin] = useState(false);
-  
-  const pinForm = useForm<z.infer<typeof pinSetupSchema>>({
-    resolver: zodResolver(pinSetupSchema),
-    defaultValues: { newPin: "", confirmNewPin: "" },
-  });
-
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -90,15 +63,8 @@ export default function SettingsPage() {
         setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
         setDriverAcceptsPlatformJobs(user.operatorCode === PLATFORM_OPERATOR_CODE ? true : (user.acceptsPlatformJobs || false));
         setDriverMaxJourneyDistance(user.maxJourneyDistance || "no_limit");
-        setDriverAcceptsAccountJobs(user.acceptsAccountJobs === undefined ? true : user.acceptsAccountJobs); // Initialize new setting
+        setDriverAcceptsAccountJobs(user.acceptsAccountJobs === undefined ? true : user.acceptsAccountJobs);
       }
-      const storedUserData = localStorage.getItem('myBaseUserWithPin');
-      if (storedUserData) {
-        try {
-            const parsedData: StoredPinUser = JSON.parse(storedUserData);
-            if (parsedData.id === user.id) { setCurrentPin(parsedData.pin); }
-        } catch (e) { console.error("Error parsing stored PIN user data:", e); localStorage.removeItem('myBaseUserWithPin'); }
-      } else { setCurrentPin(null); }
     }
   }, [user]);
 
@@ -156,24 +122,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSetPin = (values: z.infer<typeof pinSetupSchema>) => {
-    if (!user) return;
-    setIsSettingPin(true);
-    const userWithPin: StoredPinUser = { ...user, pin: values.newPin };
-    localStorage.setItem('myBaseUserWithPin', JSON.stringify(userWithPin));
-    setCurrentPin(values.newPin);
-    pinForm.reset();
-    setIsSettingPin(false);
-    toast({ title: "PIN Set for This Device", description: "You can now use this PIN for quick login on this device." });
-  };
-
-  const handleRemovePin = () => {
-    if (!user) return;
-    localStorage.removeItem('myBaseUserWithPin');
-    setCurrentPin(null);
-    toast({ title: "PIN Removed", description: "Quick PIN login has been disabled for this device." });
-  };
-
   const handleSaveChanges = () => {
     let changesMadeDescription = "";
     const updates: Partial<User> = {};
@@ -191,7 +139,7 @@ export default function SettingsPage() {
         updates.maxJourneyDistance = driverMaxJourneyDistance;
         changesMadeDescription += "Max journey distance updated. ";
       }
-      if (user.acceptsAccountJobs !== driverAcceptsAccountJobs) { // Check new preference
+      if (user.acceptsAccountJobs !== driverAcceptsAccountJobs) {
         updates.acceptsAccountJobs = driverAcceptsAccountJobs;
         changesMadeDescription += "Account jobs preference updated. ";
       }
@@ -293,7 +241,6 @@ export default function SettingsPage() {
                 Set your preferred maximum distance for ride offers. This is a preference, actual offers depend on availability.
               </p>
             </div>
-
             <div className="flex items-center justify-between pt-4 border-t">
               <Label htmlFor="account-jobs-switch" className="text-base">
                 Accept Account Jobs?
@@ -307,7 +254,6 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">
               Enable this if you are willing to take on Account Jobs (e.g., corporate clients, school runs) which may have different payment/billing.
             </p>
-
           </CardContent>
         </Card>
       )}
@@ -357,63 +303,6 @@ export default function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-muted-foreground"/>Quick PIN Login (This Device Only)</CardTitle>
-          <CardDescription>Set a 4-digit PIN for faster login on this device. This is a mock feature and not secure for production.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Alert variant="destructive" className="mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Warning: Mock Feature</AlertTitle>
-                <AlertDescription>
-                    This PIN feature is for UI demonstration only. It stores the PIN in your browser and is **not secure**. Do not use real sensitive PINs.
-                </AlertDescription>
-            </Alert>
-            {currentPin ? (
-                <div className="space-y-3">
-                    <p>A PIN is currently set for this device: <span className="font-mono bg-muted px-2 py-1 rounded text-lg tracking-widest">{currentPin.split('').map(() => '•').join(' ')}</span></p>
-                    <Button onClick={handleRemovePin} variant="destructive">Remove PIN for this Device</Button>
-                </div>
-            ) : (
-                <Form {...pinForm}>
-                    <form onSubmit={pinForm.handleSubmit(handleSetPin)} className="space-y-4">
-                        <FormField control={pinForm.control} name="newPin" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>New 4-Digit PIN</FormLabel>
-                                <FormControl>
-                                    <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={pinForm.control} name="confirmNewPin" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Confirm New PIN</FormLabel>
-                                <FormControl>
-                                    <Input type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="••••" {...field} disabled={isSettingPin} className="text-center text-xl tracking-[0.3em]" />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <Button type="submit" disabled={isSettingPin} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                           <span className="flex items-center justify-center">
-                                {isSettingPin ? (
-                                    <React.Fragment>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                                        Setting PIN...
-                                    </React.Fragment>
-                                ) : (
-                                    "Set PIN for this Device"
-                                )}
-                            </span>
-                        </Button>
-                    </form>
-                </Form>
-            )}
         </CardContent>
       </Card>
 
