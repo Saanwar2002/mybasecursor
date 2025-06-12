@@ -2,11 +2,11 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, Route, Star, ThumbsUp } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp } from "lucide-react"; // Added AlertOctagon, LockKeyhole, CheckCircleIcon, ThumbsUp
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth, UserRole } from '@/contexts/auth-context';
+import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
@@ -965,12 +965,11 @@ export default function MyActiveRidePage() {
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
   const renderCancelAlertDialogActionContent = () => {
-    // Conditionally access activeRide.id ONLY if activeRide is not null
     const currentActionId = activeRide ? activeRide.id : '';
     const isLoadingSpecificAction = activeRide ? (actionLoading[currentActionId] || false) : false;
   
     return (
-      <>
+      <span className="flex items-center justify-center">
         {isLoadingSpecificAction ? (
           <>
             <Loader2 className="animate-spin mr-2 h-4 w-4" />
@@ -982,7 +981,7 @@ export default function MyActiveRidePage() {
             <span>Confirm Cancel</span>
           </>
         )}
-      </>
+      </span>
     );
   };
 
@@ -1138,15 +1137,15 @@ export default function MyActiveRidePage() {
       >
         <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription>
+              <AlertDialogTitle><span className="flex items-center justify-center">Are you sure?</span></AlertDialogTitle>
+              <AlertDialogDescription><span className="flex items-center justify-center">This will cancel your ride request. This action cannot be undone.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
                     disabled={activeRide ? actionLoading[activeRide.id] : false}
                 >
-                 Keep Ride
+                 <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
