@@ -42,7 +42,7 @@ import { Input } from '@/components/ui/input';
 import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from '@/components/ui/separator';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -1328,11 +1328,19 @@ export default function AvailableRidesPage() {
             title: `Pickup: ${activeRide.pickupLocation.address}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
           });
-          labels.push({
-            position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
-            type: 'pickup'
-          });
+          // Conditionally show pickup label
+           const showPickupLabel = !(
+            activeRide.status.toLowerCase().includes('in_progress') ||
+            activeRide.status.toLowerCase().includes('completed') ||
+            activeRide.status.toLowerCase().includes('cancelled')
+          );
+          if (showPickupLabel) {
+            labels.push({
+              position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
+              content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+              type: 'pickup'
+            });
+          }
         }
         if (activeRide.dropoffLocation && isActiveRideState) {
           markers.push({
@@ -1347,7 +1355,7 @@ export default function AvailableRidesPage() {
           });
         }
         activeRide.stops?.forEach((stop, index) => {
-          if(stop.latitude && stop.longitude && isActiveRideState) { // Only show stop markers/labels for active rides
+          if(stop.latitude && stop.longitude && isActiveRideState) {
             markers.push({
               position: {lat: stop.latitude, lng: stop.longitude},
               title: `Stop ${index+1}: ${stop.address}`,
@@ -1559,6 +1567,9 @@ export default function AvailableRidesPage() {
     const showCancelledByDriverStatus = activeRide.status === 'cancelled_by_driver';
     const showCancelledNoShowStatus = activeRide.status === 'cancelled_no_show';
 
+    const isRideAdvancedOrOver = activeRide.status.toLowerCase().includes('in_progress') || 
+                                ['completed', 'cancelled_by_driver', 'cancelled_no_show', 'cancelled_by_operator'].includes(activeRide.status.toLowerCase());
+
 
     const baseFare = activeRide.fareEstimate || 0;
     const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
@@ -1768,14 +1779,14 @@ export default function AvailableRidesPage() {
 
 
             <div className="space-y-1 text-sm py-1">
-                 <p className={cn("flex items-start gap-1.5", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) && "text-muted-foreground opacity-60")}>
-                    <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) ? "text-muted-foreground" : "text-green-500")} />
+                 <p className={cn("flex items-start gap-1.5", isRideAdvancedOrOver && "text-muted-foreground opacity-60")}>
+                    <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", isRideAdvancedOrOver ? "text-muted-foreground" : "text-green-500")} />
                     <span><strong>Pickup:</strong> {activeRide.pickupLocation.address}</span>
                  </p>
-                 {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className={cn("flex items-start gap-1.5 pl-5", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) ? "text-muted-foreground" : "text-blue-500")} /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))}
-                 <p className={cn("flex items-start gap-1.5", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground opacity-60")}>
-                    <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) ? "text-muted-foreground" : "text-orange-500")} />
-                    <span className={cn((showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground")}> <strong>Dropoff:</strong> {activeRide.dropoffLocation.address} </span>
+                 {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className={cn("flex items-start gap-1.5 pl-5", isRideAdvancedOrOver && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", isRideAdvancedOrOver ? "text-muted-foreground" : "text-blue-500")} /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))}
+                 <p className={cn("flex items-start gap-1.5", (showDriverAssignedStatus && !isRideAdvancedOrOver) && "text-muted-foreground opacity-60")}>
+                    <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus && !isRideAdvancedOrOver) ? "text-muted-foreground" : "text-orange-500")} />
+                    <span className={cn((showDriverAssignedStatus && !isRideAdvancedOrOver) && "text-muted-foreground")}> <strong>Dropoff:</strong> {activeRide.dropoffLocation.address} </span>
                  </p>
                  <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
                     <p className="flex items-center gap-1">
