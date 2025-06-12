@@ -175,7 +175,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       markers.push({ 
         position: rideDetails.pickupCoords, 
         title: `Pickup: ${rideDetails.pickupLocation}`, 
-        // label: { text: "P", color: "white", fontWeight: "bold" }  // Pins removed for modal as per previous request
       });
       labels.push({
         position: rideDetails.pickupCoords,
@@ -189,7 +188,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         markers.push({ 
           position: stop.coords, 
           title: `Stop ${index + 1}: ${stop.address}`, 
-          // label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" } // Pins removed
         });
         labels.push({
           position: stop.coords,
@@ -203,7 +201,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       markers.push({ 
         position: rideDetails.dropoffCoords, 
         title: `Dropoff: ${rideDetails.dropoffLocation}`, 
-        // label: { text: "D", color: "white", fontWeight: "bold" } // Pins removed
       });
       labels.push({
         position: rideDetails.dropoffCoords,
@@ -241,25 +238,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     return "bg-green-600";
   };
 
-  const totalFareForDriver = rideDetails.fareEstimate + (rideDetails.priorityFeeAmount || 0);
+  const totalFareForDriver = (rideDetails.fareEstimate || 0) + (rideDetails.priorityFeeAmount || 0);
 
   const getDispatchMethodText = () => {
     if (!rideDetails) return null;
     
     const isManual = rideDetails.dispatchMethod === 'manual_operator';
     const isPriority = rideDetails.dispatchMethod === 'priority_override';
-    const isAuto = !isManual && !isPriority; // Default to auto
-
+    
     let text = "";
     let icon = CheckCircle;
-    let bgColorClassName = "bg-green-600"; // Default to AUTO green
+    let bgColorClassName = "bg-green-600"; 
 
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
       if (isManual) {
         text = "Dispatched By App: MANUAL MODE";
         icon = Briefcase;
         bgColorClassName = "bg-blue-600";
-      } else { // Includes auto_system or undefined for OP001
+      } else { 
         text = "Dispatched By App: AUTO MODE";
         icon = CheckCircle;
         bgColorClassName = "bg-green-600";
@@ -269,12 +265,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         text = "Dispatched By YOUR BASE: MANUAL MODE";
         icon = Briefcase;
         bgColorClassName = "bg-blue-600";
-      } else { // Assumes auto dispatch from their own base
+      } else { 
         text = "Dispatched By YOUR BASE: AUTO MODE";
         icon = CheckCircle;
         bgColorClassName = "bg-green-600";
       }
-    } else { // General pool or other operator
+    } else { 
       if (isManual) {
         text = rideDetails.requiredOperatorId 
           ? `Manual Dispatch from ${rideDetails.requiredOperatorId}`
@@ -285,7 +281,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         text = "Dispatched by Operator (Priority)";
         icon = AlertOctagon;
         bgColorClassName = "bg-purple-600";
-      } else { // Default to auto_system for general pool
+      } else { 
         text = "Dispatched By App (Auto)";
         icon = CheckCircle;
         bgColorClassName = "bg-green-600";
@@ -368,27 +364,27 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <Skeleton className="w-full h-full rounded-md" />
                 )}
             </div>
+
+            {/* Quick Glance Fare/Distance Box */}
+            {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 && (
+              <div className="mb-2 p-2 bg-yellow-500 text-white font-bold rounded-md text-center shadow-md h-auto">
+                <span className="text-lg">
+                  £{totalFareForDriver.toFixed(2)}
+                </span>
+                <span className="text-sm ml-2">
+                  ({rideDetails.distanceMiles.toFixed(1)} Miles)
+                </span>
+              </div>
+            )}
+
             <div className="space-y-2.5">
               {dispatchInfo && (
-                <div className={cn("p-2 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
+                <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
                   <p className="text-sm font-medium flex items-center justify-center gap-1">
                     <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                   </p>
                 </div>
               )}
-
-              {/* NEW FARE/DISTANCE BOX */}
-              {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 && (
-                <div className="my-2 p-2 bg-yellow-500 text-white font-bold rounded-md text-center shadow-md">
-                  <span className="text-lg">
-                    £{totalFareForDriver.toFixed(2)}
-                  </span>
-                  <span className="text-sm ml-2">
-                    ({rideDetails.distanceMiles.toFixed(1)} Miles)
-                  </span>
-                </div>
-              )}
-              {/* END NEW FARE/DISTANCE BOX */}
               
               <div className="p-3 bg-muted/50 rounded-lg border border-muted">
                 <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
@@ -414,7 +410,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between items-center">
                   <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <strong>Est. Fare:</strong> £{totalFareForDriver.toFixed(2)}
+                    <strong>Total Est. Fare:</strong> £{totalFareForDriver.toFixed(2)}
                   </p>
                   <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
                 </div>
@@ -462,4 +458,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
