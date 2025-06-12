@@ -185,7 +185,7 @@ interface DispatchDisplayInfo {
   bgColorClassName: string;
 }
 
-function formatAddressForMapLabel(fullAddress: string, type: string): string { // Changed type from 'Pickup' | 'Dropoff' to string
+function formatAddressForMapLabel(fullAddress: string, type: string): string {
   if (!fullAddress) return `${type}:\nN/A`;
 
   let addressRemainder = fullAddress;
@@ -1323,13 +1323,14 @@ export default function AvailableRidesPage() {
         });
     }
 
-    const hazardMarkers = activeMapHazards.map(hazard => ({
-      position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
-      title: formatHazardType(hazard.hazardType),
-      label: { text: getHazardMarkerLabel(hazard.hazardType), color: 'black', fontWeight: 'bold', fontSize: '11px' },
-    }));
+    // Remove hazard marker generation
+    // const hazardMarkers = activeMapHazards.map(hazard => ({
+    //   position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
+    //   title: formatHazardType(hazard.hazardType),
+    //   label: { text: getHazardMarkerLabel(hazard.hazardType), color: 'black', fontWeight: 'bold', fontSize: '11px' },
+    // }));
 
-    return { markers: [...markers, ...hazardMarkers], labels };
+    return { markers: markers, labels }; // Removed ...hazardMarkers
   }, [activeRide, driverLocation, isDriverOnline, activeMapHazards]);
 
   const memoizedMapCenter = useMemo(() => {
@@ -2314,3 +2315,4 @@ export default function AvailableRidesPage() {
         </Dialog>
   </div> );
 }
+
