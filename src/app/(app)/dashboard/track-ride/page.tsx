@@ -473,12 +473,12 @@ export default function MyActiveRidePage() {
       clearTimeout(endOfRideReminderTimerRef.current);
     }
     if (activeRide?.status === 'in_progress') {
-      setShowEndOfRideReminder(false); // Reset if status changes back to in_progress
+      setShowEndOfRideReminder(false); 
       endOfRideReminderTimerRef.current = setTimeout(() => {
         setShowEndOfRideReminder(true);
-      }, 8000); // Show after 8 seconds for demo
+      }, 8000); 
     } else {
-      setShowEndOfRideReminder(false); // Hide if not in_progress
+      setShowEndOfRideReminder(false); 
     }
     return () => {
       if (endOfRideReminderTimerRef.current) {
@@ -808,7 +808,7 @@ export default function MyActiveRidePage() {
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
 
     if (!activeRide) return { markers, labels };
-    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
+    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
 
 
     if (activeRide.driverCurrentLocation) {
@@ -965,20 +965,24 @@ export default function MyActiveRidePage() {
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
   const renderCancelAlertDialogActionContent = () => {
+    // Conditionally access activeRide.id ONLY if activeRide is not null
+    const currentActionId = activeRide ? activeRide.id : '';
+    const isLoadingSpecificAction = activeRide ? (actionLoading[currentActionId] || false) : false;
+  
     return (
-      <span className="flex items-center justify-center">
-        {(activeRide && (actionLoading[activeRide.id] || false)) ? (
-          <React.Fragment>
+      <>
+        {isLoadingSpecificAction ? (
+          <>
             <Loader2 className="animate-spin mr-2 h-4 w-4" />
             <span>Cancelling...</span>
-          </React.Fragment>
+          </>
         ) : (
-          <React.Fragment>
+          <>
             <ShieldX className="mr-2 h-4 w-4" />
             <span>Confirm Cancel</span>
-          </React.Fragment>
+          </>
         )}
-      </span>
+      </>
     );
   };
 
@@ -1142,7 +1146,7 @@ export default function MyActiveRidePage() {
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
                     disabled={activeRide ? actionLoading[activeRide.id] : false}
                 >
-                 <span>Keep Ride</span>
+                 Keep Ride
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
@@ -1228,3 +1232,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
