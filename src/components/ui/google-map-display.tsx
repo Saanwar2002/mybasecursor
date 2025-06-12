@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
@@ -21,7 +20,7 @@ interface GoogleMapDisplayProps {
     position: google.maps.LatLngLiteral;
     content: string;
     type: LabelType;
-    variant?: 'default' | 'compact'; // Added variant to customMapLabels prop
+    variant?: 'default' | 'compact';
   }> | null;
   className?: string;
   style?: React.CSSProperties;
@@ -29,6 +28,7 @@ interface GoogleMapDisplayProps {
   disableDefaultUI?: boolean;
   fitBoundsToMarkers?: boolean;
   onSdkLoaded?: (isLoaded: boolean) => void; 
+  gestureHandling?: 'cooperative' | 'greedy' | 'none' | 'auto';
 }
 
 const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; 
@@ -44,6 +44,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   disableDefaultUI = false,
   fitBoundsToMarkers = false,
   onSdkLoaded,
+  gestureHandling = 'greedy', // Default to 'greedy' for one-finger panning
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -120,9 +121,15 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     if (!isInternalSdkLoaded || !mapRef.current || typeof window.google === 'undefined' || !window.google.maps) return;
 
     const mapOptions: google.maps.MapOptions = {
-        center, zoom, mapId: mapIdProp, disableDefaultUI,
-        mapTypeControl: !disableDefaultUI, zoomControl: !disableDefaultUI,
-        streetViewControl: !disableDefaultUI, fullscreenControl: !disableDefaultUI,
+        center, 
+        zoom, 
+        mapId: mapIdProp, 
+        disableDefaultUI,
+        mapTypeControl: !disableDefaultUI, 
+        zoomControl: !disableDefaultUI,
+        streetViewControl: !disableDefaultUI, 
+        fullscreenControl: !disableDefaultUI,
+        gestureHandling: gestureHandling, // Apply the gestureHandling prop
     };
 
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
@@ -136,6 +143,10 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         if (mapInstanceRef.current.getZoom() !== zoom) {
           mapInstanceRef.current.setZoom(zoom);
         }
+      }
+       // Ensure gestureHandling is updated if it changes dynamically
+       if (mapInstanceRef.current.getOptions().gestureHandling !== gestureHandling) {
+        mapInstanceRef.current.setOptions({ gestureHandling });
       }
     }
 
@@ -166,7 +177,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
             mapInstanceRef.current.setCenter(bounds.getCenter());
             mapInstanceRef.current.setZoom(15); 
         } else {
-            mapInstanceRef.current.fitBounds(bounds, 20); // Reduced padding
+            mapInstanceRef.current.fitBounds(bounds, 20); 
         }
       }
     } else if (mapInstanceRef.current && (!markers || markers.length === 0)) {
@@ -186,14 +197,14 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
       if (customMapLabels && customMapLabels.length > 0) {
         customMapLabels.forEach(labelData => {
-          const newLabelOverlay = new CustomMapLabelOverlay(labelData.position, labelData.content, labelData.type, labelData.variant || 'default'); // Pass variant
+          const newLabelOverlay = new CustomMapLabelOverlay(labelData.position, labelData.content, labelData.type, labelData.variant || 'default'); 
           newLabelOverlay.setMap(mapInstanceRef.current);
           customLabelOverlaysRef.current.push(newLabelOverlay);
         });
       }
     }
 
-  }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels]);
+  }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling]); // Added gestureHandling
 
   useEffect(() => {
     return () => {
@@ -222,4 +233,3 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 };
 
 export default GoogleMapDisplay;
-
