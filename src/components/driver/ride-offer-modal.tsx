@@ -172,6 +172,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant: 'compact' | 'default' }> = [];
 
     if (rideDetails.pickupCoords) {
+      markers.push({ 
+        position: rideDetails.pickupCoords, 
+        title: `Pickup: ${rideDetails.pickupLocation}`, 
+        label: { text: "P", color: "white", fontWeight: "bold" } 
+      });
       labels.push({
         position: rideDetails.pickupCoords,
         content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
@@ -180,6 +185,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       });
     }
     if (rideDetails.dropoffCoords) {
+      markers.push({ 
+        position: rideDetails.dropoffCoords, 
+        title: `Dropoff: ${rideDetails.dropoffLocation}`, 
+        label: { text: "D", color: "white", fontWeight: "bold" } 
+      });
       labels.push({
         position: rideDetails.dropoffCoords,
         content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
@@ -189,6 +199,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     }
     rideDetails.stops?.forEach((stop, index) => {
       if (stop.coords) {
+        markers.push({ 
+          position: stop.coords, 
+          title: `Stop ${index + 1}: ${stop.address}`, 
+          label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" } 
+        });
         labels.push({
           position: stop.coords,
           content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
@@ -445,4 +460,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
