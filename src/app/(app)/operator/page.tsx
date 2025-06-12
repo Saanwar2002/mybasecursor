@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; 
-import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2, ListChecks, ShieldCheck, TrafficCone, UserPlus } from 'lucide-react';
+import { Briefcase, Car, Users, BarChart3, AlertTriangle, Map, Loader2, ListChecks, ShieldCheck, TrafficCone, UserPlus, Edit, CheckCircle as CheckCircleIconLucide, TimerIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,9 +14,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { LucideIcon } from 'lucide-react';
-import { Badge } from '@/components/ui/badge'; // Added Badge
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-
+import * as LucideIcons from 'lucide-react'; // For dynamic icon loading
+import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow'; // Re-using for demo structure
+type AiActionItemType = import('@/ai/flows/admin-action-items-flow').ActionItem; // Correct import for type
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -40,6 +42,8 @@ interface ActionableItem {
   priority?: 'high' | 'medium' | 'low';
   details?: string;
   link?: string;
+  iconName?: string; 
+  category?: string;
 }
 
 interface ActionableCategory {
@@ -49,6 +53,8 @@ interface ActionableCategory {
   items: ActionableItem[];
 }
 
+const DefaultAiTaskIcon = ListChecks;
+
 const mapOperatorPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
   switch (priority) {
     case 'high': return 'font-bold text-destructive';
@@ -56,6 +62,11 @@ const mapOperatorPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
     default: return '';
   }
 };
+
+interface OperatorSettings {
+  dispatchMode?: 'auto' | 'manual';
+  maxAutoAcceptWaitTimeMinutes?: number;
+}
 
 export default function OperatorDashboardPage() {
   const { user } = useAuth();
@@ -69,7 +80,10 @@ export default function OperatorDashboardPage() {
   const [operatorActionItems, setOperatorActionItems] = useState<ActionableCategory[]>([]);
   const [isLoadingActionItems, setIsLoadingActionItems] = useState(true);
   const [pendingDriverApprovals, setPendingDriverApprovals] = useState(0);
-  const [pendingSupportTickets, setPendingSupportTickets] = useState(0);
+  
+  const [operatorSettings, setOperatorSettings] = useState<OperatorSettings>({ dispatchMode: 'auto', maxAutoAcceptWaitTimeMinutes: 30 });
+  const [isLoadingOperatorSettings, setIsLoadingOperatorSettings] = useState(true);
+  const [simulatedIsHighWaitTime, setSimulatedIsHighWaitTime] = useState(false);
 
 
    useEffect(() => {
@@ -82,77 +96,116 @@ export default function OperatorDashboardPage() {
     return () => clearInterval(intervalId);
   }, []);
 
+  const fetchOperatorSettings = useCallback(async () => {
+    setIsLoadingOperatorSettings(true);
+    try {
+      const [dispatchRes, operationalRes] = await Promise.all([
+        fetch('/api/operator/settings/dispatch-mode'),
+        fetch('/api/operator/settings/operational')
+      ]);
+
+      if (!dispatchRes.ok || !operationalRes.ok) {
+        const dispatchError = !dispatchRes.ok ? await dispatchRes.json().catch(()=>null) : null;
+        const operationalError = !operationalRes.ok ? await operationalRes.json().catch(()=>null) : null;
+        console.error("Error fetching operator settings:", {dispatchError, operationalError});
+        throw new Error("Failed to load some operator settings.");
+      }
+      const dispatchData = await dispatchRes.json();
+      const operationalData = await operationalRes.json();
+      
+      setOperatorSettings({
+        dispatchMode: dispatchData.dispatchMode || 'auto',
+        maxAutoAcceptWaitTimeMinutes: operationalData.maxAutoAcceptWaitTimeMinutes === undefined ? 30 : operationalData.maxAutoAcceptWaitTimeMinutes,
+      });
+
+    } catch (error) {
+      console.error("Error in fetchOperatorSettings:", error);
+      toast({ title: "Settings Load Error", description: error instanceof Error ? error.message : "Could not load operator settings.", variant: "destructive" });
+      setOperatorSettings({ dispatchMode: 'auto', maxAutoAcceptWaitTimeMinutes: 30 }); // Fallback
+    } finally {
+      setIsLoadingOperatorSettings(false);
+    }
+  }, [toast]);
+
   const fetchDashboardData = useCallback(async () => {
     setIsLoadingStats(true);
     setIsLoadingActionItems(true);
     try {
-      // Simulate fetching counts
-      const mockAssignedRides = Math.floor(Math.random() * 5) + 2; // 2-6
-      const mockInProgressRides = Math.floor(Math.random() * 8) + 3; // 3-10
+      const mockAssignedRides = Math.floor(Math.random() * 5) + 2; 
+      const mockInProgressRides = Math.floor(Math.random() * 8) + 3; 
       setActiveRidesCount(mockAssignedRides + mockInProgressRides);
-
-      const mockTotalDrivers = Math.floor(Math.random() * 20) + 15; // 15-34
-      const mockAvailableDrivers = Math.floor(Math.random() * (mockTotalDrivers - 5)) + 5; // 5 to (total-5)
+      const mockTotalDrivers = Math.floor(Math.random() * 20) + 15; 
+      const mockAvailableDrivers = Math.floor(Math.random() * (mockTotalDrivers - 5)) + 5; 
       setAvailableDriversCount(mockAvailableDrivers);
       setTotalDriversCount(mockTotalDrivers);
-      
-      const mockPendingApprovals = Math.floor(Math.random() * 3); // 0-2
+      const mockPendingApprovals = Math.floor(Math.random() * 3); 
       setPendingDriverApprovals(mockPendingApprovals);
+      
+      const mockAdminInput: AdminActionItemsInput = {
+        pendingOperatorApprovals: 0, // Not relevant for operator's own dashboard
+        activeSystemAlerts: Math.floor(Math.random() * 2), // Operator specific alerts
+        unresolvedSupportTickets: Math.floor(Math.random() * 5), // Tickets relevant to THIS operator
+        recentFeatureFeedbackCount: 0, // Not relevant for this quick view
+        platformLoadPercentage: 0, // Not relevant for operator's view
+      };
+      const aiOutput = await getAdminActionItems(mockAdminInput);
 
-      const mockPendingTickets = Math.floor(Math.random() * 5); // 0-4
-      setPendingSupportTickets(mockPendingTickets);
+      // Process AI output for operator's dashboard
+      const groupedTasks: Record<string, ActionableItem[]> = {};
+      (aiOutput.actionItems || []).forEach(item => {
+          const categoryName = item.category || 'General Tasks';
+          if (!groupedTasks[categoryName]) groupedTasks[categoryName] = [];
+          groupedTasks[categoryName].push({ ...item, completed: false });
+      });
 
-      // Simulate fetching action items
-      const fetchedActionItems: ActionableCategory[] = [
-        {
-          id: 'driver-management',
-          name: 'Driver Management',
-          icon: UserPlus,
-          items: [
-            { id: 'op-task-1', label: `Review ${mockPendingApprovals} new driver application(s).`, completed: false, priority: mockPendingApprovals > 0 ? 'high' : 'low', details: 'Check documents and approve/reject.', link: '/operator/manage-drivers?status=Pending%20Approval' },
-            { id: 'op-task-2', label: 'Driver Patel R. - PCO license expiring in 7 days.', completed: false, priority: 'medium', details: 'Send reminder or check renewal status.' },
-          ],
-        },
-        {
-          id: 'ride-operations',
-          name: 'Ride Operations',
-          icon: Car,
-          items: [
-            { id: 'op-task-4', label: 'High demand reported in "Town Centre" zone. Monitor driver availability.', completed: false, priority: 'high' },
-            { id: 'op-task-5', label: `Address ${mockPendingTickets} new/pending support tickets.`, completed: false, priority: mockPendingTickets > 2 ? 'medium' : 'low', link: '/operator/support-tickets' },
-          ],
-        },
-        {
-          id: 'fleet-alerts',
-          name: 'Fleet Alerts & Settings',
-          icon: AlertTriangle,
-          items: [
-            { id: 'op-task-6', label: 'Vehicle BZ68 XYZ - MOT due next month.', completed: true, priority: 'medium' },
-            { id: 'op-task-7', label: 'Review current surge pricing settings.', completed: false, priority: 'low', details: 'Ensure it aligns with current demand.', link: '/operator/settings/pricing-settings' },
-          ],
-        },
-      ];
-      setOperatorActionItems(fetchedActionItems);
+      if (mockPendingApprovals > 0) {
+          if (!groupedTasks['Driver Management']) groupedTasks['Driver Management'] = [];
+          groupedTasks['Driver Management'].unshift({
+              id: 'op-task-approve-drivers', label: `Review ${mockPendingApprovals} new driver application(s).`,
+              completed: false, priority: 'high', iconName: 'UserPlus',
+              link: '/operator/manage-drivers?status=Pending%20Approval'
+          });
+      }
+      
+      const fetchedActionCategories: ActionableCategory[] = Object.entries(groupedTasks).map(([catName, tasks]) => {
+        const IconComponent = tasks[0]?.iconName && LucideIcons[tasks[0].iconName as keyof typeof LucideIcons]
+            ? LucideIcons[tasks[0].iconName as keyof typeof LucideIcons] as LucideIcon
+            : DefaultAiTaskIcon;
+        return {
+            id: catName.toLowerCase().replace(/\s+/g, '-'),
+            name: catName,
+            icon: IconComponent,
+            items: tasks,
+        };
+      });
+      setOperatorActionItems(fetchedActionCategories);
 
     } catch (error) {
       console.error("Error fetching dashboard data (mock):", error);
-      toast({ title: "Error Loading Dashboard Data", description: "Could not load some dashboard statistics or action items.", variant: "destructive" });
+      toast({ title: "Error Loading Dashboard Data", description: "Could not load some dashboard elements.", variant: "destructive" });
       setActiveRidesCount("N/A"); setAvailableDriversCount("N/A"); setTotalDriversCount("N/A");
       setOperatorActionItems([]);
     } finally {
       setIsLoadingStats(false);
       setIsLoadingActionItems(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, toast]); // Removed API calls, so user is the main dep for re-fetch trigger (e.g., on login)
+  }, [toast]);
 
   useEffect(() => {
+    fetchOperatorSettings();
     fetchDashboardData();
-  }, [fetchDashboardData]);
-
+  }, [fetchOperatorSettings, fetchDashboardData]);
+  
+  useEffect(() => {
+    // Simulate high wait time toggling for demo
+    const waitTimeToggleInterval = setInterval(() => {
+      setSimulatedIsHighWaitTime(prev => !prev);
+    }, 20000); // Toggle every 20 seconds
+    return () => clearInterval(waitTimeToggleInterval);
+  }, []);
 
   const mapContainerClasses = cn(
-    "h-80 md:h-96 rounded-md overflow-hidden border-4", // Removed bg-muted/50
+    "h-80 md:h-96 rounded-md overflow-hidden border-4",
     {
       'border-border': mapBusynessLevel === 'idle',
       'animate-flash-yellow-border': mapBusynessLevel === 'moderate',
@@ -170,9 +223,24 @@ export default function OperatorDashboardPage() {
       }))
     );
   };
-
+  
   const issuesReported = operatorActionItems.reduce((acc, category) => 
     acc + category.items.filter(item => !item.completed && item.priority === 'high').length, 0);
+
+  const JobIntakeStatusDisplay = () => {
+    if (isLoadingOperatorSettings) {
+      return <div className="flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading status...</div>;
+    }
+    const maxWait = operatorSettings.maxAutoAcceptWaitTimeMinutes;
+    if (operatorSettings.dispatchMode === 'manual') {
+      return <div className="flex items-center text-blue-600"><Edit className="h-4 w-4 mr-2" />Manual Assignment Active</div>;
+    }
+    if (simulatedIsHighWaitTime && (maxWait === undefined || maxWait > 0)) { // Check maxWait to ensure "No Limit" (0) isn't paused
+      return <div className="flex items-center text-orange-600"><AlertTriangle className="h-4 w-4 mr-2" />Automated Offers Paused (Est. Wait {maxWait ? `> ${maxWait}min` : 'High'})</div>;
+    }
+    return <div className="flex items-center text-green-600"><CheckCircleIconLucide className="h-4 w-4 mr-2" />Accepting Automated Offers</div>;
+  };
+
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -184,8 +252,22 @@ export default function OperatorDashboardPage() {
           </CardHeader>
           <CardContent className="flex flex-col md:flex-row items-center gap-6">
             <div className="flex-1 space-y-4">
-              <p className="text-lg">Oversee all ongoing rides, manage your drivers, and view real-time analytics to optimize your taxi service.</p>
-              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+               <Card className="bg-secondary/50">
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-base font-semibold flex items-center gap-1">
+                    <TimerIcon className="w-4 h-4 text-muted-foreground"/> Fleet Job Intake Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                   <JobIntakeStatusDisplay />
+                   <p className="text-xs text-muted-foreground mt-1">
+                    Current dispatch mode: <span className="font-medium">{operatorSettings.dispatchMode === 'auto' ? 'Automatic' : 'Manual'}</span>.
+                    {operatorSettings.dispatchMode === 'auto' && ` Max offer wait time: ${operatorSettings.maxAutoAcceptWaitTimeMinutes === 0 ? 'No Limit' : `${operatorSettings.maxAutoAcceptWaitTimeMinutes} min`}.`}
+                    <Link href="/operator/settings/operational-settings" className="ml-1 text-primary hover:underline text-xs">(Change Settings)</Link>
+                  </p>
+                </CardContent>
+              </Card>
+              <Button asChild size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Link href="/operator/manage-rides">
                   <Briefcase className="mr-2 h-5 w-5" /> Manage Rides
                 </Link>
@@ -232,6 +314,7 @@ export default function OperatorDashboardPage() {
             icon={Users}
             link="/operator/manage-drivers"
             actionText="Manage Drivers"
+            notificationCount={pendingDriverApprovals > 0 ? pendingDriverApprovals : undefined}
           />
           <FeatureCard
             title="Analytics &amp; Reports"
@@ -350,13 +433,21 @@ interface FeatureCardProps {
   icon: React.ElementType;
   link: string;
   actionText: string;
+  notificationCount?: number;
 }
 
-function FeatureCard({ title, description, icon: Icon, link, actionText }: FeatureCardProps) {
+function FeatureCard({ title, description, icon: Icon, link, actionText, notificationCount }: FeatureCardProps) {
   return (
     <Card className="hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="items-center pb-4">
-        <Icon className="w-10 h-10 text-accent mb-3" />
+        <div className="relative">
+          <Icon className="w-10 h-10 text-accent mb-3" />
+           {notificationCount && notificationCount > 0 && (
+            <Badge variant="destructive" className="absolute -top-1 -right-2 text-xs px-1.5 py-0.5 h-5 min-w-[1.25rem] flex items-center justify-center rounded-full">
+              {notificationCount}
+            </Badge>
+          )}
+        </div>
         <CardTitle className="font-headline text-xl">{title}</CardTitle>
       </CardHeader>
       <CardContent className="text-center space-y-4">
