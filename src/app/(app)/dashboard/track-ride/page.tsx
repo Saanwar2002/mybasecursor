@@ -1124,7 +1124,7 @@ export default function MyActiveRidePage() {
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
                     disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
-                 <span>Keep Ride</span>
+                  <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
@@ -1133,16 +1133,13 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (!!actionLoading[activeRide?.id || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                 <div>
-                    <span style={{ display: (activeRide && actionLoading[activeRide.id]) ? 'inline-flex' : 'none' }} className="items-center">
-                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                        Cancelling...
-                    </span>
-                    <span style={{ display: !(activeRide && actionLoading[activeRide.id]) ? 'inline-flex' : 'none' }} className="items-center">
-                        <ShieldX className="mr-2 h-4 w-4" />
-                        Confirm Cancel
-                    </span>
-                  </div>
+                 <span>
+                    {activeRide && actionLoading[activeRide.id] ? (
+                      <><Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 inline-flex" />Cancelling...</>
+                    ) : (
+                      <><ShieldX className="-ml-1 mr-2 h-4 w-4 inline-flex" />Confirm Cancel</>
+                    )}
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
