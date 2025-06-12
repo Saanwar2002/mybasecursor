@@ -28,6 +28,7 @@ export interface User {
   acceptsPlatformJobs?: boolean; 
   maxJourneyDistance?: string; 
   dispatchMode?: 'auto' | 'manual'; // Added for operators
+  acceptsAccountJobs?: boolean; // New field for driver preference
 
   // Driver-specific vehicle & compliance details
   vehicleMakeModel?: string;
@@ -103,7 +104,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
             acceptsPlatformJobs: firestoreUser.operatorCode === PLATFORM_OPERATOR_CODE ? true : (firestoreUser.acceptsPlatformJobs || false),
             maxJourneyDistance: firestoreUser.maxJourneyDistance || "no_limit", 
-            dispatchMode: firestoreUser.dispatchMode || 'auto', // Default to 'auto'
+            dispatchMode: firestoreUser.dispatchMode || 'auto', 
+            acceptsAccountJobs: firestoreUser.acceptsAccountJobs === undefined ? true : firestoreUser.acceptsAccountJobs, // Default to true
             // Driver-specific details
             vehicleMakeModel: firestoreUser.vehicleMakeModel,
             vehicleRegistration: firestoreUser.vehicleRegistration,
@@ -253,6 +255,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           acceptsPetFriendlyJobs: Math.random() < 0.5,
           acceptsPlatformJobs: guestOperatorCode === PLATFORM_OPERATOR_CODE ? true : Math.random() < 0.7,
           maxJourneyDistance: "no_limit", 
+          acceptsAccountJobs: true, // Guest drivers accept account jobs by default
           vehicleMakeModel: 'Toyota Prius (Guest)',
           vehicleRegistration: 'GUEST123',
           vehicleColor: 'Silver',

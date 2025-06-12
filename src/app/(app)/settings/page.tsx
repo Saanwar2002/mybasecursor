@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers, Info, Route } from "lucide-react"; 
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, KeyRound, Layers, Info, Route, CreditCard } from "lucide-react"; 
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, UserRole, User, PLATFORM_OPERATOR_CODE } from "@/contexts/auth-context"; 
@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [driverAcceptsPets, setDriverAcceptsPets] = useState(false); 
   const [driverAcceptsPlatformJobs, setDriverAcceptsPlatformJobs] = useState(false); 
   const [driverMaxJourneyDistance, setDriverMaxJourneyDistance] = useState("no_limit");
+  const [driverAcceptsAccountJobs, setDriverAcceptsAccountJobs] = useState(true); // New state
 
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserDisplay[]>([]);
   const [isLoadingBlockedUsers, setIsLoadingBlockedUsers] = useState(false);
@@ -89,6 +90,7 @@ export default function SettingsPage() {
         setDriverAcceptsPets(user.acceptsPetFriendlyJobs || false);
         setDriverAcceptsPlatformJobs(user.operatorCode === PLATFORM_OPERATOR_CODE ? true : (user.acceptsPlatformJobs || false));
         setDriverMaxJourneyDistance(user.maxJourneyDistance || "no_limit");
+        setDriverAcceptsAccountJobs(user.acceptsAccountJobs === undefined ? true : user.acceptsAccountJobs); // Initialize new setting
       }
       const storedUserData = localStorage.getItem('myBaseUserWithPin');
       if (storedUserData) {
@@ -189,6 +191,10 @@ export default function SettingsPage() {
         updates.maxJourneyDistance = driverMaxJourneyDistance;
         changesMadeDescription += "Max journey distance updated. ";
       }
+      if (user.acceptsAccountJobs !== driverAcceptsAccountJobs) { // Check new preference
+        updates.acceptsAccountJobs = driverAcceptsAccountJobs;
+        changesMadeDescription += "Account jobs preference updated. ";
+      }
     }
     
     if (Object.keys(updates).length > 0) {
@@ -287,6 +293,20 @@ export default function SettingsPage() {
                 Set your preferred maximum distance for ride offers. This is a preference, actual offers depend on availability.
               </p>
             </div>
+
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Label htmlFor="account-jobs-switch" className="text-base">
+                Accept Account Jobs?
+              </Label>
+              <Switch
+                id="account-jobs-switch"
+                checked={driverAcceptsAccountJobs}
+                onCheckedChange={setDriverAcceptsAccountJobs}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Enable this if you are willing to take on Account Jobs (e.g., corporate clients, school runs) which may have different payment/billing.
+            </p>
 
           </CardContent>
         </Card>
