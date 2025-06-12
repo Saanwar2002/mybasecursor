@@ -2035,12 +2035,12 @@ export default function AvailableRidesPage() {
               currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
               (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
             (
-              <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1">
-                <Timer className="h-5 w-5 text-current" />
-                <ShadAlertTitle className="font-bold text-current">
+              <Alert variant="default" className="bg-yellow-400 dark:bg-yellow-700/40 border-yellow-500 dark:border-yellow-600 my-1">
+                <Timer className="h-5 w-5 text-yellow-800 dark:text-yellow-200" />
+                <ShadAlertTitle className="font-bold text-yellow-800 dark:text-yellow-200">
                   Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}
                 </ShadAlertTitle>
-                <ShadAlertDescription className="font-semibold text-current text-xs">
+                <ShadAlertDescription className="font-semibold text-yellow-700 dark:text-yellow-300 text-xs">
                   {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
                     `Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`
                   )}
@@ -2706,6 +2706,8 @@ export default function AvailableRidesPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-    </div>
+      </div>
   );
 }
+
+    
