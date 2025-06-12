@@ -968,21 +968,21 @@ export default function MyActiveRidePage() {
     const currentActionId = activeRide ? activeRide.id : '';
     const isLoadingSpecificAction = activeRide ? (actionLoading[currentActionId] || false) : false;
   
-    return (
-      <span className="flex items-center justify-center">
-        {isLoadingSpecificAction ? (
-          <>
-            <Loader2 className="animate-spin mr-2 h-4 w-4" />
-            <span>Cancelling...</span>
-          </>
-        ) : (
-          <>
-            <ShieldX className="mr-2 h-4 w-4" />
-            <span>Confirm Cancel</span>
-          </>
-        )}
-      </span>
-    );
+    if (isLoadingSpecificAction) {
+      return (
+        <>
+          <Loader2 className="animate-spin mr-2 h-4 w-4" />
+          Cancelling...
+        </>
+      );
+    } else {
+      return (
+        <>
+          <ShieldX className="mr-2 h-4 w-4" />
+          Confirm Cancel
+        </>
+      );
+    }
   };
 
 
@@ -1137,15 +1137,15 @@ export default function MyActiveRidePage() {
       >
         <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle><span className="flex items-center justify-center">Are you sure?</span></AlertDialogTitle>
-              <AlertDialogDescription><span className="flex items-center justify-center">This will cancel your ride request. This action cannot be undone.</span></AlertDialogDescription>
+              <AlertDialogTitle><span>Are you sure?</span></AlertDialogTitle>
+              <AlertDialogDescription><span>This will cancel your ride request. This action cannot be undone.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
                     disabled={activeRide ? actionLoading[activeRide.id] : false}
                 >
-                 <span>Keep Ride</span>
+                 Keep Ride
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
