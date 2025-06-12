@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts/auth-context';
 import { RideOfferModal, type RideOffer } from '@/components/driver/ride-offer-modal';
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -392,33 +392,6 @@ export default function AvailableRidesPage() {
     };
   }, [isDriverOnline, fetchActiveHazards]);
 
-
-  useEffect(() => {
-    if (activeRide) {
-      let labelContent: string | null = null;
-      let labelPosition: google.maps.LatLngLiteral | null = null;
-      let labelType: LabelType = 'pickup';
-
-      const currentLegIdxToUse = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
-
-      if (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') {
-        if (activeRide.pickupLocation) {
-          labelPosition = { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
-          labelContent = formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup');
-          labelType = 'pickup';
-        }
-      } else if (activeRide.status.toLowerCase().includes('in_progress')) {
-         const currentTargetPoint = journeyPoints[currentLegIdxToUse];
-         if (currentTargetPoint) {
-            labelPosition = { lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude };
-            if (currentLegIdxToUse === 0) labelContent = formatAddressForMapLabel(currentTargetPoint.address, 'Pickup'); 
-            else if (currentLegIdxToUse < journeyPoints.length -1) labelContent = formatAddressForMapLabel(currentTargetPoint.address, `Stop ${currentLegIdxToUse}`);
-            else labelContent = formatAddressForMapLabel(currentTargetPoint.address, 'Dropoff');
-            labelType = currentLegIdxToUse < journeyPoints.length -1 ? 'stop' : 'dropoff';
-         }
-      }
-    }
-  }, [activeRide, journeyPoints, localCurrentLegIndex]);
 
   useEffect(() => {
     if (!driverLocation || !activeMapHazards.length || !isDriverOnline) {
@@ -1232,14 +1205,14 @@ export default function AvailableRidesPage() {
 
     if (actionType === 'proceed_to_next_leg' && activeStopWaitTimerDetailsRef.current) {
       const stopTimer = activeStopWaitTimerDetailsRef.current;
-      chargeForPreviousStop = currentStopTimerDisplay?.charge || 0; // Use charge from display state
+      chargeForPreviousStop = currentStopTimerDisplay?.charge || 0; 
       
       setCompletedStopWaitCharges(prev => ({...prev, [stopTimer.stopDataIndex]: chargeForPreviousStop }));
       setAccumulatedStopWaitingCharges(prev => prev + chargeForPreviousStop);
 
       clearInterval(stopTimer.timerId);
       activeStopWaitTimerDetailsRef.current = null;
-      setCurrentStopTimerDisplay(null); // Clear the display
+      setCurrentStopTimerDisplay(null); 
     }
 
 
@@ -1271,7 +1244,7 @@ export default function AvailableRidesPage() {
             break;
         case 'complete_ride':
             let finalStopCharge = 0;
-            if(activeStopWaitTimerDetailsRef.current) { // Check if waiting at the last "stop" (which is the dropoff)
+            if(activeStopWaitTimerDetailsRef.current) { 
                 finalStopCharge = currentStopTimerDisplay?.charge || 0;
                 clearInterval(activeStopWaitTimerDetailsRef.current.timerId);
                 activeStopWaitTimerDetailsRef.current = null;
@@ -1502,7 +1475,7 @@ export default function AvailableRidesPage() {
             title: `Pickup: ${activeRide.pickupLocation.address}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
           });
-          if (currentStatus === 'driver_assigned' || currentStatus === 'arrived_at_pickup') {
+          if (currentStatus === 'driver_assigned' || currentStatus === 'arrived_at_pickup' || (currentStatus && currentStatus.startsWith('pending_') && currentLegIdxToUse === 0)) {
             labels.push({
               position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
               content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
@@ -1549,7 +1522,7 @@ export default function AvailableRidesPage() {
               content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
               type: 'dropoff'
             });
-          } else if (currentLegIdxToUse < dropoffLegIndex && currentLegIdxToUse === 0 && (!activeRide.stops || activeRide.stops.length === 0)) { 
+          } else if (currentLegIdxToUse < dropoffLegIndex && (currentLegIdxToUse === 0 && (!activeRide.stops || activeRide.stops.length === 0)) || (activeRide.stops && currentLegIdxToUse === activeRide.stops.length) ) { 
              labels.push({
                 position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
                 content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Final Dropoff'),
@@ -2089,11 +2062,23 @@ export default function AvailableRidesPage() {
                 {localCurrentLegIndex < journeyPoints.length - 1 ? (
                   <Button
                     className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto"
-                    onClick={() => handleRideAction(activeRide.id, 'proceed_to_next_leg')}
+                    onClick={() => {
+                      if (localCurrentLegIndex === 0) {
+                        // This condition should ideally not be met if 'start_ride' functions correctly and updates localCurrentLegIndex.
+                        // This path is a safeguard or indicates a state sync issue.
+                        console.warn("Progress button: localCurrentLegIndex is 0 but status is in_progress. Triggering 'start_ride' action as a corrective measure or initial start.");
+                        handleRideAction(activeRide.id, 'start_ride');
+                      } else {
+                        handleRideAction(activeRide.id, 'proceed_to_next_leg');
+                      }
+                    }}
                     disabled={!!actionLoading[activeRide.id]}
                   >
                     {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-2" /> : <Navigation className="mr-2" />}
-                    {localCurrentLegIndex === 0 ? `Passenger Boarded / Proceed to Stop 1` : `Arrived at Stop ${localCurrentLegIndex} / Proceed`}
+                    {/* Text logic based on current leg */}
+                    {localCurrentLegIndex === 0 ? `Passenger Boarded / Proceed to Stop 1` 
+                    : localCurrentLegIndex < journeyPoints.length - 2 ? `Arrived at Stop ${localCurrentLegIndex} / Proceed` 
+                    : `Arrived at Stop ${localCurrentLegIndex} / Proceed to Dropoff`}
                   </Button>
                 ) : (
                   <Button
