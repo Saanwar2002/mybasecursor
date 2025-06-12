@@ -330,24 +330,23 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       >
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
           <DialogTitle className={cn(
-            "text-xl md:text-xl font-headline flex items-center gap-2",
+            "text-xl md:text-xl font-headline flex items-center gap-2", // Removed justify-between
             dispatchInfo?.bgColorClassName === "bg-green-600" && "text-green-700 dark:text-green-400",
             dispatchInfo?.bgColorClassName === "bg-blue-600" && "text-blue-700 dark:text-blue-400",
             dispatchInfo?.bgColorClassName === "bg-purple-600" && "text-purple-700 dark:text-purple-400",
-            !dispatchInfo?.bgColorClassName && "text-primary" // Fallback
+            !dispatchInfo?.bgColorClassName && "text-primary"
             )}>
-            <Car className={cn(
-              "w-6 h-6",
-              dispatchInfo?.bgColorClassName === "bg-green-600" && "text-green-600 dark:text-green-500",
-              dispatchInfo?.bgColorClassName === "bg-blue-600" && "text-blue-600 dark:text-blue-500",
-              dispatchInfo?.bgColorClassName === "bg-purple-600" && "text-purple-600 dark:text-purple-500",
-              !dispatchInfo?.bgColorClassName && "text-primary"
-            )} /> New Ride Offer!
-            {rideDetails.isPriorityPickup && (
-                <Badge variant="outline" className="ml-auto text-xs border-orange-400 text-orange-700 bg-orange-100 dark:border-orange-600 dark:text-orange-300 dark:bg-orange-800/30 py-0.5 px-1.5 flex items-center gap-1">
-                    <Crown className="w-3 h-3"/> Priority
-                </Badge>
-            )}
+            <span className="flex items-center gap-2">
+              <Car className={cn(
+                "w-6 h-6",
+                dispatchInfo?.bgColorClassName === "bg-green-600" && "text-green-600 dark:text-green-500",
+                dispatchInfo?.bgColorClassName === "bg-blue-600" && "text-blue-600 dark:text-blue-500",
+                dispatchInfo?.bgColorClassName === "bg-purple-600" && "text-purple-600 dark:text-purple-500",
+                !dispatchInfo?.bgColorClassName && "text-primary"
+              )} />
+              New Ride Offer!
+            </span>
+            {/* The redundant top-right Priority badge was here and is now removed */}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground pt-1">
             Review the details below and respond quickly before the timer runs out.
@@ -396,7 +395,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )}
 
               {rideDetails.isPriorityPickup && (
-                  <Badge variant="outline" className="shrink-0 text-xs border-orange-400 text-orange-700 bg-orange-100 dark:border-orange-600 dark:text-orange-300 dark:bg-orange-800/30 py-1 px-2 flex items-center gap-1 h-full">
+                  <Badge variant="outline" className="shrink-0 text-xs border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-800/30 py-1 px-2 flex items-center gap-1 h-full">
                       <Crown className="w-3.5 h-3.5"/> Priority
                   </Badge>
               )}
@@ -473,4 +472,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
