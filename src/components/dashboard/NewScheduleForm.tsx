@@ -178,6 +178,8 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
+  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
+
   const form = useForm<ScheduledRideFormValues>({
     resolver: zodResolver(scheduledRideFormSchema),
     defaultValues: initialData ? {
@@ -341,6 +343,7 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
       console.warn("Google Maps API Key missing.");
       toast({ title: "Configuration Error", description: "Maps API key missing. Address search disabled.", variant: "destructive" });
+      setIsMapSdkLoaded(false);
       return;
     }
     const loader = new GoogleApiLoader({
@@ -352,7 +355,11 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
       placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
       autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
-    }).catch(e => console.error("Failed to load Google Maps API for scheduled ride form:", e));
+      setIsMapSdkLoaded(true);
+    }).catch(e => {
+      console.error("Failed to load Google Maps API for scheduled ride form:", e);
+      setIsMapSdkLoaded(false);
+    });
   }, [toast]);
 
   const fetchUserFavoriteLocations = useCallback(async () => {
@@ -380,7 +387,7 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
     setSuggestionsFunc: (suggestions: google.maps.places.AutocompletePrediction[]) => void,
     setIsFetchingFunc: (isFetching: boolean) => void
   ) => {
-    if (!autocompleteServiceRef.current || inputValue.length < 2) {
+    if (!isMapSdkLoaded || !autocompleteServiceRef.current || inputValue.length < 2) {
       setSuggestionsFunc([]);
       setIsFetchingFunc(false);
       return;
@@ -393,7 +400,7 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
         setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
       }
     );
-  }, []);
+  }, [isMapSdkLoaded]);
 
   const handleAddressInputChangeFactory = useCallback((
     formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
@@ -439,26 +446,26 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
       if (typeof formFieldNameOrStopIndex === 'number') setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
       else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingPickupDetails(isFetching); else setIsFetchingDropoffDetails(isFetching);
     };
-    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null, finalAddress: string) => {
-      if (typeof formFieldNameOrStopIndex === 'number') setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddress, showSuggestions: false } : item));
-      else if (formFieldNameOrStopIndex === 'pickupLocation') { setPickupCoords(coords); setPickupInputValue(finalAddress); setShowPickupSuggestions(false); }
-      else { setDropoffCoords(coords); setDropoffInputValue(finalAddress); setShowDropoffSuggestions(false); }
+    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null, finalAddressToSet: string) => {
+      if (typeof formFieldNameOrStopIndex === 'number') setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddressToSet, showSuggestions: false } : item));
+      else if (formFieldNameOrStopIndex === 'pickupLocation') { setPickupCoords(coords); setPickupInputValue(finalAddressToSet); setShowPickupSuggestions(false); }
+      else { setDropoffCoords(coords); setDropoffInputValue(finalAddressToSet); setShowDropoffSuggestions(false); }
     };
 
     setIsFetchingDetailsFunc(true);
-    if (placesServiceRef.current && suggestion.place_id) {
+    if (isMapSdkLoaded && placesServiceRef.current && suggestion.place_id) {
       placesServiceRef.current.getDetails(
-        { placeId: suggestion.place_id, fields: ['geometry.location', 'formatted_address', 'address_components'], sessionToken: autocompleteSessionTokenRef.current }, // Updated fields
+        { placeId: suggestion.place_id, fields: ['geometry.location', 'formatted_address', 'address_components'], sessionToken: autocompleteSessionTokenRef.current },
         (place, status) => {
           setIsFetchingDetailsFunc(false);
-          const finalAddressToSet = place?.formatted_address || addressText;
-          formOnChange(finalAddressToSet); // Update the form field with the full address
+          const finalAddressToSet = addressText; // Always use the suggestion.description
+          formOnChange(finalAddressToSet);
           
           if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
             setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
             toast({ title: "Location Selected", description: `${finalAddressToSet} coordinates captured.`});
           } else { 
-            setCoordsFunc(null, finalAddressToSet); // Keep the selected text even if coords fail
+            setCoordsFunc(null, finalAddressToSet);
             toast({ title: "Error", description: "Could not get location details. Address set, but coordinates missing.", variant: "destructive"});
           }
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
@@ -466,11 +473,11 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
       );
     } else { 
       setIsFetchingDetailsFunc(false); 
-      formOnChange(addressText); // Fallback to original suggestion text
-      setCoordsFunc(null, addressText); 
+      formOnChange(addressText); 
+      setCoordsFunc(null, addressText);
       toast({ title: "Warning", description: "Could not fetch location details."}); 
     }
-  }, [toast, form.setValue]); // Added form.setValue as it's used indirectly via formOnChange
+  }, [toast, form.setValue, isMapSdkLoaded]); 
 
   const handleFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
      if (typeof fieldNameOrIndex === 'number') {

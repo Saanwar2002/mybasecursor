@@ -257,6 +257,8 @@ export default function BookRidePage() {
   const [priorityFeeInput, setPriorityFeeInput] = useState<string>("2.00");
   const priorityFeeInputRef = useRef<HTMLInputElement>(null);
 
+  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
+
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -425,6 +427,7 @@ export default function BookRidePage() {
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
         console.warn("Google Maps API Key missing. Address autocomplete and geolocation will not work.");
         toast({ title: "Configuration Error", description: "Maps API key missing. Address search disabled.", variant: "destructive" });
+        setIsMapSdkLoaded(false);
         return;
     }
     const loader = new Loader({
@@ -439,6 +442,7 @@ export default function BookRidePage() {
       placesServiceRef.current = new google.maps.places.PlacesService(mapDivForPlaces);
       geocoderRef.current = new google.maps.Geocoder();
       autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+      setIsMapSdkLoaded(true);
 
       if (navigator.geolocation) {
         setGeolocationFetchStatus("fetching");
@@ -477,6 +481,7 @@ export default function BookRidePage() {
     }).catch(e => {
         console.error("Failed to load Google Maps API for address search:", e);
         toast({ title: "Error", description: "Could not load address search functionality.", variant: "destructive"});
+        setIsMapSdkLoaded(false);
     });
   }, [toast]);
 
@@ -538,7 +543,7 @@ export default function BookRidePage() {
     setSuggestionsFunc: (suggestions: google.maps.places.AutocompletePrediction[]) => void,
     setIsFetchingFunc: (isFetching: boolean) => void
   ) => {
-    if (!autocompleteServiceRef.current || inputValue.length < 2) {
+    if (!isMapSdkLoaded || !autocompleteServiceRef.current || inputValue.length < 2) {
       setSuggestionsFunc([]);
       setIsFetchingFunc(false);
       return;
@@ -563,7 +568,7 @@ export default function BookRidePage() {
         }
       }
     );
-  }, []);
+  }, [isMapSdkLoaded]);
 
   const handleAddressInputChangeFactory = useCallback((
     formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
@@ -693,24 +698,24 @@ export default function BookRidePage() {
     };
 
     setIsFetchingDetailsFunc(true);
-    if (placesServiceRef.current && suggestion.place_id) {
+    if (isMapSdkLoaded && placesServiceRef.current && suggestion.place_id) {
       placesServiceRef.current.getDetails(
         {
           placeId: suggestion.place_id,
-          fields: ['geometry.location', 'formatted_address', 'address_components'], // Updated fields
+          fields: ['geometry.location', 'formatted_address', 'address_components'],
           sessionToken: autocompleteSessionTokenRef.current
         },
         (place, status) => {
           setIsFetchingDetailsFunc(false);
+          const finalAddressToSet = addressText; // Always use the suggestion.description
+          formOnChange(finalAddressToSet);
+
           if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-            const finalAddressToSet = place.formatted_address || addressText;
             setCoordsFunc({
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
             });
-            formOnChange(finalAddressToSet); // Update the form field with the full address
             
-            // Update the local input value state
              if (typeof formFieldNameOrStopIndex === 'number') {
                 setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, inputValue: finalAddressToSet, showSuggestions: false } : item));
             } else if (formFieldNameOrStopIndex === 'pickupLocation') {
@@ -722,14 +727,13 @@ export default function BookRidePage() {
             toast({ title: "Location Selected", description: `${finalAddressToSet} coordinates captured.`});
           } else {
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
-            formOnChange(addressText); // Fallback to original suggestion text
             setCoordsFunc(null);
              if (typeof formFieldNameOrStopIndex === 'number') {
-                setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, inputValue: addressText, showSuggestions: false } : item));
+                setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, inputValue: finalAddressToSet, showSuggestions: false } : item));
             } else if (formFieldNameOrStopIndex === 'pickupLocation') {
-                setPickupInputValue(addressText); setShowPickupSuggestions(false);
+                setPickupInputValue(finalAddressToSet); setShowPickupSuggestions(false);
             } else {
-                setDropoffInputValue(addressText); setShowDropoffSuggestions(false);
+                setDropoffInputValue(finalAddressToSet); setShowDropoffSuggestions(false);
             }
           }
           autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
@@ -737,7 +741,7 @@ export default function BookRidePage() {
       );
     } else {
       setIsFetchingDetailsFunc(false);
-      formOnChange(addressText); // Fallback to original suggestion text
+      formOnChange(addressText); 
       setCoordsFunc(null);
        if (typeof formFieldNameOrStopIndex === 'number') {
           setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, inputValue: addressText, showSuggestions: false } : item));
@@ -748,7 +752,7 @@ export default function BookRidePage() {
       }
       toast({ title: "Warning", description: "Could not fetch location details (missing place ID or service).", variant: "default" });
     }
-  }, [toast, placesServiceRef, autocompleteSessionTokenRef, form]);
+  }, [toast, placesServiceRef, autocompleteSessionTokenRef, form, isMapSdkLoaded]);
 
 
   const handleFocusFactory = (formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
@@ -762,7 +766,7 @@ export default function BookRidePage() {
         currentSuggestions = stopData.suggestions;
         if (currentInputValue.length >= 2 && currentSuggestions.length > 0) {
              setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, showSuggestions: true } : item));
-        } else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
+        } else if (currentInputValue.length >= 2 && isMapSdkLoaded && autocompleteServiceRef.current) {
             fetchAddressSuggestions(currentInputValue,
                 (sugg) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, suggestions: sugg, showSuggestions: true } : item)),
                 (fetch) => setStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingSuggestions: fetch } : item))
@@ -774,7 +778,7 @@ export default function BookRidePage() {
         currentInputValue = pickupInputValue;
         currentSuggestions = pickupSuggestions;
         if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowPickupSuggestions(true);
-        else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
+        else if (currentInputValue.length >= 2 && isMapSdkLoaded && autocompleteServiceRef.current) {
             fetchAddressSuggestions(currentInputValue, setPickupSuggestions, setIsFetchingPickupSuggestions);
             setShowPickupSuggestions(true);
         } else setShowPickupSuggestions(false);
@@ -782,7 +786,7 @@ export default function BookRidePage() {
         currentInputValue = dropoffInputValue;
         currentSuggestions = dropoffSuggestions;
         if (currentInputValue.length >=2 && currentSuggestions.length > 0) setShowDropoffSuggestions(true);
-        else if (currentInputValue.length >= 2 && autocompleteServiceRef.current) {
+        else if (currentInputValue.length >= 2 && isMapSdkLoaded && autocompleteServiceRef.current) {
             fetchAddressSuggestions(currentInputValue, setDropoffSuggestions, setIsFetchingDropoffSuggestions);
             setShowDropoffSuggestions(true);
         } else setShowDropoffSuggestions(false);
@@ -1272,7 +1276,7 @@ export default function BookRidePage() {
     formField: "pickupLocation" | "dropoffLocation",
     locationType: "pickup" | "dropoff"
   ): Promise<void> => {
-    if (!autocompleteServiceRef.current || !placesServiceRef.current || !addressString) {
+    if (!isMapSdkLoaded || !autocompleteServiceRef.current || !placesServiceRef.current || !addressString) {
       setCoordsFunc(null);
       form.setValue(formField, addressString);
       setInputValueFunc(addressString);
@@ -1320,7 +1324,7 @@ export default function BookRidePage() {
         }
       );
     });
-  }, [form, toast]);
+  }, [form, toast, isMapSdkLoaded]);
 
   const playSound = useCallback(async (type: 'start' | 'stop') => {
     if (!audioCtxRef.current) {
