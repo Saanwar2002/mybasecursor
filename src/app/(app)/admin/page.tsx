@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useState, useEffect } from 'react';
 import { getAdminActionItems, type AdminActionItemsInput, type ActionItem as AiActionItemType } from '@/ai/flows/admin-action-items-flow';
 import { AdminActionItemsDisplay } from '@/components/admin/AdminActionItemsDisplay';
-import { Badge } from '@/components/ui/badge'; // Added Badge import
+import { Badge } from '@/components/ui/badge';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
@@ -24,13 +24,13 @@ export default function AdminDashboardPage() {
       try {
         // Mock input data for the AI flow
         const mockInput: AdminActionItemsInput = {
-          pendingOperatorApprovals: Math.floor(Math.random() * 5) + 1, // 1 to 5
+          pendingOperatorApprovals: Math.floor(Math.random() * 5), // 0 to 4
           activeSystemAlerts: Math.floor(Math.random() * 3),       // 0 to 2
           unresolvedSupportTickets: Math.floor(Math.random() * 10), // 0 to 9
           recentFeatureFeedbackCount: Math.floor(Math.random() * 25),// 0 to 24
           platformLoadPercentage: Math.floor(Math.random() * 70) + 20, // 20 to 89
         };
-        setPendingOperatorCount(mockInput.pendingOperatorApprovals); // Set the count for the card
+        setPendingOperatorCount(mockInput.pendingOperatorApprovals); 
         const result = await getAdminActionItems(mockInput);
         setAdminActionItems(result.actionItems || []);
       } catch (error) {
@@ -129,7 +129,7 @@ interface FeatureCardProps {
   icon: React.ElementType;
   link: string;
   actionText: string;
-  notificationCount?: number; // Added notificationCount
+  notificationCount?: number;
 }
 
 function FeatureCard({ title, description, icon: Icon, link, actionText, notificationCount }: FeatureCardProps) {
