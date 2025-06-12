@@ -80,6 +80,13 @@ const bookingUpdateSchema = z.object({
   noShowFeeApplicable: z.boolean().optional(),
   cancellationFeeApplicable: z.boolean().optional(),
   cancellationType: z.string().optional(),
+  // Added updatedLegDetails to Zod schema for server-side validation/awareness
+  updatedLegDetails: z.object({
+    newLegIndex: z.number().int().min(0),
+    currentLegEntryTimestamp: z.boolean().optional(), // True if client wants server to set it
+    previousStopIndex: z.number().int().min(0).optional(), // For proceeding from a stop
+    waitingChargeForPreviousStop: z.number().min(0).optional(), // For proceeding from a stop
+  }).optional(),
 });
 
 export type BookingUpdatePayload = z.infer<typeof bookingUpdateSchema>;
@@ -186,6 +193,9 @@ export async function POST(request: NextRequest, context: PostContext) {
         // Firestore Timestamps
         bookingTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        driverCurrentLegIndex: 0, // Initial leg is pickup
+        currentLegEntryTimestamp: null,
+        completedStopWaitCharges: {},
       };
       
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Data to be written to Firestore (addDoc):`, JSON.stringify(newBookingData, null, 2));
@@ -201,6 +211,7 @@ export async function POST(request: NextRequest, context: PostContext) {
             ...newBookingSavedData,
             bookingTimestamp: serializeTimestamp(newBookingSavedData?.bookingTimestamp as Timestamp | undefined),
             updatedAt: serializeTimestamp(newBookingSavedData?.updatedAt as Timestamp | undefined),
+            currentLegEntryTimestamp: serializeTimestamp(newBookingSavedData?.currentLegEntryTimestamp as Timestamp | undefined),
         };
         return NextResponse.json({ message: 'Mock offer accepted, new booking created.', booking: responseData }, { status: 201 });
 
@@ -251,12 +262,46 @@ export async function POST(request: NextRequest, context: PostContext) {
             updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
           }
       } else if (updateDataFromPayload.action === 'start_ride') {
+          console.log(`API: Processing 'start_ride' for booking ${bookingIdForHandler}. Payload updatedLegDetails:`, updateDataFromPayload.updatedLegDetails);
           if (existingBookingDbData?.waitAndReturn === true && (existingBookingDbData?.status === 'pending_driver_wait_and_return_approval' || existingBookingDbData?.status === 'in_progress_wait_and_return' || existingBookingDbData?.status === 'arrived_at_pickup')) {
             updatePayloadFirestore.status = 'in_progress_wait_and_return';
           } else {
             updatePayloadFirestore.status = 'in_progress';
           }
           updatePayloadFirestore.rideStartedAtActual = Timestamp.now();
+          if (updateDataFromPayload.updatedLegDetails && updateDataFromPayload.updatedLegDetails.newLegIndex !== undefined) {
+              updatePayloadFirestore.driverCurrentLegIndex = updateDataFromPayload.updatedLegDetails.newLegIndex;
+              console.log(`API: Set driverCurrentLegIndex to ${updatePayloadFirestore.driverCurrentLegIndex} for 'start_ride'`);
+          } else {
+              // Fallback if not provided, though client should send it
+              updatePayloadFirestore.driverCurrentLegIndex = 1; 
+              console.warn(`API: 'start_ride' - updatedLegDetails.newLegIndex not provided by client for ${bookingIdForHandler}. Defaulting driverCurrentLegIndex to 1.`);
+          }
+          if (updateDataFromPayload.updatedLegDetails?.currentLegEntryTimestamp === true || !existingBookingDbData?.currentLegEntryTimestamp) {
+              updatePayloadFirestore.currentLegEntryTimestamp = Timestamp.now();
+              console.log(`API: Set currentLegEntryTimestamp for 'start_ride' for leg ${updatePayloadFirestore.driverCurrentLegIndex}`);
+          }
+          if (updateDataFromPayload.driverCurrentLocation) {
+            updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
+          }
+      } else if (updateDataFromPayload.action === 'proceed_to_next_leg') {
+          console.log(`API: Processing 'proceed_to_next_leg' for booking ${bookingIdForHandler}. Payload updatedLegDetails:`, updateDataFromPayload.updatedLegDetails);
+          if (updateDataFromPayload.updatedLegDetails && updateDataFromPayload.updatedLegDetails.newLegIndex !== undefined) {
+              updatePayloadFirestore.driverCurrentLegIndex = updateDataFromPayload.updatedLegDetails.newLegIndex;
+              if(updateDataFromPayload.updatedLegDetails.currentLegEntryTimestamp === true) {
+                  updatePayloadFirestore.currentLegEntryTimestamp = Timestamp.now();
+              }
+              console.log(`API: Set driverCurrentLegIndex to ${updatePayloadFirestore.driverCurrentLegIndex} and currentLegEntryTimestamp for 'proceed_to_next_leg'`);
+
+              // Store waiting charge for the *previous* stop
+              if (updateDataFromPayload.updatedLegDetails.previousStopIndex !== undefined && updateDataFromPayload.updatedLegDetails.waitingChargeForPreviousStop !== undefined) {
+                const chargeKey = `completedStopWaitCharges.${updateDataFromPayload.updatedLegDetails.previousStopIndex}`;
+                updatePayloadFirestore[chargeKey] = updateDataFromPayload.updatedLegDetails.waitingChargeForPreviousStop;
+                console.log(`API: Storing waiting charge for previous stop ${updateDataFromPayload.updatedLegDetails.previousStopIndex}: £${updateDataFromPayload.updatedLegDetails.waitingChargeForPreviousStop}`);
+              }
+          } else {
+              console.warn(`API: 'proceed_to_next_leg' - updatedLegDetails or newLegIndex not provided by client for ${bookingIdForHandler}. Leg index not updated.`);
+          }
           if (updateDataFromPayload.driverCurrentLocation) {
             updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
           }
@@ -266,14 +311,18 @@ export async function POST(request: NextRequest, context: PostContext) {
           if (updateDataFromPayload.finalFare !== undefined) {
               updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare;
           }
+          updatePayloadFirestore.currentLegEntryTimestamp = deleteField(); // Clear leg entry time
+          // driverCurrentLegIndex could be cleared or set to a "completed" sentinel if needed
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
           updatePayloadFirestore.cancelledAt = Timestamp.now();
+          updatePayloadFirestore.currentLegEntryTimestamp = deleteField();
       } else if (updateDataFromPayload.action === 'report_no_show') {
           updatePayloadFirestore.status = 'cancelled_no_show';
           updatePayloadFirestore.cancellationType = 'passenger_no_show';
           updatePayloadFirestore.noShowFeeApplicable = true;
           updatePayloadFirestore.cancelledAt = Timestamp.now();
+          updatePayloadFirestore.currentLegEntryTimestamp = deleteField();
       } else if (updateDataFromPayload.action === 'accept_wait_and_return') {
           updatePayloadFirestore.status = 'in_progress_wait_and_return';
           updatePayloadFirestore.waitAndReturn = true;
@@ -328,6 +377,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           passengerAcknowledgedArrivalTimestamp: serializeTimestamp(updatedData.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
           rideStartedAt: serializeTimestamp(updatedData.rideStartedAtActual as Timestamp | undefined),
           completedAt: serializeTimestamp(updatedData.completedAtActual as Timestamp | undefined),
+          currentLegEntryTimestamp: serializeTimestamp(updatedData.currentLegEntryTimestamp as Timestamp | undefined),
           driverCurrentLocation: updatedData.driverCurrentLocation, // This will be the GeoPoint object or null
       };
 
@@ -400,6 +450,7 @@ export async function GET(request: NextRequest, context: GetContext) {
         passengerAcknowledgedArrivalTimestamp: serializeTimestamp(data.passengerAcknowledgedArrivalTimestampActual as Timestamp | undefined),
         rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
         completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
+        currentLegEntryTimestamp: serializeTimestamp(data.currentLegEntryTimestamp as Timestamp | undefined),
         driverCurrentLocation: data.driverCurrentLocation, // This will be the GeoPoint object or null
     };
     return NextResponse.json({ booking: responseData }, { status: 200 });
