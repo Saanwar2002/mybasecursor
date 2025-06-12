@@ -1,6 +1,6 @@
 
 "use client";
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX } from "lucide-react";
@@ -66,6 +66,7 @@ interface Ride {
   isSurgeApplied?: boolean;
   notifiedPassengerArrivalTimestamp?: JsonTimestamp | null;
   passengerAcknowledgedArrivalTimestamp?: JsonTimestamp | null;
+  rideStartedAt?: JsonTimestamp | null; // Corrected from string to JsonTimestamp
   paymentMethod?: "card" | "cash";
 }
 
@@ -176,13 +177,28 @@ export default function MyRidesPage() {
   const displayedRides = allFetchedRides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver');
 
   const handleRateRide = (ride: Ride) => { setSelectedRideForRating(ride); setCurrentRating(ride.rating || 0); };
+  
   const submitRating = async () => {
     if (!selectedRideForRating || !user) return;
-    const updatedRides = allFetchedRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r);
-    setAllFetchedRides(updatedRides);
-    toast({ title: "Rating Submitted (Mock)", description: `You rated your ride ${currentRating} stars.`});
-    setSelectedRideForRating(null); setCurrentRating(0);
+    
+    // Mock: Update local state and show toast
+    setAllFetchedRides(prevRides => 
+      prevRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r)
+    );
+
+    let toastDescription = `You rated your ride ${currentRating} stars.`;
+    
+    toast({
+      title: "Rating Submitted (Mock)",
+      description: toastDescription,
+    });
+
+    setSelectedRideForRating(null);
+    setCurrentRating(0);
+    // In a real app, you would send this to your backend:
+    // await api.submitRating(selectedRideForRating.id, user.id, currentRating, tipAmount);
   };
+
 
   const handleOpenCancelDialog = (ride: Ride) => {
     toast({title: "Action Not Available", description: "Cancellation is handled on the 'My Active Ride' page for pending rides."});
@@ -300,8 +316,33 @@ export default function MyRidesPage() {
         ))}
       </div>
 
-      {selectedRideForRating && ( <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl"><div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRideForRating(null)} /><div className="relative bg-card rounded-lg p-6"><CardHeader><CardTitle>Rate ride with {selectedRideForRating.driver || 'driver'}</CardTitle><CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address}</CardDescription></CardHeader><CardContent className="flex justify-center space-x-1 py-4">{[...Array(5)].map((_, i) => (<Star key={i} className={`w-8 h-8 cursor-pointer ${i < currentRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`} onClick={() => setCurrentRating(i + 1)}/>))}</CardContent><CardFooter className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setSelectedRideForRating(null)}>Cancel</Button><Button onClick={submitRating} className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit</Button></CardFooter></div></Card> )}
+      {selectedRideForRating && ( 
+        <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl">
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRideForRating(null)} />
+          <div className="relative bg-card rounded-lg p-6">
+            <CardHeader>
+              <CardTitle>Rate ride with {selectedRideForRating.driver || 'driver'}</CardTitle>
+              <CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center space-x-1 py-2">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className={`w-8 h-8 cursor-pointer ${i < currentRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`} onClick={() => setCurrentRating(i + 1)}/>
+                ))}
+              </div>
+              <p className="text-sm text-center text-muted-foreground">
+                Enjoyed your ride? Consider tipping your driver directly next time!
+              </p>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setSelectedRideForRating(null)}>Cancel</Button>
+              <Button onClick={submitRating} className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit</Button>
+            </CardFooter>
+          </div>
+        </Card> 
+      )}
     </div>
   );
 }
 
+    
