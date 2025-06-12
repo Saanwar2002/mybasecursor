@@ -185,7 +185,7 @@ interface DispatchDisplayInfo {
   bgColorClassName: string;
 }
 
-function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
+function formatAddressForMapLabel(fullAddress: string, type: string): string { // Changed type from 'Pickup' | 'Dropoff' to string
   if (!fullAddress) return `${type}:\nN/A`;
 
   let addressRemainder = fullAddress;
@@ -286,7 +286,6 @@ export default function AvailableRidesPage() {
   const [consecutiveMissedOffers, setConsecutiveMissedOffers] = useState(0);
   const MAX_CONSECUTIVE_MISSED_OFFERS = 3;
 
-  const [customMapLabel, setCustomMapLabel] = useState<{ position: google.maps.LatLngLiteral; content: string; type: LabelType } | null>(null);
   const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
 
 
@@ -307,6 +306,7 @@ export default function AvailableRidesPage() {
   const [isAccountPinDialogOpen, setIsAccountPinDialogOpen] = useState(false);
   const [enteredAccountPin, setEnteredAccountPin] = useState("");
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
 
 
   const fetchActiveHazards = useCallback(async () => {
@@ -365,14 +365,6 @@ export default function AvailableRidesPage() {
           labelType = 'dropoff';
         }
       }
-
-      if (labelPosition && labelContent) {
-        setCustomMapLabel({ position: labelPosition, content: labelContent, type: labelType });
-      } else {
-        setCustomMapLabel(null);
-      }
-    } else {
-      setCustomMapLabel(null);
     }
   }, [activeRide]);
 
@@ -1202,13 +1194,16 @@ export default function AvailableRidesPage() {
           notes: serverData.notes || prev.notes,
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
-          driverCurrentLocation: serverData.driverCurrentLocation || driverLocation,
+          driverCurrentLocation: serverData.driverCurrentLocation, 
           accountJobPin: serverData.accountJobPin || prev.accountJobPin,
           distanceMiles: serverData.distanceMiles || prev.distanceMiles, 
           cancellationFeeApplicable: serverData.cancellationFeeApplicable,
           noShowFeeApplicable: serverData.noShowFeeApplicable,
           cancellationType: serverData.cancellationType,
         };
+        if (newClientState.driverCurrentLocation === undefined) {
+           newClientState.driverCurrentLocation = driverLocation; // Fallback to last known driver location
+        }
         console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
         return newClientState;
       });
@@ -1273,23 +1268,59 @@ export default function AvailableRidesPage() {
     }
   };
 
-  const memoizedMapMarkers = useMemo(() => {
-    if (!activeRide && !isDriverOnline) return [];
-    let baseMarkers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+  const mapDisplayElements = useMemo(() => {
+    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
+
+    const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
+        ? driverLocation
+        : activeRide?.driverCurrentLocation;
+
+    if (currentLocToDisplay) {
+        markers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+    }
 
     if (activeRide) {
-        const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
-            ? driverLocation
-            : activeRide.driverCurrentLocation;
+        const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
 
-        if (currentLocToDisplay) {
-            baseMarkers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+        if (activeRide.pickupLocation) {
+          markers.push({
+            position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
+            title: `Pickup: ${activeRide.pickupLocation.address}`,
+            label: { text: "P", color: "white", fontWeight: "bold"}
+          });
+          labels.push({
+            position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
+            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+            type: 'pickup'
+          });
         }
-        if (activeRide.pickupLocation) { baseMarkers.push({ position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude}, title: `Pickup: ${activeRide.pickupLocation.address}`, label: { text: "P", color: "white", fontWeight: "bold"} }); }
-        if ((activeRide.status.toLowerCase().includes('in_progress') || activeRide.status === 'completed') && activeRide.dropoffLocation) { baseMarkers.push({ position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude}, title: `Dropoff: ${activeRide.dropoffLocation.address}`, label: { text: "D", color: "white", fontWeight: "bold" } }); }
-        activeRide.stops?.forEach((stop, index) => { if(stop.latitude && stop.longitude) { baseMarkers.push({ position: {lat: stop.latitude, lng: stop.longitude}, title: `Stop ${index + 1}: ${stop.address}`, label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" } }); } });
-    } else if (isDriverOnline && driverLocation) {
-        baseMarkers.push({ position: driverLocation, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+        if (activeRide.dropoffLocation && isActiveRideState) {
+          markers.push({
+            position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
+            title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+            label: { text: "D", color: "white", fontWeight: "bold" }
+          });
+          labels.push({
+            position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+            content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+            type: 'dropoff'
+          });
+        }
+        activeRide.stops?.forEach((stop, index) => {
+          if(stop.latitude && stop.longitude && isActiveRideState) {
+            markers.push({
+              position: {lat: stop.latitude, lng: stop.longitude},
+              title: `Stop ${index+1}: ${stop.address}`,
+              label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+            });
+            labels.push({
+                position: { lat: stop.latitude, lng: stop.longitude },
+                content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+                type: 'stop'
+            });
+          }
+        });
     }
 
     const hazardMarkers = activeMapHazards.map(hazard => ({
@@ -1298,7 +1329,7 @@ export default function AvailableRidesPage() {
       label: { text: getHazardMarkerLabel(hazard.hazardType), color: 'black', fontWeight: 'bold', fontSize: '11px' },
     }));
 
-    return [...baseMarkers, ...hazardMarkers];
+    return { markers: [...markers, ...hazardMarkers], labels };
   }, [activeRide, driverLocation, isDriverOnline, activeMapHazards]);
 
   const memoizedMapCenter = useMemo(() => {
@@ -1523,7 +1554,7 @@ export default function AvailableRidesPage() {
       <div className="flex flex-col h-full">
         {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus && (
         <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
-            <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={memoizedMapMarkers} customMapLabel={customMapLabel} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} />
+            <GoogleMapDisplay center={memoizedMapCenter} zoom={14} markers={mapDisplayElements.markers} customMapLabels={mapDisplayElements.labels} className="w-full h-full" disableDefaultUI={true} fitBoundsToMarkers={true} onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && window.google?.maps) CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); }} />
             <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
                 <Button
                     variant="default" size="icon"
@@ -1973,7 +2004,7 @@ export default function AvailableRidesPage() {
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
   return ( <div className="flex flex-col h-full space-y-2">
     <div className={mapContainerClasses}>
-        <GoogleMapDisplay center={driverLocation} zoom={13} markers={memoizedMapMarkers} customMapLabel={customMapLabel} className="w-full h-full" disableDefaultUI={true} />
+        <GoogleMapDisplay center={driverLocation} zoom={13} markers={mapDisplayElements.markers} customMapLabels={mapDisplayElements.labels} className="w-full h-full" disableDefaultUI={true} onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && window.google?.maps) CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); }} />
         <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
             <Button
                 variant="default" size="icon"
@@ -2283,4 +2314,3 @@ export default function AvailableRidesPage() {
         </Dialog>
   </div> );
 }
-
