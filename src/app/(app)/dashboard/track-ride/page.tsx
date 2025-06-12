@@ -164,7 +164,7 @@ const formatTimerPassenger = (totalSeconds: number): string => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff'): string {
+function formatAddressForMapLabel(fullAddress: string, type: string): string { // Changed type to string
     if (!fullAddress) return `${type}:\nN/A`;
 
     let addressRemainder = fullAddress;
@@ -179,13 +179,13 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
     }
     
     const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-    let street = parts[0] || "Location Details"; // Fallback if no parts
+    let street = parts[0] || "Location Details"; 
     let area = parts[1] || ""; 
 
-    if (parts.length > 2 && area.length <=3) { // If area is very short (like 'S' or 'N') and there are more parts, use next part for area
+    if (parts.length > 2 && area.length <=3) { 
         area = parts[2];
-    } else if (parts.length === 1 && outwardPostcode && street === outwardPostcode) { // e.g. "HD1" "HD1"
-        street = "Area"; // Set street to something generic if only postcode was the "street" part
+    } else if (parts.length === 1 && outwardPostcode && street === outwardPostcode) { 
+        street = "Area"; 
     }
 
     let locationLine = area;
@@ -193,10 +193,9 @@ function formatAddressForMapLabel(fullAddress: string, type: 'Pickup' | 'Dropoff
         locationLine = area ? `${area} ${outwardPostcode}` : outwardPostcode;
     }
     
-    // Avoid "Location Details" if we have a better location line
     if (street === "Location Details" && locationLine.trim()) street = "";
 
-    let finalLabel = `${type}:`;
+    let finalLabel = `${type}:`; // Use the passed type directly
     if (street) finalLabel += `\n${street}`;
     if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`;
     
@@ -217,13 +216,13 @@ const PET_FRIENDLY_SURCHARGE = 2.00;
 function deg2rad(deg: number): number { return deg * (Math.PI / 180); }
 function getDistanceInMiles(coords1: google.maps.LatLngLiteral | null, coords2: google.maps.LatLngLiteral | null): number {
   if (!coords1 || !coords2) return 0;
-  const R = 6371; // Radius of the earth in km
+  const R = 6371; 
   const dLat = deg2rad(coords2.lat - coords1.lat);
   const dLon = deg2rad(coords2.lng - coords1.lng);
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(coords1.lat)) * Math.cos(deg2rad(coords2.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d * 0.621371; // Convert km to miles
+  const d = R * c; 
+  return d * 0.621371; 
 }
 
 
@@ -780,6 +779,8 @@ export default function MyActiveRidePage() {
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
 
     if (!activeRide) return { markers, labels };
+    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
+
 
     if (activeRide.driverCurrentLocation) {
         markers.push({ 
@@ -800,8 +801,6 @@ export default function MyActiveRidePage() {
             });
         }
     }
-
-    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
 
     if (activeRide.pickupLocation) {
       markers.push({
@@ -828,11 +827,16 @@ export default function MyActiveRidePage() {
       });
     }
     activeRide.stops?.forEach((stop, index) => {
-      if(stop.latitude && stop.longitude) {
+      if(stop.latitude && stop.longitude && isActiveRideState) { // Only show stop markers/labels for active rides
         markers.push({
           position: {lat: stop.latitude, lng: stop.longitude},
           title: `Stop ${index+1}: ${stop.address}`,
           label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+        });
+        labels.push({
+            position: { lat: stop.latitude, lng: stop.longitude },
+            content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+            type: 'stop'
         });
       }
     });
