@@ -964,27 +964,6 @@ export default function MyActiveRidePage() {
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
-  const renderCancelAlertDialogActionContent = () => {
-    const currentActionId = activeRide ? activeRide.id : '';
-    const isLoadingSpecificAction = activeRide ? (actionLoading[currentActionId] || false) : false;
-  
-    if (isLoadingSpecificAction) {
-      return (
-        <>
-          <Loader2 className="animate-spin mr-2 h-4 w-4" />
-          Cancelling...
-        </>
-      );
-    } else {
-      return (
-        <>
-          <ShieldX className="mr-2 h-4 w-4" />
-          Confirm Cancel
-        </>
-      );
-    }
-  };
-
 
   return (
     <div className="space-y-6">
@@ -1137,24 +1116,33 @@ export default function MyActiveRidePage() {
       >
         <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle><span>Are you sure?</span></AlertDialogTitle>
-              <AlertDialogDescription><span>This will cancel your ride request. This action cannot be undone.</span></AlertDialogDescription>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
                     onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-                    disabled={activeRide ? actionLoading[activeRide.id] : false}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
-                 Keep Ride
+                 <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
                     if (activeRide) { handleInitiateCancelRide(); }
                   }}
-                  disabled={!activeRide || (actionLoading[activeRide?.id || ''] || false)}
+                  disabled={!activeRide || (!!actionLoading[activeRide?.id || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                 {renderCancelAlertDialogActionContent()}
+                 <div>
+                    <span style={{ display: (activeRide && actionLoading[activeRide.id]) ? 'inline-flex' : 'none' }} className="items-center">
+                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                        Cancelling...
+                    </span>
+                    <span style={{ display: !(activeRide && actionLoading[activeRide.id]) ? 'inline-flex' : 'none' }} className="items-center">
+                        <ShieldX className="mr-2 h-4 w-4" />
+                        Confirm Cancel
+                    </span>
+                  </div>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
