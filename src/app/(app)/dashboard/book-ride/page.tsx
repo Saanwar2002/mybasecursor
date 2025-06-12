@@ -191,6 +191,8 @@ function getDistanceInMiles(
   return d * 0.621371;
 }
 
+type AvailabilityStatusLevel = 'available' | 'high_demand' | 'unavailable' | 'loading';
+
 export default function BookRidePage() {
   const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
   const [totalFareEstimate, setTotalFareEstimate] = useState<number | null>(null);
@@ -240,10 +242,10 @@ export default function BookRidePage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(true);
   const [availabilityStatusMessage, setAvailabilityStatusMessage] = useState("Checking availability in your area...");
+  const [availabilityStatusLevel, setAvailabilityStatusLevel] = useState<AvailabilityStatusLevel>('loading');
   const [mapBusynessLevel, setMapBusynessLevel] = useState<'idle' | 'moderate' | 'high'>('idle');
-  const [isNoDriversAvailableMock, setIsNoDriversAvailableMock] = useState(false);
+  
 
   const searchParams = useSearchParams();
   const operatorPreference = searchParams.get('operator_preference');
@@ -343,8 +345,7 @@ export default function BookRidePage() {
   }, [isPriorityFeeDialogOpen]);
 
  useEffect(() => {
-    setIsCheckingAvailability(true);
-    setIsNoDriversAvailableMock(false);
+    setAvailabilityStatusLevel('loading');
     let message = "Checking availability...";
     setAvailabilityStatusMessage(message);
 
@@ -358,10 +359,11 @@ export default function BookRidePage() {
 
     const timer = setTimeout(() => {
         const noDriversOverall = Math.random() < 0.2; 
+        let currentLevel: AvailabilityStatusLevel = 'available';
 
         if (noDriversOverall) {
             message = "Currently, no drivers are available in your area. Please try again shortly. (Mock)";
-            setIsNoDriversAvailableMock(true);
+            currentLevel = 'unavailable';
         } else {
             const randomWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
             if (operatorPreference) {
@@ -371,15 +373,17 @@ export default function BookRidePage() {
 
                 if (preferredOpAvailable) {
                     message = `${preferredOpDisplayName} driver available. Est. wait: ~${randomWait}. (Mock)`;
+                    currentLevel = 'available';
                 } else { 
                     const fallbackOpCandidates = mockOperators.filter(op => (op.id !== operatorPreference && op.name !== operatorPreference));
                     if (fallbackOpCandidates.length > 0) {
                         const fallbackOp = fallbackOpCandidates[Math.floor(Math.random() * fallbackOpCandidates.length)];
                         const fallbackWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
                         message = `Drivers from ${preferredOpDisplayName} are currently experiencing high demand. However, a ${fallbackOp.name} driver is available in ~${fallbackWait}. (Mock)`;
+                        currentLevel = 'high_demand';
                     } else {
                         message = `Drivers from ${preferredOpDisplayName} are currently experiencing very high demand and no other drivers are available at the moment. Please try again soon. (Mock)`;
-                        setIsNoDriversAvailableMock(true);
+                        currentLevel = 'unavailable';
                     }
                 }
             } else { 
@@ -390,10 +394,15 @@ export default function BookRidePage() {
                 } else {
                      message = `MyBase driver available. Est. wait: ~${randomWait}. (Mock)`;
                 }
+                currentLevel = 'available'; // Assume available if no preference and not overall unavailable
+                 if (Math.random() < 0.25) { // Simulate a chance of high demand even for general pool
+                    message = `Area experiencing high demand. Estimated wait: ~${randomWaitTimes[randomWaitTimes.length -1]}. (Mock)`;
+                    currentLevel = 'high_demand';
+                }
             }
         }
         setAvailabilityStatusMessage(message);
-        setIsCheckingAvailability(false);
+        setAvailabilityStatusLevel(currentLevel);
     }, 1500);
 
     return () => clearTimeout(timer);
@@ -1771,20 +1780,24 @@ const handleProceedToConfirmation = async () => {
 
             <Card className={cn(
                 "mb-4 shadow-sm",
-                isNoDriversAvailableMock ? "bg-red-500/10 border-red-500/30" : "bg-primary/5 border-primary/20"
+                availabilityStatusLevel === 'unavailable' && "bg-red-500",
+                availabilityStatusLevel === 'high_demand' && "bg-yellow-500",
+                availabilityStatusLevel === 'available' && "bg-green-500",
+                availabilityStatusLevel === 'loading' && "bg-primary/5 border-primary/20"
                 )}>
                 <CardContent className="p-3 text-center">
-                    {isCheckingAvailability ? (
+                    {availabilityStatusLevel === 'loading' ? (
                         <div className="flex items-center justify-center text-sm text-primary">
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             {availabilityStatusMessage}
                         </div>
                     ) : (
                         <p className={cn(
-                            "text-sm font-medium flex items-center justify-center gap-1.5",
-                            isNoDriversAvailableMock ? "text-red-600" : "text-primary"
+                            "text-sm font-bold flex items-center justify-center gap-1.5 text-white",
                             )}>
-                           {isNoDriversAvailableMock ? <AlertTriangle className="w-4 h-4" /> : <BadgeCheck className="w-4 h-4 text-green-500" />}
+                           {availabilityStatusLevel === 'unavailable' && <AlertTriangle className="w-4 h-4 text-white" />}
+                           {availabilityStatusLevel === 'high_demand' && <AlertTriangle className="w-4 h-4 text-white" />}
+                           {availabilityStatusLevel === 'available' && <BadgeCheck className="w-4 h-4 text-white" />}
                            {availabilityStatusMessage}
                         </p>
                     )}
@@ -2213,10 +2226,10 @@ const handleProceedToConfirmation = async () => {
                     type="button"
                     onClick={handleProceedToConfirmation}
                     className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3 mt-8"
-                    disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords || isLoadingSurgeSetting || isNoDriversAvailableMock}
+                    disabled={anyFetchingDetails || isBooking || !pickupCoords || !dropoffCoords || isLoadingSurgeSetting || availabilityStatusLevel === 'unavailable' || availabilityStatusLevel === 'loading'}
                   >
-                     {isLoadingSurgeSetting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" /> }
-                     {isLoadingSurgeSetting ? 'Loading Settings...' : 'Review & Confirm Ride'}
+                     {isLoadingSurgeSetting || availabilityStatusLevel === 'loading' ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" /> }
+                     {isLoadingSurgeSetting || availabilityStatusLevel === 'loading' ? 'Loading Settings...' : 'Review & Confirm Ride'}
                   </Button>
 
                   <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
