@@ -36,6 +36,11 @@ const offerDetailsSchema = z.object({
   pickupCoords: z.object({ lat: z.number(), lng: z.number() }),
   dropoffLocation: z.string(),
   dropoffCoords: z.object({ lat: z.number(), lng: z.number() }),
+  stops: z.array(z.object({ // Structure of stops within an offer
+    address: z.string(),
+    coords: z.object({ lat: z.number(), lng: z.number() }),
+    // doorOrFlat could be added here if offers can specify it for stops
+  })).optional(),
   fareEstimate: z.number(),
   passengerCount: z.number(),
   passengerId: z.string(),
@@ -150,6 +155,13 @@ export async function POST(request: NextRequest, context: PostContext) {
             latitude: offer.dropoffCoords.lat, 
             longitude: offer.dropoffCoords.lng 
         },
+        // Correctly map stops from offer structure to booking structure
+        stops: offer.stops ? offer.stops.map(s => ({
+          address: s.address,
+          latitude: s.coords.lat,
+          longitude: s.coords.lng,
+          // doorOrFlat: s.doorOrFlat, // Uncomment if RideOffer stops can have doorOrFlat
+        })) : [],
         fareEstimate: offer.fareEstimate,
         passengers: offer.passengerCount,
         paymentMethod: offer.paymentMethod ?? 'card',
