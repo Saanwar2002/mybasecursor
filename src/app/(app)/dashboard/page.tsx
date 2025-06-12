@@ -87,7 +87,7 @@ export default function PassengerDashboardPage() {
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="app_chooses" id="app_chooses" />
-                  <Label htmlFor="app_chooses" className="font-normal">Let MyBase find driver</Label> 
+                  <Label htmlFor="app_chooses" className="font-normal">Let MyBase App Find Me Driver</Label> 
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="specific_operator" id="specific_operator" />
@@ -196,3 +196,4 @@ function FeatureCard({ title, description, icon: Icon, link, actionText }: Featu
     </Card>
   );
 }
+
