@@ -70,7 +70,7 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
         this.div.style.fontSize = '10px'; // Reduced font size
         this.div.style.fontWeight = '500';
       } else if (this.type === 'stop') {
-        this.div.style.background = 'rgb(250, 204, 21)'; // Brighter Yellow (Tailwind yellow-400 equivalent)
+        this.div.style.background = 'rgb(255, 235, 59)'; // Brighter Yellow (e.g., Material Yellow 500)
         this.div.style.border = '1px solid rgba(0, 0, 0, 0.2)';
         this.div.style.color = '#000000'; // Black text for yellow background
         this.div.style.fontSize = '10px';
