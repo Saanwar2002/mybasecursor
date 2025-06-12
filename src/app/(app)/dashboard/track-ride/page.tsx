@@ -238,7 +238,7 @@ export default function MyActiveRidePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false); // Not directly used, actionLoading handles this
   const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
 
@@ -490,17 +490,18 @@ export default function MyActiveRidePage() {
 
   const handleInitiateCancelRide = async () => {
     if (!activeRide || !user) return;
-    setActionLoading(prev => ({ ...prev, [activeRide.id]: true }));
+    const rideIdToCancel = activeRide.id; 
+    setActionLoading(prev => ({ ...prev, [rideIdToCancel]: true }));
     try {
-      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: activeRide.id, passengerId: user.id })});
+      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: rideIdToCancel, passengerId: user.id })});
       if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
-      toast({ title: "Ride Cancelled", description: `Your ride ${activeRide.id} has been cancelled.` });
+      toast({ title: "Ride Cancelled", description: `Your ride ${rideIdToCancel} has been cancelled.` });
       setActiveRide(null);
       setShowCancelConfirmationDialog(false); 
       setIsCancelSwitchOn(false);
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
     } finally {
-        if (activeRide) setActionLoading(prev => ({ ...prev, [activeRide.id]: false }));
+        setActionLoading(prev => ({ ...prev, [rideIdToCancel]: false }));
     }
   };
 
@@ -1133,11 +1134,17 @@ export default function MyActiveRidePage() {
                   disabled={!activeRide || (!!actionLoading[activeRide?.id || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                 <span>
-                    {activeRide && actionLoading[activeRide.id] ? (
-                      <><Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 inline-flex" />Cancelling...</>
+                  <span className="flex items-center justify-center">
+                    {(activeRide && actionLoading[activeRide.id]) ? (
+                      [
+                        <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />,
+                        <span key="text-loader-cancel">Cancelling...</span>
+                      ]
                     ) : (
-                      <><ShieldX className="-ml-1 mr-2 h-4 w-4 inline-flex" />Confirm Cancel</>
+                      [
+                        <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />,
+                        <span key="text-icon-cancel">Confirm Cancel</span>
+                      ]
                     )}
                   </span>
                 </AlertDialogAction>
