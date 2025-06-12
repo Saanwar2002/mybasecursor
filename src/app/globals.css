@@ -5,18 +5,18 @@
 
 @layer base {
   :root {
-    /* Neutral Light Theme */
-    --background: 0 0% 100%; /* White */
+    /* Light Theme from PRD */
+    --background: 220 20% 95%; /* Light gray (#F0F2F5) */
     --foreground: 220 40% 10%; /* Dark Grey */
 
-    --card: 0 0% 98%; /* Slightly Off-White */
+    --card: 0 0% 100%; /* White for cards to stand out on light gray */
     --card-foreground: 220 40% 10%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 220 40% 10%;
 
-    --primary: 220 60% 55%; /* Neutral Blue */
-    --primary-foreground: 0 0% 100%; /* White text on neutral blue */
+    --primary: 220 60% 75%; /* Soft blue (#A0B4E8) */
+    --primary-foreground: 220 40% 10%; /* Dark Grey for text on soft blue */
 
     --secondary: 220 10% 92%; 
     --secondary-foreground: 220 40% 10%;
@@ -24,62 +24,62 @@
     --muted: 220 10% 88%;
     --muted-foreground: 220 25% 45%;
 
-    --accent: 250 60% 60%; /* Complementary Purple */
-    --accent-foreground: 0 0% 100%; 
+    --accent: 270 40% 65%; /* Muted purple (#B08BCD) */
+    --accent-foreground: 0 0% 100%; /* White text on muted purple */
 
     --destructive: 0 72% 51%; /* Standard Red */
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 10% 90%;
-    --input: 220 10% 94%;
-    --ring: 220 60% 55%; /* Ring color matching neutral blue */
+    --input: 0 0% 100%; /* White inputs for clarity on light gray */
+    --ring: 220 60% 75%; /* Ring color matching primary soft blue */
 
     --radius: 0.5rem;
 
     /* Chart colors for light theme - can be adjusted */
-    --chart-1: 220 60% 55%; /* Primary Blue */
-    --chart-2: 250 60% 60%; /* Accent Purple */
+    --chart-1: 220 60% 75%; /* Primary Blue */
+    --chart-2: 270 40% 65%; /* Accent Purple */
     --chart-3: 30 80% 60%; /* Orange */
     --chart-4: 150 60% 55%; /* Green */
     --chart-5: 200 70% 60%; /* Teal */
   }
 
   .dark {
-    /* Dark Blue & Gold Theme */
-    --background: 220 40% 12%; /* Dark Blue */
-    --foreground: 210 30% 92%; /* Light Off-White */
+    /* Dark Blue & Gold Theme (Existing - Retained as PRD doesn't specify dark theme) */
+    --background: 220 40% 12%; 
+    --foreground: 210 30% 92%; 
 
-    --card: 220 40% 16%; /* Slightly Lighter Dark Blue for cards */
+    --card: 220 40% 16%; 
     --card-foreground: 210 30% 92%;
 
-    --popover: 220 40% 10%; /* Even Darker Blue for popovers */
+    --popover: 220 40% 10%; 
     --popover-foreground: 210 30% 92%;
 
-    --primary: 45 85% 60%; /* Vibrant Gold */
-    --primary-foreground: 45 100% 10%; /* Very Dark Brown/Black for text on gold */
+    --primary: 45 85% 60%; 
+    --primary-foreground: 45 100% 10%; 
 
-    --secondary: 220 40% 25%; /* Muted Dark Blue for secondary elements */
-    --secondary-foreground: 210 30% 80%; /* Slightly dimmer text for secondary */
+    --secondary: 220 40% 25%; 
+    --secondary-foreground: 210 30% 80%; 
 
-    --muted: 220 40% 20%; /* Muted Dark Blue for less emphasis */
-    --muted-foreground: 210 30% 65%; /* Muted text */
+    --muted: 220 40% 20%; 
+    --muted-foreground: 210 30% 65%; 
 
-    --accent: 40 75% 65%; /* Slightly different/softer Gold for general accents */
-    --accent-foreground: 40 100% 10%; /* Very Dark Brown/Black for text on accent gold */
+    --accent: 40 75% 65%; 
+    --accent-foreground: 40 100% 10%; 
 
-    --destructive: 0 70% 55%; /* A standard red for destructive actions */
-    --destructive-foreground: 0 0% 100%; /* White text on red */
+    --destructive: 0 70% 55%; 
+    --destructive-foreground: 0 0% 100%; 
 
-    --border: 220 40% 30%; /* Dark Blue border */
-    --input: 220 40% 20%; /* Muted Dark Blue for input backgrounds */
-    --ring: 45 85% 65%; /* Gold for focus rings, slightly lighter than primary */
+    --border: 220 40% 30%; 
+    --input: 220 40% 20%; 
+    --ring: 45 85% 65%; 
     
     /* Chart colors for dark theme */
-    --chart-1: 45 85% 60%; /* Primary Gold */
-    --chart-2: 40 75% 65%; /* Accent Gold */
-    --chart-3: 35 70% 70%; /* A lighter, slightly desaturated gold */
-    --chart-4: 210 30% 70%; /* A light blue/grey from the foreground palette for contrast */
-    --chart-5: 220 40% 60%; /* A muted blue for contrast */
+    --chart-1: 45 85% 60%; 
+    --chart-2: 40 75% 65%; 
+    --chart-3: 35 70% 70%; 
+    --chart-4: 210 30% 70%; 
+    --chart-5: 220 40% 60%; 
   }
 
   * {

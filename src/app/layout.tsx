@@ -1,14 +1,18 @@
+
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { PT_Sans } from "next/font/google"; // Changed from Inter to PT_Sans
 import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
-import { ThemeInitializer } from "@/components/theme-provider"; // Corrected to ThemeInitializer
+import { ThemeInitializer } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({ subsets: ["latin"] });
+const ptSans = PT_Sans({ // Initialize PT Sans
+  subsets: ["latin"],
+  weight: ["400", "700"] // Include weights you need
+});
 
 export const metadata: Metadata = {
-  title: "MyBase App",
+  title: "MyBase App", // Corrected App Name if necessary
   description: "The ultimate taxi app solution.",
 };
 
@@ -19,9 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={ptSans.className}> {/* Apply PT Sans class */}
         <AuthProvider>
-          <ThemeInitializer> {/* Corrected to ThemeInitializer */}
+          <ThemeInitializer>
             <Toaster />
             {children}
           </ThemeInitializer>
