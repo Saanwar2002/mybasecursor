@@ -70,7 +70,7 @@ export default function PassengerDashboardPage() {
         <CardContent className="flex flex-col items-center gap-6">
           <div className="w-full space-y-4">
             <p className="text-lg text-center md:text-left">
-              Ready for your next journey? Choose your preference below.
+              Ride with confidence! MyBase ensures your driver receives 100% of the fare and any tips you give. We take no commission from their earnings on your journey.
             </p>
 
             <div className="space-y-3 p-4 border bg-muted/30 rounded-lg">
