@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, AlertTriangle, DollarSign, Loader2, Save, Users, Briefcase } from "lucide-react";
+import { Settings, AlertTriangle, DollarSign, Loader2, Save, Users, Briefcase, Globe, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,9 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+
 
 const commissionRateSchema = z.coerce
   .number({ invalid_type_error: "Must be a number" })
@@ -34,13 +37,39 @@ interface CommissionData {
     lastUpdated?: string | null;
 }
 
+const generalSettingsFormSchema = z.object({
+  defaultCurrency: z.enum(['GBP', 'USD', 'EUR'], {
+    errorMap: () => ({ message: "Please select a valid currency." }),
+  }),
+  platformMinimumFare: z.coerce
+    .number({ invalid_type_error: "Minimum fare must be a number." })
+    .min(0, "Minimum fare cannot be negative.")
+    .max(100, "Minimum fare seems too high (max £100)."),
+});
+type GeneralSettingsFormValues = z.infer<typeof generalSettingsFormSchema>;
+
+interface GeneralSettingsData {
+  defaultCurrency: 'GBP' | 'USD' | 'EUR';
+  platformMinimumFare: number;
+  lastUpdated?: string;
+}
+
+
 export default function AdminGlobalSettingsPage() {
   const { toast } = useToast();
+  // Commission States
   const [commissionData, setCommissionData] = useState<CommissionData>({});
   const [isLoadingCommission, setIsLoadingCommission] = useState(true);
   const [isSavingDirect, setIsSavingDirect] = useState(false);
   const [isSavingOperator, setIsSavingOperator] = useState(false);
   const [errorCommission, setErrorCommission] = useState<string | null>(null);
+
+  // General Settings States
+  const [generalSettingsData, setGeneralSettingsData] = useState<GeneralSettingsData | null>(null);
+  const [isLoadingGeneral, setIsLoadingGeneral] = useState(true);
+  const [isSavingGeneral, setIsSavingGeneral] = useState(false);
+  const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
+
 
   const directDriversForm = useForm<DirectDriversFormValues>({
     resolver: zodResolver(directDriversFormSchema),
@@ -51,6 +80,12 @@ export default function AdminGlobalSettingsPage() {
     resolver: zodResolver(operatorAffiliatedFormSchema),
     defaultValues: { operatorAffiliatedRatePercentage: 0 },
   });
+  
+  const generalSettingsForm = useForm<GeneralSettingsFormValues>({
+    resolver: zodResolver(generalSettingsFormSchema),
+    defaultValues: { defaultCurrency: 'GBP', platformMinimumFare: 0 },
+  });
+
 
   const fetchCommissionRates = useCallback(async () => {
     setIsLoadingCommission(true);
@@ -78,9 +113,35 @@ export default function AdminGlobalSettingsPage() {
     }
   }, [toast, directDriversForm, operatorAffiliatedForm]);
 
+  const fetchGeneralSettings = useCallback(async () => {
+    setIsLoadingGeneral(true);
+    setErrorGeneral(null);
+    try {
+      const response = await fetch('/api/admin/settings/general');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: 'Failed to load general settings.' }));
+        throw new Error(errData.message);
+      }
+      const data: GeneralSettingsData = await response.json();
+      setGeneralSettingsData(data);
+      generalSettingsForm.reset({
+        defaultCurrency: data.defaultCurrency,
+        platformMinimumFare: data.platformMinimumFare,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not load general settings.";
+      setErrorGeneral(message);
+      toast({ title: "Error Loading General Settings", description: message, variant: "destructive" });
+    } finally {
+      setIsLoadingGeneral(false);
+    }
+  }, [toast, generalSettingsForm]);
+
+
   useEffect(() => {
     fetchCommissionRates();
-  }, [fetchCommissionRates]);
+    fetchGeneralSettings();
+  }, [fetchCommissionRates, fetchGeneralSettings]);
 
   async function onSubmitDirectRate(values: DirectDriversFormValues) {
     setIsSavingDirect(true);
@@ -144,6 +205,36 @@ export default function AdminGlobalSettingsPage() {
     }
   }
 
+  async function onSubmitGeneralSettings(values: GeneralSettingsFormValues) {
+    setIsSavingGeneral(true);
+    setErrorGeneral(null);
+    try {
+      const response = await fetch('/api/admin/settings/general', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: 'Failed to save general settings.' }));
+        throw new Error(errData.message);
+      }
+      const data = await response.json();
+      setGeneralSettingsData(data.settings);
+      generalSettingsForm.reset({
+        defaultCurrency: data.settings.defaultCurrency,
+        platformMinimumFare: data.settings.platformMinimumFare,
+      });
+      toast({ title: "General Settings Saved", description: "Platform currency and minimum fare updated." });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save general settings.";
+      setErrorGeneral(message);
+      toast({ title: "Error Saving General Settings", description: message, variant: "destructive" });
+    } finally {
+      setIsSavingGeneral(false);
+    }
+  }
+
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -156,6 +247,62 @@ export default function AdminGlobalSettingsPage() {
           </CardDescription>
         </CardHeader>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-headline flex items-center gap-2"><Globe className="w-5 h-5 text-primary-foreground bg-primary p-0.5 rounded-sm"/> General Platform Configuration</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingGeneral ? (
+            <div className="flex items-center justify-center p-6"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : errorGeneral ? (
+            <div className="text-red-600 flex items-center gap-2 p-3 bg-red-50 rounded-md">
+              <AlertTriangle className="w-5 h-5" /> <p>Error: {errorGeneral}</p>
+              <Button onClick={fetchGeneralSettings} variant="outline" size="sm">Retry</Button>
+            </div>
+          ) : (
+            <Form {...generalSettingsForm}>
+              <form onSubmit={generalSettingsForm.handleSubmit(onSubmitGeneralSettings)} className="space-y-4">
+                <FormField
+                  control={generalSettingsForm.control}
+                  name="defaultCurrency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Default Currency</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isSavingGeneral}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select default currency" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="GBP">GBP (£ - Pound Sterling)</SelectItem>
+                          <SelectItem value="USD">USD ($ - US Dollar)</SelectItem>
+                          <SelectItem value="EUR">EUR (€ - Euro)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={generalSettingsForm.control}
+                  name="platformMinimumFare"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Platform Minimum Fare ({generalSettingsForm.getValues('defaultCurrency')})</FormLabel>
+                      <FormControl><Input type="number" step="0.01" placeholder="e.g., 3.50" {...field} disabled={isSavingGeneral} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" disabled={isSavingGeneral} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  {isSavingGeneral ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save General Settings
+                </Button>
+              </form>
+            </Form>
+          )}
+        </CardContent>
+      </Card>
+      
+      <Separator className="my-8"/>
 
       {isLoadingCommission && (
         <Card>
@@ -280,7 +427,7 @@ export default function AdminGlobalSettingsPage() {
             <AlertTriangle className="w-16 h-16 text-amber-500 mb-4" />
             <h3 className="text-xl font-semibold mb-2">More Settings Under Construction</h3>
             <p className="text-muted-foreground max-w-md">
-              Future settings could include: platform API keys, feature toggles, default currency, regional settings, and general policy management.
+              Future settings could include: platform API keys, feature toggles, general policy management, support contact details, and more.
             </p>
           </div>
         </CardContent>
@@ -288,3 +435,4 @@ export default function AdminGlobalSettingsPage() {
     </div>
   );
 }
+
