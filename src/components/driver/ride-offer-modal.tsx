@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context'; 
+import type { LabelType } from '@/components/ui/custom-map-label-overlay';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -25,6 +26,7 @@ export interface RideOffer {
   pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
   dropoffCoords: { lat: number; lng: number };
+  stops?: Array<{ address: string; coords: { lat: number; lng: number } }>; // Added stops
   fareEstimate: number;
   passengerCount: number;
   passengerId: string;
@@ -85,6 +87,60 @@ const Progress = React.forwardRef<
 Progress.displayName = ProgressPrimitive.Root.displayName;
 
 
+function formatAddressForMapLabel(fullAddress: string, type: string): string {
+  if (!fullAddress) return `${type}:\nN/A`;
+
+  let addressRemainder = fullAddress;
+  let outwardPostcode = "";
+  
+  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
+  const postcodeMatch = fullAddress.match(postcodeRegex);
+
+  if (postcodeMatch) {
+    outwardPostcode = postcodeMatch[1].toUpperCase();
+    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
+  }
+
+  const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
+  
+  let street = parts[0] || "Location";
+  let area = "";
+
+  if (parts.length > 1) {
+    area = parts[1]; 
+    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
+        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
+    }
+  } else if (parts.length === 0 && outwardPostcode) {
+    street = "Area"; 
+  }
+  
+  if (!area && parts.length > 2) {
+      area = parts.slice(1).join(', '); 
+  }
+
+  let locationLine = area;
+  if (outwardPostcode) {
+    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
+  }
+  
+  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
+      street = ""; 
+  }
+  if (street && !locationLine) { 
+     return `${type}:\n${street}`;
+  }
+  if (!street && locationLine) { 
+     return `${type}:\n${locationLine}`;
+  }
+  if (!street && !locationLine) {
+      return `${type}:\nDetails N/A`;
+  }
+
+  return `${type}:\n${street}\n${locationLine}`;
+}
+
+
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const { user: driverUser } = useAuth(); 
@@ -110,29 +166,56 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     return () => clearTimeout(timerId);
   }, [isOpen, countdown, onClose, rideDetails, onDecline]);
 
-  const mapMarkers = useMemo(() => {
-    if (!rideDetails) return [];
+  const mapDisplayElements = useMemo(() => {
+    if (!rideDetails) return { markers: [], labels: [] };
     const markers = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
+
     if (rideDetails.pickupCoords) {
-      markers.push({
+      // markers.push({ // Do not add default pin for pickup
+      //   position: rideDetails.pickupCoords,
+      //   title: `Pickup: ${rideDetails.pickupLocation}`,
+      //   label: { text: "P", color: "white", fontWeight: "bold", fontSize: "14px" },
+      // });
+      labels.push({
         position: rideDetails.pickupCoords,
-        title: `Pickup: ${rideDetails.pickupLocation}`,
-        label: { text: "P", color: "white", fontWeight: "bold", fontSize: "14px" },
+        content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
+        type: 'pickup'
       });
     }
     if (rideDetails.dropoffCoords) {
-      markers.push({
+      // markers.push({ // Do not add default pin for dropoff
+      //   position: rideDetails.dropoffCoords,
+      //   title: `Dropoff: ${rideDetails.dropoffLocation}`,
+      //   label: { text: "D", color: "white", fontWeight: "bold", fontSize: "14px" },
+      // });
+      labels.push({
         position: rideDetails.dropoffCoords,
-        title: `Dropoff: ${rideDetails.dropoffLocation}`,
-        label: { text: "D", color: "white", fontWeight: "bold", fontSize: "14px" },
+        content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
+        type: 'dropoff'
       });
     }
-    return markers;
+    rideDetails.stops?.forEach((stop, index) => {
+      if (stop.coords) {
+        // markers.push({ // Do not add default pin for stops
+        //   position: stop.coords,
+        //   title: `Stop ${index + 1}: ${stop.address}`,
+        //   label: { text: `S${index + 1}`, color: "white", fontWeight: "bold", fontSize: "14px" },
+        // });
+        labels.push({
+          position: stop.coords,
+          content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
+          type: 'stop'
+        });
+      }
+    });
+    return { markers, labels };
   }, [rideDetails]);
+
 
   const mapCenter = useMemo(() => {
     if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
-    return { lat: 53.6450, lng: -1.7830 };
+    return { lat: 53.6450, lng: -1.7830 }; // Huddersfield center
   }, [rideDetails]);
 
   if (!rideDetails) {
@@ -272,7 +355,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <GoogleMapDisplay
                     center={mapCenter}
                     zoom={10}
-                    markers={mapMarkers}
+                    markers={mapDisplayElements.markers}
+                    customMapLabels={mapDisplayElements.labels} // Pass custom labels
                     className="w-full h-full"
                     disableDefaultUI={true}
                     fitBoundsToMarkers={true}
@@ -307,6 +391,19 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <MapPin className="w-4 h-4 text-accent shrink-0 mt-1" />
                   <span><strong>Dropoff:</strong> {rideDetails.dropoffLocation}</span>
                 </p>
+                {rideDetails.stops && rideDetails.stops.length > 0 && (
+                  <div className="mt-1.5 pl-2">
+                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Stops:</p>
+                    <ul className="list-none pl-4">
+                      {rideDetails.stops.map((stop, index) => (
+                        <li key={`stop-${index}`} className="text-sm font-semibold flex items-start gap-2">
+                           <MapPin className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" />
+                           <span>{stop.address}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1 text-base md:text-lg font-semibold">
