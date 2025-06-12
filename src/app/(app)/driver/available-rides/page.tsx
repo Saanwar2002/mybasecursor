@@ -43,6 +43,7 @@ import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapL
 import { Separator } from '@/components/ui/separator';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -694,7 +695,10 @@ export default function AvailableRidesPage() {
           charge: newCharge,
         });
       }, 1000);
-      activeStopWaitTimerDetailsRef.current.timerId = intervalId;
+      if (activeStopWaitTimerDetailsRef.current) { // Ensure ref is still current
+         activeStopWaitTimerDetailsRef.current.timerId = intervalId;
+      }
+
 
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
@@ -727,7 +731,7 @@ export default function AvailableRidesPage() {
         }
       }
     };
-  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, activeStopWaitTimerDetailsRef.current?.arrivalTime, journeyPoints.length]);
+  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints.length, activeStopWaitTimerDetailsRef.current?.arrivalTime]);
 
 
  useEffect(() => {
@@ -1296,6 +1300,7 @@ export default function AvailableRidesPage() {
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             payload.finalFare = finalFare;
             payload.completedAt = true;
+            
             break;
         case 'cancel_active':
             toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
@@ -1321,6 +1326,7 @@ export default function AvailableRidesPage() {
             payload.cancellationType = 'passenger_no_show';
             payload.noShowFeeApplicable = true;
             payload.cancelledAt = Timestamp.now();
+            
             break;
         case 'accept_wait_and_return':
             toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
@@ -1803,31 +1809,27 @@ export default function AvailableRidesPage() {
         handleRideAction(activeRide.id, 'start_ride');
         return;
       }
-      // If ride is in progress and current leg is an intermediate stop
-      const currentStopArrayIndex = localCurrentLegIndex -1; // Map leg index to stops array index
+      const currentStopArrayIndex = localCurrentLegIndex - 1; 
       if ((showInProgressStatus || showInProgressWRStatus) && localCurrentLegIndex > 0 && localCurrentLegIndex < journeyPoints.length -1) {
           if (!activeStopWaitTimerDetailsRef.current || activeStopWaitTimerDetailsRef.current.stopDataIndex !== currentStopArrayIndex) {
-              // This is the first click at this stop, indicating arrival
               if (activeStopWaitTimerDetailsRef.current?.timerId) { clearInterval(activeStopWaitTimerDetailsRef.current.timerId); }
               activeStopWaitTimerDetailsRef.current = {
                   stopDataIndex: currentStopArrayIndex,
-                  arrivalTime: new Date(), // Start timer from now
+                  arrivalTime: new Date(), 
                   timerId: null,
               };
-              // The useEffect for currentStopTimerDisplay will handle the visual timer
-              return; // Don't call handleRideAction yet, just start the timer
+              return; 
           } else {
-              // This is the second click, meaning depart this stop
               handleRideAction(activeRide.id, 'proceed_to_next_leg');
               return;
           }
       }
-      // If at pickup and starting the ride, OR if at the last stop and proceeding to final dropoff, OR if it's a direct P->D journey
-      if (localCurrentLegIndex === 0 && (showInProgressStatus || showInProgressWRStatus)) { // Just started from pickup
+      
+      if (localCurrentLegIndex === 0 && (showInProgressStatus || showInProgressWRStatus)) { 
            handleRideAction(activeRide.id, 'start_ride');
-      } else if (localCurrentLegIndex === journeyPoints.length -1 && (showInProgressStatus || showInProgressWRStatus)) { // On final leg, ready to complete
+      } else if (localCurrentLegIndex === journeyPoints.length -1 && (showInProgressStatus || showInProgressWRStatus)) { 
            handleRideAction(activeRide.id, 'complete_ride');
-      } else if (showInProgressStatus || showInProgressWRStatus) { // Proceeding from a stop to the next point (could be another stop or final dropoff)
+      } else if (showInProgressStatus || showInProgressWRStatus) { 
           handleRideAction(activeRide.id, 'proceed_to_next_leg');
       }
     };
@@ -1860,8 +1862,8 @@ export default function AvailableRidesPage() {
         <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
             <GoogleMapDisplay 
               center={memoizedMapCenter} 
-              zoom={15} // Keep zoom consistent when focused
-              shouldFitBounds={activeRide.status === 'driver_assigned'} // Only fit bounds initially
+              zoom={15} 
+              shouldFitBounds={activeRide.status === 'driver_assigned'} 
               markers={mapDisplayElements.markers} 
               customMapLabels={mapDisplayElements.labels} 
               className="w-full h-full" 
@@ -1948,12 +1950,12 @@ export default function AvailableRidesPage() {
         </div>
         ))}
         <Card className={cn( 
-          "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card overflow-hidden", 
-          (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) ? "mt-0 rounded-b-xl" : "flex-1 flex flex-col"
+          "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card", 
+          (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) ? "mt-0 rounded-b-xl" : "flex-1 flex flex-col" // Apply flex-col for active ride card
         )}>
            <CardContent className={cn(
              "p-3 space-y-2",
-             !(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && "flex-1 overflow-y-auto"
+             !(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && "flex-1 overflow-y-auto" // Make content scrollable
            )}>
             {showDriverAssignedStatus && ( <div className="flex justify-center mb-2"> <Badge variant="secondary" className="text-sm w-fit mx-auto bg-sky-500 text-white py-1.5 px-4 rounded-md font-semibold shadow-md"> En Route to Pickup </Badge> </div> )}
             {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-2"> <Badge variant="outline" className="text-sm w-fit mx-auto border-blue-500 text-blue-500 py-1.5 px-4 rounded-md font-semibold shadow-md"> Arrived At Pickup </Badge> </div> )}
@@ -2014,7 +2016,7 @@ export default function AvailableRidesPage() {
               <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 my-1">
                 <Timer className="h-5 w-5 text-current" />
                 <ShadAlertTitle className="font-semibold text-current">Passenger Waiting Status</ShadAlertTitle>
-                <ShadAlertDescription className="text-current text-xs">
+                <ShadAlertDescription className="text-current text-xs font-semibold">
                   {ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && (
                     `Waiting for passenger acknowledgment: ${formatTimer(ackWindowSecondsLeft)} left.`
                   )}
@@ -2379,9 +2381,9 @@ export default function AvailableRidesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    );
-  }
+    </div>
+  );
+}
 
 
   const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
@@ -2695,7 +2697,7 @@ export default function AvailableRidesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-  </div> );
+    </div>
+  );
 }
-    
 
