@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context'; 
-import type { LabelType } from '@/components/ui/custom-map-label-overlay';
+import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay'; // Ensure ICustomMapLabelOverlay and CustomMapLabelOverlayConstructor are exported
+import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
+
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -144,6 +146,8 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const { user: driverUser } = useAuth(); 
+  const [isMapSdkLoadedForModal, setIsMapSdkLoadedForModal] = useState(false);
+
 
   useEffect(() => {
     if (!isOpen) {
@@ -172,45 +176,45 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
 
     if (rideDetails.pickupCoords) {
-      markers.push({ 
-        position: rideDetails.pickupCoords, 
-        title: `Pickup: ${rideDetails.pickupLocation}`, 
-        label: { text: "P", color: "white", fontWeight: "bold" },
-      });
-      labels.push({
-        position: rideDetails.pickupCoords,
-        content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
-        type: 'pickup',
-        variant: 'compact' 
-      });
-    }
-    rideDetails.stops?.forEach((stop, index) => {
-      if (stop.coords) {
         markers.push({ 
-          position: stop.coords, 
-          title: `Stop ${index + 1}: ${stop.address}`, 
-          label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" },
+            position: rideDetails.pickupCoords, 
+            title: `Pickup: ${rideDetails.pickupLocation}`, 
+            // No explicit default label, custom label will be primary
         });
         labels.push({
-          position: stop.coords,
-          content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
-          type: 'stop',
-          variant: 'compact'
+            position: rideDetails.pickupCoords,
+            content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
+            type: 'pickup',
+            variant: 'compact'
         });
-      }
+    }
+    rideDetails.stops?.forEach((stop, index) => {
+        if (stop.coords) {
+            markers.push({ 
+                position: stop.coords, 
+                title: `Stop ${index + 1}: ${stop.address}`,
+                // No explicit default label
+            });
+            labels.push({
+                position: stop.coords,
+                content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
+                type: 'stop',
+                variant: 'compact'
+            });
+        }
     });
     if (rideDetails.dropoffCoords) {
-      markers.push({ 
-        position: rideDetails.dropoffCoords, 
-        title: `Dropoff: ${rideDetails.dropoffLocation}`, 
-        label: { text: "D", color: "white", fontWeight: "bold" },
-      });
-      labels.push({
-        position: rideDetails.dropoffCoords,
-        content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
-        type: 'dropoff',
-        variant: 'compact'
-      });
+        markers.push({ 
+            position: rideDetails.dropoffCoords, 
+            title: `Dropoff: ${rideDetails.dropoffLocation}`, 
+            // No explicit default label
+        });
+        labels.push({
+            position: rideDetails.dropoffCoords,
+            content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
+            type: 'dropoff',
+            variant: 'compact'
+        });
     }
     return { markers, labels };
   }, [rideDetails]);
@@ -362,6 +366,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     className="w-full h-full"
                     disableDefaultUI={true}
                     fitBoundsToMarkers={true}
+                    onSdkLoaded={setIsMapSdkLoadedForModal}
                   />
                 ) : (
                   <Skeleton className="w-full h-full rounded-md" />
@@ -378,7 +383,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )}
 
               {rideDetails.distanceMiles !== undefined && totalFareForDriver > 0 && (
-                <div className="my-1.5 p-2 bg-yellow-500 text-white font-bold rounded-md text-center shadow-md h-auto">
+                <div className="my-1.5 px-3 py-1.5 bg-yellow-600 text-white font-bold rounded-md text-center shadow-md h-auto">
                   <span className="text-lg">
                     £{totalFareForDriver.toFixed(2)}
                   </span>
@@ -460,3 +465,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
