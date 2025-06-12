@@ -114,13 +114,8 @@ interface MapHazard {
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
-const blueDotSvg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
-    <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
-  </svg>
-`;
-const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
+const driverCarIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#2563EB" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
+const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
 
 const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
@@ -785,15 +780,14 @@ export default function AvailableRidesPage() {
       simulatedOfferType = 'own_operator';
     }
   
-    // --- Generate more realistic locations and stops ---
     const availableLocations = [...mockHuddersfieldLocations];
-    const numStops = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2); // 30% no stops, 40% 1 stop, 30% 2 stops
+    const numStops = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2); 
   
     const getRandomLocation = () => {
-      if (availableLocations.length === 0) return mockHuddersfieldLocations[0]; // Fallback
+      if (availableLocations.length === 0) return mockHuddersfieldLocations[0]; 
       const index = Math.floor(Math.random() * availableLocations.length);
       const selected = availableLocations[index];
-      availableLocations.splice(index, 1); // Remove to avoid reuse for pickup/dropoff/stops
+      availableLocations.splice(index, 1); 
       return selected;
     };
   
@@ -806,13 +800,11 @@ export default function AvailableRidesPage() {
         stops.push({ 
           address: stopLoc.address, 
           coords: stopLoc.coords,
-          // doorOrFlat: Math.random() < 0.2 ? `Flat ${Math.floor(Math.random()*10)+1}` : undefined 
         });
       }
     }
-    // --- End new location/stop generation ---
   
-    const distance = parseFloat((Math.random() * 10 + 1).toFixed(1)); // More realistic distance
+    const distance = parseFloat((Math.random() * 10 + 1).toFixed(1)); 
     const paymentMethodOptions: Array<RideOffer['paymentMethod']> = ['card', 'cash', 'account'];
     const paymentMethod: RideOffer['paymentMethod'] = paymentMethodOptions[Math.floor(Math.random() * paymentMethodOptions.length)];
     const isPriority = Math.random() < 0.3;
@@ -1312,14 +1304,19 @@ export default function AvailableRidesPage() {
 
   const mapDisplayElements = useMemo(() => {
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
 
     const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
         ? driverLocation
         : activeRide?.driverCurrentLocation;
 
     if (currentLocToDisplay) {
-        markers.push({ position: currentLocToDisplay, title: "Your Current Location", iconUrl: blueDotSvgDataUrl, iconScaledSize: {width: 24, height: 24} });
+        markers.push({ 
+            position: currentLocToDisplay, 
+            title: "Your Current Location", 
+            iconUrl: driverCarIconDataUrl, 
+            iconScaledSize: {width: 30, height: 30} 
+        });
     }
 
     if (activeRide) {
@@ -1871,8 +1868,8 @@ export default function AvailableRidesPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle>Are you sure you want to cancel this ride?</ShadAlertDialogTitle>
-              <AlertDialogDescription>This action cannot be undone. The passenger will be notified.</AlertDialogDescription>
+              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
+              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
