@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2, CheckCircle2, Smile, DollarSign as DollarSignIcon } from 'lucide-react';
+import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2, CheckCircle2, Smile, DollarSign as DollarSignIcon, Building } from 'lucide-react'; // Added Building
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -70,7 +70,7 @@ export default function PassengerDashboardPage() {
         <CardContent className="flex flex-col items-center gap-6">
           <div className="w-full space-y-4">
             <div className="w-full p-3 border-2 border-accent rounded-lg shadow-sm my-3 bg-accent/5">
-              <p className="text-lg text-center md:text-left font-bold text-primary">
+              <p className="text-lg text-center md:text-left font-bold text-primary-foreground">
                 Ride with confidence! MyBase ensures your driver receives 100% of the fare and any tips you give. We take no commission from their earnings on your journey.
               </p>
             </div>
