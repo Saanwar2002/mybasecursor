@@ -1347,7 +1347,7 @@ export default function AvailableRidesPage() {
           });
         }
         activeRide.stops?.forEach((stop, index) => {
-          if(stop.latitude && stop.longitude && isActiveRideState) {
+          if(stop.latitude && stop.longitude && isActiveRideState) { // Only show stop markers/labels for active rides
             markers.push({
               position: {lat: stop.latitude, lng: stop.longitude},
               title: `Stop ${index+1}: ${stop.address}`,
@@ -1768,9 +1768,15 @@ export default function AvailableRidesPage() {
 
 
             <div className="space-y-1 text-sm py-1">
-                 <p className={cn("flex items-start gap-1.5", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) ? "text-muted-foreground" : "text-green-500")} /> <span><strong>Pickup:</strong> {activeRide.pickupLocation.address}</span> </p>
+                 <p className={cn("flex items-start gap-1.5", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) && "text-muted-foreground opacity-60")}>
+                    <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) ? "text-muted-foreground" : "text-green-500")} />
+                    <span><strong>Pickup:</strong> {activeRide.pickupLocation.address}</span>
+                 </p>
                  {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className={cn("flex items-start gap-1.5 pl-5", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus) ? "text-muted-foreground" : "text-blue-500")} /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))}
-                 <p className={cn("flex items-start gap-1.5", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground opacity-60")}> <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) ? "text-muted-foreground" : "text-orange-500")} /> <span className={cn((showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground")}> <strong>Dropoff:</strong> {activeRide.dropoffLocation.address} </span> </p>
+                 <p className={cn("flex items-start gap-1.5", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground opacity-60")}>
+                    <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", (showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) ? "text-muted-foreground" : "text-orange-500")} />
+                    <span className={cn((showDriverAssignedStatus && !(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus)) && "text-muted-foreground")}> <strong>Dropoff:</strong> {activeRide.dropoffLocation.address} </span>
+                 </p>
                  <div className="grid grid-cols-2 gap-1 pt-1 text-sm">
                     <p className="flex items-center gap-1">
                       <DollarSign className="w-4 h-4 text-muted-foreground" />
@@ -2347,3 +2353,4 @@ export default function AvailableRidesPage() {
   </div> );
 }
     
+
