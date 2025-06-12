@@ -26,7 +26,7 @@ export type CustomMapLabelOverlayConstructor = new (
   position: google.maps.LatLngLiteral,
   content: string,
   type: LabelType,
-  variant?: LabelVariant // Added optional variant
+  variant?: LabelVariant
 ) => ICustomMapLabelOverlay;
 
 
@@ -36,7 +36,7 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
     private positionLatLng: google.maps.LatLng;
     private content: string;
     private type: LabelType;
-    private variant: LabelVariant; // Store the variant
+    private variant: LabelVariant;
     private div: HTMLDivElement | null = null;
     private visible: boolean = true;
 
@@ -46,7 +46,7 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       this.positionLatLng = new this.mapsLatLng(position.lat, position.lng);
       this.content = content;
       this.type = type;
-      this.variant = variant; // Store the variant
+      this.variant = variant;
     }
 
     private _applyStyles() {
@@ -55,20 +55,22 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       // Common styles
       this.div.style.textAlign = 'center';
       this.div.style.whiteSpace = 'pre-line';
-      this.div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+      this.div.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)'; // Slightly smaller shadow for compact
       this.div.style.zIndex = '101';
-      this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-10px)'; // Consistent Y offset for no-pin style
+      
 
       if (this.variant === 'compact') {
-        this.div.style.padding = '2px 4px';
-        this.div.style.borderRadius = '4px';
-        this.div.style.fontSize = '9px';
-        this.div.style.minWidth = '70px'; // Slightly smaller min-width
+        this.div.style.padding = '1px 3px';
+        this.div.style.borderRadius = '3px';
+        this.div.style.fontSize = '8px';
+        this.div.style.minWidth = '60px';
+        this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-8px)'; 
       } else { // Default styles
         this.div.style.padding = '3px 6px';
         this.div.style.borderRadius = '6px';
-        this.div.style.fontSize = '10px'; // Default font size for P/D/S
+        this.div.style.fontSize = '10px';
         this.div.style.minWidth = '90px';
+        this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-10px)';
       }
 
       // Type-specific styles
@@ -92,9 +94,9 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
         this.div.style.border = '1px solid rgba(255, 255, 255, 0.75)';
         this.div.style.color = '#FFFFFF';
         this.div.style.fontWeight = '600';
-        // Override font size for driver if needed, even for compact, or keep it consistent
-        this.div.style.fontSize = this.variant === 'compact' ? '10px' : '11px';
-        this.div.style.minWidth = this.variant === 'compact' ? '100px' : '110px';
+        // Override font size and minWidth for driver if needed, based on variant
+        this.div.style.fontSize = this.variant === 'compact' ? '9px' : '11px';
+        this.div.style.minWidth = this.variant === 'compact' ? '80px' : '110px';
       }
     }
 
