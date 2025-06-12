@@ -1,14 +1,14 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { MessageSquareWarning, Trash2, Edit, Loader2, CheckCircle, Clock, Briefcase } from "lucide-react";
+import { MessageSquareWarning, Trash2, Edit, Loader2, CheckCircle, Clock, Briefcase, AlertTriangle } from "lucide-react"; // Added AlertTriangle
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from 'date-fns';
 
@@ -18,7 +18,7 @@ interface SupportTicket {
   submitterName: string;
   submitterRole: 'driver' | 'passenger' | 'operator';
   driverOperatorCode?: string;
-  driverOperatorName?: string; // Added operator name
+  driverOperatorName?: string;
   category: string;
   details: string;
   submittedAt: string; // ISO string
@@ -27,44 +27,84 @@ interface SupportTicket {
   assignedTo?: string; // Admin/Operator User ID
 }
 
-const mockTickets: SupportTicket[] = [
-  { id: 'TICKET001', submitterId: 'driverX1', submitterName: 'John Doe', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'Payment Query', details: 'My earning for last week seems incorrect. Missing two rides.', submittedAt: new Date(Date.now() - 86400000 * 2).toISOString(), status: 'Pending' },
-  { id: 'TICKET002', submitterId: 'passengerY2', submitterName: 'Alice Smith', submitterRole: 'passenger', category: 'App Issue', details: 'The map freezes occasionally when booking a ride.', submittedAt: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'In Progress', assignedTo: 'AdminJane' },
-  { id: 'TICKET003', submitterId: 'driverZ3', submitterName: 'Bob K.', submitterRole: 'driver', driverOperatorCode: 'OP002', driverOperatorName: 'Speedy Cars (Mock)', category: 'Operator Concern', details: 'My operator (OP002) is not responding to my calls regarding shifts.', submittedAt: new Date(Date.now() - 86400000 * 5).toISOString(), status: 'Resolved', lastUpdated: new Date(Date.now() - 86400000 * 3).toISOString(), assignedTo: 'AdminMike' },
-  { id: 'TICKET004', submitterId: 'operatorA1', submitterName: 'City Cabs', submitterRole: 'operator', category: 'Platform Suggestion', details: 'It would be great to have bulk driver import feature.', submittedAt: new Date(Date.now() - 86400000 * 10).toISOString(), status: 'Closed' },
-  { id: 'TICKET005', submitterId: 'driverW5', submitterName: 'Will Byers', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'Safety Concern', details: 'Street lighting on Elm St is very poor, making night pickups difficult.', submittedAt: new Date(Date.now() - 86400000 * 0.5).toISOString(), status: 'Pending' },
-];
-
 const ticketStatusOptions: SupportTicket['status'][] = ['Pending', 'In Progress', 'Resolved', 'Closed'];
 
 export default function AdminSupportTicketsPage() {
-  const [tickets, setTickets] = useState<SupportTicket[]>(mockTickets);
-  const [isLoading, setIsLoading] = useState(false); // For future API calls
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-  const handleStatusChange = (ticketId: string, newStatus: SupportTicket['status']) => {
+  const fetchTickets = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/support-tickets');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to fetch tickets: ${response.status}`);
+      }
+      const data = await response.json();
+      setTickets(data.tickets || []);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
+      setError(message);
+      toast({ title: "Error Fetching Tickets", description: message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
+
+  const handleStatusChange = async (ticketId: string, newStatus: SupportTicket['status']) => {
     setActionLoading(prev => ({ ...prev, [`status-${ticketId}`]: true }));
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(`/api/admin/support-tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to update status: ${response.status}`);
+      }
+      const updatedTicket = await response.json();
       setTickets(prevTickets =>
         prevTickets.map(ticket =>
-          ticket.id === ticketId ? { ...ticket, status: newStatus, lastUpdated: new Date().toISOString() } : ticket
+          ticket.id === ticketId ? { ...updatedTicket, submittedAt: ticket.submittedAt } : ticket // Preserve original submittedAt if not returned by API
         )
       );
-      toast({ title: "Status Updated (Mock)", description: `Ticket ${ticketId} status changed to ${newStatus}.` });
+      toast({ title: "Status Updated", description: `Ticket ${ticketId} status changed to ${newStatus}.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error.";
+      toast({ title: "Status Update Failed", description: message, variant: "destructive" });
+    } finally {
       setActionLoading(prev => ({ ...prev, [`status-${ticketId}`]: false }));
-    }, 1000);
+    }
   };
 
-  const handleDeleteTicket = (ticketId: string) => {
+  const handleDeleteTicket = async (ticketId: string) => {
     setActionLoading(prev => ({ ...prev, [`delete-${ticketId}`]: true }));
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(`/api/admin/support-tickets/${ticketId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+         const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to delete ticket: ${response.status}`);
+      }
       setTickets(prevTickets => prevTickets.filter(ticket => ticket.id !== ticketId));
-      toast({ title: "Ticket Deleted (Mock)", description: `Ticket ${ticketId} has been removed.`, variant: "destructive" });
+      toast({ title: "Ticket Deleted", description: `Ticket ${ticketId} has been removed.`, variant: "destructive" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error.";
+      toast({ title: "Delete Failed", description: message, variant: "destructive" });
+    } finally {
       setActionLoading(prev => ({ ...prev, [`delete-${ticketId}`]: false }));
-    }, 1000);
+    }
   };
   
   const getStatusBadgeVariant = (status: SupportTicket['status']) => {
@@ -106,6 +146,13 @@ export default function AdminSupportTicketsPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
+          ) : error ? (
+             <div className="text-center py-10 text-destructive">
+              <AlertTriangle className="mx-auto h-12 w-12 mb-2" />
+              <p className="font-semibold">Error loading tickets:</p>
+              <p>{error}</p>
+              <Button onClick={fetchTickets} variant="outline" className="mt-4">Try Again</Button>
+            </div>
           ) : tickets.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No support tickets found.</p>
           ) : (
@@ -189,3 +236,5 @@ export default function AdminSupportTicketsPage() {
     </div>
   );
 }
+
+    
