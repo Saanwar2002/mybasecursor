@@ -315,11 +315,9 @@ export default function MyActiveRidePage() {
 
   useEffect(() => {
     if (isEditDetailsDialogOpen) {
-        if (editStopsFields.length === 0) { // Only focus pickup if no stops exist initially
-             editDetailsForm.setFocus('pickupLocation');
-        }
+        editDetailsForm.setFocus('pickupLocation');
     }
-  }, [isEditDetailsDialogOpen, editDetailsForm, editStopsFields.length]);
+  }, [isEditDetailsDialogOpen, editDetailsForm]);
 
   useEffect(() => {
     if (editStopsFields.length > previousEditStopsLengthRef.current) {
@@ -614,9 +612,9 @@ export default function MyActiveRidePage() {
   const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
     if (typeof fieldNameOrIndex === 'number') {
       const stop = dialogStopAutocompleteData[fieldNameOrIndex];
-      if (stop?.inputValue.length >= 2) { // No need to check suggestions length here, just trigger fetch
+      if (stop?.inputValue.length >= 2) { 
         setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
-        if (!stop.suggestions?.length && !stop.isFetchingSuggestions) { // Fetch if no suggestions and not already fetching
+        if (!stop.suggestions?.length && !stop.isFetchingSuggestions && isMapSdkLoaded) { 
             fetchAddressSuggestions(stop.inputValue, 
                 (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, suggestions: sugg} : item)),
                 (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, isFetchingSuggestions: fetch} : item))
@@ -624,14 +622,14 @@ export default function MyActiveRidePage() {
         }
       }
     } else if (fieldNameOrIndex === 'pickupLocation') {
-      if (dialogPickupInputValue.length >= 2) {
+      if (dialogPickupInputValue.length >= 2 && isMapSdkLoaded) {
         setShowDialogPickupSuggestions(true);
         if (!dialogPickupSuggestions?.length && !isFetchingDialogPickupSuggestions) {
             fetchAddressSuggestions(dialogPickupInputValue, setDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions);
         }
       }
     } else if (fieldNameOrIndex === 'dropoffLocation') {
-      if (dialogDropoffInputValue.length >= 2) {
+      if (dialogDropoffInputValue.length >= 2 && isMapSdkLoaded) {
         setShowDialogDropoffSuggestions(true);
         if (!dialogDropoffSuggestions?.length && !isFetchingDialogDropoffSuggestions) {
             fetchAddressSuggestions(dialogDropoffInputValue, setDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions);
@@ -661,10 +659,8 @@ export default function MyActiveRidePage() {
         dropoffLocation: { address: values.dropoffLocation, latitude: dialogDropoffCoords.lat, longitude: dialogDropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat }, 
         stops: validStopsData, 
         scheduledPickupAt: scheduledAtISO, 
+        fareEstimate: dialogFareEstimate !== null ? dialogFareEstimate : undefined,
     };
-    if (dialogFareEstimate !== null) {
-        payload.fareEstimate = dialogFareEstimate;
-    }
 
 
     try {
@@ -805,6 +801,8 @@ export default function MyActiveRidePage() {
         }
     }
 
+    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
+
     if (activeRide.pickupLocation) {
       markers.push({
         position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
@@ -817,7 +815,7 @@ export default function MyActiveRidePage() {
         type: 'pickup'
       });
     }
-    if (activeRide.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) {
+    if (activeRide.dropoffLocation && isActiveRideState) {
       markers.push({
         position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
         title: `Dropoff: ${activeRide.dropoffLocation.address}`,
