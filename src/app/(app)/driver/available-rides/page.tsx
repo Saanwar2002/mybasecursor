@@ -238,6 +238,21 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   return `${type}:\n${street}\n${locationLine}`;
 }
 
+const mockHuddersfieldLocations: Array<{address: string, coords: {lat: number, lng: number}}> = [
+    { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", coords: { lat: 53.6483, lng: -1.7805 } },
+    { address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", coords: { lat: 53.6465, lng: -1.7833 } },
+    { address: "University of Huddersfield, Queensgate, Huddersfield HD1 3DH", coords: { lat: 53.6438, lng: -1.7787 } },
+    { address: "Greenhead Park, Park Drive, Huddersfield HD1 4HS", coords: { lat: 53.6501, lng: -1.7969 } },
+    { address: "Lindley Village, Lidget Street, Huddersfield HD3 3JB", coords: { lat: 53.6580, lng: -1.8280 } },
+    { address: "Beaumont Park, Huddersfield HD4 7AY", coords: { lat: 53.6333, lng: -1.8080 } },
+    { address: "Marsh, Westbourne Road, Huddersfield HD1 4LE", coords: { lat: 53.6531, lng: -1.8122 } },
+    { address: "Almondbury Village, Huddersfield HD5 8XE", coords: { lat: 53.6391, lng: -1.7542 } },
+    { address: "Paddock Head, Gledholt Road, Huddersfield HD1 4HP", coords: { lat: 53.6480, lng: -1.8000 } },
+    { address: "Salendine Nook Shopping Centre, Huddersfield HD3 3XF", coords: { lat: 53.6612, lng: -1.8437 } },
+    { address: "Newsome Road South, Newsome, Huddersfield HD4 6JJ", coords: { lat: 53.6310, lng: -1.7800 } },
+    { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
+];
+
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
@@ -750,27 +765,54 @@ export default function AvailableRidesPage() {
 
   const handleSimulateOffer = () => {
     if (!driverUser) {
-        toast({ title: "Driver Info Missing", description: "Cannot simulate offer without driver details.", variant: "destructive" });
-        return;
+      toast({ title: "Driver Info Missing", description: "Cannot simulate offer without driver details.", variant: "destructive" });
+      return;
     }
-
+  
     const operatorCode = driverUser.operatorCode || driverUser.customId || "OP_DefaultGuest";
     const acceptsPlatformJobs = driverUser.acceptsPlatformJobs || false;
     const maxDistancePref = driverUser.maxJourneyDistance || "no_limit";
-
+  
     let simulatedOfferType: 'own_operator' | 'platform_op001' | 'general_pool';
     const canReceivePlatformOrGeneral = acceptsPlatformJobs || operatorCode === PLATFORM_OPERATOR_CODE;
-
+  
     if (canReceivePlatformOrGeneral) {
-        const rand = Math.random();
-        if (rand < 0.4) simulatedOfferType = 'own_operator';
-        else if (rand < 0.8) simulatedOfferType = 'platform_op001';
-        else simulatedOfferType = 'general_pool';
+      const rand = Math.random();
+      if (rand < 0.4) simulatedOfferType = 'own_operator';
+      else if (rand < 0.8) simulatedOfferType = 'platform_op001';
+      else simulatedOfferType = 'general_pool';
     } else {
-        simulatedOfferType = 'own_operator';
+      simulatedOfferType = 'own_operator';
     }
-
-    const distance = parseFloat((Math.random() * 35 + 1).toFixed(1)); 
+  
+    // --- Generate more realistic locations and stops ---
+    const availableLocations = [...mockHuddersfieldLocations];
+    const numStops = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2); // 30% no stops, 40% 1 stop, 30% 2 stops
+  
+    const getRandomLocation = () => {
+      if (availableLocations.length === 0) return mockHuddersfieldLocations[0]; // Fallback
+      const index = Math.floor(Math.random() * availableLocations.length);
+      const selected = availableLocations[index];
+      availableLocations.splice(index, 1); // Remove to avoid reuse for pickup/dropoff/stops
+      return selected;
+    };
+  
+    const pickup = getRandomLocation();
+    const dropoff = getRandomLocation();
+    const stops: RideOffer['stops'] = [];
+    for (let i = 0; i < numStops; i++) {
+      if (availableLocations.length > 0) {
+        const stopLoc = getRandomLocation();
+        stops.push({ 
+          address: stopLoc.address, 
+          coords: stopLoc.coords,
+          // doorOrFlat: Math.random() < 0.2 ? `Flat ${Math.floor(Math.random()*10)+1}` : undefined 
+        });
+      }
+    }
+    // --- End new location/stop generation ---
+  
+    const distance = parseFloat((Math.random() * 10 + 1).toFixed(1)); // More realistic distance
     const paymentMethodOptions: Array<RideOffer['paymentMethod']> = ['card', 'cash', 'account'];
     const paymentMethod: RideOffer['paymentMethod'] = paymentMethodOptions[Math.floor(Math.random() * paymentMethodOptions.length)];
     const isPriority = Math.random() < 0.3;
@@ -783,58 +825,58 @@ export default function AvailableRidesPage() {
     if (paymentMethod === 'account') {
       accountJobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString();
     }
-
-
+  
     let requiredOperatorIdForOffer: string | undefined = undefined;
     let passengerNameForOffer = "Simulated Passenger";
-    let offerContextDescription = ""; 
-
+    let offerContextDescription = "";
+  
     switch (simulatedOfferType) {
-        case 'own_operator':
-            requiredOperatorIdForOffer = operatorCode;
-            passengerNameForOffer = `Passenger (for ${operatorCode})`;
-            offerContextDescription = `for your operator (${operatorCode})`;
-            break;
-        case 'platform_op001':
-            requiredOperatorIdForOffer = PLATFORM_OPERATOR_CODE;
-            passengerNameForOffer = "Passenger (Platform MyBase)";
-            offerContextDescription = `from MyBase platform pool (${PLATFORM_OPERATOR_CODE})`;
-            break;
-        case 'general_pool':
-            requiredOperatorIdForOffer = undefined;
-            passengerNameForOffer = "Passenger (General Pool)";
-            offerContextDescription = `from the general MyBase pool`;
-            break;
+      case 'own_operator':
+        requiredOperatorIdForOffer = operatorCode;
+        passengerNameForOffer = `Passenger (for ${operatorCode})`;
+        offerContextDescription = `for your operator (${operatorCode})`;
+        break;
+      case 'platform_op001':
+        requiredOperatorIdForOffer = PLATFORM_OPERATOR_CODE;
+        passengerNameForOffer = "Passenger (Platform MyBase)";
+        offerContextDescription = `from MyBase platform pool (${PLATFORM_OPERATOR_CODE})`;
+        break;
+      case 'general_pool':
+        requiredOperatorIdForOffer = undefined;
+        passengerNameForOffer = "Passenger (General Pool)";
+        offerContextDescription = `from the general MyBase pool`;
+        break;
     }
-
+  
     const mockOffer: RideOffer = {
-        id: `mock-offer-${simulatedOfferType}-${Date.now()}`,
-        passengerId: mockPassengerId,
-        passengerName: passengerNameForOffer,
-        passengerPhone: mockPhone,
-        pickupLocation: "Simulated Pickup St, Townsville",
-        pickupCoords: { lat: 53.6488 + (Math.random() - 0.5) * 0.02, lng: -1.7805 + (Math.random() - 0.5) * 0.02 },
-        dropoffLocation: "Simulated Dropoff Ave, Cityburg",
-        dropoffCoords: { lat: 53.6430 + (Math.random() - 0.5) * 0.02, lng: -1.7797 + (Math.random() - 0.5) * 0.02 },
-        fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)),
-        passengerCount: Math.floor(Math.random() * 3) + 1,
-        notes: Math.random() < 0.3 ? "Simulated passenger note: please call on arrival." : undefined,
-        requiredOperatorId: requiredOperatorIdForOffer,
-        distanceMiles: distance,
-        paymentMethod: paymentMethod,
-        isPriorityPickup: isPriority,
-        priorityFeeAmount: priorityFee,
-        dispatchMethod: randomDispatchMethod,
-        accountJobPin: accountJobPinForOffer,
+      id: `mock-offer-${simulatedOfferType}-${Date.now()}`,
+      passengerId: mockPassengerId,
+      passengerName: passengerNameForOffer,
+      passengerPhone: mockPhone,
+      pickupLocation: pickup.address,
+      pickupCoords: pickup.coords,
+      dropoffLocation: dropoff.address,
+      dropoffCoords: dropoff.coords,
+      stops: stops.length > 0 ? stops : undefined,
+      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)),
+      passengerCount: Math.floor(Math.random() * 3) + 1,
+      notes: Math.random() < 0.3 ? "Simulated: Passenger has luggage." : undefined,
+      requiredOperatorId: requiredOperatorIdForOffer,
+      distanceMiles: distance,
+      paymentMethod: paymentMethod,
+      isPriorityPickup: isPriority,
+      priorityFeeAmount: priorityFee,
+      dispatchMethod: randomDispatchMethod,
+      accountJobPin: accountJobPinForOffer,
     };
-
+  
     let showThisOfferToDriver = false;
     if (mockOffer.requiredOperatorId === operatorCode) {
-        showThisOfferToDriver = true;
+      showThisOfferToDriver = true;
     } else if ((!mockOffer.requiredOperatorId || mockOffer.requiredOperatorId === PLATFORM_OPERATOR_CODE) && canReceivePlatformOrGeneral) {
-        showThisOfferToDriver = true;
+      showThisOfferToDriver = true;
     }
-
+  
     let distanceLimitExceeded = false;
     if (maxDistancePref !== "no_limit") {
       const limitValue = parseInt(maxDistancePref.split('_')[1]);
@@ -842,37 +884,37 @@ export default function AvailableRidesPage() {
         distanceLimitExceeded = true;
       }
     }
-
+  
     if (showThisOfferToDriver && !distanceLimitExceeded) {
-        setCurrentOfferDetails(mockOffer);
-        setIsOfferModalOpen(true);
+      setCurrentOfferDetails(mockOffer);
+      setIsOfferModalOpen(true);
     } else {
-        const currentOperatorDisplay = operatorCode || "N/A";
-        let skipReason = `An offer ${offerContextDescription} was received, but your current preferences mean it wasn't shown. Your operator: ${currentOperatorDisplay}.`;
-        if (distanceLimitExceeded) {
-          skipReason = `An offer ${offerContextDescription} was received, but its distance of ${mockOffer.distanceMiles?.toFixed(1)} miles exceeds your preference of ${maxDistancePref.replace("_", " ")} miles.`;
-        }
+      const currentOperatorDisplay = operatorCode || "N/A";
+      let skipReason = `An offer ${offerContextDescription} was received, but your current preferences mean it wasn't shown. Your operator: ${currentOperatorDisplay}.`;
+      if (distanceLimitExceeded) {
+        skipReason = `An offer ${offerContextDescription} was received, but its distance of ${mockOffer.distanceMiles?.toFixed(1)} miles exceeds your preference of ${maxDistancePref.replace("_", " ")} miles.`;
+      }
+      toast({
+        title: "Offer Skipped (Simulation)",
+        description: skipReason,
+        variant: "default",
+        duration: 8000,
+      });
+  
+      const newMissedCount = consecutiveMissedOffers + 1;
+      setConsecutiveMissedOffers(newMissedCount);
+      if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
+        setIsDriverOnline(false);
         toast({
-            title: "Offer Skipped (Simulation)",
-            description: skipReason,
-            variant: "default",
-            duration: 8000,
+          title: "Automatically Set Offline (Simulation)",
+          description: `You've missed/skipped ${MAX_CONSECUTIVE_MISSED_OFFERS} simulated offers and have been set to Offline. Please go Online manually if you wish to continue receiving offers.`,
+          variant: "default",
+          duration: 10000,
         });
-
-        const newMissedCount = consecutiveMissedOffers + 1;
-        setConsecutiveMissedOffers(newMissedCount);
-        if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
-            setIsDriverOnline(false);
-            toast({
-                title: "Automatically Set Offline (Simulation)",
-                description: `You've missed/skipped ${MAX_CONSECUTIVE_MISSED_OFFERS} simulated offers and have been set to Offline. Please go Online manually if you wish to continue receiving offers.`,
-                variant: "default",
-                duration: 10000,
-            });
-            setConsecutiveMissedOffers(0);
-        }
+        setConsecutiveMissedOffers(0);
+      }
     }
-};
+  };
 
 
   const handleAcceptOffer = async (rideId: string) => {
@@ -1322,16 +1364,8 @@ export default function AvailableRidesPage() {
           }
         });
     }
-
-    // Remove hazard marker generation
-    // const hazardMarkers = activeMapHazards.map(hazard => ({
-    //   position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
-    //   title: formatHazardType(hazard.hazardType),
-    //   label: { text: getHazardMarkerLabel(hazard.hazardType), color: 'black', fontWeight: 'bold', fontSize: '11px' },
-    // }));
-
-    return { markers: markers, labels }; // Removed ...hazardMarkers
-  }, [activeRide, driverLocation, isDriverOnline, activeMapHazards]);
+    return { markers: markers, labels }; 
+  }, [activeRide, driverLocation, isDriverOnline]);
 
   const memoizedMapCenter = useMemo(() => {
     if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
@@ -2315,4 +2349,4 @@ export default function AvailableRidesPage() {
         </Dialog>
   </div> );
 }
-
+    
