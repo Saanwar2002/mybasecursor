@@ -2136,6 +2136,14 @@ export default function AvailableRidesPage() {
       status.toLowerCase().includes('completed') || 
       status.toLowerCase().includes('cancelled');
 
+  const isChatDisabled = 
+    status === 'in_progress' || 
+    status === 'in_progress_wait_and_return' ||
+    status === 'completed' ||
+    status === 'cancelled_by_driver' ||
+    status === 'cancelled_no_show';
+
+
   const totalFare = (fareEstimate || 0) + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0);
   let displayedFare = `£${totalFare.toFixed(2)}`;
   if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
@@ -2357,7 +2365,7 @@ export default function AvailableRidesPage() {
                       </a>
                     </Button>
                   )}
-                  <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                  <Button asChild variant="outline" size="icon" className="h-9 w-9" disabled={isChatDisabled}>
                       <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
                   </Button>
                 </div>
@@ -2759,4 +2767,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
