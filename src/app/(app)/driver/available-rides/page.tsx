@@ -2711,4 +2711,3 @@ export default function AvailableRidesPage() {
     );
   }
 }
-
