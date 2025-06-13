@@ -24,7 +24,7 @@ const slidesData: CarouselSlide[] = [
     title: "Welcome to MyBase!",
     description: "Your premier taxi service for Huddersfield and beyond. Book easily, ride comfortably.",
     icon: Car,
-    imageUrl: "https://placehold.co/600x300/2563EB/FFFFFF.png?text=MyBase+Welcome",
+    imageUrl: "https://placehold.co/600x300/2563EB/FFFFFF.png", // Removed text
     imageHint: "taxi car street"
   },
   {
@@ -32,7 +32,7 @@ const slidesData: CarouselSlide[] = [
     title: "Safety Features",
     description: "Your safety is our priority. We implement comprehensive safety measures, from rigorous driver background checks to well-maintained vehicles, ensuring your peace of mind on every ride.",
     icon: ShieldCheck,
-    imageUrl: "https://placehold.co/600x300/10B981/FFFFFF.png?text=Safety+First",
+    imageUrl: "https://placehold.co/600x300/10B981/FFFFFF.png", // Removed text
     imageHint: "driver car interior safety"
   },
   {
@@ -40,7 +40,7 @@ const slidesData: CarouselSlide[] = [
     title: "Your Huddersfield, Your MyBase",
     description: "Deeply rooted in Huddersfield, MyBase is committed to supporting our local community and providing top-notch service to its residents.",
     icon: Users,
-    imageUrl: "https://placehold.co/600x300/F59E0B/FFFFFF.png?text=Community+Focus",
+    imageUrl: "https://placehold.co/600x300/F59E0B/FFFFFF.png", // Removed text
     imageHint: "Huddersfield landmark community"
   },
   {
@@ -48,7 +48,7 @@ const slidesData: CarouselSlide[] = [
     title: "Smart Rides with MyBase",
     description: "Experience seamless booking and efficient journeys with MyBase's advanced technology platform, designed for your convenience.",
     icon: Smartphone,
-    imageUrl: "https://placehold.co/600x300/8B5CF6/FFFFFF.png?text=Smart+Tech",
+    imageUrl: "https://placehold.co/600x300/8B5CF6/FFFFFF.png", // Removed text
     imageHint: "smartphone app interface"
   },
 ];
