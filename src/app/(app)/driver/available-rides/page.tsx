@@ -201,7 +201,7 @@ interface DispatchDisplayInfo {
 }
 
 function formatAddressForMapLabel(fullAddress: string, type: string): string {
-  if (!fullAddress) return `${type}:\nN/A`;
+  if (!fullAddress) return `${type}:\\nN/A`;
 
   let addressRemainder = fullAddress;
   let outwardPostcode = "";
@@ -211,7 +211,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
 
   if (postcodeMatch) {
     outwardPostcode = postcodeMatch[1].toUpperCase();
-    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
+    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\\s*$/, '').trim();
   }
 
   const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
@@ -222,7 +222,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   if (parts.length > 1) {
     area = parts[1];
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
-        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
+        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
     street = "Area";
@@ -241,16 +241,16 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
       street = "";
   }
   if (street && !locationLine) {
-     return `${type}:\n${street}`;
+     return `${type}:\\n${street}`;
   }
   if (!street && locationLine) {
-     return `${type}:\n${locationLine}`;
+     return `${type}:\\n${locationLine}`;
   }
   if (!street && !locationLine) {
-      return `${type}:\nDetails N/A`;
+      return `${type}:\\nDetails N/A`;
   }
 
-  return `${type}:\n${street}\n${locationLine}`;
+  return `${type}:\\n${street}\\n${locationLine}`;
 }
 
 const mockHuddersfieldLocations: Array<{address: string, coords: {lat: number, lng: number}}> = [
@@ -2711,3 +2711,4 @@ export default function AvailableRidesPage() {
     );
   }
 }
+
