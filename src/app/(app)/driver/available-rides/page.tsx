@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, ShieldAlert, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, ShieldAlert, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -182,7 +182,7 @@ const MOCK_HAZARDS_TO_SEED = [
 
 interface DispatchDisplayInfo {
   text: string;
-  icon: LucideIcon;
+  icon: React.ElementType;
   bgColorClassName: string;
 }
 
@@ -1765,24 +1765,25 @@ export default function AvailableRidesPage() {
             />
             <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
                 <Button
-                    variant="default" size="icon"
-                    className="rounded-full h-8 w-8 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
+                    variant="secondary"
+                    size="icon"
+                    className="rounded-full h-10 w-10 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-background"
                     onClick={() => setIsHazardReportDialogOpen(true)}
                     aria-label="Report Hazard Button"
                     disabled={reportingHazard || !isDriverOnline}
                 >
-                    {reportingHazard ? <Loader2 className="h-4 w-4 animate-spin"/> : <TrafficCone className="h-4 w-4" />}
+                    {reportingHazard ? <Loader2 className="h-5 w-5 animate-spin"/> : <TrafficCone className="h-5 w-5" />}
                 </Button>
                 <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
                     <AlertDialogTrigger asChild>
                     <Button
                         variant="destructive" size="icon"
-                        className="rounded-full h-8 w-8 shadow-lg animate-pulse"
+                        className="rounded-full h-10 w-10 shadow-lg animate-pulse"
                         onClick={() => setIsSosDialogOpen(true)}
                         aria-label="SOS Panic Button"
                         disabled={!isDriverOnline}
                     >
-                        <ShieldAlert className="h-4 w-4" />
+                        <ShieldAlert className="h-5 w-5" />
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -1859,19 +1860,19 @@ export default function AvailableRidesPage() {
                   ].map(hazard => (
                     <Button
                       key={hazard.type}
-                      variant="outline"
-                      className="flex flex-col items-center justify-center h-20 text-center"
+                      variant="secondary" // Changed from outline
+                      className="flex flex-col items-center justify-center h-20 text-center text-secondary-foreground hover:bg-secondary/80" // Added text color and hover
                       onClick={() => handleReportHazard(hazard.type)}
                       disabled={reportingHazard}
                     >
-                      {hazard.icon && <hazard.icon className="w-6 h-6 mb-1 text-primary" />}
-                      <span className="text-xs">{hazard.label}</span>
+                      {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} {/* Removed text-primary, increased size */}
+                      <span className="text-xs font-medium">{hazard.label}</span> {/* Added font-medium */}
                     </Button>
                   ))}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button type="button" variant="ghost" disabled={reportingHazard}>Cancel</Button>
+                    <Button type="button" variant="outline" disabled={reportingHazard}>Cancel</Button>
                   </DialogClose>
                 </DialogFooter>
               </DialogContent>
@@ -1917,31 +1918,31 @@ export default function AvailableRidesPage() {
               <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-                disabled={activeRide ? !!actionLoading[activeRide.id] : false}
-              >
-                <span>Keep Ride</span>
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
-                disabled={!activeRide || (!!actionLoading[activeRide.id])}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              >
-                <span className="flex items-center justify-center">
-                {activeRide && (!!actionLoading[activeRide.id]) ? (
-                   <React.Fragment>
-                     <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                     <span>Cancelling...</span>
-                   </React.Fragment>
-                ) : (
-                   <React.Fragment>
-                     <ShieldX className="mr-2 h-4 w-4" />
-                     <span>Confirm Cancel</span>
-                  </React.Fragment>
-                )}
-                </span>
-              </AlertDialogAction>
+                <AlertDialogCancel
+                    onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
+                >
+                  Keep Ride
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
+                  disabled={!activeRide || (!!actionLoading[activeRide.id])}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
+                  <span className="flex items-center justify-center">
+                  {activeRide && (!!actionLoading[activeRide.id]) ? (
+                       <React.Fragment>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </React.Fragment>
+                    ) : (
+                       <React.Fragment>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </React.Fragment>
+                    )}
+                  </span>
+                </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -2053,19 +2054,19 @@ export default function AvailableRidesPage() {
                   ].map(hazard => (
                     <Button
                       key={hazard.type}
-                      variant="outline"
-                      className="flex flex-col items-center justify-center h-20 text-center"
+                      variant="secondary" 
+                      className="flex flex-col items-center justify-center h-20 text-center text-secondary-foreground hover:bg-secondary/80"
                       onClick={() => handleReportHazard(hazard.type)}
                       disabled={reportingHazard}
                     >
-                      {hazard.icon && <hazard.icon className="w-6 h-6 mb-1 text-primary" />}
-                      <span className="text-xs">{hazard.label}</span>
+                      {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} 
+                      <span className="text-xs font-medium">{hazard.label}</span>
                     </Button>
                   ))}
                 </div>
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button type="button" variant="ghost" disabled={reportingHazard}>Cancel</Button>
+                    <Button type="button" variant="outline" disabled={reportingHazard}>Cancel</Button>
                   </DialogClose>
                 </DialogFooter>
               </DialogContent>
@@ -2108,11 +2109,18 @@ export default function AvailableRidesPage() {
   let displayedFare = `£${totalFare.toFixed(2)}`;
   if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
     const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; // Surcharge percentage
+    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
     displayedFare = `£${(wrBaseFare + wrWaitCharge + priorityFeeAmount + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
   }
   
-  // Define these functions within the component scope
+  const paymentMethodDisplay = 
+    activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)' 
+    : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
+    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
+    : 'Payment N/A';
+
+  const isEditingDisabled = activeRide?.status !== 'pending_assignment';
+
   const mainButtonText = () => {
     if (!activeRide) return "Loading...";
     const currentStatus = activeRide.status?.toLowerCase();
@@ -2196,24 +2204,24 @@ export default function AvailableRidesPage() {
           />
           <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
               <Button
-                  variant="default" size="icon"
-                  className="rounded-full h-8 w-8 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black"
+                  variant="secondary" size="icon"
+                  className="rounded-full h-10 w-10 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-background"
                   onClick={() => setIsHazardReportDialogOpen(true)}
                   aria-label="Report Hazard Button"
                   disabled={reportingHazard || !isDriverOnline}
               >
-                  {reportingHazard ? <Loader2 className="h-4 w-4 animate-spin"/> : <TrafficCone className="h-4 w-4" />}
+                  {reportingHazard ? <Loader2 className="h-5 w-5 animate-spin"/> : <TrafficCone className="h-5 w-5" />}
               </Button>
               <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive" size="icon"
-                    className="rounded-full h-8 w-8 shadow-lg animate-pulse"
+                    className="rounded-full h-10 w-10 shadow-lg animate-pulse"
                     onClick={() => setIsSosDialogOpen(true)}
                     aria-label="SOS Panic Button"
                     disabled={!isDriverOnline}
                   >
-                    <ShieldAlert className="h-4 w-4" />
+                    <ShieldAlert className="h-5 w-5" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -2471,7 +2479,7 @@ export default function AvailableRidesPage() {
         </ScrollArea>
 
         {!(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-          <CardFooter className="p-3 border-t grid gap-2 shrink-0">
+          <div className="p-3 border-t grid gap-2 shrink-0"> {/* Changed CardFooter to div and adjusted padding */}
             {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto" onClick={() => {console.log("Navigate (Driver Assigned) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to pickup."})}}> <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-base text-white py-2.5 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
             {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-2"> <div className="grid grid-cols-2 gap-2"> <Button variant="outline" className="w-full text-base py-2.5 h-auto" onClick={() => {console.log("Navigate (Arrived) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to dropoff."})}} > <Navigation className="mr-2"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-base text-white py-2.5 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-2" />}Start Ride </Button> </div> 
             <Button
@@ -2509,10 +2517,10 @@ export default function AvailableRidesPage() {
                 )}
               </div>
             )}
-          </CardFooter>
+          </div>
         )}
          {(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-              <CardFooter className="p-3 border-t grid gap-2 shrink-0">
+              <div className="p-3 border-t grid gap-2 shrink-0"> {/* Changed CardFooter to div */}
                 <Button
                     className="w-full bg-slate-600 hover:bg-slate-700 text-lg text-white py-3 h-auto"
                     onClick={() => {
@@ -2538,7 +2546,7 @@ export default function AvailableRidesPage() {
                 >
                     {(activeRide && !!actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />} Done
                 </Button>
-              </CardFooter>
+              </div>
            )}
         </Card>
         <AlertDialog
@@ -2694,19 +2702,19 @@ export default function AvailableRidesPage() {
               ].map(hazard => (
                 <Button
                   key={hazard.type}
-                  variant="outline"
-                  className="flex flex-col items-center justify-center h-20 text-center"
+                  variant="secondary" 
+                  className="flex flex-col items-center justify-center h-20 text-center text-secondary-foreground hover:bg-secondary/80"
                   onClick={() => handleReportHazard(hazard.type)}
                   disabled={reportingHazard}
                 >
-                  {hazard.icon && <hazard.icon className="w-6 h-6 mb-1 text-primary" />}
-                  <span className="text-xs">{hazard.label}</span>
+                  {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} 
+                  <span className="text-xs font-medium">{hazard.label}</span>
                 </Button>
               ))}
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="ghost" disabled={reportingHazard}>Cancel</Button>
+                <Button type="button" variant="outline" disabled={reportingHazard}>Cancel</Button>
               </DialogClose>
             </DialogFooter>
           </DialogContent>
