@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, ShieldAlert, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,7 @@ import { Separator } from '@/components/ui/separator';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -354,6 +355,9 @@ export default function AvailableRidesPage() {
 
   const [showEndOfRideReminder, setShowEndOfRideReminder] = useState(false);
   const endOfRideReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSpeedLimitFeatureEnabled, setIsSpeedLimitFeatureEnabled] = useState(false);
+  const [currentMockSpeed, setCurrentMockSpeed] = useState(20);
+  const [currentMockLimit, setCurrentMockLimit] = useState(30);
 
 
   const fetchActiveHazards = useCallback(async () => {
@@ -507,6 +511,23 @@ export default function AvailableRidesPage() {
     fetchActiveHazards();
   };
 
+  useEffect(() => {
+    if (!isSpeedLimitFeatureEnabled) return;
+    const speedInterval = setInterval(() => {
+      setCurrentMockSpeed(prev => {
+        const change = Math.floor(Math.random() * 7) - 3; // -3 to +3
+        let newSpeed = prev + change;
+        if (newSpeed < 0) newSpeed = 0;
+        if (newSpeed > 70) newSpeed = 70;
+        return newSpeed;
+      });
+      if (Math.random() < 0.1) { // 10% chance to change limit
+        const limits = [20, 30, 40, 50, 60, 70];
+        setCurrentMockLimit(limits[Math.floor(Math.random() * limits.length)]);
+      }
+    }, 3000);
+    return () => clearInterval(speedInterval);
+  }, [isSpeedLimitFeatureEnabled]);
 
 
   const playBeep = useCallback(() => {
@@ -1752,7 +1773,14 @@ export default function AvailableRidesPage() {
   if (!activeRide) {
     const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
     return (
-      <div className="flex flex-col h-full space-y-2">
+      <div className="flex flex-col h-full space-y-2 p-2 md:p-4">
+        {isSpeedLimitFeatureEnabled && 
+          <SpeedLimitDisplay 
+            currentSpeed={currentMockSpeed} 
+            speedLimit={currentMockLimit}
+            isEnabled={isSpeedLimitFeatureEnabled}
+          />
+        }
         <div className={mapContainerClasses}>
             <GoogleMapDisplay
               center={driverLocation}
@@ -1860,13 +1888,13 @@ export default function AvailableRidesPage() {
                   ].map(hazard => (
                     <Button
                       key={hazard.type}
-                      variant="secondary" // Changed from outline
-                      className="flex flex-col items-center justify-center h-20 text-center text-secondary-foreground hover:bg-secondary/80" // Added text color and hover
+                      variant="secondary" 
+                      className="flex flex-col items-center justify-center h-24 text-center text-secondary-foreground hover:bg-secondary/80 border border-border hover:border-primary/50"
                       onClick={() => handleReportHazard(hazard.type)}
                       disabled={reportingHazard}
                     >
-                      {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} {/* Removed text-primary, increased size */}
-                      <span className="text-xs font-medium">{hazard.label}</span> {/* Added font-medium */}
+                      {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} 
+                      <span className="text-xs font-medium">{hazard.label}</span>
                     </Button>
                   ))}
                 </div>
@@ -2055,7 +2083,7 @@ export default function AvailableRidesPage() {
                     <Button
                       key={hazard.type}
                       variant="secondary" 
-                      className="flex flex-col items-center justify-center h-20 text-center text-secondary-foreground hover:bg-secondary/80"
+                      className="flex flex-col items-center justify-center h-24 text-center text-secondary-foreground hover:bg-secondary/80 border border-border hover:border-primary/50"
                       onClick={() => handleReportHazard(hazard.type)}
                       disabled={reportingHazard}
                     >
@@ -2189,7 +2217,14 @@ export default function AvailableRidesPage() {
   const mainActionBtnAction = mainButtonAction; 
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full p-2 md:p-4">
+      {isSpeedLimitFeatureEnabled && 
+        <SpeedLimitDisplay 
+          currentSpeed={currentMockSpeed} 
+          speedLimit={currentMockLimit}
+          isEnabled={isSpeedLimitFeatureEnabled}
+        />
+      }
       {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
       <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
           <GoogleMapDisplay
@@ -2703,7 +2738,7 @@ export default function AvailableRidesPage() {
                 <Button
                   key={hazard.type}
                   variant="secondary" 
-                  className="flex flex-col items-center justify-center h-20 text-center text-secondary-foreground hover:bg-secondary/80"
+                  className="flex flex-col items-center justify-center h-24 text-center text-secondary-foreground hover:bg-secondary/80 border border-border hover:border-primary/50"
                   onClick={() => handleReportHazard(hazard.type)}
                   disabled={reportingHazard}
                 >
@@ -2722,3 +2757,5 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
+    
