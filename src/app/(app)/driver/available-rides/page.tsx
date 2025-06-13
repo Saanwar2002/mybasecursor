@@ -1749,8 +1749,6 @@ export default function AvailableRidesPage() {
     </div>;
   }
 
-
-  // Fallback UI when there is no active ride:
   if (!activeRide) {
     const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
     return (
@@ -2107,8 +2105,80 @@ export default function AvailableRidesPage() {
       status.toLowerCase().includes('cancelled');
 
   const totalFare = (fareEstimate || 0) + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0);
-  const mainActionBtnText = mainButtonText(); // Call it once
-  const mainActionBtnAction = mainButtonAction; // Call it once
+  let displayedFare = `£${totalFare.toFixed(2)}`;
+  if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
+    const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
+    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; // Surcharge percentage
+    displayedFare = `£${(wrBaseFare + wrWaitCharge + priorityFeeAmount + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
+  }
+  
+  // Define these functions within the component scope
+  const mainButtonText = () => {
+    if (!activeRide) return "Loading...";
+    const currentStatus = activeRide.status?.toLowerCase();
+    const currentLegIdx = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
+
+    if (currentStatus === 'driver_assigned') return "Error: Should not show main button";
+    if (currentStatus === 'arrived_at_pickup') return "Start Ride";
+    
+    const isAtIntermediateStop = currentLegIdx > 0 && currentLegIdx < journeyPoints.length -1;
+
+    if (currentStatus === 'in_progress' || currentStatus === 'in_progress_wait_and_return') {
+      if (isAtIntermediateStop) {
+        const stopDataIndex = currentLegIdx - 1;
+        if (activeStopWaitTimerDetailsRef.current && activeStopWaitTimerDetailsRef.current.stopDataIndex === stopDataIndex) {
+            return `Depart Stop ${currentLegIdx} / Proceed`;
+        } else {
+            return `Arrived at Stop ${currentLegIdx} / Start Timer`;
+        }
+      }
+      if (currentLegIdx === journeyPoints.length -1 ) return "Complete Ride"; 
+      if (currentLegIdx === 0) return `Passenger Boarded / Proceed to ${journeyPoints.length > 2 ? 'Stop 1' : 'Dropoff'}`;
+    }
+    return "Proceed to Next"; 
+  };
+
+  const mainButtonAction = () => {
+    if (!activeRide) return;
+    const currentStatus = activeRide.status?.toLowerCase();
+    const currentLegIdx = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
+
+    if (currentStatus === 'driver_assigned') return; 
+    if (currentStatus === 'arrived_at_pickup') {
+      handleRideAction(activeRide.id, 'start_ride');
+      return;
+    }
+    
+    const isAtIntermediateStop = currentLegIdx > 0 && currentLegIdx < journeyPoints.length -1;
+    const currentStopArrayIndex = currentLegIdx - 1;
+
+    if (currentStatus === 'in_progress' || currentStatus === 'in_progress_wait_and_return') {
+      if (isAtIntermediateStop) {
+          if (!activeStopWaitTimerDetailsRef.current || activeStopWaitTimerDetailsRef.current.stopDataIndex !== currentStopArrayIndex) {
+              if (activeStopWaitTimerDetailsRef.current?.timerId) { clearInterval(activeStopWaitTimerDetailsRef.current.timerId); }
+              activeStopWaitTimerDetailsRef.current = {
+                  stopDataIndex: currentStopArrayIndex,
+                  arrivalTime: new Date(), 
+                  timerId: null,
+              };
+              return; 
+          } else {
+              handleRideAction(activeRide.id, 'proceed_to_next_leg');
+              return;
+          }
+      }
+      if (currentLegIdx === journeyPoints.length -1 ) {
+          handleRideAction(activeRide.id, 'complete_ride');
+      } else if (currentLegIdx === 0) { 
+          handleRideAction(activeRide.id, 'proceed_to_next_leg'); 
+      } else { 
+          handleRideAction(activeRide.id, 'proceed_to_next_leg');
+      }
+    }
+  };
+
+  const mainActionBtnText = mainButtonText(); 
+  const mainActionBtnAction = mainButtonAction; 
 
   return (
     <div className="flex flex-col h-full">
@@ -2247,7 +2317,7 @@ export default function AvailableRidesPage() {
                 </div>
                )}
           </div>
-
+          
           {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
               <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
                 <p className="text-sm font-medium flex items-center justify-center gap-1">
@@ -2470,10 +2540,10 @@ export default function AvailableRidesPage() {
                 </Button>
               </CardFooter>
            )}
-      </Card>
-      <AlertDialog
-        open={showCancelConfirmationDialog}
-        onOpenChange={(isOpen) => {
+        </Card>
+        <AlertDialog
+          open={showCancelConfirmationDialog}
+          onOpenChange={(isOpen) => {
               console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen);
               setShowCancelConfirmationDialog(isOpen);
               if (!isOpen && activeRide && isCancelSwitchOn) {
@@ -2482,62 +2552,62 @@ export default function AvailableRidesPage() {
               }
           }}
         >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-            <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-              <AlertDialogCancel
-                  onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-                  disabled={activeRide ? !!actionLoading[activeRide.id] : false}
-              >
-                Keep Ride
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
-                disabled={!activeRide || (!!actionLoading[activeRide.id])}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              >
-                <span className="flex items-center justify-center">
-                {activeRide && (!!actionLoading[activeRide.id]) ? (
-                   <React.Fragment>
-                     <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                     <span>Cancelling...</span>
-                   </React.Fragment>
-                ) : (
-                   <React.Fragment>
-                     <ShieldX className="mr-2 h-4 w-4" />
-                     <span>Confirm Cancel</span>
-                  </React.Fragment>
-                )}
-                </span>
-              </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-       <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
           <AlertDialogContent>
-              <AlertDialogHeader>
-                  <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                  <AlertDialogDescription>
-                      Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                  </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
-                  <AlertDialogAction
-                      onClick={() => {
-                          if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
-                          setIsNoShowConfirmDialogOpen(false);
-                      }}
-                      className="bg-destructive hover:bg-destructive/90"
-                  >
-                     <span>Confirm No-Show</span>
-                  </AlertDialogAction>
-              </AlertDialogFooter>
+            <AlertDialogHeader>
+              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
+              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel
+                    onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
+                >
+                  Keep Ride
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
+                  disabled={!activeRide || (!!actionLoading[activeRide.id])}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
+                  <span className="flex items-center justify-center">
+                  {activeRide && (!!actionLoading[activeRide.id]) ? (
+                       <React.Fragment>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </React.Fragment>
+                    ) : (
+                       <React.Fragment>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </React.Fragment>
+                    )}
+                  </span>
+                </AlertDialogAction>
+            </AlertDialogFooter>
           </AlertDialogContent>
-      </AlertDialog>
+        </AlertDialog>
+         <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
+                    <AlertDialogDescription>
+                        Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={() => {
+                            if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
+                            setIsNoShowConfirmDialogOpen(false);
+                        }}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                       <span>Confirm No-Show</span>
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
        <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>

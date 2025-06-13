@@ -75,9 +75,9 @@ export default function DriverDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p><strong>Passenger:</strong> {activeRide.passenger}</p>
-                <p><strong>Pickup:</strong> {activeRide.pickup}</p>
-                <p><strong>Dropoff:</strong> {activeRide.dropoff}</p>
+                <p><strong>Passenger:</strong> {(activeRide as any).passenger}</p>
+                <p><strong>Pickup:</strong> {(activeRide as any).pickup}</p>
+                <p><strong>Dropoff:</strong> {(activeRide as any).dropoff}</p>
                 <Button variant="outline" className="w-full mt-3 border-primary text-primary hover:bg-primary hover:text-primary-foreground">Navigate to Pickup</Button>
               </CardContent>
             </Card>

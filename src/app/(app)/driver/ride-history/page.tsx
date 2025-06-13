@@ -20,6 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger // Make sure AlertDialogTrigger is imported
 } from "@/components/ui/alert-dialog";
 
 interface LocationPoint {
