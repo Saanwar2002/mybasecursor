@@ -2,7 +2,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp } from "lucide-react"; // Added AlertOctagon, LockKeyhole, CheckCircleIcon, ThumbsUp
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp } from "lucide-react";
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +22,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -238,8 +239,6 @@ export default function MyActiveRidePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [isCancelling, setIsCancelling] = useState(false); // Not directly used, actionLoading handles this
-  const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
 
 
@@ -291,6 +290,8 @@ export default function MyActiveRidePage() {
 
   const [showEndOfRideReminder, setShowEndOfRideReminder] = useState(false);
   const endOfRideReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [rideIdToCancel, setRideIdToCancel] = useState<string | null>(null);
 
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
@@ -490,22 +491,22 @@ export default function MyActiveRidePage() {
 
   const handleInitiateCancelRide = async () => {
     if (!activeRide || !user) return;
-    const rideIdToCancel = activeRide.id; 
-    setActionLoading(prev => ({ ...prev, [rideIdToCancel]: true }));
+    const currentRideIdToCancel = activeRide.id; 
+    setRideIdToCancel(currentRideIdToCancel); // Store ID before activeRide becomes null
+    setActionLoading(prev => ({ ...prev, [currentRideIdToCancel]: true }));
     try {
-      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: rideIdToCancel, passengerId: user.id })});
+      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: currentRideIdToCancel, passengerId: user.id })});
       if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
-      toast({ title: "Ride Cancelled", description: `Your ride ${rideIdToCancel} has been cancelled.` });
+      toast({ title: "Ride Cancelled", description: `Your ride ${currentRideIdToCancel} has been cancelled.` });
       setActiveRide(null);
       setShowCancelConfirmationDialog(false); 
-      setIsCancelSwitchOn(false);
     } catch (err) { const message = err instanceof Error ? err.message : "Unknown error cancelling ride."; toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
     } finally {
-        setActionLoading(prev => ({ ...prev, [rideIdToCancel]: false }));
+        setActionLoading(prev => ({ ...prev, [currentRideIdToCancel]: false }));
+        setRideIdToCancel(null); // Clear stored ID
     }
   };
 
-  const handleCancelSwitchChange = (checked: boolean) => { setIsCancelSwitchOn(checked); if (checked && activeRide) { setShowCancelConfirmationDialog(true); } else if (!checked) { setShowCancelConfirmationDialog(false); }};
 
   const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
     setRideToEditDetails(ride);
@@ -796,7 +797,7 @@ export default function MyActiveRidePage() {
     switch (status.toLowerCase()) {
         case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
         case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
-        case 'arrived_at_pickup': return 'border-blue-500 text-blue-600 hover:bg-blue-500/10';
+        case 'arrived_at_pickup': return 'border-blue-500 text-blue-500 hover:bg-blue-500/10';
         case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
         case 'pending_driver_wait_and_return_approval': return 'bg-purple-400/80 text-purple-900 hover:bg-purple-400/70';
         case 'in_progress_wait_and_return': return 'bg-teal-500 text-white hover:bg-teal-600';
@@ -965,6 +966,52 @@ export default function MyActiveRidePage() {
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
+  const CancelRideInteraction = () => {
+    if (!activeRide || activeRide.status !== 'pending_assignment') return null;
+
+    return (
+      <AlertDialog
+        open={showCancelConfirmationDialog}
+        onOpenChange={(isOpen) => {
+          setShowCancelConfirmationDialog(isOpen);
+        }}
+      >
+        <AlertDialogTrigger asChild>
+          <Button variant="destructive" className="w-full sm:w-auto" disabled={actionLoading[activeRide.id]}>
+             <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setShowCancelConfirmationDialog(false)}
+              disabled={actionLoading[rideIdToCancel || '']}
+            >
+              Keep Ride
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (rideIdToCancel) { handleInitiateCancelRide(); }
+              }}
+              disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {actionLoading[rideIdToCancel || ''] ? (
+                <><Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" /> <span key="text-loader-cancel">Cancelling...</span></>
+              ) : (
+                <><ShieldX key="icon-cancel" className="mr-2 h-4 w-4" /> <span key="text-icon-cancel">Confirm Cancel</span></>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  };
+
 
   return (
     <div className="space-y-6">
@@ -1095,12 +1142,7 @@ export default function MyActiveRidePage() {
                       </ShadAlertDescription>
                     </Alert>
                   )}
-                   <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3 w-full sm:w-auto">
-                        <Label htmlFor={`cancel-ride-switch-${activeRide.id}`} className="text-destructive font-medium text-sm">
-                            Initiate Cancellation
-                        </Label>
-                        <Switch id={`cancel-ride-switch-${activeRide.id}`} checked={isCancelSwitchOn} onCheckedChange={handleCancelSwitchChange} disabled={actionLoading[activeRide.id]} className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0" />
-                    </div>
+                  <CancelRideInteraction />
                 </CardFooter>
             )}
           </Card>
@@ -1110,9 +1152,6 @@ export default function MyActiveRidePage() {
         open={showCancelConfirmationDialog}
         onOpenChange={(isOpen) => {
             setShowCancelConfirmationDialog(isOpen);
-            if (!isOpen) {
-                if (isCancelSwitchOn) setIsCancelSwitchOn(false);
-            }
         }}
       >
         <AlertDialogContent>
@@ -1122,31 +1161,23 @@ export default function MyActiveRidePage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
-                    onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
+                    onClick={() => { setShowCancelConfirmationDialog(false);}}
+                    disabled={rideIdToCancel ? !!actionLoading[rideIdToCancel] : false}
                 >
-                  <span>Keep Ride</span>
+                  Keep Ride
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { 
-                    if (activeRide) { handleInitiateCancelRide(); }
+                    if (rideIdToCancel) { handleInitiateCancelRide(); }
                   }}
-                  disabled={!activeRide || (!!actionLoading[activeRide?.id || ''] || false)}
+                  disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="flex items-center justify-center">
-                    {(activeRide && actionLoading[activeRide.id]) ? (
-                      [
-                        <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />,
-                        <span key="text-loader-cancel">Cancelling...</span>
-                      ]
-                    ) : (
-                      [
-                        <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />,
-                        <span key="text-icon-cancel">Confirm Cancel</span>
-                      ]
-                    )}
-                  </span>
+                  {actionLoading[rideIdToCancel || ''] ? (
+                    <><Loader2 key="loader-cancel-confirm" className="animate-spin mr-2 h-4 w-4" /> <span key="text-loader-cancel-confirm">Cancelling...</span></>
+                  ) : (
+                    <><ShieldX key="icon-cancel-confirm" className="mr-2 h-4 w-4" /> <span key="text-icon-cancel-confirm">Confirm Cancel</span></>
+                  )}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -1224,3 +1255,38 @@ export default function MyActiveRidePage() {
   );
 }
 
+const CancelRideInteraction = ({ ride, onInitiateCancel, isLoading }: { ride: ActiveRide | null; onInitiateCancel: () => void; isLoading: boolean; }) => {
+  if (!ride || ride.status !== 'pending_assignment') return null;
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="destructive" className="w-full sm:w-auto" disabled={isLoading}>
+          <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will cancel your ride request. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Keep Ride</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onInitiateCancel}
+            disabled={isLoading}
+            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+          >
+            {isLoading ? (
+              <><Loader2 key="loader-cancel-dialog" className="animate-spin mr-2 h-4 w-4" /> <span key="text-loader-cancel-dialog">Cancelling...</span></>
+            ) : (
+              <><ShieldX key="icon-cancel-dialog" className="mr-2 h-4 w-4" /> <span key="text-icon-cancel-dialog">Confirm Cancel</span></>
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
