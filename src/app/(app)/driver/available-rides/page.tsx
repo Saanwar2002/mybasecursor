@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp, ShieldAlert } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp, ShieldAlert as ShieldAlertIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1249,18 +1249,18 @@ export default function AvailableRidesPage() {
     }
     
     let chargeForPreviousStop = 0;
-    if ((actionType === 'proceed_to_next_leg' || actionType === 'complete_ride') && currentStopTimerDisplay) {
-        // This charge is for the stop we are *departing from*.
-        // currentStopTimerDisplay.stopDataIndex is the index in activeRide.stops[]
-        if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopTimerDisplay.stopDataIndex) {
-            chargeForPreviousStop = currentStopTimerDisplay.charge;
-            const stopIndexKey = activeStopDetails.stopDataIndex;
-            setCompletedStopWaitCharges(prev => ({...prev, [stopIndexKey]: chargeForPreviousStop }));
-            setAccumulatedStopWaitingCharges(prev => Object.values({...prev, [stopIndexKey]: chargeForPreviousStop}).reduce((sum, val) => sum + (val || 0), 0));
-            
-            setActiveStopDetails(null); // Clear the active stop details as we are departing
-            // setCurrentStopTimerDisplay(null); // This will be cleared by the useEffect depending on activeStopDetails
-        }
+    // Corrected the calculation for chargeForPreviousStop
+    const currentStopArrayIndexForChargeCalc = localCurrentLegIndex - 1;
+    if ((actionType === 'proceed_to_next_leg' || actionType === 'complete_ride') && 
+        activeStopDetails && 
+        activeStopDetails.stopDataIndex === currentStopArrayIndexForChargeCalc && 
+        currentStopTimerDisplay && 
+        currentStopTimerDisplay.stopDataIndex === currentStopArrayIndexForChargeCalc
+    ) {
+        chargeForPreviousStop = currentStopTimerDisplay.charge;
+        // Update accumulated charges optimistically on client for display
+        setCompletedStopWaitCharges(prev => ({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop }));
+        setAccumulatedStopWaitingCharges(prev => Object.values({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop}).reduce((sum, val) => sum + (val || 0), 0));
     }
 
 
@@ -1273,6 +1273,8 @@ export default function AvailableRidesPage() {
     if (['notify_arrival', 'start_ride', 'proceed_to_next_leg'].includes(actionType) && driverLocation) {
       payload.driverCurrentLocation = driverLocation;
     }
+    
+    const updateDataFromPayload = payload; // Using the constructed payload for clarity
 
     switch(actionType) {
         case 'notify_arrival':
@@ -1286,26 +1288,32 @@ export default function AvailableRidesPage() {
             setAckWindowSecondsLeft(null);
             payload.rideStartedAt = true;
             payload.updatedLegDetails = { newLegIndex: 1, currentLegEntryTimestamp: true };
-            setActiveStopDetails(null); // Ensure no stop timer is active when ride starts from pickup
+            setActiveStopDetails(null); 
             break;
         case 'proceed_to_next_leg':
-            const newLegIdx = localCurrentLegIndex + 1;
-            const targetPoint = journeyPoints[newLegIdx];
-            const targetType = newLegIdx === journeyPoints.length - 1 ? "final dropoff" : `stop ${newLegIdx}`;
+            const newLegIdxForProceed = localCurrentLegIndex + 1;
+            const currentStopArrayIndexForCharge = localCurrentLegIndex - 1; 
+
+            const targetPoint = journeyPoints[newLegIdxForProceed];
+            const targetType = newLegIdxForProceed === journeyPoints.length - 1 ? "final dropoff" : `stop ${newLegIdxForProceed}`;
             toastTitle = `Proceeding to ${targetType}`;
             toastMessage = `Navigating to ${targetPoint?.address || 'next location'}.`;
-            payload.updatedLegDetails = { 
-                newLegIndex: newLegIdx, 
-                currentLegEntryTimestamp: true,
-                previousStopIndex: localCurrentLegIndex - 1, 
-                waitingChargeForPreviousStop: chargeForPreviousStop
+
+            payload.updatedLegDetails = {
+                newLegIndex: newLegIdxForProceed,
+                currentLegEntryTimestamp: true, 
             };
-            // When proceeding to next leg, if the new leg is an intermediate stop, set its arrival time.
-            // The stopDataIndex for activeRide.stops[] is newLegIdx - 1.
-            if (newLegIdx > 0 && newLegIdx < journeyPoints.length - 1) {
-                setActiveStopDetails({ stopDataIndex: newLegIdx - 1, arrivalTime: new Date() });
-            } else {
-                setActiveStopDetails(null); // Not arriving at an intermediate stop
+
+            if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndexForCharge && currentStopTimerDisplay && currentStopTimerDisplay.stopDataIndex === currentStopArrayIndexForCharge) {
+                chargeForPreviousStop = currentStopTimerDisplay.charge;
+                payload.updatedLegDetails.previousStopIndex = currentStopArrayIndexForCharge;
+                payload.updatedLegDetails.waitingChargeForPreviousStop = chargeForPreviousStop;
+            }
+            
+            setActiveStopDetails(null); // Clear active stop details as we are departing
+
+            if (updateDataFromPayload.driverCurrentLocation) {
+              payload.driverCurrentLocation = updateDataFromPayload.driverCurrentLocation;
             }
             break;
         case 'complete_ride':
@@ -1315,9 +1323,6 @@ export default function AvailableRidesPage() {
             if(activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
                 wrCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
             }
-            // currentWaitingCharge is for pickup waiting.
-            // accumulatedStopWaitingCharges is sum of all previous completed stops.
-            // chargeForPreviousStop is for the stop *just departed* if completing from a stop.
             const finalFare = baseFare + priorityFee + currentWaitingCharge + accumulatedStopWaitingCharges + chargeForPreviousStop + wrCharge; 
 
             toastTitle = "Ride Completed";
@@ -1826,12 +1831,12 @@ export default function AvailableRidesPage() {
                         aria-label="SOS Panic Button"
                         disabled={!isDriverOnline}
                     >
-                        <ShieldAlert className="h-5 w-5" />
+                        <ShieldAlertIcon className="h-5 w-5" />
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                     <AlertDialogHeader>
-                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
+                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                         <AlertDialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
                         </AlertDialogDescription>
@@ -2281,12 +2286,12 @@ export default function AvailableRidesPage() {
                     aria-label="SOS Panic Button"
                     disabled={!isDriverOnline}
                   >
-                    <ShieldAlert className="h-5 w-5" />
+                    <ShieldAlertIcon className="h-5 w-5" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
+                    <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                     <AlertDialogDescription>
                       Select the type of assistance needed. Your current location will be shared with your operator.
                     </AlertDialogDescription>
@@ -2784,4 +2789,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
