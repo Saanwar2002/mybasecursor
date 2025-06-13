@@ -1588,6 +1588,7 @@ export default function AvailableRidesPage() {
     }
   };
 
+
   const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
     if (!ride || !['driver_assigned'].includes(ride.status.toLowerCase())) return null;
     if (ride.status.toLowerCase() === 'arrived_at_pickup') return null;
@@ -1973,7 +1974,7 @@ export default function AvailableRidesPage() {
                 )}
                 {activeRide.passengerRating && ( <div className="flex items-center"> {[...Array(5)].map((_, i) => <Star key={i} className={cn("w-3.5 h-3.5", i < Math.round(activeRide.passengerRating!) ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />)} <span className="ml-1 text-xs text-muted-foreground">({activeRide.passengerRating.toFixed(1)})</span> </div> )}
               </div>
-              {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
+              {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus && !(showInProgressStatus || showInProgressWRStatus) ) && (
                 <div className="flex items-center gap-1">
                   {activeRide.passengerPhone && (
                     <Button asChild variant="outline" size="icon" className="h-9 w-9">
@@ -1986,6 +1987,13 @@ export default function AvailableRidesPage() {
                       <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
                   </Button>
                 </div>
+               )}
+               {(showInProgressStatus || showInProgressWRStatus) && activeRide.passengerPhone && (
+                  <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                    <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
+                      <PhoneCall className="w-4 h-4" />
+                    </a>
+                  </Button>
                )}
             </div>
             
@@ -2521,67 +2529,57 @@ export default function AvailableRidesPage() {
               <ShadAlertDescription>{geolocationError}</ShadAlertDescription>
           </Alert>
       )}
-      {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
+      {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </ </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
       <div className="pt-2">
         <Button variant="outline" size="sm" onClick={seedMockHazards} className="text-xs h-8 px-3 py-1">Seed Mock Hazards (Test)</Button>
       </div>
       {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
       <AlertDialog
-        open={isStationaryReminderVisible}
-        onOpenChange={setIsStationaryReminderVisible}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <ShadAlertDialogTitle className="flex items-center gap-2">
-              <Navigation className="w-5 h-5 text-primary" /> Time to Go!
-            </ShadAlertDialogTitle>
-            <AlertDialogDescription>
-              Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
-              Okay, I&apos;m Going!
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-            <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
-              disabled={activeRide ? !!actionLoading[activeRide.id] : false}
-            >
-              Keep Ride
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
-              disabled={!activeRide || (!!actionLoading[activeRide.id])}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-            >
-              <span className="flex items-center justify-center">
-              {activeRide && (!!actionLoading[activeRide.id]) ? (
-                <React.Fragment>
-                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                  <span>Cancelling...</span>
-                </React.Fragment>
-              ) : (
-                <React.Fragment>
-                  <ShieldX className="mr-2 h-4 w-4" />
-                  <span>Confirm Cancel</span>
-               </React.Fragment>
-              )}
-              </span>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-       <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
+        open={showCancelConfirmationDialog}
+        onOpenChange={(isOpen) => {
+              console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen);
+              setShowCancelConfirmationDialog(isOpen);
+              if (!isOpen && activeRide && isCancelSwitchOn) {
+                  console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false.");
+                  setIsCancelSwitchOn(false);
+              }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
+              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel
+                    onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
+                >
+                  Keep Ride
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
+                  disabled={!activeRide || (!!actionLoading[activeRide.id])}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
+                  <span className="flex items-center justify-center">
+                  {activeRide && (!!actionLoading[activeRide.id]) ? (
+                       <React.Fragment>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </React.Fragment>
+                    ) : (
+                       <React.Fragment>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </React.Fragment>
+                    )}
+                  </span>
+                </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+         <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
           <AlertDialogContent>
               <AlertDialogHeader>
                   <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
