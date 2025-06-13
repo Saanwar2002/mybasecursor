@@ -71,7 +71,6 @@ const formSchema = z.object({
   if (data.role === 'passenger') {
     return !!data.phoneNumber && data.phoneNumber.trim() !== "" && phoneRegex.test(data.phoneNumber);
   }
-  // Phone number optional for driver, operator, admin during self-registration
   return !data.phoneNumber || data.phoneNumber.trim() === "" || phoneRegex.test(data.phoneNumber);
 }, {
   message: "Valid phone number (e.g., +14155552671) is required for passengers.",

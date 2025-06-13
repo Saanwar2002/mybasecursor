@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoginForm } from "@/components/auth/login-form"; // Restoring the actual login form
+import { LoginForm } from "@/components/auth/login-form"; 
 import { LogIn } from "lucide-react";
 
 export default function LoginPage() {

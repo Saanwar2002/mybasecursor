@@ -23,13 +23,13 @@ import { Separator } from "@/components/ui/separator";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), // Min 1 for quick testing, ideally 6+
+  password: z.string().min(1, { message: "Password is required." }), 
 });
 
 export function LoginForm() {
   const { loginWithEmail, loginAsGuest, loading: authLoading } = useAuth(); 
   const { toast } = useToast();
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Renamed to avoid conflict if any
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,9 +44,7 @@ export function LoginForm() {
     setIsSubmittingForm(true);
     try {
       await loginWithEmail(values.email, values.password);
-      // Success toast and redirection are handled by AuthContext
     } catch (error) {
-      // Error toast should ideally be handled by AuthContext's loginWithEmail
       console.error("LoginForm direct catch from onSubmit (should be rare if AuthContext handles well):", error);
     } finally {
       setIsSubmittingForm(false);
