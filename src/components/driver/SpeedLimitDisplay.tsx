@@ -28,14 +28,16 @@ export function SpeedLimitDisplay({ currentSpeed, speedLimit, isEnabled }: Speed
     StatusIcon = AlertTriangle;
   }
 
+  // console.log("[SpeedLimitDisplay] Rendering. isEnabled:", isEnabled, "currentSpeed:", currentSpeed, "speedLimit:", speedLimit); // DEBUG LOG
 
   return (
     <div
       className={cn(
-        "absolute bottom-4 left-4 z-50 p-2 md:p-3 rounded-lg shadow-xl bg-black/75 text-white flex items-center space-x-2 md:space-x-3 backdrop-blur-sm transition-all duration-300 ease-in-out",
+        "absolute bottom-4 left-4 z-[1000] p-2 md:p-3 rounded-lg shadow-xl bg-black/75 text-white flex items-center space-x-2 md:space-x-3 backdrop-blur-sm transition-opacity duration-300 ease-in-out",
         "border-2",
         isOverLimit ? "border-red-500/80" : (statusText === "APPROACHING LIMIT" ? "border-yellow-500/80" : "border-green-500/80"),
-        !isEnabled && "opacity-0 pointer-events-none scale-90" // Ensure visibility is tied to isEnabled
+        !isEnabled && "opacity-0 pointer-events-none", // Simplified visibility toggle
+        "bg-pink-500" // TEMPORARY DEBUG BACKGROUND
       )}
       role="status"
       aria-live="polite"
