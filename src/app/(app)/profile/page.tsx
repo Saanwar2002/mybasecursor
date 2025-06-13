@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, AlertTriangle, Users, Car as CarIcon, FileText, CalendarDays, Palette, CreditCard, UploadCloud } from "lucide-react"; // Added UploadCloud
+import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, AlertTriangle, Users, Car as CarIcon, FileText, CalendarDays, Palette, CreditCard, UploadCloud, Landmark, Save } from "lucide-react"; // Added Landmark, Save
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from 'date-fns';
-import Image from 'next/image'; // Added Next Image
+import Image from 'next/image';
 
 // Helper to safely format date strings
 const formatDateString = (dateString?: string): string => {
@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [isEditingBasicInfo, setIsEditingBasicInfo] = useState(false);
   const [isEditingVehicleInfo, setIsEditingVehicleInfo] = useState(false);
+  const [isEditingBankInfo, setIsEditingBankInfo] = useState(false); // New state for bank info
   
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,6 +54,12 @@ export default function ProfilePage() {
   const [taxiLicenseNumber, setTaxiLicenseNumber] = useState("");
   const [taxiLicenseExpiryDate, setTaxiLicenseExpiryDate] = useState("");
 
+  // Bank Account Details State (Mock)
+  const [accountHolderName, setAccountHolderName] = useState("John Doe (Example)");
+  const [sortCode, setSortCode] = useState("12-34-56");
+  const [accountNumber, setAccountNumber] = useState("********");
+  
+
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
   
@@ -62,7 +69,7 @@ export default function ProfilePage() {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phoneNumber || (user.role === 'driver' ? "555-0101" : ""));
-      setProfilePicPreview(user.avatarUrl || null); // Initialize preview with current avatar
+      setProfilePicPreview(user.avatarUrl || null); 
 
       if (user.role === 'driver') {
         setVehicleMakeModel(user.vehicleMakeModel || "");
@@ -73,6 +80,10 @@ export default function ProfilePage() {
         setMotExpiryDate(user.motExpiryDate || "");
         setTaxiLicenseNumber(user.taxiLicenseNumber || "");
         setTaxiLicenseExpiryDate(user.taxiLicenseExpiryDate || "");
+        // Mock bank details for driver if needed, or leave as placeholders
+        // setAccountHolderName(user.bankAccountHolderName || "Your Name");
+        // setSortCode(user.bankSortCode || "00-00-00");
+        // setAccountNumber(user.bankAccountNumber ? `****${user.bankAccountNumber.slice(-4)}` : "********");
       }
     }
   }, [user]);
@@ -81,7 +92,6 @@ export default function ProfilePage() {
     populateFormFields();
   }, [user, populateFormFields]);
 
-  // Clean up blob URL for preview
   useEffect(() => {
     return () => {
       if (profilePicPreview && profilePicPreview.startsWith('blob:')) {
@@ -99,7 +109,6 @@ export default function ProfilePage() {
       if (name !== user.name) { updatedDetails.name = name; changesMade = true; }
       if (phone !== user.phoneNumber) { updatedDetails.phoneNumber = phone; changesMade = true; }
       if (profilePicFile) {
-        // Simulate upload: generate a new placeholder URL
         updatedDetails.avatarUrl = `https://placehold.co/100x100/${Math.random().toString(16).substr(-6)}/FFFFFF.png?text=${name.charAt(0).toUpperCase() || 'U'}`;
         changesMade = true;
       }
@@ -115,34 +124,39 @@ export default function ProfilePage() {
       if (taxiLicenseNumber !== user.taxiLicenseNumber) { updatedDetails.taxiLicenseNumber = taxiLicenseNumber; changesMade = true; }
       if (taxiLicenseExpiryDate !== user.taxiLicenseExpiryDate) { updatedDetails.taxiLicenseExpiryDate = taxiLicenseExpiryDate; changesMade = true; }
     }
+    
+    // Note: Bank details are mock, so no actual user context update for them.
 
     if (changesMade && Object.keys(updatedDetails).length > 0) { 
         updateUserProfileInContext(updatedDetails); 
         toast({ title: "Profile Changes Applied", description: "Your profile display has been updated." });
-        if (profilePicFile) { // If a new pic was "uploaded", reset file state
+        if (profilePicFile) {
           setProfilePicFile(null);
-          // Preview will update via useEffect when user.avatarUrl changes in context
         }
-    } else {
+    } else if (!isEditingBankInfo) { // Don't show "no changes" if bank info was the only thing being edited
         toast({ title: "No Changes Detected", description: "No information was modified.", variant: "default"});
     }
     
-    if (isEditingBasicInfo && !isEditingVehicleInfo) setIsEditingBasicInfo(false);
-    if (isEditingVehicleInfo && !isEditingBasicInfo) setIsEditingVehicleInfo(false);
-    if (isEditingBasicInfo && isEditingVehicleInfo) { // If both were open, close basic, vehicle might still be intended for edit if separate save for it.
-        setIsEditingBasicInfo(false);
-        // Keep isEditingVehicleInfo true if you want separate save buttons, or set both to false if one save button.
-        // For now, assuming one main "Save Basic Info" handles profile pic too.
-    }
+    if (isEditingBasicInfo) setIsEditingBasicInfo(false);
+    if (isEditingVehicleInfo) setIsEditingVehicleInfo(false);
+  };
+
+  const handleSaveBankDetails = () => {
+    toast({
+      title: "Bank Details Updated (Mock)",
+      description: "Your bank account details have been 'updated' (this is a UI mock).",
+    });
+    setIsEditingBankInfo(false);
+    // In a real app, you'd send these to a secure backend: accountHolderName, sortCode, accountNumber
   };
 
   const handleCancelBasicInfoEdit = () => {
     setIsEditingBasicInfo(false);
-    setProfilePicFile(null); // Clear any selected file
+    setProfilePicFile(null); 
     if (user) {
         setName(user.name || "");
         setPhone(user.phoneNumber || "");
-        setProfilePicPreview(user.avatarUrl || null); // Reset preview
+        setProfilePicPreview(user.avatarUrl || null); 
     }
   };
   
@@ -158,6 +172,14 @@ export default function ProfilePage() {
         setTaxiLicenseNumber(user.taxiLicenseNumber || "");
         setTaxiLicenseExpiryDate(user.taxiLicenseExpiryDate || "");
     }
+  };
+
+  const handleCancelBankInfoEdit = () => {
+    setIsEditingBankInfo(false);
+    // Reset bank fields to their placeholder/mock initial state
+    setAccountHolderName("John Doe (Example)");
+    setSortCode("12-34-56");
+    setAccountNumber("********");
   };
 
 
@@ -187,7 +209,7 @@ export default function ProfilePage() {
             <AvatarFallback className="text-3xl">{user.name ? user.name.charAt(0).toUpperCase() : "U"}</AvatarFallback>
           </Avatar>
           <div className="flex-1 text-center md:text-left"> <CardTitle className="text-2xl font-headline">{user.name}</CardTitle> <CardDescription className="capitalize flex items-center justify-center md:justify-start gap-1"> <Briefcase className="w-4 h-4" /> {user.role} </CardDescription> </div>
-          {!isEditingVehicleInfo && (
+          {!isEditingVehicleInfo && !isEditingBankInfo && (
             <Button variant={isEditingBasicInfo ? "destructive" : "outline"} onClick={() => isEditingBasicInfo ? handleCancelBasicInfoEdit() : setIsEditingBasicInfo(true)}>
               <Edit3 className="mr-2 h-4 w-4" />
               {isEditingBasicInfo ? <span>Cancel Basic Info Edit</span> : <span>Edit Basic Info</span>}
@@ -215,17 +237,17 @@ export default function ProfilePage() {
                   if (file) {
                     setProfilePicFile(file);
                     if (profilePicPreview && profilePicPreview.startsWith('blob:')) {
-                      URL.revokeObjectURL(profilePicPreview); // Clean up previous blob
+                      URL.revokeObjectURL(profilePicPreview); 
                     }
                     setProfilePicPreview(URL.createObjectURL(file));
                   } else {
                     setProfilePicFile(null);
-                    setProfilePicPreview(user.avatarUrl || null); // Revert to original if selection cancelled
+                    setProfilePicPreview(user.avatarUrl || null); 
                   }
                 }}
                 className="mt-1"
               />
-              {profilePicPreview && profilePicPreview.startsWith('blob:') && ( // Only show file preview for blobs
+              {profilePicPreview && profilePicPreview.startsWith('blob:') && ( 
                 <div className="mt-2">
                   <p className="text-xs text-muted-foreground mb-1">New picture preview:</p>
                   <Image src={profilePicPreview} alt="Profile preview" width={80} height={80} className="rounded-full object-cover" />
@@ -261,7 +283,7 @@ export default function ProfilePage() {
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
                   <CarIcon className="w-6 h-6 text-primary" /> Vehicle &amp; Compliance
                 </CardTitle>
-                {!isEditingBasicInfo && (
+                {!isEditingBasicInfo && !isEditingBankInfo && (
                 <Button variant={isEditingVehicleInfo ? "destructive" : "outline"} size="sm" onClick={() => isEditingVehicleInfo ? handleCancelVehicleInfoEdit() : setIsEditingVehicleInfo(true)}>
                     <Edit3 className="mr-2 h-4 w-4" />
                     {isEditingVehicleInfo ? <span>Cancel Vehicle Edit</span> : <span>Edit Vehicle Info</span>}
@@ -317,6 +339,48 @@ export default function ProfilePage() {
                   Keep these details up-to-date for compliance. Renewal notifications will be implemented soon.
                 </AlertDescription>
               </Alert>
+
+              {/* Bank Account Details Section for Drivers */}
+              <Separator />
+              <div className="flex flex-wrap justify-between items-center gap-2 pt-4">
+                <CardTitle className="text-xl font-headline flex items-center gap-2">
+                  <Landmark className="w-6 h-6 text-primary" /> Bank Account for Payouts
+                </CardTitle>
+                {!isEditingBasicInfo && !isEditingVehicleInfo && (
+                    <Button variant={isEditingBankInfo ? "destructive" : "outline"} size="sm" onClick={() => isEditingBankInfo ? handleCancelBankInfoEdit() : setIsEditingBankInfo(true)}>
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        {isEditingBankInfo ? <span>Cancel Bank Edit</span> : <span>Edit Bank Details</span>}
+                    </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div>
+                  <Label htmlFor="accountHolderName"><span className="flex items-center gap-1"><UserCircle className="w-4 h-4 text-muted-foreground" /> Account Holder Name</span></Label>
+                  {isEditingBankInfo ? <Input id="accountHolderName" value={accountHolderName} onChange={(e) => setAccountHolderName(e.target.value)} placeholder="e.g., John Doe" /> : <p className="text-md p-2 rounded-md bg-muted/50">{accountHolderName}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="sortCode"><span className="flex items-center gap-1"><Landmark className="w-4 h-4 text-muted-foreground" /> Sort Code</span></Label>
+                  {isEditingBankInfo ? <Input id="sortCode" value={sortCode} onChange={(e) => setSortCode(e.target.value)} placeholder="e.g., 00-00-00" /> : <p className="text-md p-2 rounded-md bg-muted/50">{sortCode}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="accountNumber"><span className="flex items-center gap-1"><CreditCard className="w-4 h-4 text-muted-foreground" /> Account Number</span></Label>
+                  {isEditingBankInfo ? <Input id="accountNumber" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="e.g., 12345678" /> : <p className="text-md p-2 rounded-md bg-muted/50">{accountNumber}</p>}
+                </div>
+              </div>
+              {isEditingBankInfo && (
+                <div className="flex justify-end mt-4">
+                    <Button onClick={handleSaveBankDetails} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                        <Save className="mr-2 h-4 w-4"/> Save Bank Details (Mock)
+                    </Button>
+                </div>
+              )}
+              <Alert variant="default" className="mt-4 bg-green-50 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300">
+                <ShieldCheck className="h-4 w-4 !text-green-600 dark:!text-green-400" />
+                <AlertTitle className="font-semibold">Secure Information</AlertTitle>
+                <AlertDescription>
+                  Your bank details are for payout purposes only. This is a UI mock-up; actual banking integration is handled securely by the platform backend.
+                </AlertDescription>
+              </Alert>
             </>
           )}
         </CardContent>
@@ -343,3 +407,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
