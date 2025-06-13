@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, AlertTriangle, Users, Car as CarIcon, FileText, CalendarDays, Palette, CreditCard } from "lucide-react"; // Added CreditCard
+import { UserCircle, Edit3, Shield, Mail, Phone, Briefcase, Loader2, AlertTriangle, Users, Car as CarIcon, FileText, CalendarDays, Palette, CreditCard, UploadCloud } from "lucide-react"; // Added UploadCloud
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,16 +14,15 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from 'date-fns';
+import Image from 'next/image'; // Added Next Image
 
 // Helper to safely format date strings
 const formatDateString = (dateString?: string): string => {
   if (!dateString) return "Not set";
   try {
-    // Check if it's already YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      return format(parseISO(dateString), "PPP"); // Format as "Oct 28th, 2023"
+      return format(parseISO(dateString), "PPP");
     }
-    // Try to parse if it's another valid date string
     const date = parseISO(dateString);
     if (isValid(date)) {
       return format(date, "PPP");
@@ -41,12 +40,10 @@ export default function ProfilePage() {
   const [isEditingBasicInfo, setIsEditingBasicInfo] = useState(false);
   const [isEditingVehicleInfo, setIsEditingVehicleInfo] = useState(false);
   
-  // Basic profile fields
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(""); // Email is not editable in this form
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  // Driver-specific vehicle & compliance fields
   const [vehicleMakeModel, setVehicleMakeModel] = useState("");
   const [vehicleRegistration, setVehicleRegistration] = useState("");
   const [vehicleColor, setVehicleColor] = useState("");
@@ -55,6 +52,9 @@ export default function ProfilePage() {
   const [motExpiryDate, setMotExpiryDate] = useState("");
   const [taxiLicenseNumber, setTaxiLicenseNumber] = useState("");
   const [taxiLicenseExpiryDate, setTaxiLicenseExpiryDate] = useState("");
+
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
   
 
   const populateFormFields = useCallback(() => {
@@ -62,6 +62,7 @@ export default function ProfilePage() {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phoneNumber || (user.role === 'driver' ? "555-0101" : ""));
+      setProfilePicPreview(user.avatarUrl || null); // Initialize preview with current avatar
 
       if (user.role === 'driver') {
         setVehicleMakeModel(user.vehicleMakeModel || "");
@@ -80,6 +81,15 @@ export default function ProfilePage() {
     populateFormFields();
   }, [user, populateFormFields]);
 
+  // Clean up blob URL for preview
+  useEffect(() => {
+    return () => {
+      if (profilePicPreview && profilePicPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(profilePicPreview);
+      }
+    };
+  }, [profilePicPreview]);
+
   const handleSaveProfile = () => {
     if (!user) return;
     const updatedDetails: Partial<User> = {};
@@ -88,6 +98,11 @@ export default function ProfilePage() {
     if (isEditingBasicInfo) {
       if (name !== user.name) { updatedDetails.name = name; changesMade = true; }
       if (phone !== user.phoneNumber) { updatedDetails.phoneNumber = phone; changesMade = true; }
+      if (profilePicFile) {
+        // Simulate upload: generate a new placeholder URL
+        updatedDetails.avatarUrl = `https://placehold.co/100x100/${Math.random().toString(16).substr(-6)}/FFFFFF.png?text=${name.charAt(0).toUpperCase() || 'U'}`;
+        changesMade = true;
+      }
     }
 
     if (user.role === 'driver' && isEditingVehicleInfo) {
@@ -104,19 +119,30 @@ export default function ProfilePage() {
     if (changesMade && Object.keys(updatedDetails).length > 0) { 
         updateUserProfileInContext(updatedDetails); 
         toast({ title: "Profile Changes Applied", description: "Your profile display has been updated." });
+        if (profilePicFile) { // If a new pic was "uploaded", reset file state
+          setProfilePicFile(null);
+          // Preview will update via useEffect when user.avatarUrl changes in context
+        }
     } else {
         toast({ title: "No Changes Detected", description: "No information was modified.", variant: "default"});
     }
     
-    setIsEditingBasicInfo(false);
-    setIsEditingVehicleInfo(false);
+    if (isEditingBasicInfo && !isEditingVehicleInfo) setIsEditingBasicInfo(false);
+    if (isEditingVehicleInfo && !isEditingBasicInfo) setIsEditingVehicleInfo(false);
+    if (isEditingBasicInfo && isEditingVehicleInfo) { // If both were open, close basic, vehicle might still be intended for edit if separate save for it.
+        setIsEditingBasicInfo(false);
+        // Keep isEditingVehicleInfo true if you want separate save buttons, or set both to false if one save button.
+        // For now, assuming one main "Save Basic Info" handles profile pic too.
+    }
   };
 
   const handleCancelBasicInfoEdit = () => {
     setIsEditingBasicInfo(false);
+    setProfilePicFile(null); // Clear any selected file
     if (user) {
         setName(user.name || "");
         setPhone(user.phoneNumber || "");
+        setProfilePicPreview(user.avatarUrl || null); // Reset preview
     }
   };
   
@@ -139,6 +165,11 @@ export default function ProfilePage() {
     return ( <div className="flex justify-center items-center h-screen"> <Loader2 className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg text-muted-foreground">Loading profile...</p> </div> );
   }
 
+  const avatarSrc = (isEditingBasicInfo && profilePicPreview) 
+    ? profilePicPreview 
+    : (user?.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.charAt(0).toUpperCase() || 'P'}`);
+
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -147,7 +178,14 @@ export default function ProfilePage() {
 
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-center gap-4">
-          <Avatar className="h-24 w-24 border-2 border-primary"> <AvatarImage src={user?.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile large"/> <AvatarFallback className="text-3xl">{user.name.charAt(0).toUpperCase()}</AvatarFallback> </Avatar>
+          <Avatar className="h-24 w-24 border-2 border-primary">
+            <AvatarImage 
+              src={avatarSrc} 
+              alt={user.name || "User"} 
+              data-ai-hint="avatar profile large"
+            />
+            <AvatarFallback className="text-3xl">{user.name ? user.name.charAt(0).toUpperCase() : "U"}</AvatarFallback>
+          </Avatar>
           <div className="flex-1 text-center md:text-left"> <CardTitle className="text-2xl font-headline">{user.name}</CardTitle> <CardDescription className="capitalize flex items-center justify-center md:justify-start gap-1"> <Briefcase className="w-4 h-4" /> {user.role} </CardDescription> </div>
           {!isEditingVehicleInfo && (
             <Button variant={isEditingBasicInfo ? "destructive" : "outline"} onClick={() => isEditingBasicInfo ? handleCancelBasicInfoEdit() : setIsEditingBasicInfo(true)}>
@@ -163,6 +201,38 @@ export default function ProfilePage() {
             </Label>
             {isEditingBasicInfo ? (<Input id="name" value={name} onChange={(e) => setName(e.target.value)} />) : (<p className="text-lg font-medium p-2 rounded-md bg-muted/50">{user.name}</p>)}
           </div>
+          {isEditingBasicInfo && (
+            <div className="mt-2">
+              <Label htmlFor="profilePicture">
+                <span className="flex items-center gap-1"><UploadCloud className="w-4 h-4 text-muted-foreground" /> Profile Picture</span>
+              </Label>
+              <Input
+                id="profilePicture"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setProfilePicFile(file);
+                    if (profilePicPreview && profilePicPreview.startsWith('blob:')) {
+                      URL.revokeObjectURL(profilePicPreview); // Clean up previous blob
+                    }
+                    setProfilePicPreview(URL.createObjectURL(file));
+                  } else {
+                    setProfilePicFile(null);
+                    setProfilePicPreview(user.avatarUrl || null); // Revert to original if selection cancelled
+                  }
+                }}
+                className="mt-1"
+              />
+              {profilePicPreview && profilePicPreview.startsWith('blob:') && ( // Only show file preview for blobs
+                <div className="mt-2">
+                  <p className="text-xs text-muted-foreground mb-1">New picture preview:</p>
+                  <Image src={profilePicPreview} alt="Profile preview" width={80} height={80} className="rounded-full object-cover" />
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <Label htmlFor="email">
               <span className="flex items-center gap-1"><Mail className="w-4 h-4 text-muted-foreground" /> Email</span>
@@ -273,6 +343,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-    
-
-    
