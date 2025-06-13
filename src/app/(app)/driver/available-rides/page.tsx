@@ -2122,6 +2122,14 @@ export default function AvailableRidesPage() {
     estimatedAdditionalWaitTimeMinutes,
   } = activeRide;
   
+  const currentStatusNormalized = activeRide?.status?.toLowerCase();
+  const isChatDisabled =
+    currentStatusNormalized === 'in_progress' ||
+    currentStatusNormalized === 'in_progress_wait_and_return' ||
+    currentStatusNormalized === 'completed' ||
+    currentStatusNormalized === 'cancelled_by_driver' ||
+    currentStatusNormalized === 'cancelled_no_show';
+
   const showDriverAssignedStatus = status === 'driver_assigned';
   const showArrivedAtPickupStatus = status === 'arrived_at_pickup';
   const showInProgressStatus = status.toLowerCase() === 'in_progress';
@@ -2135,13 +2143,6 @@ export default function AvailableRidesPage() {
       status.toLowerCase().includes('in_progress') || 
       status.toLowerCase().includes('completed') || 
       status.toLowerCase().includes('cancelled');
-
-  const isChatDisabled = 
-    status === 'in_progress' || 
-    status === 'in_progress_wait_and_return' ||
-    status === 'completed' ||
-    status === 'cancelled_by_driver' ||
-    status === 'cancelled_no_show';
 
 
   const totalFare = (fareEstimate || 0) + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0);
@@ -2225,7 +2226,7 @@ export default function AvailableRidesPage() {
   };
 
   const mainActionBtnText = mainButtonText(); 
-  const mainActionBtnAction = mainButtonAction; 
+  const mainActionBtnAction = mainActionBtnAction; 
 
   return (
     <div className="flex flex-col h-full p-2 md:p-4">
