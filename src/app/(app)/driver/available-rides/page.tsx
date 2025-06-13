@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, Layers, ThumbsUp, ShieldAlert as ShieldAlertIcon } from "lucide-react"; // Added ShieldAlertIcon
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -863,7 +863,6 @@ export default function AvailableRidesPage() {
     };
   }, [activeRide, driverLocation]);
 
-  // End of ride reminder effect
   useEffect(() => {
     if (endOfRideReminderTimerRef.current) {
       clearTimeout(endOfRideReminderTimerRef.current);
@@ -882,7 +881,6 @@ export default function AvailableRidesPage() {
       }
     };
   }, [activeRide?.status]);
-
 
 
   const handleSimulateOffer = () => {
@@ -1518,19 +1516,19 @@ export default function AvailableRidesPage() {
           if(stop.latitude && stop.longitude && isActiveRideStateForStopsAndDropoff) {
             markers.push({
               position: {lat: stop.latitude, lng: stop.longitude},
-              title: `Stop ${index+1}: ${stop.address}`,
-              label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+              title: `Stop ${index + 1}: ${stop.address}`,
+              label: { text: `S${index + 1}`, color: "white", fontWeight: "bold"}
             });
             if (currentLegIdxToUse === stopLegIndex) {
                  labels.push({
                     position: { lat: stop.latitude, lng: stop.longitude },
-                    content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+                    content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                     type: 'stop'
                 });
             } else if (currentLegIdxToUse < stopLegIndex) {
                  labels.push({
                     position: { lat: stop.latitude, lng: stop.longitude },
-                    content: formatAddressForMapLabel(stop.address, `Next Stop ${index+1}`),
+                    content: formatAddressForMapLabel(stop.address, `Next Stop ${index + 1}`),
                     type: 'stop',
                     variant: 'compact'
                 });
@@ -1766,7 +1764,7 @@ export default function AvailableRidesPage() {
     const isRideInProgressOrFurther =
         activeRide.status.toLowerCase().includes('in_progress') ||
         activeRide.status.toLowerCase().includes('completed') ||
-        activeRide.status.toLowerCase().includes('cancelled');
+        activeRide.status.toLowerCase().includes('cancel');
 
 
     const baseFare = activeRide.fareEstimate || 0;
@@ -1886,12 +1884,12 @@ export default function AvailableRidesPage() {
                         aria-label="SOS Panic Button"
                         disabled={!isDriverOnline}
                     >
-                        <ShieldAlert className="h-4 w-4" />
+                        <ShieldAlertIcon className="h-4 w-4" />
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                     <AlertDialogHeader>
-                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
+                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                         <AlertDialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
                         </AlertDialogDescription>
@@ -1983,9 +1981,9 @@ export default function AvailableRidesPage() {
                   </Button>
                 )}
                 {!(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-                  <Button asChild variant="outline" size="icon" className="h-9 w-9">
-                    <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
-                  </Button>
+                    <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                        <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
+                    </Button>
                 )}
             </div>
 
@@ -2416,12 +2414,12 @@ export default function AvailableRidesPage() {
                         aria-label="SOS Panic Button"
                         disabled={!isDriverOnline}
                     >
-                        <ShieldAlert className="h-4 w-4" />
+                        <ShieldAlertIcon className="h-4 w-4" />
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                     <AlertDialogHeader>
-                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
+                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                         <AlertDialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
                         </AlertDialogDescription>
@@ -2713,5 +2711,3 @@ export default function AvailableRidesPage() {
     );
   }
 }
-
-    
