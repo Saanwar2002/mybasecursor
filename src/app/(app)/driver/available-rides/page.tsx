@@ -1878,51 +1878,51 @@ export default function AvailableRidesPage() {
                     {reportingHazard ? <Loader2 className="h-4 w-4 animate-spin"/> : <TrafficCone className="h-4 w-4" />}
                 </Button>
                 <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
-                  <AlertDialogTrigger asChild>
+                    <AlertDialogTrigger asChild>
                     <Button
-                      variant="destructive" size="icon"
-                      className="rounded-full h-8 w-8 shadow-lg animate-pulse"
-                      onClick={() => setIsSosDialogOpen(true)}
-                      aria-label="SOS Panic Button"
-                      disabled={!isDriverOnline}
+                        variant="destructive" size="icon"
+                        className="rounded-full h-8 w-8 shadow-lg animate-pulse"
+                        onClick={() => setIsSosDialogOpen(true)}
+                        aria-label="SOS Panic Button"
+                        disabled={!isDriverOnline}
                     >
-                      <ShieldAlert className="h-4 w-4" />
+                        <ShieldAlert className="h-4 w-4" />
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
                     <AlertDialogHeader>
-                      <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
-                      <AlertDialogDescription>
+                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
+                        <AlertDialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
-                      </AlertDialogDescription>
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-3 py-2">
-                      <Button
-                        variant="destructive" className="w-full"
-                        onClick={() => { setIsSosDialogOpen(false); setIsConfirmEmergencyOpen(true); }}
-                      >
-                        Emergency (Alert & Sound)
-                      </Button>
-                       <Button variant="outline" className="w-full"
-                          onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
+                        <Button
+                            variant="destructive" className="w-full"
+                            onClick={() => { setIsSosDialogOpen(false); setIsConfirmEmergencyOpen(true); }}
                         >
-                          Passenger Aggressive/Suspicious
+                            Emergency (Alert & Sound)
+                        </Button>
+                         <Button variant="outline" className="w-full"
+                            onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
+                          >
+                            Passenger Aggressive/Suspicious
                           </Button>
-                    <Button variant="outline" className="w-full"
-                        onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
-                    >
-                        Vehicle Breakdown
-                    </Button>
-                    <Button variant="outline" className="w-full"
-                        onClick={() => { toast({ title: "Callback Requested", description: "Operator has been asked to call you back." }); setIsSosDialogOpen(false); }}
-                      >
-                          Request Operator Callback
-                      </Button>
-                  </div>
+                        <Button variant="outline" className="w-full"
+                            onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
+                        >
+                            Vehicle Breakdown
+                        </Button>
+                        <Button variant="outline" className="w-full"
+                            onClick={() => { toast({ title: "Callback Requested", description: "Operator has been asked to call you back." }); setIsSosDialogOpen(false); }}
+                        >
+                            Request Operator Callback
+                        </Button>
+                    </div>
                     <AlertDialogFooter>
-                      <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}><span>Cancel SOS</span></AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => setIsSosDialogOpen(false)}><span>Cancel SOS</span></AlertDialogCancel>
                     </AlertDialogFooter>
-                  </AlertDialogContent>
+                    </AlertDialogContent>
                 </AlertDialog>
             </div>
 
@@ -1983,9 +1983,9 @@ export default function AvailableRidesPage() {
                   </Button>
                 )}
                 {!(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-                    <Button asChild variant="outline" size="icon" className="h-9 w-9">
-                        <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
-                    </Button>
+                  <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                    <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
+                  </Button>
                 )}
             </div>
 
@@ -2713,3 +2713,5 @@ export default function AvailableRidesPage() {
     );
   }
 }
+
+    
