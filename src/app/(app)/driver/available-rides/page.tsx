@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp, ShieldAlert } from "lucide-react"; // Added ShieldAlert
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1889,13 +1889,12 @@ export default function AvailableRidesPage() {
                   ].map(hazard => (
                     <Button
                       key={hazard.type}
-                      variant="secondary" 
-                      className="flex flex-col items-center justify-center h-24 text-center text-secondary-foreground hover:bg-secondary/80 border border-border hover:border-primary/50"
+                      className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-800/40 border-2 border-red-500 hover:border-red-600 text-yellow-900 dark:text-yellow-100"
                       onClick={() => handleReportHazard(hazard.type)}
                       disabled={reportingHazard}
                     >
                       {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} 
-                      <span className="text-xs font-medium">{hazard.label}</span>
+                      <span className="text-sm font-semibold">{hazard.label}</span>
                     </Button>
                   ))}
                 </div>
@@ -2087,13 +2086,12 @@ export default function AvailableRidesPage() {
                   ].map(hazard => (
                     <Button
                       key={hazard.type}
-                      variant="secondary" 
-                      className="flex flex-col items-center justify-center h-24 text-center text-secondary-foreground hover:bg-secondary/80 border border-border hover:border-primary/50"
+                      className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-800/40 border-2 border-red-500 hover:border-red-600 text-yellow-900 dark:text-yellow-100"
                       onClick={() => handleReportHazard(hazard.type)}
                       disabled={reportingHazard}
                     >
                       {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} 
-                      <span className="text-xs font-medium">{hazard.label}</span>
+                      <span className="text-sm font-semibold">{hazard.label}</span>
                     </Button>
                   ))}
                 </div>
@@ -2742,13 +2740,12 @@ export default function AvailableRidesPage() {
               ].map(hazard => (
                 <Button
                   key={hazard.type}
-                  variant="secondary" 
-                  className="flex flex-col items-center justify-center h-24 text-center text-secondary-foreground hover:bg-secondary/80 border border-border hover:border-primary/50"
+                  className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-800/40 border-2 border-red-500 hover:border-red-600 text-yellow-900 dark:text-yellow-100"
                   onClick={() => handleReportHazard(hazard.type)}
                   disabled={reportingHazard}
                 >
                   {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />} 
-                  <span className="text-xs font-medium">{hazard.label}</span>
+                  <span className="text-sm font-semibold">{hazard.label}</span>
                 </Button>
               ))}
             </div>
@@ -2763,5 +2760,3 @@ export default function AvailableRidesPage() {
   );
 }
 
-
-    
