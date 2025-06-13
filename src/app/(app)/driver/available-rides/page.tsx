@@ -1794,7 +1794,7 @@ export default function AvailableRidesPage() {
     const currentTargetPoint = journeyPoints[currentLegIdxToUse];
     let currentTargetDisplay = currentTargetPoint ?
       (currentLegIdxToUse === 0 ? `Pickup: ${currentTargetPoint.address}`
-      : currentLegIdxToUse < journeyPoints.length -1 ? `Stop ${currentLegIdxToUse}: ${currentTargetPoint.address}`
+      : currentLegIdxToUse < journeyPoints.length -1 ? `Stop ${localCurrentLegIndex}: ${currentTargetPoint.address}`
       : `Dropoff: ${currentTargetPoint.address}`)
       : "Route N/A";
 
@@ -1981,7 +1981,7 @@ export default function AvailableRidesPage() {
                   </Button>
                 )}
                 {!(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-                    <Button asChild variant="outline" size="icon" className="h-9 w-9" disabled={true}>
+                    <Button asChild variant="outline" size="icon" className="h-9 w-9">
                         <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
                     </Button>
                 )}
@@ -2255,28 +2255,28 @@ export default function AvailableRidesPage() {
             </AlertDialogContent>
           </AlertDialog>
          <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-                  <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                  <AlertDialogDescription>
-                      Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                  </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
-                  <AlertDialogAction
-                      onClick={() => {
-                          if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
-                          setIsNoShowConfirmDialogOpen(false);
-                      }}
-                      className="bg-destructive hover:bg-destructive/90"
-                  >
-                     <span>Confirm No-Show</span>
-                  </AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
-       <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
+                    <AlertDialogDescription>
+                        Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={() => {
+                            if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
+                            setIsNoShowConfirmDialogOpen(false);
+                        }}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                       <span>Confirm No-Show</span>
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+         <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
             <DialogContent className="sm:max-w-sm">
               <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
               <DialogDescription>
