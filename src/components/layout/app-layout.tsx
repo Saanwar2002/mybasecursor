@@ -66,9 +66,9 @@ const initialDriverToDoData: TaskCategory[] = [
     name: 'Vehicle Maintenance Checks',
     icon: Wrench,
     tasks: [
-      { id: 't1', label: 'Check Tire Pressure (Weekly)', completed: false, priority: 'medium' },
+      { id: 't1', label: 'Check Tire Pressure (Weekly)', completed: true, priority: 'medium' },
       { id: 't2', label: 'Top Up Windscreen Washer Fluid', completed: true },
-      { id: 't2a', label: 'Inspect Wiper Blades', completed: false, priority: 'low' },
+      { id: 't2a', label: 'Inspect Wiper Blades', completed: true, priority: 'low' },
     ]
   },
   {
@@ -80,8 +80,8 @@ const initialDriverToDoData: TaskCategory[] = [
         id: 'sc1',
         name: 'License & Permits',
         tasks: [
-          { id: 't3', label: 'Driving License Renewal (Due: Jan 2025)', completed: false, priority: 'high' },
-          { id: 't4', label: 'Taxi Permit Check (Due: Mar 2025)', completed: false, priority: 'medium' },
+          { id: 't3', label: 'Driving License Renewal (Due: Jan 2025)', completed: true, priority: 'high' },
+          { id: 't4', label: 'Taxi Permit Check (Due: Mar 2025)', completed: true, priority: 'medium' },
         ]
       },
       {
@@ -89,7 +89,7 @@ const initialDriverToDoData: TaskCategory[] = [
         name: 'Insurance Policy',
         tasks: [
           { id: 't5', label: 'Vehicle Insurance Renewal (Due: Jun 2024)', completed: true, priority: 'high' },
-          { id: 't5a', label: 'Public Liability Insurance (Due: Aug 2024)', completed: false, priority: 'medium' },
+          { id: 't5a', label: 'Public Liability Insurance (Due: Aug 2024)', completed: true, priority: 'medium' },
         ]
       }
     ]
@@ -99,9 +99,9 @@ const initialDriverToDoData: TaskCategory[] = [
     name: 'Account & Platform Setup',
     icon: Settings,
     tasks: [
-        { id: 't6', label: 'Upload Updated Profile Picture', completed: false, priority: 'low' },
+        { id: 't6', label: 'Upload Updated Profile Picture', completed: true, priority: 'low' },
         { id: 't7', label: 'Link Bank Account for Payouts', completed: true },
-        { id: 't8', label: 'Complete Platform Training Module', completed: false, priority: 'medium' },
+        { id: 't8', label: 'Complete Platform Training Module', completed: true, priority: 'medium' },
     ]
   }
 ];
