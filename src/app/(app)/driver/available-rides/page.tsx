@@ -1989,14 +1989,14 @@ export default function AvailableRidesPage() {
                 )}
             </div>
 
-            {dispatchInfo && showDriverAssignedStatus && (
+            {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
                 <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
                     <p className="text-sm font-medium flex items-center justify-center gap-1">
                     <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                     </p>
                 </div>
             )}
-            {activeRide.isPriorityPickup && showDriverAssignedStatus && !dispatchInfo?.text.toLowerCase().includes("priority") && (
+            {activeRide.isPriorityPickup && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && !dispatchInfo?.text.toLowerCase().includes("priority") && (
                   <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-2 text-xs my-1.5">
                     <Crown className="h-4 w-4" />
                     <ShadAlertTitle className="font-medium">Priority Booking</ShadAlertTitle>
