@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, ShieldAlert, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -331,7 +331,7 @@ export default function AvailableRidesPage() {
   const hazardRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
   const [approachingHazardInfo, setApproachingHazardInfo] = useState<{ id: string, hazardType: string, reportedAt: string } | null>(null);
-  const alertedForThisApproachRef = useRef<Set<string>>(new Set());
+  const alertedForThisApproachRef = useRef<Set<string>>(new Set<string>());
 
   const [isAccountPinDialogOpen, setIsAccountPinDialogOpen] = useState(false);
   const [enteredAccountPin, setEnteredAccountPin] = useState("");
@@ -1902,10 +1902,10 @@ export default function AvailableRidesPage() {
                         Emergency (Alert & Sound)
                       </Button>
                        <Button variant="outline" className="w-full"
-                        onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
-                      >
-                        Passenger Aggressive/Suspicious
-                      </Button>
+                          onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
+                        >
+                          Passenger Aggressive/Suspicious
+                        </Button>
                     <Button variant="outline" className="w-full"
                         onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
                     >
@@ -1989,15 +1989,15 @@ export default function AvailableRidesPage() {
                )}
             </div>
             
-            {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+            {dispatchInfo && activeRide.status === 'driver_assigned' && (
               <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
                 <p className="text-sm font-medium flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
             )}
-
-            {activeRide.isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+             
+            {activeRide.isPriorityPickup && activeRide.status === 'driver_assigned' && !dispatchInfo?.text.toLowerCase().includes("priority") && (
                 <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-2 text-xs my-1.5">
                     <Crown className="h-4 w-4" />
                     <ShadAlertTitle className="font-medium">Priority Booking</ShadAlertTitle>
@@ -2557,7 +2557,7 @@ export default function AvailableRidesPage() {
               onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
               disabled={activeRide ? !!actionLoading[activeRide.id] : false}
             >
-              <span>Keep Ride</span>
+              Keep Ride
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
