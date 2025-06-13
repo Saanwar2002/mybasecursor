@@ -694,7 +694,7 @@ export default function AvailableRidesPage() {
                                  (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
                                  currentLegIdx !== undefined &&
                                  currentLegIdx > 0 &&
-                                 currentLegIdx < journeyPoints.length - 1; 
+                                 currentLegIdx < journeyPoints.length -1; 
 
     if (isAtIntermediateStop && activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx! - 1)) {
       const { stopDataIndex, arrivalTime } = activeStopDetails;
@@ -1848,17 +1848,20 @@ export default function AvailableRidesPage() {
                         >
                             Emergency (Alert & Sound)
                         </Button>
-                        <Button variant="outline" className="w-full"
+                        <Button
+                            className="w-full bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
                             onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
                           >
                             Passenger Aggressive/Suspicious
                           </Button>
-                        <Button variant="outline" className="w-full"
+                        <Button
+                            className="w-full bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
                             onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
                         >
                             Vehicle Breakdown
                         </Button>
-                        <Button variant="outline" className="w-full"
+                        <Button
+                            className="w-full bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
                             onClick={() => { toast({ title: "Callback Requested", description: "Operator has been asked to call you back." }); setIsSosDialogOpen(false); }}
                         >
                             Request Operator Callback
@@ -2142,8 +2145,7 @@ export default function AvailableRidesPage() {
   } = activeRide;
   
   const currentStatusNormalized = activeRide?.status?.toLowerCase();
-  const isChatDisabled = currentStatusNormalized === 'in_progress' ||
-    currentStatusNormalized === 'in_progress_wait_and_return' ||
+  const isChatDisabled = currentStatusNormalized?.includes('in_progress') ||
     currentStatusNormalized === 'completed' ||
     currentStatusNormalized === 'cancelled_by_driver' ||
     currentStatusNormalized === 'cancelled_no_show';
@@ -2179,69 +2181,6 @@ export default function AvailableRidesPage() {
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
-  const mainButtonText = () => {
-    if (!activeRide) return "Loading...";
-    const currentStatus = activeRide.status?.toLowerCase();
-    const currentLegIdx = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
-
-    if (currentStatus === 'driver_assigned') return "Error: Should not show main button";
-    if (currentStatus === 'arrived_at_pickup') return "Start Ride";
-    
-    const isAtIntermediateStop = currentLegIdx > 0 && currentLegIdx < journeyPoints.length -1;
-    const stopDataIndexForButtonText = currentLegIdx - 1; // Index for activeRide.stops[]
-
-    if (currentStatus === 'in_progress' || currentStatus === 'in_progress_wait_and_return') {
-      if (isAtIntermediateStop) {
-        if (activeStopDetails && activeStopDetails.stopDataIndex === stopDataIndexForButtonText) {
-            return `Depart Stop ${currentLegIdx} / Proceed`; 
-        } else {
-            return `Arrived at Stop ${currentLegIdx} / Start Timer`; 
-        }
-      }
-      if (currentLegIdx === journeyPoints.length -1 ) return "Complete Ride"; 
-      if (currentLegIdx === 0) return `Passenger Boarded / Proceed to ${journeyPoints.length > 2 ? 'Stop 1' : 'Dropoff'}`;
-    }
-    return "Proceed to Next"; 
-  };
-
-  const mainButtonAction = () => {
-    if (!activeRide) return;
-    const currentStatus = activeRide.status?.toLowerCase();
-    const currentLegIdx = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
-
-    if (currentStatus === 'driver_assigned') return; 
-    if (currentStatus === 'arrived_at_pickup') {
-      handleRideAction(activeRide.id, 'start_ride');
-      return;
-    }
-    
-    const isAtIntermediateStop = currentLegIdx > 0 && currentLegIdx < journeyPoints.length -1;
-    const currentStopArrayIndex = currentLegIdx - 1; 
-
-    if (currentStatus === 'in_progress' || currentStatus === 'in_progress_wait_and_return') {
-      if (isAtIntermediateStop) {
-          if (!activeStopDetails || activeStopDetails.stopDataIndex !== currentStopArrayIndex) {
-              if (activeStopDetails?.stopDataIndex !== undefined && activeStopDetails.stopDataIndex !== currentStopArrayIndex) {
-                  // Clear timer for previous stop if any
-                  setActiveStopDetails(null);
-              }
-              setActiveStopDetails({ stopDataIndex: currentStopArrayIndex, arrivalTime: new Date() });
-              return; 
-          } else {
-              handleRideAction(activeRide.id, 'proceed_to_next_leg');
-              return;
-          }
-      }
-      if (currentLegIdx === journeyPoints.length -1 ) {
-          handleRideAction(activeRide.id, 'complete_ride');
-      } else if (currentLegIdx === 0) { 
-          handleRideAction(activeRide.id, 'proceed_to_next_leg'); 
-      } else { 
-          handleRideAction(activeRide.id, 'proceed_to_next_leg');
-      }
-    }
-  };
-
   const mainActionBtnText = mainButtonText(); 
   const mainActionBtnAction = mainButtonAction;
 
@@ -2269,7 +2208,8 @@ export default function AvailableRidesPage() {
           />
           <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
               <Button
-                  variant="secondary" size="icon"
+                  variant="secondary"
+                  size="icon"
                   className="rounded-full h-10 w-10 shadow-lg bg-yellow-500 hover:bg-yellow-600 text-background"
                   onClick={() => setIsHazardReportDialogOpen(true)}
                   aria-label="Report Hazard Button"
@@ -2298,22 +2238,25 @@ export default function AvailableRidesPage() {
                   </AlertDialogHeader>
                   <div className="space-y-3 py-2">
                     <Button
-                      variant="destructive" className="w-full"
-                      onClick={() => { setIsSosDialogOpen(false); setIsConfirmEmergencyOpen(true); }}
+                        variant="destructive" className="w-full"
+                        onClick={() => { setIsSosDialogOpen(false); setIsConfirmEmergencyOpen(true); }}
                     >
-                      Emergency (Alert & Sound)
+                        Emergency (Alert & Sound)
                     </Button>
-                     <Button variant="outline" className="w-full"
+                    <Button
+                        className="w-full bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
                         onClick={() => { toast({ title: "Passenger Issue Reported", description: "Operator notified about aggressive/suspicious passenger." }); setIsSosDialogOpen(false); }}
                       >
                         Passenger Aggressive/Suspicious
                       </Button>
-                    <Button variant="outline" className="w-full"
+                    <Button
+                        className="w-full bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
                         onClick={() => { toast({ title: "Breakdown Reported", description: "Operator notified of vehicle breakdown." }); setIsSosDialogOpen(false); }}
                     >
                         Vehicle Breakdown
                     </Button>
-                    <Button variant="outline" className="w-full"
+                    <Button
+                        className="w-full bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
                         onClick={() => { toast({ title: "Callback Requested", description: "Operator has been asked to call you back." }); setIsSosDialogOpen(false); }}
                     >
                         Request Operator Callback
