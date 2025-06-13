@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, Layers, ThumbsUp, ShieldAlert as ShieldAlertIcon } from "lucide-react"; // Added ShieldAlertIcon
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, Layers, ThumbsUp, ShieldAlert as ShieldAlertIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1981,7 +1981,7 @@ export default function AvailableRidesPage() {
                   </Button>
                 )}
                 {!(showInProgressStatus || showInProgressWRStatus || showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-                    <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                    <Button asChild variant="outline" size="icon" className="h-9 w-9" disabled={true}>
                         <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
                     </Button>
                 )}
@@ -1989,9 +1989,9 @@ export default function AvailableRidesPage() {
 
             {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
                 <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
-                    <p className="text-sm font-medium flex items-center justify-center gap-1">
+                  <p className="text-sm font-medium flex items-center justify-center gap-1">
                     <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
-                    </p>
+                  </p>
                 </div>
             )}
             {activeRide.isPriorityPickup && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && !dispatchInfo?.text.toLowerCase().includes("priority") && (
@@ -2711,3 +2711,4 @@ export default function AvailableRidesPage() {
     );
   }
 }
+
