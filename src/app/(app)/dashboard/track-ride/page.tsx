@@ -1,7 +1,7 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
+import { Button, buttonVariants } from "@/components/ui/button";
 import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -48,7 +48,7 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 });
 
 const carIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#2563EB" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
-const carIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(carIconSvg)}` : '';
+const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(carIconSvg)}` : '';
 
 
 interface LocationPoint {
@@ -743,34 +743,29 @@ export default function MyActiveRidePage() {
     }
   };
 
-  const handleInitiateCancelRide = async () => {
-    if (!activeRide || !user) return;
-    const currentRideIdToCancel = activeRide.id; 
-    setRideIdToCancel(currentRideIdToCancel);
-    setActionLoading(prev => ({ ...prev, [currentRideIdToCancel]: true }));
-
+  const handleConfirmCancel = async () => {
+    if (!rideIdToCancel || !user) return;
+    const currentRideId = rideIdToCancel;
+    setActionLoading(prev => ({ ...prev, [currentRideId]: true }));
     try {
       const response = await fetch('/api/bookings/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: currentRideIdToCancel, passengerId: user.id }),
+        body: JSON.stringify({ bookingId: currentRideId, passengerId: user.id }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to cancel ride.');
       }
-      toast({ title: "Ride Cancelled", description: `Your ride ${currentRideIdToCancel} has been cancelled.` });
-      setCancellationSuccess(true);
+      toast({ title: "Ride Cancelled", description: `Your ride ${currentRideId} has been cancelled.` });
+      setCancellationSuccess(true); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
       toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
       setCancellationSuccess(false);
     } finally {
-       setActionLoading(prev => ({ ...prev, [currentRideIdToCancel]: false }));
-       setShowCancelConfirmationDialog(false); 
-       if (cancellationSuccess) { 
-          setActiveRide(null);
-       }
+       setActionLoading(prev => ({ ...prev, [currentRideId]: false }));
+       setShowCancelConfirmationDialog(false);
     }
   };
 
@@ -825,7 +820,7 @@ export default function MyActiveRidePage() {
         markers.push({ 
             position: activeRide.driverCurrentLocation, 
             title: "Your Driver", 
-            iconUrl: carIconDataUrl,
+            iconUrl: driverCarIconDataUrl,
             iconScaledSize: { width: 32, height: 32 }
         });
         if (driverCurrentStreetName) {
@@ -1106,16 +1101,7 @@ export default function MyActiveRidePage() {
           </Card>
         </>
       )}
-      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => {
-          setShowCancelConfirmationDialog(isOpen);
-          if (!isOpen) { // Dialog is closing
-              if (cancellationSuccess) {
-                  setActiveRide(null); // Update UI only after dialog fully closes and API was successful
-                  setCancellationSuccess(false); // Reset for next time
-              }
-              setRideIdToCancel(null); // Always reset this when dialog closes
-          }
-      }}>
+      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen) { setRideIdToCancel(null); if (cancellationSuccess) { setActiveRide(null); setCancellationSuccess(false); } } }}>
         {activeRide && activeRide.status === 'pending_assignment' && (
           <AlertDialogTrigger 
             className={cn(buttonVariants({ variant: "destructive" }), "w-full sm:w-auto mt-2")}
@@ -1145,11 +1131,11 @@ export default function MyActiveRidePage() {
                   <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={handleInitiateCancelRide}
+                  onClick={handleConfirmCancel}
                   disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span>
+                  <span> 
                     {actionLoading[rideIdToCancel || ''] ? (
                         <React.Fragment>
                             <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />
@@ -1238,3 +1224,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
