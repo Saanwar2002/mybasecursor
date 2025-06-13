@@ -2226,7 +2226,10 @@ export default function AvailableRidesPage() {
   };
 
   const mainActionBtnText = mainButtonText(); 
-  const mainActionBtnAction = mainButtonAction; 
+  // This was the line with the error, fixed below:
+  // const mainActionBtnAction = mainActionBtnAction; 
+  const mainActionBtnAction = mainButtonAction;
+
 
   return (
     <div className="flex flex-col h-full p-2 md:p-4">
@@ -2366,9 +2369,15 @@ export default function AvailableRidesPage() {
                       </a>
                     </Button>
                   )}
-                  <Button asChild variant="outline" size="icon" className="h-9 w-9" disabled={isChatDisabled}>
-                      <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
-                  </Button>
+                  {isChatDisabled ? (
+                      <Button variant="outline" size="icon" className="h-9 w-9" disabled>
+                        <MessageSquare className="w-4 h-4 text-muted-foreground opacity-50" />
+                      </Button>
+                    ) : (
+                      <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                        <Link href="/driver/chat"><MessageSquare className="w-4 h-4" /></Link>
+                      </Button>
+                    )}
                 </div>
                )}
           </div>
