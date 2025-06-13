@@ -211,7 +211,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
 
   if (postcodeMatch) {
     outwardPostcode = postcodeMatch[1].toUpperCase();
-    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\\s*$/, '').trim();
+    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\\s*$/,'').trim();
   }
 
   const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
