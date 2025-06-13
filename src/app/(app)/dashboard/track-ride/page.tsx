@@ -1070,24 +1070,12 @@ export default function MyActiveRidePage() {
                       </ShadAlertDescription>
                     </Alert>
                   )}
-                   <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="w-full sm:w-auto"
-                        onClick={() => {
-                            setRideIdToCancel(activeRide.id);
-                            setCancellationSuccess(false); 
-                            setShowCancelConfirmationDialog(true);
-                        }}
-                        disabled={!!actionLoading[activeRide.id]}
-                      >
-                        <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
-                      </Button>
-                   </AlertDialogTrigger>
+                   {/* The trigger is now part of the main AlertDialog component */}
                 </CardFooter>
             )}
           </Card>
         </>
       )}
-      {/* Cancellation Dialog - Rendered Unconditionally but controlled by 'open' prop */}
       <AlertDialog
         open={showCancelConfirmationDialog}
         onOpenChange={(isOpen) => {
@@ -1101,6 +1089,22 @@ export default function MyActiveRidePage() {
             }
         }}
       >
+        {activeRide && activeRide.status === 'pending_assignment' && (
+          <AlertDialogTrigger asChild>
+            <Button 
+              variant="destructive" 
+              className="w-full sm:w-auto mt-2" // Added mt-2 for spacing if rendered
+              onClick={() => {
+                  setRideIdToCancel(activeRide.id);
+                  setCancellationSuccess(false); 
+                  setShowCancelConfirmationDialog(true);
+              }}
+              disabled={!!actionLoading[activeRide.id]}
+            >
+              <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
+            </Button>
+          </AlertDialogTrigger>
+        )}
         <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -1110,42 +1114,43 @@ export default function MyActiveRidePage() {
                 <AlertDialogCancel
                     disabled={actionLoading[rideIdToCancel || '']}
                 >
-                   <span>Keep Ride</span>
+                   Keep Ride
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={async () => {
                     if (!rideIdToCancel || !user) return;
-                    setActionLoading(prev => ({ ...prev, [rideIdToCancel]: true }));
+                    const currentActionRideId = rideIdToCancel; // Capture before state change
+                    setActionLoading(prev => ({ ...prev, [currentActionRideId]: true }));
                     try {
-                      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: rideIdToCancel, passengerId: user.id }) });
+                      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: currentActionRideId, passengerId: user.id }) });
                       if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
-                      toast({ title: "Ride Cancelled", description: `Your ride ${rideIdToCancel} has been cancelled.` });
+                      toast({ title: "Ride Cancelled", description: `Your ride ${currentActionRideId} has been cancelled.` });
                       setCancellationSuccess(true); 
                     } catch (err) {
                       const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
                       toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
                       setCancellationSuccess(false);
                     } finally {
-                      setActionLoading(prev => ({ ...prev, [rideIdToCancel!]: false }));
-                      setShowCancelConfirmationDialog(false); // This will trigger onOpenChange
+                      setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
+                      setShowCancelConfirmationDialog(false);
                     }
                   }}
                   disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                    <span>
-                        {actionLoading[rideIdToCancel || ''] ? (
-                            <React.Fragment>
-                                <Loader2 key="loader-cancel-confirm" className="animate-spin mr-2 h-4 w-4" />
-                                <span key="text-loader-cancel-confirm">Cancelling...</span>
-                            </React.Fragment>
-                        ) : (
-                            <React.Fragment>
-                                <ShieldX key="icon-cancel-confirm" className="mr-2 h-4 w-4" />
-                                <span key="text-icon-cancel-confirm">Confirm Cancel</span>
-                            </React.Fragment>
-                        )}
-                    </span>
+                  <span className="flex items-center justify-center">
+                    {actionLoading[rideIdToCancel || ''] ? (
+                        <>
+                            <Loader2 key="loader-cancel-confirm" className="animate-spin mr-2 h-4 w-4" />
+                            <span key="text-loader-cancel-confirm">Cancelling...</span>
+                        </>
+                    ) : (
+                        <>
+                            <ShieldX key="icon-cancel-confirm" className="mr-2 h-4 w-4" />
+                            <span key="text-icon-cancel-confirm">Confirm Cancel</span>
+                        </>
+                    )}
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
