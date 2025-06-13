@@ -6,6 +6,7 @@ import { z } from 'zod';
 interface GeneralPlatformSettings {
   defaultCurrency: 'GBP' | 'USD' | 'EUR';
   platformMinimumFare: number;
+  enableSpeedLimitAlerts?: boolean; // Added
   lastUpdated?: string; // ISO string
 }
 
@@ -13,17 +14,20 @@ interface GeneralPlatformSettings {
 let currentGeneralSettings: GeneralPlatformSettings = {
   defaultCurrency: 'GBP',
   platformMinimumFare: 3.50,
+  enableSpeedLimitAlerts: false, // Default to false
   lastUpdated: new Date().toISOString(),
 };
 
 const generalSettingsSchema = z.object({
   defaultCurrency: z.enum(['GBP', 'USD', 'EUR'], {
     errorMap: () => ({ message: "Please select a valid currency." }),
-  }),
+  }).optional(), // Make fields optional for partial updates
   platformMinimumFare: z.coerce
     .number({ invalid_type_error: "Minimum fare must be a number." })
     .min(0, "Minimum fare cannot be negative.")
-    .max(100, "Minimum fare seems too high (max 100)."), // Basic sanity check
+    .max(100, "Minimum fare seems too high (max 100).")
+    .optional(),
+  enableSpeedLimitAlerts: z.boolean().optional(), // Added
 });
 
 // GET handler to fetch current general settings
@@ -52,8 +56,8 @@ export async function POST(request: NextRequest) {
     }
 
     currentGeneralSettings = {
-      ...currentGeneralSettings, // Preserve other settings if any were added
-      ...parsedBody.data,
+      ...currentGeneralSettings, // Preserve existing settings
+      ...parsedBody.data,       // Apply new updates
       lastUpdated: new Date().toISOString(),
     };
     

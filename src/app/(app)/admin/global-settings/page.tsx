@@ -1,11 +1,12 @@
 
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, AlertTriangle, DollarSign, Loader2, Save, Users, Briefcase, Globe, Landmark } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Settings, AlertTriangle, DollarSign, Loader2, Save, Users, Briefcase, Globe, Landmark, Zap } from "lucide-react"; // Added Zap for Feature Toggles
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch"; // Added Switch
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useCallback } from "react";
 import { z } from "zod";
@@ -51,6 +52,7 @@ type GeneralSettingsFormValues = z.infer<typeof generalSettingsFormSchema>;
 interface GeneralSettingsData {
   defaultCurrency: 'GBP' | 'USD' | 'EUR';
   platformMinimumFare: number;
+  enableSpeedLimitAlerts?: boolean; // Added
   lastUpdated?: string;
 }
 
@@ -69,6 +71,8 @@ export default function AdminGlobalSettingsPage() {
   const [isLoadingGeneral, setIsLoadingGeneral] = useState(true);
   const [isSavingGeneral, setIsSavingGeneral] = useState(false);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
+  const [enableSpeedLimitAlerts, setEnableSpeedLimitAlerts] = useState<boolean>(false);
+  const [isSavingSpeedAlertToggle, setIsSavingSpeedAlertToggle] = useState(false);
 
 
   const directDriversForm = useForm<DirectDriversFormValues>({
@@ -128,6 +132,7 @@ export default function AdminGlobalSettingsPage() {
         defaultCurrency: data.defaultCurrency,
         platformMinimumFare: data.platformMinimumFare,
       });
+      setEnableSpeedLimitAlerts(data.enableSpeedLimitAlerts || false); // Set the toggle state
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load general settings.";
       setErrorGeneral(message);
@@ -224,6 +229,7 @@ export default function AdminGlobalSettingsPage() {
         defaultCurrency: data.settings.defaultCurrency,
         platformMinimumFare: data.settings.platformMinimumFare,
       });
+      setEnableSpeedLimitAlerts(data.settings.enableSpeedLimitAlerts || false);
       toast({ title: "General Settings Saved", description: "Platform currency and minimum fare updated." });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not save general settings.";
@@ -233,6 +239,34 @@ export default function AdminGlobalSettingsPage() {
       setIsSavingGeneral(false);
     }
   }
+
+  const handleToggleSpeedLimitAlerts = async (checked: boolean) => {
+    setIsSavingSpeedAlertToggle(true);
+    setErrorGeneral(null);
+    try {
+      const response = await fetch('/api/admin/settings/general', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enableSpeedLimitAlerts: checked }),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: 'Failed to update Speed Limit Alert setting.' }));
+        throw new Error(errData.message);
+      }
+      const data = await response.json();
+      setEnableSpeedLimitAlerts(data.settings.enableSpeedLimitAlerts || false);
+      setGeneralSettingsData(prev => ({...prev!, enableSpeedLimitAlerts: data.settings.enableSpeedLimitAlerts }));
+      toast({ title: "Speed Limit Alert Setting Updated", description: `Driver speed limit alerts ${checked ? 'enabled' : 'disabled'}.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not update Speed Limit Alert setting.";
+      setErrorGeneral(message);
+      toast({ title: "Error Updating Setting", description: message, variant: "destructive" });
+      // Revert UI on error
+      setEnableSpeedLimitAlerts(!checked);
+    } finally {
+      setIsSavingSpeedAlertToggle(false);
+    }
+  };
 
 
   return (
@@ -298,6 +332,35 @@ export default function AdminGlobalSettingsPage() {
                 </Button>
               </form>
             </Form>
+          )}
+        </CardContent>
+      </Card>
+
+      <Separator className="my-8"/>
+
+       <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-headline flex items-center gap-2"><Zap className="w-5 h-5 text-muted-foreground" /> Feature Toggles</CardTitle>
+        </CardHeader>
+        <CardContent>
+        {isLoadingGeneral ? (
+            <div className="flex items-center justify-center p-6"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : errorGeneral ? (
+            <div className="text-red-600 flex items-center gap-2 p-3 bg-red-50 rounded-md">
+              <AlertTriangle className="w-5 h-5" /> <p>Error loading feature toggle status: {errorGeneral}</p>
+              <Button onClick={fetchGeneralSettings} variant="outline" size="sm">Retry</Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Switch id="speed-limit-alert-switch" checked={enableSpeedLimitAlerts} onCheckedChange={handleToggleSpeedLimitAlerts} disabled={isSavingSpeedAlertToggle} />
+                <Label htmlFor="speed-limit-alert-switch" className="text-base">{enableSpeedLimitAlerts ? "Driver Speed Limit Alerts Enabled" : "Driver Speed Limit Alerts Disabled"}</Label>
+                {isSavingSpeedAlertToggle && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                If enabled, drivers will see a mock speed limit display. (This is a UI demo, no real speed data).
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
