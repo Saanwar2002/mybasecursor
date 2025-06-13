@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"; // Removed DialogDescription
 import { Button } from "@/components/ui/button";
 import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
@@ -343,9 +343,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               New Ride Offer!
             </span>
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground pt-1">
-            Review the details below and respond quickly before the timer runs out.
-          </DialogDescription>
+          {/* DialogDescription removed as per user request */}
           {rideDetails.paymentMethod === 'account' && (
             <Badge variant="default" className="mt-2 text-sm py-1 px-3 w-fit self-center bg-purple-600 hover:bg-purple-700 text-white shadow-md">
               <LockKeyhole className="w-4 h-4 mr-1.5" />
