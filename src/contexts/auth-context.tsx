@@ -16,6 +16,8 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  avatarUrl?: string | null; // Added avatarUrl
+  preferredPaymentMethod?: 'card' | 'cash'; // Added passenger payment preference
   customId?: string;
   operatorCode?: string;
   driverIdentifier?: string;
@@ -27,25 +29,23 @@ export interface User {
   acceptsPetFriendlyJobs?: boolean; 
   acceptsPlatformJobs?: boolean; 
   maxJourneyDistance?: string; 
-  dispatchMode?: 'auto' | 'manual'; // Added for operators
-  acceptsAccountJobs?: boolean; // New field for driver preference
+  dispatchMode?: 'auto' | 'manual'; 
+  acceptsAccountJobs?: boolean; 
 
-  // Driver-specific vehicle & compliance details
   vehicleMakeModel?: string;
   vehicleRegistration?: string;
   vehicleColor?: string;
   insurancePolicyNumber?: string;
-  insuranceExpiryDate?: string; // Store as YYYY-MM-DD string
-  motExpiryDate?: string; // Store as YYYY-MM-DD string
+  insuranceExpiryDate?: string; 
+  motExpiryDate?: string; 
   taxiLicenseNumber?: string;
-  taxiLicenseExpiryDate?: string; // Store as YYYY-MM-DD string
+  taxiLicenseExpiryDate?: string; 
 
-  // Conceptual fields for Fair Ride Assignment (populated by backend)
   currentSessionId?: string | null;
-  lastLoginAt?: string | null; // ISO string representation of Timestamp
-  totalEarningsCurrentSession?: number | null; // In smallest currency unit (e.g., pence)
+  lastLoginAt?: string | null; 
+  totalEarningsCurrentSession?: number | null; 
   totalDurationOnlineCurrentSessionSeconds?: number | null;
-  currentHourlyRate?: number | null; // Calculated: totalEarningsCurrentSession / (totalDurationOnlineCurrentSessionSeconds / 3600)
+  currentHourlyRate?: number | null; 
 }
 
 interface AuthContextType {
@@ -59,7 +59,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const PLATFORM_OPERATOR_CODE = "OP001"; // Define platform's own operator code
+const PLATFORM_OPERATOR_CODE = "OP001"; 
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -91,6 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: firebaseUser.email || firestoreUser.email || "",
             name: firestoreUser.name || firebaseUser.displayName || "User",
             role: firestoreUser.role || 'passenger',
+            avatarUrl: firestoreUser.avatarUrl || null,
+            preferredPaymentMethod: firestoreUser.preferredPaymentMethod || 'card',
             customId: firestoreUser.customId,
             operatorCode: firestoreUser.operatorCode,
             driverIdentifier: firestoreUser.driverIdentifier,
@@ -105,8 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             acceptsPlatformJobs: firestoreUser.operatorCode === PLATFORM_OPERATOR_CODE ? true : (firestoreUser.acceptsPlatformJobs || false),
             maxJourneyDistance: firestoreUser.maxJourneyDistance || "no_limit", 
             dispatchMode: firestoreUser.dispatchMode || 'auto', 
-            acceptsAccountJobs: firestoreUser.acceptsAccountJobs === undefined ? true : firestoreUser.acceptsAccountJobs, // Default to true
-            // Driver-specific details
+            acceptsAccountJobs: firestoreUser.acceptsAccountJobs === undefined ? true : firestoreUser.acceptsAccountJobs, 
             vehicleMakeModel: firestoreUser.vehicleMakeModel,
             vehicleRegistration: firestoreUser.vehicleRegistration,
             vehicleColor: firestoreUser.vehicleColor,
@@ -115,7 +116,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             motExpiryDate: firestoreUser.motExpiryDate, 
             taxiLicenseNumber: firestoreUser.taxiLicenseNumber,
             taxiLicenseExpiryDate: firestoreUser.taxiLicenseExpiryDate, 
-            // Conceptual fields for fairness system (backend would populate these)
             currentSessionId: firestoreUser.currentSessionId || null,
             lastLoginAt: firestoreUser.lastLoginAt ? (firestoreUser.lastLoginAt as Timestamp).toDate().toISOString() : null,
             totalEarningsCurrentSession: firestoreUser.totalEarningsCurrentSession || null,
@@ -183,7 +183,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email}`);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       console.log("AuthContext.loginWithEmail: signInWithEmailAndPassword SUCCESS for UID:", userCredential.user.uid);
-      // onAuthStateChanged will handle setting user context and redirecting
     } catch (error: any) {
       setLoading(false);
       console.error("AuthContext.loginWithEmail CAUGHT ERROR. Code:", error.code, "Message:", error.message);
@@ -234,12 +233,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       phoneVerified: true,
       status: 'Active' as 'Active',
       phoneVerificationDeadline: null,
-      phoneNumber: `+155501${Math.floor(Math.random()*90)+10}` 
+      phoneNumber: `+155501${Math.floor(Math.random()*90)+10}`,
+      avatarUrl: null,
     };
 
     switch (role) {
       case 'passenger':
-        guestUser = { ...baseGuestData, name: 'Guest Passenger', role: 'passenger' };
+        guestUser = { ...baseGuestData, name: 'Guest Passenger', role: 'passenger', preferredPaymentMethod: 'card' };
         break;
       case 'driver':
         const isMyBaseDriver = Math.random() < 0.3;
@@ -255,7 +255,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           acceptsPetFriendlyJobs: Math.random() < 0.5,
           acceptsPlatformJobs: guestOperatorCode === PLATFORM_OPERATOR_CODE ? true : Math.random() < 0.7,
           maxJourneyDistance: "no_limit", 
-          acceptsAccountJobs: true, // Guest drivers accept account jobs by default
+          acceptsAccountJobs: true, 
           vehicleMakeModel: 'Toyota Prius (Guest)',
           vehicleRegistration: 'GUEST123',
           vehicleColor: 'Silver',
@@ -273,7 +273,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: 'operator',
           customId: `OP-GUEST-${Math.floor(Math.random()*900)+100}`, 
           operatorCode: `OP-GUEST-${Math.floor(Math.random()*900)+100}`,
-          dispatchMode: 'auto', // Default for guest operator
+          dispatchMode: 'auto', 
         };
         break;
       case 'admin':
