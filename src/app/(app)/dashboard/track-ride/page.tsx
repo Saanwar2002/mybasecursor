@@ -1,8 +1,8 @@
 
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -743,6 +743,37 @@ export default function MyActiveRidePage() {
     }
   };
 
+  const handleInitiateCancelRide = async () => {
+    if (!activeRide || !user) return;
+    const currentRideIdToCancel = activeRide.id; 
+    setRideIdToCancel(currentRideIdToCancel);
+    setActionLoading(prev => ({ ...prev, [currentRideIdToCancel]: true }));
+
+    try {
+      const response = await fetch('/api/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: currentRideIdToCancel, passengerId: user.id }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to cancel ride.');
+      }
+      toast({ title: "Ride Cancelled", description: `Your ride ${currentRideIdToCancel} has been cancelled.` });
+      setCancellationSuccess(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
+      toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
+      setCancellationSuccess(false);
+    } finally {
+       setActionLoading(prev => ({ ...prev, [currentRideIdToCancel]: false }));
+       setShowCancelConfirmationDialog(false); 
+       if (cancellationSuccess) { 
+          setActiveRide(null);
+       }
+    }
+  };
+
   const getStatusMessage = (ride: ActiveRide | null) => {
     if (!ride || !ride.status) return "Loading status...";
     switch (ride.status.toLowerCase()) {
@@ -1070,85 +1101,65 @@ export default function MyActiveRidePage() {
                       </ShadAlertDescription>
                     </Alert>
                   )}
-                   {/* The trigger is now part of the main AlertDialog component */}
                 </CardFooter>
             )}
           </Card>
         </>
       )}
-      <AlertDialog
-        open={showCancelConfirmationDialog}
-        onOpenChange={(isOpen) => {
-            setShowCancelConfirmationDialog(isOpen);
-            if (!isOpen) { 
-                if (cancellationSuccess) {
-                    setActiveRide(null); 
-                    setCancellationSuccess(false); 
-                }
-                setRideIdToCancel(null); 
-            }
-        }}
-      >
+      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => {
+          setShowCancelConfirmationDialog(isOpen);
+          if (!isOpen) { // Dialog is closing
+              if (cancellationSuccess) {
+                  setActiveRide(null); // Update UI only after dialog fully closes and API was successful
+                  setCancellationSuccess(false); // Reset for next time
+              }
+              setRideIdToCancel(null); // Always reset this when dialog closes
+          }
+      }}>
         {activeRide && activeRide.status === 'pending_assignment' && (
-          <AlertDialogTrigger asChild>
-            <Button 
-              variant="destructive" 
-              className="w-full sm:w-auto mt-2" // Added mt-2 for spacing if rendered
-              onClick={() => {
+          <AlertDialogTrigger 
+            className={cn(buttonVariants({ variant: "destructive" }), "w-full sm:w-auto mt-2")}
+            onClick={() => {
+              if (activeRide) {
                   setRideIdToCancel(activeRide.id);
                   setCancellationSuccess(false); 
                   setShowCancelConfirmationDialog(true);
-              }}
-              disabled={!!actionLoading[activeRide.id]}
-            >
-              <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
-            </Button>
+              }
+            }}
+            disabled={!!actionLoading[activeRide?.id || '']}
+          >
+            <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
           </AlertDialogTrigger>
         )}
         <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>This will cancel your ride request. This action cannot be undone.</AlertDialogDescription>
+              <AlertDialogDescription>
+                This will cancel your ride request (ID: {rideIdToCancel || 'N/A'}). This action cannot be undone.
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
-                    disabled={actionLoading[rideIdToCancel || '']}
+                  disabled={actionLoading[rideIdToCancel || '']}
                 >
-                   Keep Ride
+                  <span>Keep Ride</span>
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={async () => {
-                    if (!rideIdToCancel || !user) return;
-                    const currentActionRideId = rideIdToCancel; // Capture before state change
-                    setActionLoading(prev => ({ ...prev, [currentActionRideId]: true }));
-                    try {
-                      const response = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: currentActionRideId, passengerId: user.id }) });
-                      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to cancel ride.'); }
-                      toast({ title: "Ride Cancelled", description: `Your ride ${currentActionRideId} has been cancelled.` });
-                      setCancellationSuccess(true); 
-                    } catch (err) {
-                      const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
-                      toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
-                      setCancellationSuccess(false);
-                    } finally {
-                      setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
-                      setShowCancelConfirmationDialog(false);
-                    }
-                  }}
+                  onClick={handleInitiateCancelRide}
                   disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="flex items-center justify-center">
+                  <span>
                     {actionLoading[rideIdToCancel || ''] ? (
-                        <>
-                            <Loader2 key="loader-cancel-confirm" className="animate-spin mr-2 h-4 w-4" />
-                            <span key="text-loader-cancel-confirm">Cancelling...</span>
-                        </>
+                        <React.Fragment>
+                            <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />
+                            <span key="text-loader-cancel">Cancelling...</span>
+                        </React.Fragment>
                     ) : (
-                        <>
-                            <ShieldX key="icon-cancel-confirm" className="mr-2 h-4 w-4" />
-                            <span key="text-icon-cancel-confirm">Confirm Cancel</span>
-                        </>
+                        <React.Fragment>
+                            <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />
+                            <span key="text-icon-cancel">Confirm Cancel</span>
+                        </React.Fragment>
                     )}
                   </span>
                 </AlertDialogAction>
@@ -1227,4 +1238,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
