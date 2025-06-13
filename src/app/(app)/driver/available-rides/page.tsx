@@ -332,7 +332,7 @@ export default function AvailableRidesPage() {
   const hazardRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
   const [approachingHazardInfo, setApproachingHazardInfo] = useState<{ id: string, hazardType: string, reportedAt: string } | null>(null);
-  const alertedForThisApproachRef = useRef<Set<string>>(new Set<string>());
+  const alertedForThisApproachRef = useRef<Set<string>>(new Set<string>>(new Set()));
 
   const [isAccountPinDialogOpen, setIsAccountPinDialogOpen] = useState(false);
   const [enteredAccountPin, setEnteredAccountPin] = useState("");
@@ -350,7 +350,7 @@ export default function AvailableRidesPage() {
 
   const [currentStopTimerDisplay, setCurrentStopTimerDisplay] = useState<CurrentStopTimerDisplay | null>(null);
   const activeStopWaitTimerDetailsRef = useRef<ActiveStopTimerDetails | null>(null);
-  const [completedStopWaitCharges, setCompletedStopWaitCharges] = useState<Record<number, number>>({});
+  const [completedStopWaitCharges, setCompletedStopWaitCharges] = useState<Record<number, number>>(new Map());
   const [accumulatedStopWaitingCharges, setAccumulatedStopWaitingCharges] = useState<number>(0);
 
   const [showEndOfRideReminder, setShowEndOfRideReminder] = useState(false);
@@ -625,7 +625,7 @@ export default function AvailableRidesPage() {
             console.log("fetchActiveRide: API data differs from client, updating client state.");
             if (currentClientRide?.id !== data?.id || (currentClientRide && !data)) {
               setLocalCurrentLegIndex(0);
-              setCompletedStopWaitCharges({});
+              setCompletedStopWaitCharges(new Map());
               setAccumulatedStopWaitingCharges(0);
             }
             return data;
@@ -1300,7 +1300,7 @@ export default function AvailableRidesPage() {
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             if (activeStopWaitTimerDetailsRef.current?.timerId) clearInterval(activeStopWaitTimerDetailsRef.current.timerId);
             activeStopWaitTimerDetailsRef.current = null; setCurrentStopTimerDisplay(null);
-            setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges({});
+            setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges(new Map());
             setAckWindowSecondsLeft(null);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
             payload.status = 'cancelled_by_driver';
@@ -1312,7 +1312,7 @@ export default function AvailableRidesPage() {
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             if (activeStopWaitTimerDetailsRef.current?.timerId) clearInterval(activeStopWaitTimerDetailsRef.current.timerId);
             activeStopWaitTimerDetailsRef.current = null; setCurrentStopTimerDisplay(null);
-            setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges({});
+            setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges(new Map());
             setAckWindowSecondsLeft(null);
             setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
             payload.status = 'cancelled_no_show';
@@ -2192,7 +2192,7 @@ export default function AvailableRidesPage() {
                           setDriverRatingForPassenger(0);
                           setCurrentWaitingCharge(0);
                           setAccumulatedStopWaitingCharges(0);
-                          setCompletedStopWaitCharges({});
+                          setCompletedStopWaitCharges(new Map());
                           setCurrentStopTimerDisplay(null);
                           if (activeStopWaitTimerDetailsRef.current?.timerId) {
                             clearInterval(activeStopWaitTimerDetailsRef.current.timerId);
@@ -2711,3 +2711,5 @@ export default function AvailableRidesPage() {
     );
   }
 }
+
+    
