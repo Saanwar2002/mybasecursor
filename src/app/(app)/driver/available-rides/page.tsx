@@ -894,7 +894,7 @@ export default function AvailableRidesPage() {
         setShowEndOfRideReminder(true);
       }, 8000); 
     } else {
-      setShowEndOfRideReminder(false);
+      setShowEndOfRideReminder(false); 
     }
     return () => {
       if (endOfRideReminderTimerRef.current) {
@@ -2226,7 +2226,7 @@ export default function AvailableRidesPage() {
   };
 
   const mainActionBtnText = mainButtonText(); 
-  const mainActionBtnAction = mainActionBtnAction; 
+  const mainActionBtnAction = mainButtonAction; 
 
   return (
     <div className="flex flex-col h-full p-2 md:p-4">
