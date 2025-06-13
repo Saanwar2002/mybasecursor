@@ -331,7 +331,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
           <DialogTitle className={cn(
             "text-xl md:text-xl font-headline flex items-center gap-2",
-            // Color is now determined by icon color, not title directly
             )}>
             <span className="flex items-center gap-2">
               <Car className={cn(
@@ -347,6 +346,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           <DialogDescription className="text-sm text-muted-foreground pt-1">
             Review the details below and respond quickly before the timer runs out.
           </DialogDescription>
+          {rideDetails.paymentMethod === 'account' && (
+            <Badge variant="default" className="mt-2 text-sm py-1 px-3 w-fit self-center bg-purple-600 hover:bg-purple-700 text-white shadow-md">
+              <LockKeyhole className="w-4 h-4 mr-1.5" />
+              ACCOUNT JOB
+            </Badge>
+          )}
         </DialogHeader>
 
         <ScrollArea className="flex-1">
