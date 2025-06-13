@@ -2,25 +2,39 @@
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Car, DollarSign, History, MessageCircle, Navigation, Bell, Users, ListChecks, CheckCircle } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; 
+import { Car, DollarSign, History, MessageCircle, Navigation, Bell, Users, ListChecks, CheckCircle, Loader2 } from 'lucide-react'; // Added Loader2
 import { useAuth } from '@/contexts/auth-context';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import Image from 'next/image';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; // Added import
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; 
+import { useRouter } from 'next/navigation'; 
 
 export default function DriverDashboardPage() {
   const { user } = useAuth();
-  const [isOnline, setIsOnline] = useState(false); // Default to Offline
-  const router = useRouter(); // Initialize useRouter
+  const [isOnline, setIsOnline] = useState(false); 
+  const router = useRouter(); 
 
   const activeRide = null; 
-  const earningsToday = 75.50;
+  // const earningsToday = 75.50; // Remove static value
+
+  const [earningsTodayDisplay, setEarningsTodayDisplay] = useState<string | null>(null);
+  const [isLoadingEarnings, setIsLoadingEarnings] = useState(true);
+
+  useEffect(() => {
+    setIsLoadingEarnings(true);
+    // Simulate fetching earnings
+    setTimeout(() => {
+      const fetchedEarnings = (Math.random() * 100 + 50).toFixed(2); // Random earnings between 50 and 150
+      setEarningsTodayDisplay(`£${fetchedEarnings}`);
+      setIsLoadingEarnings(false);
+    }, 1500); // Simulate 1.5 second delay
+  }, []);
+
 
   const handleOnlineStatusChange = (checked: boolean) => {
     setIsOnline(checked);
@@ -89,7 +103,13 @@ export default function DriverDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">£{earningsToday.toFixed(2)}</p>
+              {isLoadingEarnings ? (
+                <div className="flex items-center justify-center h-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <p className="text-3xl font-bold">{earningsTodayDisplay || "£0.00"}</p>
+              )}
               <Link href="/driver/earnings" className="text-sm text-accent hover:underline">View Detailed Earnings</Link>
             </CardContent>
           </Card>
