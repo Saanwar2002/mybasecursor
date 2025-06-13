@@ -488,14 +488,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden"> {/* Added overflow-hidden here */}
         <aside className={cn("hidden md:flex flex-col border-r bg-card transition-all duration-300", isSidebarExpanded ? "w-64" : "w-16")}>
           {sidebarContent(false)}
         </aside>
-        <main className="flex-1 p-4 sm:px-6 sm:py-0 space-y-4 overflow-auto">
+        {/* Changed main tag for AppLayout */}
+        <main className="flex-1 flex flex-col overflow-hidden"> {/* Removed padding and space-y, added flex flex-col */}
           {children}
         </main>
       </div>
     </div>
   );
 }
+
