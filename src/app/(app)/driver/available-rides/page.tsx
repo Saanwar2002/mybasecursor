@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle, 
+  AlertDialogTitle as ShadAlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -98,7 +98,7 @@ interface ActiveRide {
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
-  accountJobPin?: string; 
+  accountJobPin?: string;
   distanceMiles?: number;
   cancellationFeeApplicable?: boolean;
   noShowFeeApplicable?: boolean;
@@ -207,16 +207,16 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1]; 
+    area = parts[1];
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area"; 
+    street = "Area";
   }
-  
+
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', '); 
+      area = parts.slice(1).join(', ');
   }
 
   let locationLine = area;
@@ -225,12 +225,12 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   }
 
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = ""; 
+      street = "";
   }
-  if (street && !locationLine) { 
+  if (street && !locationLine) {
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) { 
+  if (!street && locationLine) {
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -331,9 +331,9 @@ export default function AvailableRidesPage() {
   const hazardRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
   const [approachingHazardInfo, setApproachingHazardInfo] = useState<{ id: string, hazardType: string, reportedAt: string } | null>(null);
-  const alertedForThisApproachRef = useRef<Set<string>>(new Set());
+  const alertedForThisApproachRef = useRef<Set<string>>(new Set<string>());
 
-  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false); 
+  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
   const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
   const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
 
@@ -655,7 +655,7 @@ export default function AvailableRidesPage() {
               setLocalCurrentLegIndex(0);
               setCompletedStopWaitCharges({});
               setAccumulatedStopWaitingCharges(0);
-              setActiveStopDetails(null); 
+              setActiveStopDetails(null);
             }
             return data;
         }
@@ -664,13 +664,13 @@ export default function AvailableRidesPage() {
       });
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
-        
+
         if (data.status === 'in_progress' || data.status === 'in_progress_wait_and_return') {
             const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < (data.stops?.length || 0) + 1;
             if (newLegIsIntermediateStop) {
                 setActiveStopDetails({ stopDataIndex: data.driverCurrentLegIndex - 1, arrivalTime: new Date() });
             } else {
-                setActiveStopDetails(null); 
+                setActiveStopDetails(null);
             }
         }
       }
@@ -732,7 +732,7 @@ export default function AvailableRidesPage() {
 
       stopIntervalRef.current = intervalId;
 
-      
+
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
       let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
@@ -1103,7 +1103,7 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
         driverCurrentLocation: driverLocation,
-        accountJobPin: offerToAccept.accountJobPin, 
+        accountJobPin: offerToAccept.accountJobPin,
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
@@ -1176,7 +1176,7 @@ export default function AvailableRidesPage() {
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
-        accountJobPin: serverBooking.accountJobPin, 
+        accountJobPin: serverBooking.accountJobPin,
         distanceMiles: offerToAccept.distanceMiles,
       };
       console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
@@ -1253,8 +1253,8 @@ export default function AvailableRidesPage() {
     }
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && activeRide.accountJobPin) {
         if (!isAccountJobPinDialogOpen) {
-          setIsAccountJobPinDialogOpen(true); 
-          return; 
+          setIsAccountJobPinDialogOpen(true);
+          return;
         }
     }
 
@@ -1282,7 +1282,7 @@ export default function AvailableRidesPage() {
       payload.driverCurrentLocation = driverLocation;
     }
 
-    const updateDataFromPayload = payload; 
+    const updateDataFromPayload = payload;
 
     switch(actionType) {
         case 'notify_arrival':
@@ -1442,7 +1442,7 @@ export default function AvailableRidesPage() {
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
           driverCurrentLocation: serverData.driverCurrentLocation,
-          accountJobPin: serverData.accountJobPin || prev.accountJobPin, 
+          accountJobPin: serverData.accountJobPin || prev.accountJobPin,
           distanceMiles: serverData.distanceMiles || prev.distanceMiles,
           cancellationFeeApplicable: serverData.cancellationFeeApplicable,
           noShowFeeApplicable: serverData.noShowFeeApplicable,
@@ -1786,6 +1786,39 @@ export default function AvailableRidesPage() {
   };
   const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
 
+  // Current Leg Display Logic
+  const currentLegDisplayInfo = useMemo(() => {
+    if (!activeRide || !journeyPoints.length) return null;
+
+    const currentLegIdx = localCurrentLegIndex;
+    const currentStatus = activeRide.status.toLowerCase();
+    const relevantStatuses = ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'];
+
+    if (!relevantStatuses.includes(currentStatus) || currentLegIdx < 0 || currentLegIdx >= journeyPoints.length) {
+      return null;
+    }
+
+    const targetPoint = journeyPoints[currentLegIdx];
+    let label = "";
+    let address = targetPoint.doorOrFlat ? `${targetPoint.doorOrFlat}, ${targetPoint.address}` : targetPoint.address;
+    let bgColor = "bg-gray-600";
+    let textColor = "text-white";
+
+    if (currentLegIdx === 0) { // Pickup
+      label = "Next: Pickup";
+      bgColor = "bg-green-600";
+    } else if (currentLegIdx < journeyPoints.length - 1) { // Intermediate Stop
+      label = `Next: Stop ${currentLegIdx}`;
+      bgColor = "bg-yellow-400";
+      textColor = "text-black";
+    } else { // Final Dropoff
+      label = "Next: Final Dropoff";
+      bgColor = "bg-red-600";
+    }
+
+    return { label, address, bgColor, textColor };
+  }, [activeRide, localCurrentLegIndex, journeyPoints]);
+
 
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -2067,7 +2100,7 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    
+
     <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
@@ -2186,13 +2219,13 @@ const totalFare = (fareEstimate || 0) + (priorityFeeAmount || 0) + currentWaitin
 let displayedFare = `£${totalFare.toFixed(2)}`;
 if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
   const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-  const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
+  const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
   displayedFare = `£${(wrBaseFare + wrWaitCharge + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
 }
 
-const paymentMethodDisplay = 
-    activeRide?.paymentMethod === 'card' ? 'Card' 
-    : activeRide?.paymentMethod === 'cash' ? 'Cash' 
+const paymentMethodDisplay =
+    activeRide?.paymentMethod === 'card' ? 'Card'
+    : activeRide?.paymentMethod === 'cash' ? 'Cash'
     : activeRide?.paymentMethod === 'account' ? 'Account'
     : 'Payment N/A';
 
@@ -2212,20 +2245,20 @@ const mainButtonText = () => {
   if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
     return "Complete Ride";
   }
-  return "Status Action"; 
+  return "Status Action";
 };
 
 const mainButtonAction = () => {
   const currentLegIdx = localCurrentLegIndex;
   if (status === 'arrived_at_pickup') {
-    
+
     handleRideAction(activeRide.id, 'start_ride');
   }
   else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) { 
+      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
           handleRideAction(activeRide.id, 'proceed_to_next_leg');
-      } else { 
-          setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()}); 
+      } else {
+          setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
       }
   }
   else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) { handleRideAction(activeRide.id, 'complete_ride'); }
@@ -2255,6 +2288,16 @@ return (
           disableDefaultUI={true}
           onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
         />
+         {currentLegDisplayInfo && (
+          <div className={cn(
+            "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-xs sm:max-w-sm",
+            currentLegDisplayInfo.bgColor,
+            currentLegDisplayInfo.textColor
+          )}>
+            <p className="text-xs md:text-sm font-medium">{currentLegDisplayInfo.label}</p>
+            <p className="text-lg md:text-xl font-bold leading-tight">{currentLegDisplayInfo.address}</p>
+          </div>
+        )}
         <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
             <Button
                 variant="secondary"
@@ -2476,65 +2519,28 @@ return (
             </Alert>
         )}
 
-
-        <div className="space-y-0.5 text-base py-1">
-            {journeyPoints.map((point, index) => {
-                const isCurrentLeg = index === localCurrentLegIndex;
-                const isPastLeg = index < localCurrentLegIndex;
-                let legType = "";
-                let iconColor = "text-muted-foreground";
-
-                if (index === 0) {
-                    legType = "Pickup";
-                    iconColor = isCurrentLeg ? "text-green-500" : (isPastLeg && isRideInProgressOrFurther ? "text-muted-foreground opacity-60" : "text-green-500");
-                } else if (index === journeyPoints.length - 1) {
-                    legType = "Dropoff";
-                    iconColor = isCurrentLeg ? "text-orange-500" : (isPastLeg ? "text-muted-foreground opacity-60" : "text-orange-500");
-                } else {
-                    legType = `Stop ${index}`;
-                    iconColor = isCurrentLeg ? "text-blue-500" : (isPastLeg ? "text-muted-foreground opacity-60" : "text-blue-500");
-                }
-
-                return (
-                    <p
-                        key={`leg-${index}`}
-                        className={cn(
-                            "flex items-start gap-1 p-0.5 rounded text-base font-bold", 
-                            isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
-                            isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
-                        )}
-                    >
-                        <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", iconColor)} />
-                        <span>
-                            {legType}: {point.address} {point.doorOrFlat && `(${point.doorOrFlat})`}
-                        </span>
-                    </p>
-                );
-            })}
-        </div>
-
-        {notes && !isRideInProgressOrFurther && (
-            <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-                <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
+        {activeRide.notes && !isRideInProgressOrFurther && (
+           <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
+              <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
                 <strong>Notes:</strong> {notes}
-                </p>
+              </p>
             </div>
         )}
 
         <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
               <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1 font-bold")}>
-                <p className="flex items-center gap-1.5 font-bold">
+                <p className="font-bold flex items-center gap-1.5">
                   <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
                   Fare: {displayedFare}
                 </p>
               </div>
-              <p className="flex items-center gap-1.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
+              <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
               {activeRide.distanceMiles != null && (
-                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                <p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
               )}
-              {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+              {paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
         </div>
-      
+
 
         {(showCompletedStatus || showCancelledNoShowStatus) && (
           <div className="mt-2 pt-2 border-t text-center">
@@ -2723,7 +2729,7 @@ return (
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    
+
     <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
