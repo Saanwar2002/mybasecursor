@@ -266,6 +266,8 @@ export default function BookRidePage() {
   const [accountJobAuthPinInput, setAccountJobAuthPinInput] = useState("");
   const [isAccountJobAuthPinVerified, setIsAccountJobAuthPinVerified] = useState(false);
   const [previousPaymentMethod, setPreviousPaymentMethod] = useState<BookingFormValues["paymentMethod"]>("card");
+  const [accountJobAuthPinInputType, setAccountJobAuthPinInputType] = useState<'password' | 'text'>('password');
+  const pinPeekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
 
   const form = useForm<BookingFormValues>({
@@ -1726,8 +1728,8 @@ const handleProceedToConfirmation = async () => {
   };
   const gpsStyles = getGpsAlertStyles(suggestedGpsPickup?.accuracy);
 
-  const handleAccountJobAuthPinConfirm = () => { // For 6-digit authorization PIN
-    if (accountJobAuthPinInput === "123456") { // Mock PIN validation
+  const handleAccountJobAuthPinConfirm = () => { 
+    if (accountJobAuthPinInput === "123456") { 
       setIsAccountJobAuthPinVerified(true);
       form.setValue("paymentMethod", "account"); 
       toast({ title: "Account PIN Verified!", description: "You can now proceed with the account booking." });
@@ -1736,8 +1738,23 @@ const handleProceedToConfirmation = async () => {
       toast({ title: "Invalid PIN", description: "The 6-digit Authorization PIN entered is incorrect. Please try again.", variant: "destructive" });
       setIsAccountJobAuthPinVerified(false);
       setAccountJobAuthPinInput(""); 
+      setAccountJobAuthPinInputType('password');
     }
   };
+
+  const handleAccountAuthPinInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+    setAccountJobAuthPinInput(newValue);
+
+    setAccountJobAuthPinInputType('text');
+    if (pinPeekTimeoutRef.current) {
+      clearTimeout(pinPeekTimeoutRef.current);
+    }
+    pinPeekTimeoutRef.current = setTimeout(() => {
+      setAccountJobAuthPinInputType('password');
+    }, 500);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -2552,10 +2569,10 @@ const handleProceedToConfirmation = async () => {
             <Label htmlFor="account-job-auth-pin">Enter 6-Digit PIN</Label>
             <Input
               id="account-job-auth-pin"
-              type="password" 
+              type={accountJobAuthPinInputType}
               inputMode="numeric"
               value={accountJobAuthPinInput}
-              onChange={(e) => setAccountJobAuthPinInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+              onChange={handleAccountAuthPinInputChange}
               maxLength={6}
               placeholder="••••••"
               className="text-center text-xl tracking-[0.3em]"
@@ -2566,6 +2583,7 @@ const handleProceedToConfirmation = async () => {
               form.setValue("paymentMethod", previousPaymentMethod);
               setIsAccountJobAuthPinVerified(false);
               setAccountJobAuthPinInput("");
+              setAccountJobAuthPinInputType('password');
               setIsAccountJobAuthPinDialogOpen(false);
               toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
             }}>Cancel & Change Payment</Button>
