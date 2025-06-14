@@ -207,30 +207,30 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1]; 
+    area = parts[1];
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area"; 
+    street = "Area";
   }
-  
+
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', '); 
+      area = parts.slice(1).join(', ');
   }
 
   let locationLine = area;
   if (outwardPostcode) {
     locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
   }
-  
+
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = ""; 
+      street = "";
   }
-  if (street && !locationLine) { 
+  if (street && !locationLine) {
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) { 
+  if (!street && locationLine) {
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -2203,7 +2203,7 @@ export default function AvailableRidesPage() {
   let displayedFare = `£${totalFare.toFixed(2)}`;
   if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
     const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
+    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
     displayedFare = `£${(wrBaseFare + wrWaitCharge + priorityFeeAmount + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
   }
 
@@ -2368,7 +2368,7 @@ export default function AvailableRidesPage() {
           : "flex-1"
       )}>
         <ScrollArea className={cn( (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) ? "" : "flex-1" )}>
-          <CardContent className={cn("p-2 space-y-1.5")}> {/* Reduced padding and space */}
+          <CardContent className="p-2 space-y-1.5">
           {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md font-semibold shadow"> En Route to Pickup </Badge> </div> )}
           {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="outline" className="text-xs w-fit mx-auto border-blue-500 text-blue-500 py-1 px-3 rounded-md font-semibold shadow"> Arrived At Pickup </Badge> </div> )}
           {showInProgressStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="text-xs w-fit mx-auto bg-green-600 text-white py-1 px-3 rounded-md font-semibold shadow"> Ride In Progress </Badge> </div> )}
@@ -2379,35 +2379,35 @@ export default function AvailableRidesPage() {
           {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="text-base w-fit mx-auto py-1.5 px-4 rounded-lg font-bold shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
 
 
-          <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/50 border"> {/* Reduced padding, gap */}
-            <Avatar className="h-9 w-9"> {/* Reduced avatar size */}
+          <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/50 border">
+            <Avatar className="h-9 w-9">
                 <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
                 <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <p className="font-semibold text-sm">{activeRide.passengerName}</p> {/* Reduced name font size */}
+              <p className="font-semibold text-sm">{activeRide.passengerName}</p>
               {activeRide.passengerPhone && (
-                <p className="text-xs text-muted-foreground flex items-center gap-0.5"> {/* Reduced gap */}
-                  <PhoneCall className="w-2.5 h-2.5"/> {activeRide.passengerPhone} {/* Reduced icon size */}
+                <p className="text-xs text-muted-foreground flex items-center gap-0.5">
+                  <PhoneCall className="w-2.5 h-2.5"/> {activeRide.passengerPhone}
                 </p>
               )}
             </div>
               {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
-                <div className="flex items-center gap-0.5"> {/* Reduced gap */}
+                <div className="flex items-center gap-0.5">
                   {activeRide.passengerPhone && (
-                    <Button asChild variant="outline" size="icon" className="h-7 w-7"> {/* Reduced button size */}
+                    <Button asChild variant="outline" size="icon" className="h-7 w-7">
                       <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
-                        <PhoneCall className="w-3.5 h-3.5" /> {/* Reduced icon size */}
+                        <PhoneCall className="w-3.5 h-3.5" />
                       </a>
                     </Button>
                   )}
                   {isChatDisabled ? (
-                      <Button variant="outline" size="icon" className="h-7 w-7" disabled> {/* Reduced button size */}
-                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground opacity-50" /> {/* Reduced icon size */}
+                      <Button variant="outline" size="icon" className="h-7 w-7" disabled>
+                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground opacity-50" />
                       </Button>
                     ) : (
-                      <Button asChild variant="outline" size="icon" className="h-7 w-7"> {/* Reduced button size */}
-                        <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5" /></Link> {/* Reduced icon size */}
+                      <Button asChild variant="outline" size="icon" className="h-7 w-7">
+                        <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5" /></Link>
                       </Button>
                     )}
                 </div>
@@ -2415,18 +2415,18 @@ export default function AvailableRidesPage() {
           </div>
 
           {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
-              <div className={cn("p-1.5 my-1 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}> {/* Reduced padding and margin */}
-                <p className="text-xs font-medium flex items-center justify-center gap-1"> {/* Reduced font and icon size */}
+              <div className={cn("p-1.5 my-1 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
+                <p className="text-xs font-medium flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-3.5 h-3.5 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
           )}
 
           {activeRide.isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
-              <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1"> {/* Reduced padding and font */}
+              <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                   <Crown className="h-3.5 w-3.5" />
-                  <ShadAlertTitle className="font-medium text-xs">Priority Booking</ShadAlertTitle> {/* Reduced font */}
-                  <ShadAlertDescription className="text-[10px]"> {/* Reduced font */}
+                  <ShadAlertTitle className="font-medium text-xs">Priority Booking</ShadAlertTitle>
+                  <ShadAlertDescription className="text-[10px]">
                       Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.
                   </ShadAlertDescription>
               </Alert>
@@ -2434,10 +2434,10 @@ export default function AvailableRidesPage() {
 
 
           {showArrivedAtPickupStatus && (
-            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5"> {/* Reduced padding */}
-              <Timer className="h-4 w-4 text-current" /> {/* Reduced icon size */}
-              <ShadAlertTitle className="font-semibold text-current text-xs">Passenger Waiting Status</ShadAlertTitle> {/* Reduced font size */}
-              <ShadAlertDescription className="text-current text-[10px] font-semibold"> {/* Reduced font size */}
+            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
+              <Timer className="h-4 w-4 text-current" />
+              <ShadAlertTitle className="font-semibold text-current text-xs">Passenger Waiting Status</ShadAlertTitle>
+              <ShadAlertDescription className="text-current text-[10px] font-semibold">
                 {ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && (
                   `Waiting for passenger acknowledgment: ${formatTimer(ackWindowSecondsLeft)} left.`
                 )}
@@ -2461,12 +2461,12 @@ export default function AvailableRidesPage() {
             currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
             (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
           (
-            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5"> {/* Reduced padding */}
-              <Timer className="h-4 w-4 text-current" /> {/* Reduced icon size */}
-              <ShadAlertTitle className="font-bold text-current text-xs"> {/* Reduced font size */}
+            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
+              <Timer className="h-4 w-4 text-current" />
+              <ShadAlertTitle className="font-bold text-current text-xs">
                 Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}
               </ShadAlertTitle>
-              <ShadAlertDescription className="font-semibold text-current text-[10px]"> {/* Reduced font size */}
+              <ShadAlertDescription className="font-semibold text-current text-[10px]">
                 {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
                   `Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`
                 )}
@@ -2479,23 +2479,23 @@ export default function AvailableRidesPage() {
 
 
           {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
-               <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5"> {/* Reduced padding */}
-                  <RefreshCw className="h-4 w-4 text-current animate-spin" /> {/* Reduced icon size */}
-                  <ShadAlertTitle className="font-semibold text-current text-xs">Wait & Return Request</ShadAlertTitle> {/* Reduced font size */}
-                  <ShadAlertDescription className="text-current text-[10px]"> {/* Reduced font size */}
+               <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5">
+                  <RefreshCw className="h-4 w-4 text-current animate-spin" />
+                  <ShadAlertTitle className="font-semibold text-current text-xs">Wait & Return Request</ShadAlertTitle>
+                  <ShadAlertDescription className="text-current text-[10px]">
                       Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.
                       <br />
                       New estimated total fare (if accepted): £{(( (fareEstimate || 0) + (priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.
-                      <div className="flex gap-1 mt-1"> {/* Reduced gap and margin */}
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Accept W&R</Button> {/* Reduced button size */}
-                          <Button size="sm" variant="destructive" className="h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Decline W&R</Button> {/* Reduced button size */}
+                      <div className="flex gap-1 mt-1">
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Accept W&R</Button>
+                          <Button size="sm" variant="destructive" className="h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Decline W&R</Button>
                       </div>
                   </ShadAlertDescription>
               </Alert>
           )}
 
 
-          <div className="space-y-0.5 text-xs py-1"> {/* Reduced space and font */}
+          <div className="space-y-0.5 text-xs py-1">
               {journeyPoints.map((point, index) => {
                   const isCurrentLeg = index === localCurrentLegIndex;
                   const isPastLeg = index < localCurrentLegIndex;
@@ -2517,12 +2517,12 @@ export default function AvailableRidesPage() {
                       <p
                           key={`leg-${index}`}
                           className={cn(
-                              "flex items-start gap-1 p-0.5 rounded", // Reduced gap and padding
+                              "flex items-start gap-1 p-0.5 rounded",
                               isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
                               isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
                           )}
                       >
-                          <MapPin className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", iconColor)} /> {/* Reduced icon size */}
+                          <MapPin className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", iconColor)} />
                           <span>
                               <strong>{legType}:</strong> {point.address} {point.doorOrFlat && `(${point.doorOrFlat})`}
                           </span>
@@ -2530,30 +2530,30 @@ export default function AvailableRidesPage() {
                   );
               })}
 
-               <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 pt-0.5 text-xs"> {/* Reduced gap and font */}
-                  <p className="flex items-center gap-0.5"> {/* Reduced gap */}
-                    <DollarSign className="w-3.5 h-3.5 text-muted-foreground" /> {/* Reduced icon size */}
+               <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 pt-0.5 text-xs">
+                  <p className="flex items-center gap-0.5">
+                    <DollarSign className="w-3.5 h-3.5 text-muted-foreground" />
                     <strong>Fare:</strong> {displayedFare}
                   </p>
-                  <p className="flex items-center gap-0.5"><UsersIcon className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p> {/* Reduced icon size */}
+                  <p className="flex items-center gap-0.5"><UsersIcon className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
                   {activeRide.distanceMiles != null && (
-                    <p className="flex items-center gap-0.5"><Route className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi</p> {/* Reduced icon size */}
+                    <p className="flex items-center gap-0.5"><Route className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                   )}
-                  {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-3.5 h-3.5 text-muted-foreground" /> : paymentMethod === 'cash' ? <Coins className="w-3.5 h-3.5 text-muted-foreground" /> : <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </p> )} {/* Reduced icon size */}
+                  {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-3.5 h-3.5 text-muted-foreground" /> : paymentMethod === 'cash' ? <Coins className="w-3.5 h-3.5 text-muted-foreground" /> : <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </p> )}
                </div>
           </div>
-          {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div> // Reduced padding and font
+          {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div>
           )}
 
           {(showCompletedStatus || showCancelledNoShowStatus) && (
-            <div className="mt-2 pt-2 border-t text-center"> {/* Reduced margin */}
-              <p className="text-xs font-medium mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p> {/* Reduced font and margin */}
-              <div className="flex justify-center space-x-0.5 mb-1"> {/* Reduced space and margin */}
+            <div className="mt-2 pt-2 border-t text-center">
+              <p className="text-xs font-medium mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
+              <div className="flex justify-center space-x-0.5 mb-1">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      "w-6 h-6 cursor-pointer", // Reduced icon size
+                      "w-6 h-6 cursor-pointer",
                       i < driverRatingForPassenger ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"
                     )}
                     onClick={() => setDriverRatingForPassenger(i + 1)}
@@ -2562,12 +2562,12 @@ export default function AvailableRidesPage() {
               </div>
             </div>
           )}
-          {(showCancelledByDriverStatus || showCancelledNoShowStatus) && ( <div className="mt-2 pt-2 border-t text-center"> <p className="text-xs text-muted-foreground">This ride was cancelled. You can now look for new offers.</p> </div> )} {/* Reduced margin and font */}
+          {(showCancelledByDriverStatus || showCancelledNoShowStatus) && ( <div className="mt-2 pt-2 border-t text-center"> <p className="text-xs text-muted-foreground">This ride was cancelled. You can now look for new offers.</p> </div> )}
           </CardContent>
         </ScrollArea>
 
         {!(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-          <div className="p-2 border-t grid gap-1.5 shrink-0"> {/* Reduced padding and gap */}
+          <div className="p-2 border-t grid gap-1.5 shrink-0">
             {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Driver Assigned) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to pickup."})}}> <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
             {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Arrived) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to dropoff."})}} > <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
             <Button
@@ -2608,9 +2608,9 @@ export default function AvailableRidesPage() {
           </div>
         )}
          {(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
-              <div className="p-2 border-t grid gap-1.5 shrink-0"> {/* Reduced padding and gap */}
+              <div className="p-2 border-t grid gap-1.5 shrink-0">
                 <Button
-                    className="w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto" /* Reduced font and padding */
+                    className="w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto"
                     onClick={() => {
                         console.log("Done button clicked. Current status:", activeRide.status, "Rating given:", driverRatingForPassenger);
                         if(showCompletedStatus && driverRatingForPassenger > 0 && activeRide.passengerName) {
@@ -2807,4 +2807,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
