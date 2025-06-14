@@ -1203,7 +1203,7 @@ export default function AvailableRidesPage() {
       setLocalCurrentLegIndex(0);
       setRideRequests([]);
 
-      let toastDesc = `En Route to Pickup for ${newActiveRideFromServer.passengerName}. Payment: ${newActiveRideFromServer.paymentMethod === 'card' ? 'Card' : newActiveRideFromServer.paymentMethod === 'account' ? 'Account (Job PIN Required)' : 'Cash'}.`;
+      let toastDesc = `En Route to Pickup for ${newActiveRideFromServer.passengerName}. Payment: ${newActiveRideFromServer.paymentMethod === 'card' ? 'Card' : newActiveRideFromServer.paymentMethod === 'account' ? 'Account' : 'Cash'}.`;
       if (newActiveRideFromServer.isPriorityPickup && newActiveRideFromServer.priorityFeeAmount) {
         toastDesc += ` Priority: +£${newActiveRideFromServer.priorityFeeAmount.toFixed(2)}.`;
       }
@@ -2378,13 +2378,13 @@ return (
         {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="text-base w-fit mx-auto py-1.5 px-4 rounded-lg font-bold shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
 
 
-        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/50 border">
-          <Avatar className="h-8 w-8">
+        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30 border">
+          <Avatar className="h-7 w-7 md:h-8 md:h-8">
               <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
-              <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <p className="font-semibold text-sm">{activeRide.passengerName}</p>
+            <p className="font-semibold text-sm md:text-base">{activeRide.passengerName}</p>
             {activeRide.passengerPhone && (
               <p className="text-xs text-muted-foreground flex items-center gap-0.5">
                 <PhoneCall className="w-2.5 h-2.5"/> {activeRide.passengerPhone}
@@ -2394,19 +2394,19 @@ return (
             {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
               <div className="flex items-center gap-0.5">
                 {activeRide.passengerPhone && (
-                  <Button asChild variant="outline" size="icon" className="h-7 w-7">
+                  <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
                     <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
-                      <PhoneCall className="w-3.5 h-3.5" />
+                      <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
                     </a>
                   </Button>
                 )}
                 {isChatDisabled ? (
-                    <Button variant="outline" size="icon" className="h-7 w-7" disabled>
-                      <MessageSquare className="w-3.5 h-3.5 text-muted-foreground opacity-50" />
+                    <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled>
+                      <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
                     </Button>
                   ) : (
-                    <Button asChild variant="outline" size="icon" className="h-7 w-7">
-                      <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5" /></Link>
+                    <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+                      <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></Link>
                     </Button>
                   )}
               </div>
@@ -2414,9 +2414,9 @@ return (
         </div>
 
         {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
-            <div className={cn("p-1.5 my-1 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
-              <p className="text-xs font-medium flex items-center justify-center gap-1">
-                <dispatchInfo.icon className="w-3.5 h-3.5 text-white"/> {dispatchInfo.text}
+            <div className={cn("p-1 my-1 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
+              <p className="text-[10px] md:text-xs font-medium flex items-center justify-center gap-1">
+                <dispatchInfo.icon className="w-3 h-3 md:w-3.5 md:h-3.5 text-white"/> {dispatchInfo.text}
               </p>
             </div>
         )}
@@ -2516,29 +2516,29 @@ return (
                     <p
                         key={`leg-${index}`}
                         className={cn(
-                            "flex items-start gap-1 p-0.5 rounded text-base",
+                            "flex items-start gap-1 p-0.5 rounded text-base font-bold", // Applied font-bold here
                             isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
                             isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
                         )}
                     >
                         <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", iconColor)} />
                         <span>
-                            <strong className="font-bold">{legType}:</strong> <span className="font-bold">{point.address} {point.doorOrFlat && `(${point.doorOrFlat})`}</span>
+                            {legType}: {point.address} {point.doorOrFlat && `(${point.doorOrFlat})`}
                         </span>
                     </p>
                 );
             })}
 
-             <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
+             <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base font-bold">
                 <p className="flex items-center gap-0.5">
                   <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300" />
-                  <strong className="font-bold">Fare:</strong> <span className="font-bold">{displayedFare}</span>
+                  Fare: {displayedFare}
                 </p>
-                <p className="flex items-center gap-0.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300" /> <strong className="font-bold">Passengers:</strong> <span className="font-bold">{activeRide.passengerCount}</span></p>
+                <p className="flex items-center gap-0.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300" /> Passengers: {activeRide.passengerCount}</p>
                 {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-0.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300" /> <strong className="font-bold">Distance:</strong> <span className="font-bold">~{activeRide.distanceMiles.toFixed(1)} mi</span></p>
+                  <p className="flex items-center gap-0.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                 )}
-                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300" />} <strong className="font-bold">Payment:</strong> <span className="font-bold">{paymentMethodDisplay}</span> </p> )}
+                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300" />} Payment: {paymentMethodDisplay} </p> )}
              </div>
         </div>
         {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div>
