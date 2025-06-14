@@ -34,7 +34,7 @@ export default function LandingPage() {
             src="/mybase-logo.png"
             alt="MyBase Logo"
             width={500}
-            height={125}
+            height={80}
             className="mx-auto mb-6 rounded-lg shadow-lg"
             priority
           />
