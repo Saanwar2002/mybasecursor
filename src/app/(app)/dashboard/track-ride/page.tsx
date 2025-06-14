@@ -37,7 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription } from "@/components/ui/alert"; // Added AlertDescription
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
@@ -1030,9 +1030,9 @@ export default function MyActiveRidePage() {
                   <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
                     <Info className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Driver Has Arrived!</ShadAlertTitle>
-                    <ShadAlertDescription className="text-current">
+                    <AlertDescription className="text-current">
                       Please acknowledge within <span className="font-bold">{formatTimerPassenger(ackWindowSecondsLeft)}</span> to start your 3 minutes free waiting.
-                    </ShadAlertDescription>
+                    </AlertDescription>
                   </Alert>
                 )}
 
@@ -1040,10 +1040,10 @@ export default function MyActiveRidePage() {
                   <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
                     <Timer className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Acknowledgment Window Expired</ShadAlertTitle>
-                    <ShadAlertDescription className="text-current">
+                    <AlertDescription className="text-current">
                      Your 3 mins free waiting time ({freeWaitingSecondsLeft !== null ? formatTimerPassenger(freeWaitingSecondsLeft) : 'N/A'}) has started.
                       Waiting charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.
-                    </ShadAlertDescription>
+                    </AlertDescription>
                   </Alert>
                 )}
 
@@ -1051,7 +1051,7 @@ export default function MyActiveRidePage() {
                   <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300">
                     <CheckCheck className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Arrival Acknowledged - Free Waiting</ShadAlertTitle>
-                    <ShadAlertDescription className="text-current">
+                    <AlertDescription className="text-current">
                       {freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
                         <span>Free waiting time: {formatTimerPassenger(freeWaitingSecondsLeft)}. Charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.</span>
                       )}
@@ -1059,7 +1059,7 @@ export default function MyActiveRidePage() {
                         <span>Extra waiting: {formatTimerPassenger(extraWaitingSeconds)}. Current Charge: £{currentWaitingCharge.toFixed(2)}</span>
                       )}
                       {!isBeyondFreeWaiting && freeWaitingSecondsLeft === 0 && <span>Free waiting time expired. Charges (£0.20/min) may apply.</span>}
-                    </ShadAlertDescription>
+                    </AlertDescription>
                   </Alert>
                 )}
                 
@@ -1081,18 +1081,18 @@ export default function MyActiveRidePage() {
                     <Alert variant="default" className="bg-purple-50 border-purple-300 text-purple-700 mt-2">
                         <Timer className="h-5 w-5" />
                         <ShadAlertTitle className="font-semibold">Wait & Return Requested</ShadAlertTitle>
-                        <ShadAlertDescription>
+                        <AlertDescription>
                           Your request for wait & return (approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins wait) is awaiting driver confirmation.
-                        </ShadAlertDescription>
+                        </AlertDescription>
                     </Alert>
                  )}
                  {activeRide.status === 'in_progress_wait_and_return' && (
                      <Alert variant="default" className="bg-teal-50 border-teal-300 text-teal-700 mt-2">
                         <CheckCheck className="h-5 w-5" />
                         <ShadAlertTitle className="font-semibold">Wait & Return Active!</ShadAlertTitle>
-                        <ShadAlertDescription>
+                        <AlertDescription>
                           Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {fareDisplay}.
-                        </ShadAlertDescription>
+                        </AlertDescription>
                     </Alert>
                  )}
             </CardContent>
@@ -1105,9 +1105,9 @@ export default function MyActiveRidePage() {
                     <Alert variant="default" className="w-full text-xs p-2 bg-yellow-50 border-yellow-400 dark:bg-yellow-800/30 dark:border-yellow-700">
                       <AlertTriangle className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
                       <ShadAlertTitle className="text-yellow-700 dark:text-yellow-300 font-semibold">Editing Disabled</ShadAlertTitle>
-                      <ShadAlertDescription className="text-yellow-600 dark:text-yellow-400">
+                      <AlertDescription className="text-yellow-600 dark:text-yellow-400">
                         Ride details cannot be changed once a driver is assigned or the ride is in progress. Please cancel and rebook if major changes are needed.
-                      </ShadAlertDescription>
+                      </AlertDescription>
                     </Alert>
                   )}
                 </CardFooter>
