@@ -1112,7 +1112,7 @@ export default function MyActiveRidePage() {
       )}
       <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen) { setRideIdToCancel(null); if (cancellationSuccess) { setActiveRide(null); setCancellationSuccess(false); } } }}>
         {activeRide && activeRide.status === 'pending_assignment' && (
-          <AlertDialogTrigger asChild> 
+           <AlertDialogTrigger asChild>
             <Button
               variant="destructive"
               className="w-full sm:w-auto mt-2"
@@ -1140,26 +1140,18 @@ export default function MyActiveRidePage() {
                 <AlertDialogCancel
                   disabled={actionLoading[rideIdToCancel || '']}
                 >
-                  <span>Keep Ride</span>
+                  Keep Ride
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleConfirmCancel}
                   disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
                   className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span> 
                     {actionLoading[rideIdToCancel || ''] ? (
-                        <React.Fragment>
-                            <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />
-                            <span key="text-loader-cancel">Cancelling...</span>
-                        </React.Fragment>
+                        <><Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />Cancelling...</>
                     ) : (
-                        <React.Fragment>
-                            <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />
-                            <span key="text-icon-cancel">Confirm Cancel</span>
-                        </React.Fragment>
+                        <><ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />Confirm Cancel</>
                     )}
-                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -1236,3 +1228,6 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
+
+    
