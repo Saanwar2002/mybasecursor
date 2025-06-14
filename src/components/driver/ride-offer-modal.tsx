@@ -426,28 +426,31 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               </p>
             </div>
 
-            <div className="space-y-1 text-sm mt-2">
+            {/* Summary Box - New Styling */}
+            <div className="space-y-1 text-sm mt-2 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100">
               <div className="flex justify-between items-center">
-                <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground shrink-0" />
+                <p className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
                   <strong>Total Est. Fare:</strong> £{totalFareForDriver.toFixed(2)}
                 </p>
-                <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
+                <p className="flex items-center gap-1.5"><Users className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <strong>Passengers:</strong> {rideDetails.passengerCount}</p>
               </div>
               {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && (
-                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium flex items-center gap-1.5">
+                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium flex items-center gap-1.5"> {/* Orange color for priority still applies */}
                       <Crown className="w-3.5 h-3.5"/> Includes +£{rideDetails.priorityFeeAmount.toFixed(2)} priority fee
                   </p>
               )}
                {rideDetails.paymentMethod && (
                   <div className="flex items-center gap-1.5">
-                    <PaymentIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <PaymentIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
                     <strong>Payment:</strong> {getPaymentMethodDisplay()}
                   </div>
                 )}
               {rideDetails.distanceMiles && (
-                <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> <strong>Distance:</strong> ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
+                <p className="flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <strong>Distance:</strong> ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
               )}
             </div>
+            {/* End Summary Box */}
+
 
             {rideDetails.passengerName && (
               <p className="text-sm flex items-center gap-1.5 mt-1.5"><Info className="inline w-4 h-4 mr-0.5 text-muted-foreground shrink-0" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
@@ -476,4 +479,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
