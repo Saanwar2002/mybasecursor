@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, LockKeyhole } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, LockKeyhole, Briefcase } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -2316,7 +2316,7 @@ const handleProceedToConfirmation = async () => {
                                 <>
                                   <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
                                   {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
-                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access Surcharge Applied</p>}
+                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access surcharge applied</p>}
                                   {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
                                     <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
                                   ) : null}
