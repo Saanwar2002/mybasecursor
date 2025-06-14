@@ -138,9 +138,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('sidebarState') !== 'collapsed'; 
+      return localStorage.getItem('sidebarState') !== 'collapsed';
     }
-    return true; 
+    return true;
   });
 
   useEffect(() => {
@@ -173,13 +173,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
             groupedTasks[category].push({
               id: item.id,
               label: item.label,
-              completed: false, 
+              completed: false,
               priority: item.priority,
               iconName: item.iconName,
               category: item.category
             });
           });
-          
+
           const taskCategories: TaskCategory[] = Object.entries(groupedTasks).map(([catName, tasks]) => ({
             id: catName.toLowerCase().replace(/\s+/g, '-'),
             name: catName,
@@ -288,29 +288,29 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const sidebarContent = (isMobileView = false) => {
     const shouldShowLabels = isSidebarExpanded || isMobileView;
-    
+
     const allNavsForRole = getNavItemsForRole(user.role);
     const roleSpecificMainItems = allNavsForRole.filter(item => item.href !== '/profile' && item.href !== '/settings');
     const commonBottomItems = allNavsForRole.filter(item => item.href === '/profile' || item.href === '/settings');
-  
+
     return (
       <>
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
             <Link href="/" className="flex items-center" aria-label="MyBase Home" onClick={() => isMobileView && setIsMobileSheetOpen(false)}>
-              <Image src="https://placehold.co/120x36.png?text=MyBase" alt="MyBase Logo" width={120} height={36} className="shrink-0" priority data-ai-hint="logo wordmark" />
+              <Image src="/mybase-logo.png" alt="MyBase Logo" width={100} height={30} className="shrink-0" priority />
             </Link>
           )}
-          {!isMobileView && ( 
+          {!isMobileView && (
             <Button variant="ghost" size="icon" onClick={toggleSidebar} className={cn(shouldShowLabels ? "" : "mx-auto")}>
               <Menu className="h-5 w-5" />
             </Button>
           )}
         </div>
-        <ScrollArea className="flex-1"> 
+        <ScrollArea className="flex-1">
           <nav className={cn("grid items-start gap-1 p-2 text-sm font-medium", shouldShowLabels ? "px-4" : "px-2")}>
             {renderNavItems(roleSpecificMainItems, false, isMobileView)}
-  
+
             {user.role === 'admin' && shouldShowLabels && (
               <Card className="my-2 mx-0 bg-card/50">
                 <CardHeader className="p-3">
@@ -418,18 +418,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </CardFooter>
               </Card>
             )}
-  
+
             {(roleSpecificMainItems.length > 0 || (user.role === 'admin' && shouldShowLabels) || (user.role === 'driver' && shouldShowLabels)) && commonBottomItems.length > 0 && shouldShowLabels && (
               <Separator className="my-2" />
             )}
-  
+
             {renderNavItems(commonBottomItems, false, isMobileView)}
           </nav>
         </ScrollArea>
       </>
     );
   };
-  
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -452,7 +452,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
               <Avatar>
-                <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile small"/>
+                <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} />
                 <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
             </Button>

@@ -30,13 +30,13 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="py-12 md:py-20 lg:py-28 bg-primary/5">
         <div className="container mx-auto px-4 text-center">
-          <Image 
-            src="https://placehold.co/150x150/2563EB/FFFFFF.png?text=MyBase" 
-            alt="MyBase Logo" 
-            width={120} 
-            height={120} 
-            className="mx-auto mb-6 rounded-full shadow-lg"
-            data-ai-hint="logo app icon" 
+          <Image
+            src="/mybase-logo.png"
+            alt="MyBase Logo"
+            width={120}
+            height={120}
+            className="mx-auto mb-6 rounded-lg shadow-lg"
+            priority
           />
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight text-primary mb-6">
             MyBase: Your Journey, Simplified.
@@ -64,7 +64,7 @@ export default function LandingPage() {
           <CompanyCarousel />
         </div>
       </section>
-      
+
       {/* Features Section */}
       <section className="py-12 md:py-16 bg-background">
         <div className="container mx-auto px-4">
