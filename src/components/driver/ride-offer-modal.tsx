@@ -405,22 +405,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             )}
 
             {rideDetails.notes && (
-               <div className="border-l-4 border-purple-600 dark:border-purple-400 pl-3 py-1.5 bg-yellow-300 dark:bg-yellow-700/50 rounded-r-md mt-1.5">
-                  <p className="text-xs md:text-sm text-yellow-900 dark:text-yellow-200 font-semibold whitespace-pre-wrap">{rideDetails.notes}</p>
+               <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
+                  <p className="text-xs md:text-sm text-yellow-900 dark:text-yellow-200 font-semibold whitespace-pre-wrap">
+                    <strong>Notes:</strong> {rideDetails.notes}
+                  </p>
                </div>
             )}
 
             {/* Summary Box - New Styling */}
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
-              <div className="col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1 font-bold">
-                <p className="flex items-center gap-1.5">
+              <div className="col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1">
+                <p className="flex items-center gap-1.5 font-bold">
                   <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
                   Total Est. Fare: £{totalFareForDriver.toFixed(2)}
                 </p>
               </div>
               <p className="flex items-center gap-1.5 font-bold"><Users className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
               {rideDetails.distanceMiles && (
-                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Distance: ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
+                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
               )}
               {rideDetails.paymentMethod && (
                   <div className="col-span-2 flex items-center gap-1.5 font-bold">

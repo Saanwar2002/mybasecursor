@@ -2522,7 +2522,7 @@ return (
         )}
 
         <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
-              <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1 font-bold", (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && "col-span-2")}>
+              <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1 font-bold")}>
                 <p className="flex items-center gap-1.5 font-bold">
                   <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
                   Fare: {displayedFare}
@@ -2530,7 +2530,7 @@ return (
               </div>
               <p className="flex items-center gap-1.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
               {activeRide.distanceMiles != null && (
-                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
               )}
               {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
         </div>
