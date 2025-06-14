@@ -1630,7 +1630,7 @@ export default function BookRidePage() {
 
   const { mapCenterForDisplay, mapZoomForDisplay } = useMemo(() => {
     if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
-        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 22 };
+        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 25 };
     }
     if (pickupCoords) {
         return { mapCenterForDisplay: pickupCoords, mapZoomForDisplay: 14 };
@@ -2694,6 +2694,7 @@ const handleProceedToConfirmation = async () => {
     
 
     
+
 
 
 
