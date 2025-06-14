@@ -21,9 +21,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-// Removed AI Task related imports for simplification
-// import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow';
-// import type { ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
 import * as LucideIcons from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
@@ -61,17 +58,6 @@ const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
   }
 };
 
-// Simplified initialDriverToDoData for debugging
-const simplifiedInitialDriverToDoData: TaskCategory[] = [
-  {
-    id: 'debug-driver-tasks',
-    name: 'Driver Quick Tasks',
-    icon: Wrench,
-    tasks: [ { id: 'dt1', label: 'Debug: Check system', completed: false }]
-  }
-];
-
-
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
@@ -79,19 +65,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
   
-  // Temporarily simplify admin and driver to-do lists
   const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
   const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
-  const [driverToDoList, setDriverToDoList] = useState<TaskCategory[]>(simplifiedInitialDriverToDoData);
+  // const [driverToDoList, setDriverToDoList] = useState<TaskCategory[]>(simplifiedInitialDriverToDoData); // Temporarily removed
 
   useEffect(() => {
     console.log("AppLayout: Effect triggered. User:", user?.email, "Loading:", loading, "Pathname:", pathname);
   }, [user, loading, pathname]);
 
-  const toggleDriverTaskCompletion = (taskId: string) => {
-    // Simplified, actual logic can be restored later
-    console.log("Toggled driver task (mock):", taskId);
-  };
+  // const toggleDriverTaskCompletion = (taskId: string) => { // Temporarily removed
+  //   console.log("Toggled driver task (mock):", taskId);
+  // };
 
 
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
@@ -108,14 +92,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [isSidebarExpanded]);
 
   const toggleSidebar = () => setIsSidebarExpanded(!isSidebarExpanded);
-
-  // Temporarily disable AI admin task fetching
-  // useEffect(() => {
-  //   if (user?.role === 'admin') {
-  //     // ... AI task fetching logic ...
-  //   }
-  // }, [user?.role]);
-
 
   if (loading) {
     console.log("AppLayout: In loading state, rendering skeletons.");
@@ -230,7 +206,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <nav className={cn("grid items-start gap-1 p-2 text-sm font-medium", shouldShowLabels ? "px-4" : "px-2")}>
             {renderNavItems(roleSpecificMainItems, false, isMobileView)}
 
-            {/* Simplified To-Do Lists for Debugging */}
             {user.role === 'admin' && shouldShowLabels && (
               <Card className="my-2 mx-0 bg-card/50">
                 <CardHeader className="p-3"><CardTitle className="text-base">Admin Tasks (Debug)</CardTitle></CardHeader>
@@ -239,14 +214,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </CardContent>
               </Card>
             )}
-             {user.role === 'driver' && shouldShowLabels && (
-              <Card className="my-2 mx-0 bg-card/50">
-                <CardHeader className="p-3"><CardTitle className="text-base">Driver Tasks (Debug)</CardTitle></CardHeader>
-                <CardContent className="p-3 pt-0 text-xs">
-                  {driverToDoList.map(cat => <div key={cat.id}>{cat.name}</div>)}
-                </CardContent>
-              </Card>
-            )}
+            {/* Driver ToDo List Removed for debugging */}
 
             {(roleSpecificMainItems.length > 0) && commonBottomItems.length > 0 && shouldShowLabels && (
               <Separator className="my-2" />
@@ -277,7 +245,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
               <Avatar>
-                <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} />
+                <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile" />
                 <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
             </Button>
@@ -313,3 +281,4 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
