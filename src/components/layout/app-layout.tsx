@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import Image from 'next/image'; // Added Image import
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -118,6 +118,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const [driverToDoList, setDriverToDoList] = useState<TaskCategory[]>(initialDriverToDoData);
 
+  useEffect(() => {
+    console.log("AppLayout: Effect triggered. User:", user, "Loading:", loading);
+  }, [user, loading]);
+
   const toggleDriverTaskCompletion = (taskId: string) => {
     setDriverToDoList(prevList =>
       prevList.map(category => ({
@@ -199,6 +203,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
 
   if (loading) {
+    console.log("AppLayout: In loading state, rendering skeletons.");
     return (
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 sm:justify-end">
@@ -218,8 +223,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    console.warn("AppLayout: User is null after loading state. AuthProvider should have redirected. Returning null.");
-    return null;
+    console.warn("AppLayout: User is null after loading state. AuthProvider should have redirected. This should not happen if auth flow is correct.");
+    // Normally, AuthContext handles redirection. If we reach here, it's unexpected.
+    // You might want to add a client-side redirect here as a fallback, though it's better if AuthContext handles it.
+    // router.push('/login'); // Example fallback, but can cause hydration issues if not careful.
+    return <div className="flex items-center justify-center h-screen"><div>Session expired or user not found. Redirecting to login...</div></div>;
   }
 
   const navItemsForRole = getNavItemsForRole(user.role);
@@ -227,7 +235,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const renderNavItems = (items: NavItem[], isSubItem = false, isMobileView = false) => {
     return items.map((item) => {
-      const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
+      const isActive = pathname === item.href || (item.href !== '/' && item.href !== '#' && pathname.startsWith(item.href + '/'));
       const Icon = item.icon;
       const shouldShowLabels = isSidebarExpanded || isMobileView;
 
@@ -430,9 +438,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
     );
   };
 
+  console.log("AppLayout: Rendering main structure. User:", user?.email, "Role:", user?.role);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
+      <div style={{position: 'fixed', top: 0, left: 0, backgroundColor: 'rgba(255,0,0,0.5)', color: 'white', padding: '2px', zIndex: 9999, fontSize: '10px'}}>
+        DEBUG: AppLayout Rendered. User: {user?.email || 'None'}, Role: {user?.role || 'None'}
+      </div>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 sm:justify-end">
         <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
           <SheetTrigger asChild>
@@ -488,16 +500,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div className="flex flex-1 overflow-hidden"> {/* Added overflow-hidden here */}
+      <div className="flex flex-1 overflow-hidden">
         <aside className={cn("hidden md:flex flex-col border-r bg-card transition-all duration-300", isSidebarExpanded ? "w-64" : "w-16")}>
           {sidebarContent(false)}
         </aside>
-        {/* Changed main tag for AppLayout */}
-        <main className="flex-1 flex flex-col overflow-hidden"> {/* Removed padding and space-y, added flex flex-col */}
+        <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6"> {/* Added p-4 md:p-6 */}
+          {/* <div>DEBUG: AppLayout rendering children now... Role: {user?.role}</div> */}
           {children}
         </main>
       </div>
     </div>
   );
 }
-
