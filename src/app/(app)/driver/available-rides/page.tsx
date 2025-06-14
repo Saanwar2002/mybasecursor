@@ -570,6 +570,14 @@ export default function AvailableRidesPage() {
   }, [driverUser]);
 
   useEffect(() => {
+    if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
+      if (!geocoderRef.current && window.google.maps.Geocoder) {
+        geocoderRef.current = new window.google.maps.Geocoder();
+      }
+    }
+  }, [isMapSdkLoaded]);
+
+  useEffect(() => {
     if (isDriverOnline && navigator.geolocation) {
       setGeolocationError(null);
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -579,44 +587,18 @@ export default function AvailableRidesPage() {
             lng: position.coords.longitude,
           });
           setGeolocationError(null);
-          if (geocoderRef.current && isMapSdkLoaded) {
-            geocoderRef.current.geocode({ location: {lat: position.coords.latitude, lng: position.coords.longitude} }, (results, status) => {
-              if (status === 'OK' && results && results[0]) {
-                // Find street name
-                const routeComponent = results[0].address_components.find(c => c.types.includes('route'));
-                if (routeComponent) {
-                  // setDriverCurrentStreetName(routeComponent.long_name);
-                } else {
-                  // Fallback if no route component
-                  const addressParts = results[0].formatted_address.split(',');
-                  // setDriverCurrentStreetName(addressParts[0] || "Tracking...");
-                }
-              }
-            });
-          }
-
         },
         (error) => {
           console.warn("Geolocation Error:", error.message);
           let message = "Could not get your location. Please enable location services.";
-          if (error.code === error.PERMISSION_DENIED) {
-            message = "Location access denied. Please enable it in your browser settings.";
+          if (error.code === error.PERMISSION_DENIED || error.code === error.POSITION_UNAVAILABLE) {
+            message = "Location access denied or unavailable. Please enable it in your browser/device settings.";
             setIsDriverOnline(false);
             setIsPollingEnabled(false);
             if (watchIdRef.current !== null) {
                 navigator.geolocation.clearWatch(watchIdRef.current);
                 watchIdRef.current = null;
             }
-          } else if (error.code === error.POSITION_DENIED) {
-            message = "Location access denied. Please enable it in your browser settings.";
-            setIsDriverOnline(false);
-            setIsPollingEnabled(false);
-            if (watchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(watchIdRef.current);
-                watchIdRef.current = null;
-            }
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            message = "Location information is unavailable at the moment.";
           } else if (error.code === error.TIMEOUT) {
             message = "Getting location timed out. Please try again.";
           }
@@ -637,7 +619,7 @@ export default function AvailableRidesPage() {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [isDriverOnline, isMapSdkLoaded]);
+  }, [isDriverOnline]);
 
 
   const fetchActiveRide = useCallback(async () => {
@@ -2158,8 +2140,8 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+  </div>
+);
 }
 
 const {
@@ -2210,7 +2192,7 @@ if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
 const paymentMethodDisplay = 
     activeRide?.paymentMethod === 'card' ? 'Card' 
     : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
-    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
+    : activeRide?.paymentMethod === 'account' ? 'Account'
     : 'Payment N/A';
 
 const isEditingDisabled = activeRide?.status !== 'pending_assignment';
@@ -2516,7 +2498,7 @@ return (
                     <p
                         key={`leg-${index}`}
                         className={cn(
-                            "flex items-start gap-1 p-0.5 rounded text-base font-bold", // Applied font-bold here
+                            "flex items-start gap-1 p-0.5 rounded text-base font-bold", 
                             isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
                             isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
                         )}
@@ -2530,7 +2512,7 @@ return (
             })}
 
              <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base font-bold">
-                <div className="col-span-2 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1">
+                <div className="col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1">
                   <p className="flex items-center gap-0.5 font-bold">
                     <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300" />
                     Fare: {displayedFare}
@@ -2808,3 +2790,4 @@ return (
   </div>
 );
 }
+
