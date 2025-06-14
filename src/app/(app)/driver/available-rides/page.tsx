@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react"; // Added ShieldAlert
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle, // Renamed to avoid conflict
+  AlertDialogTitle as ShadAlertDialogTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -34,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription as ShadDialogDescriptionDialog, // Renamed DialogDescription
+  DialogDescription as ShadDialogDescriptionDialog, 
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -207,30 +207,30 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1];
+    area = parts[1]; 
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area";
+    street = "Area"; 
   }
-
+  
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', ');
+      area = parts.slice(1).join(', '); 
   }
 
   let locationLine = area;
   if (outwardPostcode) {
     locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
   }
-
+  
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = "";
+      street = ""; 
   }
-  if (street && !locationLine) {
+  if (street && !locationLine) { 
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) {
+  if (!street && locationLine) { 
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -360,6 +360,9 @@ export default function AvailableRidesPage() {
   const [currentMockSpeed, setCurrentMockSpeed] = useState(20);
   const [currentMockLimit, setCurrentMockLimit] = useState(30);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+
+  const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
+  const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
 
   const fetchActiveHazards = useCallback(async () => {
@@ -1624,6 +1627,37 @@ export default function AvailableRidesPage() {
     return driverLocation;
   }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex]);
 
+  const currentLegDisplayInfo = useMemo(() => {
+    if (!activeRide || !journeyPoints.length) return null;
+
+    const currentLegIdx = localCurrentLegIndex;
+    const currentStatus = activeRide.status.toLowerCase();
+    const relevantStatuses = ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'];
+
+    if (!relevantStatuses.includes(currentStatus) || currentLegIdx < 0 || currentLegIdx >= journeyPoints.length) {
+      return null;
+    }
+
+    const targetPoint = journeyPoints[currentLegIdx];
+    let label = "";
+    let address = targetPoint.doorOrFlat ? `${targetPoint.doorOrFlat}, ${targetPoint.address}` : targetPoint.address;
+    let bgColor = "bg-gray-600";
+    let textColor = "text-white";
+
+    if (currentLegIdx === 0) {
+      label = "Next: Pickup";
+      bgColor = "bg-green-600";
+    } else if (currentLegIdx < journeyPoints.length - 1) {
+      label = `Next: Stop ${currentLegIdx}`;
+      bgColor = "bg-yellow-400";
+      textColor = "text-black";
+    } else {
+      label = "Next: Final Dropoff";
+      bgColor = "bg-red-600";
+    }
+    return { label, address, bgColor, textColor };
+  }, [activeRide, localCurrentLegIndex, journeyPoints]);
+
 
   const handleCancelSwitchChange = (checked: boolean) => {
     console.log("handleCancelSwitchChange: Switch toggled to", checked);
@@ -1786,38 +1820,6 @@ export default function AvailableRidesPage() {
   };
   const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
 
-  const currentLegDisplayInfo = useMemo(() => {
-    if (!activeRide || !journeyPoints.length) return null;
-
-    const currentLegIdx = localCurrentLegIndex;
-    const currentStatus = activeRide.status.toLowerCase();
-    const relevantStatuses = ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'];
-
-    if (!relevantStatuses.includes(currentStatus) || currentLegIdx < 0 || currentLegIdx >= journeyPoints.length) {
-      return null;
-    }
-
-    const targetPoint = journeyPoints[currentLegIdx];
-    let label = "";
-    let address = targetPoint.doorOrFlat ? `${targetPoint.doorOrFlat}, ${targetPoint.address}` : targetPoint.address;
-    let bgColor = "bg-gray-600";
-    let textColor = "text-white";
-
-    if (currentLegIdx === 0) {
-      label = "Next: Pickup";
-      bgColor = "bg-green-600";
-    } else if (currentLegIdx < journeyPoints.length - 1) { 
-      label = `Next: Stop ${currentLegIdx}`;
-      bgColor = "bg-yellow-400";
-      textColor = "text-black";
-    } else { 
-      label = "Next: Final Dropoff";
-      bgColor = "bg-red-600";
-    }
-
-    return { label, address, bgColor, textColor };
-  }, [activeRide, localCurrentLegIndex, journeyPoints]);
-
 
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -1854,12 +1856,18 @@ export default function AvailableRidesPage() {
             />
              {currentLegDisplayInfo && (
               <div className={cn(
-                "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-xs sm:max-w-sm",
+                "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-[calc(100%-6rem)] sm:max-w-sm", // Adjusted max-width
                 currentLegDisplayInfo.bgColor,
                 currentLegDisplayInfo.textColor
               )}>
-                <p className="text-xs md:text-sm font-medium">{currentLegDisplayInfo.label}</p>
-                <p className="text-lg md:text-xl font-bold leading-tight">{currentLegDisplayInfo.address}</p>
+                <div className="flex justify-between items-center gap-1">
+                  <p className="text-xs md:text-sm font-medium truncate">{currentLegDisplayInfo.label}</p>
+                   <Button variant="ghost" size="icon" className={cn("h-5 w-5 sm:h-6 sm:w-6 p-0 shrink-0", currentLegDisplayInfo.textColor)} onClick={() => setIsJourneyDetailsModalOpen(true)}>
+                        <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="sr-only">View Full Journey</span>
+                    </Button>
+                </div>
+                <p className="text-base md:text-lg font-bold leading-tight truncate" title={currentLegDisplayInfo.address}>{currentLegDisplayInfo.address}</p>
               </div>
             )}
             <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
@@ -2183,6 +2191,49 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Journey Details Modal */}
+      <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Info className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
+            <ShadDialogDescriptionDialog>Review the complete route for your active ride.</ShadDialogDescriptionDialog>
+          </DialogHeader>
+          {activeRide && (
+            <ScrollArea className="max-h-[60vh] my-4">
+              <div className="space-y-3 p-1 pr-3">
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-5 h-5 text-green-500 shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold text-green-600 dark:text-green-400">Pickup:</p>
+                    <p className="text-sm">{activeRide.pickupLocation.doorOrFlat && `${activeRide.pickupLocation.doorOrFlat}, `}{activeRide.pickupLocation.address}</p>
+                  </div>
+                </div>
+                {activeRide.stops?.map((stop, index) => (
+                  <div key={`detail-stop-${index}`} className="flex items-start gap-2">
+                    <MapPin className="w-5 h-5 text-yellow-500 shrink-0 mt-1" />
+                    <div>
+                      <p className="font-semibold text-yellow-600 dark:text-yellow-400">Stop {index + 1}:</p>
+                      <p className="text-sm">{stop.doorOrFlat && `${stop.doorOrFlat}, `}{stop.address}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-5 h-5 text-red-500 shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold text-red-600 dark:text-red-400">Final Dropoff:</p>
+                    <p className="text-sm">{activeRide.dropoffLocation.doorOrFlat && `${activeRide.dropoffLocation.doorOrFlat}, `}{activeRide.dropoffLocation.address}</p>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   </div>
 );
 }
@@ -2235,7 +2286,7 @@ if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
 const paymentMethodDisplay =
     activeRide?.paymentMethod === 'card' ? 'Card'
     : activeRide?.paymentMethod === 'cash' ? 'Cash'
-    : activeRide?.paymentMethod === 'account' ? 'Account'
+    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
     : 'Payment N/A';
 
 const isEditingDisabled = activeRide?.status !== 'pending_assignment';
@@ -2299,12 +2350,18 @@ return (
         />
           {currentLegDisplayInfo && (
               <div className={cn(
-                "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-xs sm:max-w-sm",
+                "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-[calc(100%-6rem)] sm:max-w-sm", 
                 currentLegDisplayInfo.bgColor,
                 currentLegDisplayInfo.textColor
               )}>
-                <p className="text-xs md:text-sm font-medium">{currentLegDisplayInfo.label}</p>
-                <p className="text-lg md:text-xl font-bold leading-tight">{currentLegDisplayInfo.address}</p>
+                <div className="flex justify-between items-center gap-1">
+                  <p className="text-xs md:text-sm font-medium truncate">{currentLegDisplayInfo.label}</p>
+                   <Button variant="ghost" size="icon" className={cn("h-5 w-5 sm:h-6 sm:w-6 p-0 shrink-0", currentLegDisplayInfo.textColor)} onClick={() => setIsJourneyDetailsModalOpen(true)}>
+                        <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="sr-only">View Full Journey</span>
+                    </Button>
+                </div>
+                <p className="text-base md:text-lg font-bold leading-tight truncate" title={currentLegDisplayInfo.address}>{currentLegDisplayInfo.address}</p>
               </div>
             )}
         <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
@@ -2511,6 +2568,15 @@ return (
           </Alert>
         )}
 
+        {/* Passenger Notes */}
+        {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+            <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
+                <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
+                    <strong>Notes:</strong> {activeRide.notes}
+                </p>
+            </div>
+        )}
+
 
         {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
              <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5">
@@ -2528,26 +2594,19 @@ return (
             </Alert>
         )}
 
-        {activeRide.notes && !isRideInProgressOrFurther && (
-           <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-              <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
-                <strong>Notes:</strong> {notes}
-              </p>
-            </div>
-        )}
-
+        {/* Green Summary Box */}
         <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
-              <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1 font-bold")}>
+            <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1 font-bold")}>
                 <p className="font-bold flex items-center gap-1.5">
-                  <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
-                  Fare: {displayedFare}
+                <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
+                Fare: {displayedFare}
                 </p>
-              </div>
-              <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
-              {activeRide.distanceMiles != null && (
+            </div>
+            <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
+            {activeRide.distanceMiles != null && (
                 <p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
-              )}
-              {paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+            )}
+            {paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
         </div>
 
 
@@ -2812,7 +2871,52 @@ return (
           </DialogFooter>
         </DialogContent>
       </Dialog>
+       {/* Journey Details Modal */}
+      <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-headline"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
+            <ShadDialogDescriptionDialog>Review the complete route for your active ride.</ShadDialogDescriptionDialog>
+          </DialogHeader>
+          {activeRide && (
+            <ScrollArea className="max-h-[60vh] my-4">
+              <div className="space-y-3 p-1 pr-3">
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-5 h-5 text-green-500 shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold text-green-600 dark:text-green-400">Pickup:</p>
+                    <p className="text-sm">{activeRide.pickupLocation.doorOrFlat && `${activeRide.pickupLocation.doorOrFlat}, `}{activeRide.pickupLocation.address}</p>
+                  </div>
+                </div>
+                {activeRide.stops?.map((stop, index) => (
+                  <div key={`detail-stop-${index}`} className="flex items-start gap-2">
+                    <MapPin className="w-5 h-5 text-yellow-500 shrink-0 mt-1" />
+                    <div>
+                      <p className="font-semibold text-yellow-600 dark:text-yellow-400">Stop {index + 1}:</p>
+                      <p className="text-sm">{stop.doorOrFlat && `${stop.doorOrFlat}, `}{stop.address}</p>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-5 h-5 text-red-500 shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold text-red-600 dark:text-red-400">Final Dropoff:</p>
+                    <p className="text-sm">{activeRide.dropoffLocation.doorOrFlat && `${activeRide.dropoffLocation.doorOrFlat}, `}{activeRide.dropoffLocation.address}</p>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   </div>
 );
 }
+    
+
     
