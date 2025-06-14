@@ -28,7 +28,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-background via-primary/5 to-background">
       {/* Hero Section */}
-      <section className="pt-2 md:pt-4 lg:pt-6 pb-8 md:pb-10 lg:pb-12 bg-primary/5">
+      <section className="pt-1 md:pt-2 lg:pt-3 pb-4 md:pb-5 lg:pb-6 bg-primary/5">
         <div className="container mx-auto px-4 text-center">
           <Image
             src="/mybase-logo.png"
