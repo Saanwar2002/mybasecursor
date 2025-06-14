@@ -207,16 +207,16 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1];
+    area = parts[1]; 
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area";
+    street = "Area"; 
   }
-
+  
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', ');
+      area = parts.slice(1).join(', '); 
   }
 
   let locationLine = area;
@@ -225,12 +225,12 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   }
 
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = "";
+      street = ""; 
   }
-  if (street && !locationLine) {
+  if (street && !locationLine) { 
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) {
+  if (!street && locationLine) { 
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -2207,11 +2207,11 @@ if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
   displayedFare = `£${(wrBaseFare + wrWaitCharge + priorityFeeAmount + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
 }
 
-const paymentMethodDisplay =
-  activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)'
-  : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver'
-  : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
-  : 'Payment N/A';
+const paymentMethodDisplay = 
+    activeRide?.paymentMethod === 'card' ? 'Card' 
+    : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
+    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
+    : 'Payment N/A';
 
 const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
@@ -2379,7 +2379,7 @@ return (
 
 
         <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/50 border">
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-8 w-8">
               <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
               <AvatarFallback>{activeRide.passengerName.charAt(0)}</AvatarFallback>
           </Avatar>
@@ -2806,4 +2806,3 @@ return (
   </div>
 );
 }
-
