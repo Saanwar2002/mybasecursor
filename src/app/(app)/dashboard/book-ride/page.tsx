@@ -69,6 +69,8 @@ interface MapMarker {
   position: google.maps.LatLngLiteral;
   title?: string;
   label?: string | google.maps.MarkerLabel;
+  iconUrl?: string;
+  iconScaledSize?: { width: number; height: number };
 }
 
 type GeolocationFetchStatus =
@@ -192,6 +194,14 @@ function getDistanceInMiles(
 }
 
 type AvailabilityStatusLevel = 'available' | 'high_demand' | 'unavailable' | 'loading';
+
+const blueDotSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
+    <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
+  </svg>
+`;
+const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
 
 export default function BookRidePage() {
   const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
@@ -985,33 +995,42 @@ export default function BookRidePage() {
 
  useEffect(() => {
     const newMarkers: MapMarker[] = [];
-    if (pickupCoords) {
+    if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
       newMarkers.push({
-        position: pickupCoords,
-        title: `Pickup: ${form.getValues('pickupLocation')}`,
-        label: 'P'
+        position: suggestedGpsPickup.coords,
+        title: `Your current location (Accuracy: ${suggestedGpsPickup.accuracy.toFixed(0)}m)`,
+        iconUrl: blueDotSvgDataUrl,
+        iconScaledSize: { width: 24, height: 24 }
       });
-    }
-    const currentFormStops = form.getValues('stops');
-    currentFormStops?.forEach((formStop, index) => {
-        const stopData = stopAutocompleteData[index];
-        if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
-             newMarkers.push({
-                position: stopData.coords,
-                title: `Stop ${index + 1}: ${formStop.location}`,
-                label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" }
-            });
-        }
-    });
-    if (dropoffCoords) {
-      newMarkers.push({
-        position: dropoffCoords,
-        title: `Dropoff: ${form.getValues('dropoffLocation')}`,
-        label: 'D'
-    });
+    } else {
+      if (pickupCoords) {
+        newMarkers.push({
+          position: pickupCoords,
+          title: `Pickup: ${form.getValues('pickupLocation')}`,
+          label: 'P'
+        });
+      }
+      const currentFormStops = form.getValues('stops');
+      currentFormStops?.forEach((formStop, index) => {
+          const stopData = stopAutocompleteData[index];
+          if (stopData && stopData.coords && formStop.location && formStop.location.trim() !== "") {
+               newMarkers.push({
+                  position: stopData.coords,
+                  title: `Stop ${index + 1}: ${formStop.location}`,
+                  label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" }
+              });
+          }
+      });
+      if (dropoffCoords) {
+        newMarkers.push({
+          position: dropoffCoords,
+          title: `Dropoff: ${form.getValues('dropoffLocation')}`,
+          label: 'D'
+      });
+      }
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
+  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops, showGpsSuggestionAlert, suggestedGpsPickup]);
 
 
   async function handleBookRide(values: BookingFormValues) {
@@ -1560,7 +1579,19 @@ export default function BookRidePage() {
     </Popover>
   );
 
-  const currentMapCenter = pickupCoords || huddersfieldCenter;
+  const { mapCenterForDisplay, mapZoomForDisplay } = useMemo(() => {
+    if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
+        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 16 };
+    }
+    if (pickupCoords) {
+        return { mapCenterForDisplay: pickupCoords, mapZoomForDisplay: 14 };
+    }
+    if (dropoffCoords) { // Only focus on dropoff if pickup isn't set
+        return { mapCenterForDisplay: dropoffCoords, mapZoomForDisplay: 14 };
+    }
+    return { mapCenterForDisplay: huddersfieldCenter, mapZoomForDisplay: 12 };
+  }, [showGpsSuggestionAlert, suggestedGpsPickup, pickupCoords, dropoffCoords]);
+
 
   const GeolocationFeedback = () => {
     let message = ""; let icon = <Wifi className="w-3 h-3"/>; let color = "text-muted-foreground";
@@ -1825,11 +1856,12 @@ const handleProceedToConfirmation = async () => {
             <div className={mapContainerClasses}>
                 <GoogleMapDisplay
                     key="book-ride-map"
-                    center={currentMapCenter}
-                    zoom={(pickupCoords || dropoffCoords || stopAutocompleteData.some(s=>s.coords)) ? 13 : 12}
+                    center={mapCenterForDisplay}
+                    zoom={mapZoomForDisplay}
                     markers={mapMarkers}
                     className="w-full h-full"
                     disableDefaultUI={true}
+                    fitBoundsToMarkers={true} 
                  />
               </div>
 
@@ -2600,3 +2632,4 @@ const handleProceedToConfirmation = async () => {
     
 
     
+
