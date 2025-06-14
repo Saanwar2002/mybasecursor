@@ -21,8 +21,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow';
-import type { ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
+// Removed AI Task related imports for simplification
+// import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow';
+// import type { ActionItem as AiActionItem } from '@/ai/flows/admin-action-items-flow';
 import * as LucideIcons from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
@@ -30,7 +31,7 @@ import { Separator } from '@/components/ui/separator';
 interface TaskItem {
   id: string;
   label: string;
-  completed: boolean; // For checkbox state
+  completed: boolean; 
   priority?: 'high' | 'medium' | 'low';
   iconName?: string;
   category?: string;
@@ -60,49 +61,13 @@ const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
   }
 };
 
-const initialDriverToDoData: TaskCategory[] = [
+// Simplified initialDriverToDoData for debugging
+const simplifiedInitialDriverToDoData: TaskCategory[] = [
   {
-    id: 'cat1',
-    name: 'Vehicle Maintenance Checks',
+    id: 'debug-driver-tasks',
+    name: 'Driver Quick Tasks',
     icon: Wrench,
-    tasks: [
-      { id: 't1', label: 'Check Tire Pressure (Weekly)', completed: true, priority: 'medium' },
-      { id: 't2', label: 'Top Up Windscreen Washer Fluid', completed: true },
-      { id: 't2a', label: 'Inspect Wiper Blades', completed: true, priority: 'low' },
-    ]
-  },
-  {
-    id: 'cat2',
-    name: 'Driver Documentation',
-    icon: UserCogIcon,
-    subCategories: [
-      {
-        id: 'sc1',
-        name: 'License & Permits',
-        tasks: [
-          { id: 't3', label: 'Driving License Renewal (Due: Jan 2025)', completed: true, priority: 'high' },
-          { id: 't4', label: 'Taxi Permit Check (Due: Mar 2025)', completed: true, priority: 'medium' },
-        ]
-      },
-      {
-        id: 'sc2',
-        name: 'Insurance Policy',
-        tasks: [
-          { id: 't5', label: 'Vehicle Insurance Renewal (Due: Jun 2024)', completed: true, priority: 'high' },
-          { id: 't5a', label: 'Public Liability Insurance (Due: Aug 2024)', completed: true, priority: 'medium' },
-        ]
-      }
-    ]
-  },
-  {
-    id: 'cat3',
-    name: 'Account & Platform Setup',
-    icon: Settings,
-    tasks: [
-        { id: 't6', label: 'Upload Updated Profile Picture', completed: true, priority: 'low' },
-        { id: 't7', label: 'Link Bank Account for Payouts', completed: true },
-        { id: 't8', label: 'Complete Platform Training Module', completed: true, priority: 'medium' },
-    ]
+    tasks: [ { id: 'dt1', label: 'Debug: Check system', completed: false }]
   }
 ];
 
@@ -113,30 +78,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [openSubMenus, setOpenSubMenus] = useState<Record<string, boolean>>({});
+  
+  // Temporarily simplify admin and driver to-do lists
   const [adminToDoList, setAdminToDoList] = useState<TaskCategory[]>([]);
   const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
-
-  const [driverToDoList, setDriverToDoList] = useState<TaskCategory[]>(initialDriverToDoData);
+  const [driverToDoList, setDriverToDoList] = useState<TaskCategory[]>(simplifiedInitialDriverToDoData);
 
   useEffect(() => {
-    console.log("AppLayout: Effect triggered. User:", user, "Loading:", loading);
-  }, [user, loading]);
+    console.log("AppLayout: Effect triggered. User:", user?.email, "Loading:", loading, "Pathname:", pathname);
+  }, [user, loading, pathname]);
 
   const toggleDriverTaskCompletion = (taskId: string) => {
-    setDriverToDoList(prevList =>
-      prevList.map(category => ({
-        ...category,
-        tasks: category.tasks?.map(task =>
-          task.id === taskId ? { ...task, completed: !task.completed } : task
-        ),
-        subCategories: category.subCategories?.map(subCategory => ({
-          ...subCategory,
-          tasks: subCategory.tasks.map(task =>
-            task.id === taskId ? { ...task, completed: !task.completed } : task
-          ),
-        })),
-      }))
-    );
+    // Simplified, actual logic can be restored later
+    console.log("Toggled driver task (mock):", taskId);
   };
 
 
@@ -155,51 +109,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const toggleSidebar = () => setIsSidebarExpanded(!isSidebarExpanded);
 
-
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      setIsLoadingAdminTasks(true);
-      const mockAdminInput: AdminActionItemsInput = {
-        pendingOperatorApprovals: Math.floor(Math.random() * 10),
-        activeSystemAlerts: Math.floor(Math.random() * 3),
-        unresolvedSupportTickets: Math.floor(Math.random() * 15),
-        recentFeatureFeedbackCount: Math.floor(Math.random() * 20),
-        platformLoadPercentage: Math.floor(Math.random() * 100),
-      };
-      getAdminActionItems(mockAdminInput)
-        .then(output => {
-          const groupedTasks: Record<string, TaskItem[]> = {};
-          output.actionItems.forEach(item => {
-            const category = item.category || 'General';
-            if (!groupedTasks[category]) {
-              groupedTasks[category] = [];
-            }
-            groupedTasks[category].push({
-              id: item.id,
-              label: item.label,
-              completed: false,
-              priority: item.priority,
-              iconName: item.iconName,
-              category: item.category
-            });
-          });
-
-          const taskCategories: TaskCategory[] = Object.entries(groupedTasks).map(([catName, tasks]) => ({
-            id: catName.toLowerCase().replace(/\s+/g, '-'),
-            name: catName,
-            icon: tasks[0]?.iconName ? (LucideIcons[tasks[0].iconName as keyof typeof LucideIcons] as React.ElementType || DefaultAiTaskIcon) : DefaultAiTaskIcon,
-            tasks: tasks,
-          }));
-          setAdminToDoList(taskCategories);
-        })
-        .catch(err => {
-          console.error("Error fetching admin AI tasks:", err);
-           setAdminToDoList([{ id: 'error', name: "AI Tasks Error", tasks: [{id: 'err-1', label: "Could not load AI tasks.", completed: false, priority: 'high'}]}]);
-        })
-        .finally(() => setIsLoadingAdminTasks(false));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role]);
+  // Temporarily disable AI admin task fetching
+  // useEffect(() => {
+  //   if (user?.role === 'admin') {
+  //     // ... AI task fetching logic ...
+  //   }
+  // }, [user?.role]);
 
 
   if (loading) {
@@ -223,11 +138,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    console.warn("AppLayout: User is null after loading state. AuthProvider should have redirected. This should not happen if auth flow is correct.");
-    // Normally, AuthContext handles redirection. If we reach here, it's unexpected.
-    // You might want to add a client-side redirect here as a fallback, though it's better if AuthContext handles it.
-    // router.push('/login'); // Example fallback, but can cause hydration issues if not careful.
-    return <div className="flex items-center justify-center h-screen"><div>Session expired or user not found. Redirecting to login...</div></div>;
+    console.warn("AppLayout: User is null after loading state. AuthProvider should have redirected.");
+    return <div className="flex items-center justify-center h-screen"><div>AppLayout: User is null. Redirecting...</div></div>;
   }
 
   const navItemsForRole = getNavItemsForRole(user.role);
@@ -278,7 +190,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             !shouldShowLabels && "justify-center px-0"
           )}
           title={!shouldShowLabels ? item.label : undefined}
-          onClick={() => isMobileView && setIsMobileSheetOpen(false)} // Close sheet on mobile nav click
+          onClick={() => isMobileView && setIsMobileSheetOpen(false)}
         >
           <Link href={item.href}>
             <span className={cn(
@@ -296,7 +208,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   const sidebarContent = (isMobileView = false) => {
     const shouldShowLabels = isSidebarExpanded || isMobileView;
-
     const allNavsForRole = getNavItemsForRole(user.role);
     const roleSpecificMainItems = allNavsForRole.filter(item => item.href !== '/profile' && item.href !== '/settings');
     const commonBottomItems = allNavsForRole.filter(item => item.href === '/profile' || item.href === '/settings');
@@ -319,118 +230,27 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <nav className={cn("grid items-start gap-1 p-2 text-sm font-medium", shouldShowLabels ? "px-4" : "px-2")}>
             {renderNavItems(roleSpecificMainItems, false, isMobileView)}
 
+            {/* Simplified To-Do Lists for Debugging */}
             {user.role === 'admin' && shouldShowLabels && (
               <Card className="my-2 mx-0 bg-card/50">
-                <CardHeader className="p-3">
-                  <CardTitle className="text-base font-headline flex items-center gap-1.5">
-                    <DatabaseZap className="w-5 h-5 text-accent" /> Admin To-Do
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
-                  {isLoadingAdminTasks ? <Skeleton className="h-20 w-full" /> :
-                  adminToDoList.length > 0 ? ( <Accordion type="multiple" className="w-full">
-                      {adminToDoList.map((category) => (
-                        <AccordionItem value={category.id} key={category.id} className="border-b-0">
-                          <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
-                            <span className="flex items-center gap-1.5">
-                              {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <DefaultAiTaskIcon className="w-3.5 h-3.5 text-muted-foreground" />}
-                              <span>{category.name} ({category.tasks?.length || 0})</span>
-                            </span>
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-1">
-                            {category.tasks && category.tasks.length > 0 && (
-                              <ul className="space-y-1 pl-1">
-                                {category.tasks.map(task => (
-                                  <li key={task.id} className="flex items-center space-x-1.5">
-                                    <Checkbox id={`admin-task-${task.id}`} checked={task.completed} onCheckedChange={() => {
-                                        setAdminToDoList(prev => prev.map(cat => ({
-                                            ...cat,
-                                            tasks: cat.tasks?.map(t => t.id === task.id ? {...t, completed: !t.completed} : t)
-                                        })));
-                                    }} className="w-3.5 h-3.5" />
-                                    <Label htmlFor={`admin-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                      <span>{task.label}</span>
-                                    </Label>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  ) : (<p className="text-muted-foreground text-center text-xs py-2">No urgent admin tasks from AI.</p>)
-                }
+                <CardHeader className="p-3"><CardTitle className="text-base">Admin Tasks (Debug)</CardTitle></CardHeader>
+                <CardContent className="p-3 pt-0 text-xs">
+                  {isLoadingAdminTasks ? <p>Loading admin tasks...</p> : <p>Admin tasks placeholder.</p>}
                 </CardContent>
               </Card>
             )}
-            {user.role === 'driver' && shouldShowLabels && (
+             {user.role === 'driver' && shouldShowLabels && (
               <Card className="my-2 mx-0 bg-card/50">
-                <CardHeader className="p-3">
-                  <CardTitle className="text-base font-headline flex items-center gap-1.5">
-                    <ListChecks className="w-5 h-5 text-accent" /> Driver To-Do
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 pt-0 max-h-60 overflow-y-auto text-xs">
-                  {driverToDoList.length > 0 ? (  <Accordion type="multiple" className="w-full" defaultValue={driverToDoList.map(c => c.id)}>
-                      {driverToDoList.map((category) => (
-                        <AccordionItem value={category.id} key={category.id} className="border-b-0">
-                          <AccordionTrigger className="text-xs hover:no-underline font-medium py-1.5">
-                            <span className="flex items-center gap-1.5">
-                              {category.icon ? <category.icon className="w-3.5 h-3.5 text-muted-foreground" /> : <ListChecks className="w-3.5 h-3.5 text-muted-foreground" />}
-                              <span>{category.name}</span>
-                            </span>
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-1">
-                            {category.tasks && category.tasks.length > 0 && (
-                              <ul className="space-y-1 pl-1">
-                                {category.tasks.map(task => (
-                                  <li key={task.id} className="flex items-center space-x-1.5">
-                                    <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5" />
-                                    <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                      {task.label}
-                                    </Label>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                             {category.subCategories && category.subCategories.map(subCat => (
-                              <Accordion key={subCat.id} type="single" collapsible className="w-full pl-1 my-0.5">
-                                  <AccordionItem value={subCat.id} className="border-l-2 border-primary/20 pl-1.5 rounded-r-md">
-                                      <AccordionTrigger className="text-xs hover:no-underline py-1 font-normal">
-                                          {subCat.name}
-                                      </AccordionTrigger>
-                                      <AccordionContent className="pb-1">
-                                          <ul className="space-y-1 pl-1.5">
-                                              {subCat.tasks.map(task => (
-                                                  <li key={task.id} className="flex items-center space-x-1.5">
-                                                      <Checkbox id={`driver-task-${task.id}`} checked={task.completed} onCheckedChange={() => toggleDriverTaskCompletion(task.id)} className="w-3.5 h-3.5"/>
-                                                      <Label htmlFor={`driver-task-${task.id}`} className={cn("text-xs cursor-pointer", mapPriorityToStyle(task.priority), task.completed && "line-through text-muted-foreground/70")}>
-                                                          {task.label}
-                                                      </Label>
-                                                  </li>
-                                              ))}
-                                          </ul>
-                                      </AccordionContent>
-                                  </AccordionItem>
-                              </Accordion>
-                             ))}
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  ) : (<p className="text-muted-foreground text-center text-xs py-2">No tasks for you currently.</p>) }
+                <CardHeader className="p-3"><CardTitle className="text-base">Driver Tasks (Debug)</CardTitle></CardHeader>
+                <CardContent className="p-3 pt-0 text-xs">
+                  {driverToDoList.map(cat => <div key={cat.id}>{cat.name}</div>)}
                 </CardContent>
-                <CardFooter className="border-t pt-2 pb-2 p-3 text-xs text-muted-foreground">
-                  Document and maintenance reminders.
-                </CardFooter>
               </Card>
             )}
 
-            {(roleSpecificMainItems.length > 0 || (user.role === 'admin' && shouldShowLabels) || (user.role === 'driver' && shouldShowLabels)) && commonBottomItems.length > 0 && shouldShowLabels && (
+            {(roleSpecificMainItems.length > 0) && commonBottomItems.length > 0 && shouldShowLabels && (
               <Separator className="my-2" />
             )}
-
             {renderNavItems(commonBottomItems, false, isMobileView)}
           </nav>
         </ScrollArea>
@@ -438,13 +258,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
     );
   };
 
-  console.log("AppLayout: Rendering main structure. User:", user?.email, "Role:", user?.role);
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <div style={{position: 'fixed', top: 0, left: 0, backgroundColor: 'rgba(255,0,0,0.5)', color: 'white', padding: '2px', zIndex: 9999, fontSize: '10px'}}>
-        DEBUG: AppLayout Rendered. User: {user?.email || 'None'}, Role: {user?.role || 'None'}
-      </div>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 sm:justify-end">
         <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
           <SheetTrigger asChild>
@@ -457,9 +272,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             {sidebarContent(true)}
           </SheetContent>
         </Sheet>
-
         <div className="flex-1 md:grow-0"></div>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
@@ -477,26 +290,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/profile">
-                <span className="flex items-center gap-2 w-full">
-                  <UserCircle className="h-4 w-4" /> Profile
-                </span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <span className="flex items-center gap-2 w-full">
-                  <Settings className="h-4 w-4" /> Settings
-                </span>
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/profile"><span className="flex items-center gap-2 w-full"><UserCircle className="h-4 w-4" /> Profile</span></Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/settings"><span className="flex items-center gap-2 w-full"><Settings className="h-4 w-4" /> Settings</span></Link></DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-               <span className="flex items-center gap-2 w-full">
-                <LogOut className="h-4 w-4" /> Logout
-               </span>
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive"><span className="flex items-center gap-2 w-full"><LogOut className="h-4 w-4" /> Logout</span></DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
@@ -504,8 +301,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <aside className={cn("hidden md:flex flex-col border-r bg-card transition-all duration-300", isSidebarExpanded ? "w-64" : "w-16")}>
           {sidebarContent(false)}
         </aside>
-        <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6"> {/* Added p-4 md:p-6 */}
-          {/* <div>DEBUG: AppLayout rendering children now... Role: {user?.role}</div> */}
+        <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6">
+           <div style={{ border: '3px dashed blue', padding: '10px', marginBlockEnd: '1rem', backgroundColor: 'rgba(0,0,255,0.05)' }}>
+            <p style={{ color: 'blue', fontWeight: 'bold', fontSize: '10px' }}>
+              DEBUG: AppLayout (BLUE BORDER) rendering children... User: {user?.email || 'None'}, Role: {user?.role || 'None'}. Pathname: {pathname}
+            </p>
+          </div>
           {children}
         </main>
       </div>
