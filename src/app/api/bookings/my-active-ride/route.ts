@@ -8,6 +8,7 @@ interface LocationPoint {
   address: string;
   latitude: number;
   longitude: number;
+  doorOrFlat?: string;
 }
 
 interface SerializedTimestamp {
@@ -15,30 +16,35 @@ interface SerializedTimestamp {
   _nanoseconds: number;
 }
 
-interface Ride {
+// Define the explicit structure for the API response
+interface ActiveRideForPassengerResponse {
   id: string;
-  bookingTimestamp?: SerializedTimestamp | null;
-  scheduledPickupAt?: string | null;
+  passengerName: string;
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: LocationPoint[];
+  vehicleType: string;
+  passengers: number; // Added
+  driverId?: string; // Added
+  fareEstimate: number;
+  status: string;
   driver?: string;
   driverAvatar?: string;
   driverVehicleDetails?: string;
-  vehicleType: string;
-  fareEstimate: number;
-  status: string;
-  rating?: number;
-  passengerName: string;
   isSurgeApplied?: boolean;
-  paymentMethod?: "card" | "cash" | "account"; // Added "account"
+  paymentMethod?: "card" | "cash" | "account";
+  bookingTimestamp?: SerializedTimestamp | null;
+  scheduledPickupAt?: string | null;
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
+  driverCurrentLocation?: { lat: number; lng: number }; // Added
   driverEtaMinutes?: number;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
+  accountJobPin?: string; // Ensured this is here
 }
+
 
 function serializeTimestamp(timestamp: Timestamp | undefined | null): SerializedTimestamp | null {
   if (!timestamp) return null;
@@ -70,7 +76,7 @@ export async function GET(request: NextRequest) {
     const bookingsRef = collection(db, 'bookings');
     const activeStatuses = [
       'pending_assignment',
-      'driver_assigned', // Standardized
+      'driver_assigned', 
       'arrived_at_pickup',
       'in_progress',
       'pending_driver_wait_and_return_approval',
@@ -109,16 +115,18 @@ export async function GET(request: NextRequest) {
     };
 
 
-    const activeRide: Ride = {
+    const responseRide: ActiveRideForPassengerResponse = {
       id: doc.id,
       passengerName: data.passengerName,
       pickupLocation: data.pickupLocation,
       dropoffLocation: data.dropoffLocation,
       stops: data.stops,
       vehicleType: data.vehicleType,
+      passengers: data.passengers || 1, // Ensure passengers is included
+      driverId: data.driverId, // Ensure driverId is included
       fareEstimate: data.fareEstimate,
       status: data.status,
-      driver: data.driverName,
+      driver: data.driverName, 
       driverAvatar: data.driverAvatar,
       driverVehicleDetails: data.driverVehicleDetails,
       isSurgeApplied: data.isSurgeApplied,
@@ -128,12 +136,14 @@ export async function GET(request: NextRequest) {
       notifiedPassengerArrivalTimestamp: processTimestampField(data.notifiedPassengerArrivalTimestampActual || data.notifiedPassengerArrivalTimestamp),
       passengerAcknowledgedArrivalTimestamp: processTimestampField(data.passengerAcknowledgedArrivalTimestampActual || data.passengerAcknowledgedArrivalTimestamp),
       rideStartedAt: processTimestampField(data.rideStartedAtActual || data.rideStartedAt),
+      driverCurrentLocation: data.driverCurrentLocation, // Ensure this is included
       driverEtaMinutes: data.driverEtaMinutes,
       waitAndReturn: data.waitAndReturn,
       estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
+      accountJobPin: data.accountJobPin, // Explicitly include accountJobPin
     };
 
-    return NextResponse.json(activeRide, { status: 200 });
+    return NextResponse.json(responseRide, { status: 200 });
 
   } catch (error) {
     console.error('Error fetching active ride:', error);

@@ -71,7 +71,7 @@ interface ActiveRide {
   dropoffLocation: LocationPoint;
   stops?: LocationPoint[];
   driver?: string;
-  driverId?: string;
+  driverId?: string; 
   driverAvatar?: string;
   driverVehicleDetails?: string; 
   vehicleType: string;
@@ -82,11 +82,11 @@ interface ActiveRide {
   passengerName: string;
   isSurgeApplied?: boolean;
   paymentMethod?: "card" | "cash" | "account";
-  accountJobPin?: string;
+  accountJobPin?: string; 
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
-  driverCurrentLocation?: { lat: number; lng: number };
+  driverCurrentLocation?: { lat: number; lng: number }; 
   driverEtaMinutes?: number;
   waitAndReturn?: boolean; 
   estimatedAdditionalWaitTimeMinutes?: number; 
