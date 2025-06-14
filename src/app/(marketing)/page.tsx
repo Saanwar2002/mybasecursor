@@ -33,18 +33,18 @@ export default function LandingPage() {
           <Image
             src="/mybase-logo.png"
             alt="MyBase Logo"
-            width={360}
-            height={90}
+            width={400}
+            height={100}
             className="mx-auto mb-6 rounded-lg shadow-lg"
             priority
           />
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight text-primary mb-6">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight text-primary mb-6 max-w-2xl mx-auto">
             MyBase: Your Journey, Simplified.
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto mb-8">
             The all-in-one taxi platform connecting passengers, drivers, and operators for a seamless, efficient, and reliable experience.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 max-w-lg mx-auto">
             <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-3 shadow-md hover:shadow-lg transition-shadow" asChild>
               <Link href="/register?role=passenger">Ride with MyBase</Link>
             </Button>
