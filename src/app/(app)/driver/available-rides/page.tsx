@@ -2495,7 +2495,7 @@ export default function AvailableRidesPage() {
           )}
 
 
-          <div className="space-y-0.5 text-xs py-1">
+          <div className="space-y-0.5 text-base py-1"> {/* Changed from text-xs */}
               {journeyPoints.map((point, index) => {
                   const isCurrentLeg = index === localCurrentLegIndex;
                   const isPastLeg = index < localCurrentLegIndex;
@@ -2517,29 +2517,29 @@ export default function AvailableRidesPage() {
                       <p
                           key={`leg-${index}`}
                           className={cn(
-                              "flex items-start gap-1 p-0.5 rounded",
+                              "flex items-start gap-1 p-0.5 rounded text-base", // Ensured text-base here too
                               isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
                               isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
                           )}
                       >
-                          <MapPin className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", iconColor)} />
+                          <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", iconColor)} /> {/* Icon size w-4 h-4 */}
                           <span>
-                              <strong>{legType}:</strong> {point.address} {point.doorOrFlat && `(${point.doorOrFlat})`}
+                              <strong className="font-bold">{legType}:</strong> <span className="font-bold">{point.address} {point.doorOrFlat && `(${point.doorOrFlat})`}</span>
                           </span>
                       </p>
                   );
               })}
 
-               <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 pt-0.5 text-xs">
+               <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 pt-0.5 text-base"> {/* Changed from text-xs */}
                   <p className="flex items-center gap-0.5">
-                    <DollarSign className="w-3.5 h-3.5 text-muted-foreground" />
-                    <strong>Fare:</strong> {displayedFare}
+                    <DollarSign className="w-4 h-4 text-muted-foreground" /> {/* Icon size w-4 h-4 */}
+                    <strong className="font-bold">Fare:</strong> <span className="font-bold">{displayedFare}</span>
                   </p>
-                  <p className="flex items-center gap-0.5"><UsersIcon className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Passengers:</strong> {activeRide.passengerCount}</p>
+                  <p className="flex items-center gap-0.5"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong className="font-bold">Passengers:</strong> <span className="font-bold">{activeRide.passengerCount}</span></p>
                   {activeRide.distanceMiles != null && (
-                    <p className="flex items-center gap-0.5"><Route className="w-3.5 h-3.5 text-muted-foreground" /> <strong>Distance:</strong> ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                    <p className="flex items-center gap-0.5"><Route className="w-4 h-4 text-muted-foreground" /> <strong className="font-bold">Distance:</strong> <span className="font-bold">~{activeRide.distanceMiles.toFixed(1)} mi</span></p>
                   )}
-                  {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-3.5 h-3.5 text-muted-foreground" /> : paymentMethod === 'cash' ? <Coins className="w-3.5 h-3.5 text-muted-foreground" /> : <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </p> )}
+                  {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong className="font-bold">Payment:</strong> <span className="font-bold">{paymentMethodDisplay}</span> </p> )}
                </div>
           </div>
           {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div>
