@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react"; // Added ShieldAlert
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1859,12 +1859,12 @@ export default function AvailableRidesPage() {
                         aria-label="SOS Panic Button"
                         disabled={!isDriverOnline}
                     >
-                        <ShieldAlertIcon className="h-5 w-5" />
+                        <ShieldAlert className="h-5 w-5" />
                     </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                     <AlertDialogHeader>
-                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
+                        <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                         <DialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
                         </DialogDescription>
@@ -2292,12 +2292,12 @@ return (
                   aria-label="SOS Panic Button"
                   disabled={!isDriverOnline}
                 >
-                  <ShieldAlertIcon className="h-5 w-5" />
+                  <ShieldAlert className="h-5 w-5" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
+                  <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
                   <DialogDescription>
                     Select the type of assistance needed. Your current location will be shared with your operator.
                   </DialogDescription>
@@ -2529,7 +2529,7 @@ return (
                 );
             })}
 
-             <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 pt-2 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100">
+             <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
                 <p className="flex items-center gap-0.5">
                   <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300" />
                   <strong className="font-bold">Fare:</strong> <span className="font-bold">{displayedFare}</span>
@@ -2682,9 +2682,9 @@ return (
           <AlertDialogContent>
               <AlertDialogHeader>
                   <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                  <DialogDescription>
+                  <ShadAlertDescription>
                       Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                  </DialogDescription>
+                  </ShadAlertDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
