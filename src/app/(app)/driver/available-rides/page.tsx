@@ -590,6 +590,14 @@ export default function AvailableRidesPage() {
                 navigator.geolocation.clearWatch(watchIdRef.current);
                 watchIdRef.current = null;
             }
+          } else if (error.code === error.POSITION_DENIED) {
+            message = "Location access denied. Please enable it in your browser settings.";
+            setIsDriverOnline(false);
+            setIsPollingEnabled(false);
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
           } else if (error.code === error.POSITION_UNAVAILABLE) {
             message = "Location information is unavailable at the moment.";
           } else if (error.code === error.TIMEOUT) {
@@ -1619,6 +1627,12 @@ export default function AvailableRidesPage() {
     return driverLocation; 
   }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex]);
 
+  const memoizedMapZoom = useMemo(() => {
+    if (activeRide?.status === 'arrived_at_pickup') return 18;
+    return 15;
+  }, [activeRide?.status]);
+
+
 
   const handleCancelSwitchChange = (checked: boolean) => {
     console.log("handleCancelSwitchChange: Switch toggled to", checked);
@@ -1977,7 +1991,7 @@ export default function AvailableRidesPage() {
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
+              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShAlertDialogTitle>
               <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -2118,7 +2132,7 @@ export default function AvailableRidesPage() {
               ].map(hazard => (
                 <Button
                   key={hazard.type}
-                  className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-800/40 border-2 border-red-500 hover:border-red-600 text-yellow-900 dark:text-yellow-100"
+                  className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
                   onClick={() => handleReportHazard(hazard.type)}
                   disabled={reportingHazard}
                 >
@@ -2241,7 +2255,7 @@ export default function AvailableRidesPage() {
       <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
           <GoogleMapDisplay
             center={memoizedMapCenter}
-            zoom={15}
+            zoom={memoizedMapZoom}
             shouldFitBounds={activeRide.status === 'driver_assigned' || !activeRide}
             markers={mapDisplayElements.markers}
             customMapLabels={mapDisplayElements.labels}
@@ -2621,7 +2635,7 @@ export default function AvailableRidesPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
+              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShAlertDialogTitle>
               <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
