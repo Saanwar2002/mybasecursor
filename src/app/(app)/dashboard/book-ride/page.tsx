@@ -1626,7 +1626,7 @@ export default function BookRidePage() {
 
   const { mapCenterForDisplay, mapZoomForDisplay } = useMemo(() => {
     if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
-        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 18 };
+        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 22 }; // Zoom set to 22
     }
     if (pickupCoords) {
         return { mapCenterForDisplay: pickupCoords, mapZoomForDisplay: 14 };
@@ -2690,6 +2690,7 @@ const handleProceedToConfirmation = async () => {
     
 
     
+
 
 
 
