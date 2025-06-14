@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react"; // Added ShieldAlert
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -23,10 +23,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription, // Correct import is here
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle, // Aliased to avoid conflict
+  AlertDialogTitle as ShadAlertDialogTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -34,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
+  DialogDescription as ShadDialogDescriptionDialog, // Renamed for clarity
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -98,7 +98,7 @@ interface ActiveRide {
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
-  accountJobPin?: string; // This is the 4-digit one-time PIN
+  accountJobPin?: string; 
   distanceMiles?: number;
   cancellationFeeApplicable?: boolean;
   noShowFeeApplicable?: boolean;
@@ -333,7 +333,7 @@ export default function AvailableRidesPage() {
   const [approachingHazardInfo, setApproachingHazardInfo] = useState<{ id: string, hazardType: string, reportedAt: string } | null>(null);
   const alertedForThisApproachRef = useRef<Set<string>>(new Set());
 
-  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false); // For the 4-digit one-time PIN
+  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false); 
   const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
   const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
 
@@ -655,7 +655,7 @@ export default function AvailableRidesPage() {
               setLocalCurrentLegIndex(0);
               setCompletedStopWaitCharges({});
               setAccumulatedStopWaitingCharges(0);
-              setActiveStopDetails(null); // Reset stop details if ride changes or becomes null
+              setActiveStopDetails(null); 
             }
             return data;
         }
@@ -664,13 +664,13 @@ export default function AvailableRidesPage() {
       });
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
-        // If the leg index changed from backend, it means we are now AT this new leg, so if it's a stop, set activeStopDetails.
+        
         if (data.status === 'in_progress' || data.status === 'in_progress_wait_and_return') {
             const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < (data.stops?.length || 0) + 1;
             if (newLegIsIntermediateStop) {
                 setActiveStopDetails({ stopDataIndex: data.driverCurrentLegIndex - 1, arrivalTime: new Date() });
             } else {
-                setActiveStopDetails(null); // Not at an intermediate stop (e.g., pickup or final dropoff leg)
+                setActiveStopDetails(null); 
             }
         }
       }
@@ -732,7 +732,7 @@ export default function AvailableRidesPage() {
 
       stopIntervalRef.current = intervalId;
 
-      // Initial display update
+      
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
       let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
@@ -1104,7 +1104,7 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
         driverCurrentLocation: driverLocation,
-        accountJobPin: offerToAccept.accountJobPin, // This is the one-time job PIN
+        accountJobPin: offerToAccept.accountJobPin, 
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
@@ -1177,7 +1177,7 @@ export default function AvailableRidesPage() {
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
-        accountJobPin: serverBooking.accountJobPin, // Ensure this is populated
+        accountJobPin: serverBooking.accountJobPin, 
         distanceMiles: offerToAccept.distanceMiles,
       };
       console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
@@ -1254,8 +1254,8 @@ export default function AvailableRidesPage() {
     }
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && activeRide.accountJobPin) {
         if (!isAccountJobPinDialogOpen) {
-          setIsAccountJobPinDialogOpen(true); // Open the 4-digit Job PIN dialog
-          return; // Defer actual action until PIN dialog is handled
+          setIsAccountJobPinDialogOpen(true); 
+          return; 
         }
     }
 
@@ -1283,7 +1283,7 @@ export default function AvailableRidesPage() {
       payload.driverCurrentLocation = driverLocation;
     }
 
-    const updateDataFromPayload = payload; // Using the constructed payload for clarity
+    const updateDataFromPayload = payload; 
 
     switch(actionType) {
         case 'notify_arrival':
@@ -1443,7 +1443,7 @@ export default function AvailableRidesPage() {
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
           driverCurrentLocation: serverData.driverCurrentLocation,
-          accountJobPin: serverData.accountJobPin || prev.accountJobPin, // Ensure PIN is carried over
+          accountJobPin: serverData.accountJobPin || prev.accountJobPin, 
           distanceMiles: serverData.distanceMiles || prev.distanceMiles,
           cancellationFeeApplicable: serverData.cancellationFeeApplicable,
           noShowFeeApplicable: serverData.noShowFeeApplicable,
@@ -1847,9 +1847,9 @@ export default function AvailableRidesPage() {
                     <AlertDialogContent>
                     <AlertDialogHeader>
                         <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
-                        <DialogDescription>
+                        <AlertDialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
-                        </DialogDescription>
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-3 py-2">
                         <Button
@@ -1895,9 +1895,9 @@ export default function AvailableRidesPage() {
                         <ShadAlertDialogTitle className="text-destructive flex items-center gap-2">
                             <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
                         </ShadAlertDialogTitle>
-                        <DialogDescription>
+                        <AlertDialogDescription>
                             This will immediately alert your operator. Proceed with caution.
-                        </DialogDescription>
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}><span>No, Cancel</span></AlertDialogCancel>
@@ -1911,9 +1911,9 @@ export default function AvailableRidesPage() {
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
-                  <DialogDescription>
+                  <ShadDialogDescriptionDialog>
                     Select the type of hazard or observation you want to report at your current location.
-                  </DialogDescription>
+                  </ShadDialogDescriptionDialog>
                 </DialogHeader>
                 <div className="grid grid-cols-2 gap-3 py-4">
                   {[
@@ -1969,9 +1969,9 @@ export default function AvailableRidesPage() {
               <ShadAlertDialogTitle className="flex items-center gap-2">
                 <Navigation className="w-5 h-5 text-primary" /> Time to Go!
               </ShadAlertDialogTitle>
-              <DialogDescription>
+              <AlertDialogDescription>
                 Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
-              </DialogDescription>
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
@@ -1984,7 +1984,7 @@ export default function AvailableRidesPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-              <DialogDescription><span>This action cannot be undone. The passenger will be notified.</span></DialogDescription>
+              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
@@ -2019,9 +2019,9 @@ export default function AvailableRidesPage() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                    <DialogDescription>
+                    <AlertDialogDescription>
                         Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                    </DialogDescription>
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
@@ -2039,10 +2039,12 @@ export default function AvailableRidesPage() {
         </AlertDialog>
        <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
-          <DialogDescription>
-            Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.
-          </DialogDescription>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
+            <ShadDialogDescriptionDialog>
+              Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.
+            </ShadDialogDescriptionDialog>
+          </DialogHeader>
           <div className="py-4 space-y-2">
             <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
             <Input
@@ -2066,14 +2068,14 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    {/* 4-Digit Account Job PIN Dialog */}
+    
     <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
-          <DialogDescription>
+          <ShadDialogDescriptionDialog>
             Ask the passenger for their 4-digit Job PIN to start this account ride.
-          </DialogDescription>
+          </ShadDialogDescriptionDialog>
         </DialogHeader>
         <div className="py-4 space-y-2">
           <Label htmlFor="account-job-pin-input">Enter 4-Digit Job PIN</Label>
@@ -2109,9 +2111,9 @@ export default function AvailableRidesPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
-            <DialogDescription>
+            <ShadDialogDescriptionDialog>
               Select the type of hazard or observation you want to report at your current location.
-            </DialogDescription>
+            </ShadDialogDescriptionDialog>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-4">
             {[
@@ -2191,7 +2193,7 @@ if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
 
 const paymentMethodDisplay = 
     activeRide?.paymentMethod === 'card' ? 'Card' 
-    : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
+    : activeRide?.paymentMethod === 'cash' ? 'Cash' 
     : activeRide?.paymentMethod === 'account' ? 'Account'
     : 'Payment N/A';
 
@@ -2211,20 +2213,20 @@ const mainButtonText = () => {
   if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
     return "Complete Ride";
   }
-  return "Status Action"; // Fallback
+  return "Status Action"; 
 };
 
 const mainButtonAction = () => {
   const currentLegIdx = localCurrentLegIndex;
   if (status === 'arrived_at_pickup') {
-    // PIN check for account jobs will be handled inside handleRideAction
+    
     handleRideAction(activeRide.id, 'start_ride');
   }
   else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) { // Departing a stop
+      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) { 
           handleRideAction(activeRide.id, 'proceed_to_next_leg');
-      } else { // Arriving at a stop
-          setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()}); // Mark arrival to start timer
+      } else { 
+          setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()}); 
       }
   }
   else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) { handleRideAction(activeRide.id, 'complete_ride'); }
@@ -2280,9 +2282,9 @@ return (
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlert className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
-                  <DialogDescription>
+                  <AlertDialogDescription>
                     Select the type of assistance needed. Your current location will be shared with your operator.
-                  </DialogDescription>
+                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-3 py-2">
                   <Button
@@ -2328,9 +2330,9 @@ return (
                     <ShadAlertDialogTitle className="text-destructive flex items-center gap-2">
                         <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
                     </ShadAlertDialogTitle>
-                    <DialogDescription>
+                    <AlertDialogDescription>
                         This will immediately alert your operator. Proceed with caution.
-                    </DialogDescription>
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}><span>No, Cancel</span></AlertDialogCancel>
@@ -2510,19 +2512,18 @@ return (
                     </p>
                 );
             })}
-
-             <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base font-bold">
-                <div className="col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1">
-                  <p className="flex items-center gap-0.5 font-bold">
-                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300" />
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
+                 <div className="col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1 font-bold">
+                  <p className="flex items-center gap-0.5">
+                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
                     Fare: {displayedFare}
                   </p>
                 </div>
-                <p className="flex items-center gap-0.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300" /> Passengers: {activeRide.passengerCount}</p>
+                <p className="flex items-center gap-0.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
                 {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-0.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                  <p className="flex items-center gap-0.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                 )}
-                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300" />} Payment: {paymentMethodDisplay} </p> )}
+                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
              </div>
         </div>
         {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div>
@@ -2631,7 +2632,7 @@ return (
         <AlertDialogContent>
           <AlertDialogHeader>
             <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-            <DialogDescription><span>This action cannot be undone. The passenger will be notified.</span></DialogDescription>
+            <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
               <AlertDialogCancel
@@ -2666,9 +2667,9 @@ return (
           <AlertDialogContent>
               <AlertDialogHeader>
                   <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                  <DialogDescription>
+                  <AlertDialogDescription>
                       Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                  </DialogDescription>
+                  </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
@@ -2686,10 +2687,12 @@ return (
       </AlertDialog>
      <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
       <DialogContent className="sm:max-w-sm">
-        <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
-        <DialogDescription>
-          Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.
-        </DialogDescription>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
+          <ShadDialogDescriptionDialog>
+            Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.
+          </ShadDialogDescriptionDialog>
+        </DialogHeader>
         <div className="py-4 space-y-2">
           <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
           <Input
@@ -2713,14 +2716,14 @@ return (
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    {/* 4-Digit Account Job PIN Dialog */}
+    
     <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
-          <DialogDescription>
+          <ShadDialogDescriptionDialog>
             Ask the passenger for their 4-digit Job PIN to start this account ride.
-          </DialogDescription>
+          </ShadDialogDescriptionDialog>
         </DialogHeader>
         <div className="py-4 space-y-2">
           <Label htmlFor="account-job-pin-input">Enter 4-Digit Job PIN</Label>
@@ -2756,9 +2759,9 @@ return (
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
-            <DialogDescription>
+            <ShadDialogDescriptionDialog>
               Select the type of hazard or observation you want to report at your current location.
-            </DialogDescription>
+            </ShadDialogDescriptionDialog>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-4">
             {[
@@ -2790,4 +2793,3 @@ return (
   </div>
 );
 }
-
