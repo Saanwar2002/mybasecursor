@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle,
+  AlertDialogTitle as ShadAlertDialogTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -98,7 +98,7 @@ interface ActiveRide {
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
-  accountJobPin?: string;
+  accountJobPin?: string; 
   distanceMiles?: number;
   cancellationFeeApplicable?: boolean;
   noShowFeeApplicable?: boolean;
@@ -207,16 +207,16 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1];
+    area = parts[1]; 
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area";
+    street = "Area"; 
   }
-
+  
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', ');
+      area = parts.slice(1).join(', '); 
   }
 
   let locationLine = area;
@@ -225,12 +225,12 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   }
 
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = "";
+      street = ""; 
   }
-  if (street && !locationLine) {
+  if (street && !locationLine) { 
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) {
+  if (!street && locationLine) { 
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -333,7 +333,7 @@ export default function AvailableRidesPage() {
   const [approachingHazardInfo, setApproachingHazardInfo] = useState<{ id: string, hazardType: string, reportedAt: string } | null>(null);
   const alertedForThisApproachRef = useRef<Set<string>>(new Set());
 
-  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
+  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false); 
   const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
   const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
 
@@ -428,7 +428,7 @@ export default function AvailableRidesPage() {
               setLocalCurrentLegIndex(0);
               setCompletedStopWaitCharges({});
               setAccumulatedStopWaitingCharges(0);
-              setActiveStopDetails(null);
+              setActiveStopDetails(null); 
             }
             return data;
         }
@@ -437,13 +437,13 @@ export default function AvailableRidesPage() {
       });
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
-
+        
         if (data.status === 'in_progress' || data.status === 'in_progress_wait_and_return') {
             const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < (data.stops?.length || 0) + 1;
             if (newLegIsIntermediateStop) {
                 setActiveStopDetails({ stopDataIndex: data.driverCurrentLegIndex - 1, arrivalTime: new Date() });
             } else {
-                setActiveStopDetails(null);
+                setActiveStopDetails(null); 
             }
         }
       }
@@ -505,7 +505,7 @@ export default function AvailableRidesPage() {
 
       stopIntervalRef.current = intervalId;
 
-
+      
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
       let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
@@ -517,7 +517,7 @@ export default function AvailableRidesPage() {
           initialCharge = Math.floor(initialExtraSeconds / 60) * STOP_WAITING_CHARGE_PER_MINUTE;
       }
       setCurrentStopTimerDisplay({
-          stopDataIndex: activeStopDetails.stopDataIndex,
+          stopDataIndex: stopDataIndex,
           freeSecondsLeft: initialFreeSeconds,
           extraSeconds: initialExtraSeconds,
           charge: initialCharge,
@@ -712,7 +712,7 @@ export default function AvailableRidesPage() {
     }
 
     let availableLocations = [...mockHuddersfieldLocations];
-    const numStops = 2;
+    const numStops = Math.floor(Math.random() * 3); // 0, 1, or 2 stops
 
     const getRandomLocation = () => {
       if (availableLocations.length === 0) {
@@ -876,7 +876,7 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
         driverCurrentLocation: driverLocation,
-        accountJobPin: offerToAccept.accountJobPin,
+        accountJobPin: offerToAccept.accountJobPin, 
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
@@ -949,7 +949,7 @@ export default function AvailableRidesPage() {
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
-        accountJobPin: serverBooking.accountJobPin,
+        accountJobPin: serverBooking.accountJobPin, 
         distanceMiles: offerToAccept.distanceMiles,
       };
       console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
@@ -1026,8 +1026,8 @@ export default function AvailableRidesPage() {
     }
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && activeRide.accountJobPin) {
         if (!isAccountJobPinDialogOpen) {
-          setIsAccountJobPinDialogOpen(true);
-          return;
+          setIsAccountJobPinDialogOpen(true); 
+          return; 
         }
     }
 
@@ -1055,7 +1055,7 @@ export default function AvailableRidesPage() {
       payload.driverCurrentLocation = driverLocation;
     }
 
-    const updateDataFromPayload = payload;
+    const updateDataFromPayload = payload; 
 
     switch(actionType) {
         case 'notify_arrival':
@@ -1215,7 +1215,7 @@ export default function AvailableRidesPage() {
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
           driverCurrentLocation: serverData.driverCurrentLocation,
-          accountJobPin: serverData.accountJobPin || prev.accountJobPin,
+          accountJobPin: serverData.accountJobPin || prev.accountJobPin, 
           distanceMiles: serverData.distanceMiles || prev.distanceMiles,
           cancellationFeeApplicable: serverData.cancellationFeeApplicable,
           noShowFeeApplicable: serverData.noShowFeeApplicable,
@@ -1840,7 +1840,7 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+    
     <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
@@ -1958,13 +1958,13 @@ const totalFare = (fareEstimate || 0) + (priorityFeeAmount || 0) + currentWaitin
 let displayedFare = `£${totalFare.toFixed(2)}`;
 if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
   const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-  const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+  const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
   displayedFare = `£${(wrBaseFare + wrWaitCharge + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
 }
 
-const paymentMethodDisplay =
-    activeRide?.paymentMethod === 'card' ? 'Card'
-    : activeRide?.paymentMethod === 'cash' ? 'Cash'
+const paymentMethodDisplay = 
+    activeRide?.paymentMethod === 'card' ? 'Card' 
+    : activeRide?.paymentMethod === 'cash' ? 'Cash' 
     : activeRide?.paymentMethod === 'account' ? 'Account'
     : 'Payment N/A';
 
@@ -1984,20 +1984,20 @@ const mainButtonText = () => {
   if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
     return "Complete Ride";
   }
-  return "Status Action";
+  return "Status Action"; 
 };
 
 const mainButtonAction = () => {
   const currentLegIdx = localCurrentLegIndex;
   if (status === 'arrived_at_pickup') {
-
+    
     handleRideAction(activeRide.id, 'start_ride');
   }
   else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
+      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) { 
           handleRideAction(activeRide.id, 'proceed_to_next_leg');
-      } else {
-          setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
+      } else { 
+          setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()}); 
       }
   }
   else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) { handleRideAction(activeRide.id, 'complete_ride'); }
@@ -2271,7 +2271,7 @@ return (
                     <p
                         key={`leg-${index}`}
                         className={cn(
-                            "flex items-start gap-1 p-0.5 rounded text-base font-bold",
+                            "flex items-start gap-1 p-0.5 rounded text-base font-bold", 
                             isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
                             isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
                         )}
@@ -2306,7 +2306,7 @@ return (
               )}
               {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
         </div>
-
+      
 
         {(showCompletedStatus || showCancelledNoShowStatus) && (
           <div className="mt-2 pt-2 border-t text-center">
@@ -2495,80 +2495,80 @@ return (
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-  <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
-    <DialogContent className="sm:max-w-xs">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
-        <ShadDialogDescriptionDialog>
-          Ask the passenger for their 4-digit Job PIN to start this account ride.
-        </ShadDialogDescriptionDialog>
-      </DialogHeader>
-      <div className="py-4 space-y-2">
-        <Label htmlFor="account-job-pin-input">Enter 4-Digit Job PIN</Label>
-        <Input
-          id="account-job-pin-input"
-          type="password"
-          inputMode="numeric"
-          maxLength={4}
-          value={enteredAccountJobPin}
-          onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
-          placeholder="••••"
-          className="text-center text-xl tracking-[0.3em]"
-          disabled={isVerifyingAccountJobPin}
-        />
-      </div>
-      <DialogFooter className="grid grid-cols-1 gap-2">
-        <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
-            Cancel
-            </Button>
-            <Button type="button" onClick={verifyAndStartAccountJobRide} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
-            {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Verify & Start Ride
-            </Button>
-        </div>
-        <Button type="button" variant="link" size="sm" className="text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
-          Problem with PIN? Start ride manually.
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
-  <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
-      <DialogContent className="sm:max-w-md">
+    
+    <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
           <ShadDialogDescriptionDialog>
-            Select the type of hazard or observation you want to report at your current location.
+            Ask the passenger for their 4-digit Job PIN to start this account ride.
           </ShadDialogDescriptionDialog>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3 py-4">
-          {[
-            { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
-            { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheckIcon },
-            { label: "Road Closure", type: "road_closure", icon: MinusCircle },
-            { label: "Accident", type: "accident", icon: AlertTriangle },
-            { label: "Road Works", type: "road_works", icon: Construction },
-            { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
-          ].map(hazard => (
-            <Button
-              key={hazard.type}
-              className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
-              onClick={() => handleReportHazard(hazard.type)}
-              disabled={reportingHazard}
-            >
-              {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />}
-              <span className="text-sm font-semibold">{hazard.label}</span>
-            </Button>
-          ))}
+        <div className="py-4 space-y-2">
+          <Label htmlFor="account-job-pin-input">Enter 4-Digit Job PIN</Label>
+          <Input
+            id="account-job-pin-input"
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={enteredAccountJobPin}
+            onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+            placeholder="••••"
+            className="text-center text-xl tracking-[0.3em]"
+            disabled={isVerifyingAccountJobPin}
+          />
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={reportingHazard}>Cancel</Button>
-          </DialogClose>
+        <DialogFooter className="grid grid-cols-1 gap-2">
+          <div className="flex justify-between">
+              <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
+              Cancel
+              </Button>
+              <Button type="button" onClick={verifyAndStartAccountJobRide} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
+              {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Verify & Start Ride
+              </Button>
+          </div>
+          <Button type="button" variant="link" size="sm" className="text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
+            Problem with PIN? Start ride manually.
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
+            <ShadDialogDescriptionDialog>
+              Select the type of hazard or observation you want to report at your current location.
+            </ShadDialogDescriptionDialog>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            {[
+              { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
+              { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheckIcon },
+              { label: "Road Closure", type: "road_closure", icon: MinusCircle },
+              { label: "Accident", type: "accident", icon: AlertTriangle },
+              { label: "Road Works", type: "road_works", icon: Construction },
+              { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
+            ].map(hazard => (
+              <Button
+                key={hazard.type}
+                className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
+                onClick={() => handleReportHazard(hazard.type)}
+                disabled={reportingHazard}
+              >
+                {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />}
+                <span className="text-sm font-semibold">{hazard.label}</span>
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={reportingHazard}>Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   </div>
 );
 }
