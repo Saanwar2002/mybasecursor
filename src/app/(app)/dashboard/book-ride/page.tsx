@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, LockKeyhole } from 'lucide-react'; // Added LockKeyhole
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, LockKeyhole } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -262,9 +262,9 @@ export default function BookRidePage() {
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
 
   // State for Account Job PIN
-  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
-  const [accountJobPinInput, setAccountJobPinInput] = useState("");
-  const [isAccountJobPinVerified, setIsAccountJobPinVerified] = useState(false);
+  const [isAccountJobAuthPinDialogOpen, setIsAccountJobAuthPinDialogOpen] = useState(false);
+  const [accountJobAuthPinInput, setAccountJobAuthPinInput] = useState("");
+  const [isAccountJobAuthPinVerified, setIsAccountJobAuthPinVerified] = useState(false);
   const [previousPaymentMethod, setPreviousPaymentMethod] = useState<BookingFormValues["paymentMethod"]>("card");
 
 
@@ -1046,9 +1046,9 @@ export default function BookRidePage() {
         return;
     }
 
-    if (values.paymentMethod === "account" && !isAccountJobPinVerified) {
-        toast({ title: "Account Payment Not Verified", description: "Please verify your account PIN via the payment method selection.", variant: "destructive" });
-        setIsAccountJobPinDialogOpen(true);
+    if (values.paymentMethod === "account" && !isAccountJobAuthPinVerified) { // Check authorization PIN
+        toast({ title: "Account Payment Not Verified", description: "Please verify your 6-digit Account Authorization PIN via the payment method selection.", variant: "destructive" });
+        setIsAccountJobAuthPinDialogOpen(true); // Re-open 6-digit auth PIN dialog
         return;
     }
 
@@ -1112,7 +1112,12 @@ export default function BookRidePage() {
 
       if (values.paymentMethod === 'cash') toastDescription += `Payment: Cash to driver.`;
       else if (values.paymentMethod === 'card') toastDescription += `Payment: Card (Pay driver directly).`;
-      else if (values.paymentMethod === 'account') toastDescription += `Payment: Via Account (Operator will bill). PIN Verified.`;
+      else if (values.paymentMethod === 'account') {
+          toastDescription += `Payment: Via Account (Operator will bill). `;
+          if (result.data.accountJobPin) { // The 4-digit one-time PIN
+            toastDescription += `Your 4-digit Job PIN for the driver is: ${result.data.accountJobPin}.`;
+          }
+      }
       
       if (values.waitAndReturn) {
         toastDescription += ` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.`;
@@ -1132,7 +1137,7 @@ export default function BookRidePage() {
         title: "Booking Confirmed!",
         description: toastDescription,
         variant: "default",
-        duration: 7000
+        duration: 10000 // Increased duration to show PIN
       });
 
       setShowConfirmationDialog(false);
@@ -1157,8 +1162,8 @@ export default function BookRidePage() {
       setCalculatedChargedWaitMinutes(0);
       setEstimatedWaitMinutesInput("10");
       setPriorityFeeInput("2.00");
-      setIsAccountJobPinVerified(false);
-      setAccountJobPinInput("");
+      setIsAccountJobAuthPinVerified(false); // Reset 6-digit auth PIN
+      setAccountJobAuthPinInput("");
       
       router.push('/dashboard/track-ride');
 
@@ -1614,13 +1619,13 @@ const handleProceedToConfirmation = async () => {
         }
     }
 
-    if (form.getValues("paymentMethod") === "account" && !isAccountJobPinVerified) {
+    if (form.getValues("paymentMethod") === "account" && !isAccountJobAuthPinVerified) {
       toast({
         title: "Account Payment Not Verified",
-        description: "Please enter and verify your 6-digit PIN to use Account payment.",
+        description: "Please enter and verify your 6-digit Account PIN to use Account payment.",
         variant: "destructive",
       });
-      setIsAccountJobPinDialogOpen(true); // Re-open dialog if they try to proceed
+      setIsAccountJobAuthPinDialogOpen(true); 
       return;
     }
     setShowConfirmationDialog(true);
@@ -1721,17 +1726,16 @@ const handleProceedToConfirmation = async () => {
   };
   const gpsStyles = getGpsAlertStyles(suggestedGpsPickup?.accuracy);
 
-  const handleAccountJobPinConfirm = () => {
-    if (accountJobPinInput === "123456") { // Mock PIN validation
-      setIsAccountJobPinVerified(true);
-      // Ensure 'account' is still the selected method in the form if this dialog was opened from proceedToConfirmation
+  const handleAccountJobAuthPinConfirm = () => { // For 6-digit authorization PIN
+    if (accountJobAuthPinInput === "123456") { // Mock PIN validation
+      setIsAccountJobAuthPinVerified(true);
       form.setValue("paymentMethod", "account"); 
       toast({ title: "Account PIN Verified!", description: "You can now proceed with the account booking." });
-      setIsAccountJobPinDialogOpen(false);
+      setIsAccountJobAuthPinDialogOpen(false);
     } else {
-      toast({ title: "Invalid PIN", description: "The PIN entered is incorrect. Please try again.", variant: "destructive" });
-      setIsAccountJobPinVerified(false);
-      setAccountJobPinInput(""); // Clear input on wrong PIN
+      toast({ title: "Invalid PIN", description: "The 6-digit Authorization PIN entered is incorrect. Please try again.", variant: "destructive" });
+      setIsAccountJobAuthPinVerified(false);
+      setAccountJobAuthPinInput(""); 
     }
   };
 
@@ -2231,18 +2235,18 @@ const handleProceedToConfirmation = async () => {
                                 <RadioGroup
                                 onValueChange={(value) => {
                                   const currentVal = form.getValues("paymentMethod");
-                                  setPreviousPaymentMethod(currentVal); // Store current value before changing
-                                  field.onChange(value); // Update form with new selection
+                                  setPreviousPaymentMethod(currentVal); 
+                                  field.onChange(value); 
 
                                   if (value === "account") {
-                                    setIsAccountJobPinVerified(false); // Reset verification status
-                                    setAccountJobPinInput(""); // Clear previous PIN input
-                                    setIsAccountJobPinDialogOpen(true);
+                                    setIsAccountJobAuthPinVerified(false); 
+                                    setAccountJobAuthPinInput(""); 
+                                    setIsAccountJobAuthPinDialogOpen(true);
                                   } else {
-                                    setIsAccountJobPinVerified(false); // Reset if switching away
+                                    setIsAccountJobAuthPinVerified(false); 
                                   }
                                 }}
-                                value={field.value} // Controlled component
+                                value={field.value}
                                 className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4"
                                 >
                                 <FormItem className="flex items-center space-x-2">
@@ -2262,7 +2266,7 @@ const handleProceedToConfirmation = async () => {
                                     <FormLabel htmlFor="account" className="font-normal flex items-center gap-1">
                                       <Briefcase className="w-4 h-4 text-purple-500" /> Account
                                       {field.value === "account" && (
-                                        isAccountJobPinVerified 
+                                        isAccountJobAuthPinVerified 
                                           ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 ml-1" title="PIN Verified" />
                                           : <AlertTriangle className="w-3.5 h-3.5 text-orange-500 ml-1" title="PIN Required" />
                                       )}
@@ -2352,10 +2356,10 @@ const handleProceedToConfirmation = async () => {
                                           setPreviousPaymentMethod(currentVal);
                                           field.onChange(value);
                                           if (value === "account") {
-                                            setIsAccountJobPinVerified(false);
-                                            setIsAccountJobPinDialogOpen(true);
+                                            setIsAccountJobAuthPinVerified(false);
+                                            setIsAccountJobAuthPinDialogOpen(true);
                                           } else {
-                                            setIsAccountJobPinVerified(false);
+                                            setIsAccountJobAuthPinVerified(false);
                                           }
                                         }}
                                         value={field.value}
@@ -2397,7 +2401,7 @@ const handleProceedToConfirmation = async () => {
                                           >
                                             <Briefcase className="mb-2 h-6 w-6 text-purple-600 peer-data-[state=checked]:text-purple-600" />
                                               Account
-                                              {field.value === "account" && isAccountJobPinVerified 
+                                              {field.value === "account" && isAccountJobAuthPinVerified 
                                                 ? <span className="text-xs text-green-500 mt-0.5">(PIN Verified)</span>
                                                 : <span className="text-xs text-orange-500 mt-0.5">(PIN Required)</span>
                                               }
@@ -2422,7 +2426,7 @@ const handleProceedToConfirmation = async () => {
                           type="button"
                           onClick={() => form.handleSubmit(handleBookRide)()}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                          disabled={!totalFareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking || (form.getValues("paymentMethod") === "account" && !isAccountJobPinVerified)}
+                          disabled={!totalFareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking || (form.getValues("paymentMethod") === "account" && !isAccountJobAuthPinVerified)}
                         >
                           {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                           {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
@@ -2529,13 +2533,13 @@ const handleProceedToConfirmation = async () => {
         </DialogContent>
       </Dialog>
       
-      {/* Account Job PIN Dialog */}
-      <Dialog open={isAccountJobPinDialogOpen} onOpenChange={(isOpen) => {
-        if (!isOpen && form.getValues("paymentMethod") === "account" && !isAccountJobPinVerified) {
-          form.setValue("paymentMethod", previousPaymentMethod); // Revert if dialog is closed without verification
+      {/* Account Job Authorization PIN Dialog (6-digit) */}
+      <Dialog open={isAccountJobAuthPinDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen && form.getValues("paymentMethod") === "account" && !isAccountJobAuthPinVerified) {
+          form.setValue("paymentMethod", previousPaymentMethod);
           toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
         }
-        setIsAccountJobPinDialogOpen(isOpen);
+        setIsAccountJobAuthPinDialogOpen(isOpen);
       }}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
@@ -2545,13 +2549,13 @@ const handleProceedToConfirmation = async () => {
             </ShadDialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2">
-            <Label htmlFor="account-job-pin">Enter 6-Digit PIN</Label>
+            <Label htmlFor="account-job-auth-pin">Enter 6-Digit PIN</Label>
             <Input
-              id="account-job-pin"
+              id="account-job-auth-pin"
               type="password" 
               inputMode="numeric"
-              value={accountJobPinInput}
-              onChange={(e) => setAccountJobPinInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+              value={accountJobAuthPinInput}
+              onChange={(e) => setAccountJobAuthPinInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
               maxLength={6}
               placeholder="••••••"
               className="text-center text-xl tracking-[0.3em]"
@@ -2560,12 +2564,12 @@ const handleProceedToConfirmation = async () => {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => {
               form.setValue("paymentMethod", previousPaymentMethod);
-              setIsAccountJobPinVerified(false);
-              setAccountJobPinInput("");
-              setIsAccountJobPinDialogOpen(false);
+              setIsAccountJobAuthPinVerified(false);
+              setAccountJobAuthPinInput("");
+              setIsAccountJobAuthPinDialogOpen(false);
               toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
             }}>Cancel & Change Payment</Button>
-            <Button type="button" onClick={handleAccountJobPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button type="button" onClick={handleAccountJobAuthPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Confirm PIN
             </Button>
           </DialogFooter>
