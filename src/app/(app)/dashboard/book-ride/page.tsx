@@ -195,13 +195,17 @@ function getDistanceInMiles(
 
 type AvailabilityStatusLevel = 'available' | 'high_demand' | 'unavailable' | 'loading';
 
-const blueDotSvg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
-    <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
-  </svg>
+const passengerLocationIconSvg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 24 34">
+  <circle cx="12" cy="12" r="11" fill="#2D3748"/>
+  <circle cx="12" cy="9.5" r="3" stroke="#FFFFFF" stroke-width="1.5" fill="none"/>
+  <path d="M8,15 Q12,12.5 16,15" stroke="#FFFFFF" stroke-width="1.5" fill="none" transform="translate(0, -0.5)"/>
+  <line x1="12" y1="23" x2="12" y2="30" stroke="#2D3748" stroke-width="3"/>
+  <circle cx="12" cy="31.5" r="2.5" fill="#2D3748"/>
+</svg>
 `;
-const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
+const passengerLocationIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(passengerLocationIconSvg)}` : '';
+
 
 export default function BookRidePage() {
   const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
@@ -1044,8 +1048,8 @@ export default function BookRidePage() {
       newMarkers.push({
         position: suggestedGpsPickup.coords,
         title: `Your current location (Accuracy: ${suggestedGpsPickup.accuracy.toFixed(0)}m)`,
-        iconUrl: blueDotSvgDataUrl,
-        iconScaledSize: { width: 24, height: 24 }
+        iconUrl: passengerLocationIconDataUrl,
+        iconScaledSize: { width: 28, height: 40 } 
       });
     } else {
       if (pickupCoords) {
@@ -1075,7 +1079,7 @@ export default function BookRidePage() {
       }
     }
     setMapMarkers(newMarkers);
-  }, [pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops, showGpsSuggestionAlert, suggestedGpsPickup]);
+  }, [showGpsSuggestionAlert, suggestedGpsPickup, pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
 
 
   async function handleBookRide(values: BookingFormValues) {
@@ -1626,12 +1630,12 @@ export default function BookRidePage() {
 
   const { mapCenterForDisplay, mapZoomForDisplay } = useMemo(() => {
     if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
-        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 22 }; // Zoom set to 22
+        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 22 };
     }
     if (pickupCoords) {
         return { mapCenterForDisplay: pickupCoords, mapZoomForDisplay: 14 };
     }
-    if (dropoffCoords) { // Only focus on dropoff if pickup isn't set
+    if (dropoffCoords) { 
         return { mapCenterForDisplay: dropoffCoords, mapZoomForDisplay: 14 };
     }
     return { mapCenterForDisplay: huddersfieldCenter, mapZoomForDisplay: 12 };
@@ -2690,6 +2694,8 @@ const handleProceedToConfirmation = async () => {
     
 
     
+
+
 
 
 
