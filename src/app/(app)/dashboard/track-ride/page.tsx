@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescriptionDialog, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Renamed DialogDescription
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
@@ -37,7 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription } from "@/components/ui/alert"; 
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
@@ -991,9 +991,9 @@ export default function MyActiveRidePage() {
             <Alert variant="default" className="bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700">
               <CheckCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
               <ShadAlertTitle className="font-semibold text-green-700 dark:text-green-300">Enjoying Your Ride?</ShadAlertTitle>
-              <AlertDescription className="text-sm text-green-600 dark:text-green-400">
+              <ShadAlertDescriptionForAlert className="text-sm text-green-600 dark:text-green-400">
                 Ride nearing destination! Please remember to rate your experience and appreciate your driver after completion. Have a great day!
-              </AlertDescription>
+              </ShadAlertDescriptionForAlert>
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -1013,7 +1013,6 @@ export default function MyActiveRidePage() {
             <CardContent className="space-y-3">
                 <p className="text-base text-muted-foreground">{getStatusMessage(activeRide)}</p>
                 
-                {/* Compact One-Time PIN Display */}
                 {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
                   <div className="my-2 p-2.5 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center shadow-sm">
                     <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">
@@ -1026,9 +1025,9 @@ export default function MyActiveRidePage() {
                   <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
                     <Info className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Driver Has Arrived!</ShadAlertTitle>
-                    <AlertDescription className="text-current">
+                    <ShadAlertDescriptionForAlert className="text-current">
                       Please acknowledge within <span className="font-bold">{formatTimerPassenger(ackWindowSecondsLeft)}</span> to start your 3 minutes free waiting.
-                    </AlertDescription>
+                    </ShadAlertDescriptionForAlert>
                   </Alert>
                 )}
 
@@ -1036,10 +1035,10 @@ export default function MyActiveRidePage() {
                   <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
                     <Timer className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Acknowledgment Window Expired</ShadAlertTitle>
-                    <AlertDescription className="text-current">
+                    <ShadAlertDescriptionForAlert className="text-current">
                      Your 3 mins free waiting time ({freeWaitingSecondsLeft !== null ? formatTimerPassenger(freeWaitingSecondsLeft) : 'N/A'}) has started.
                       Waiting charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.
-                    </AlertDescription>
+                    </ShadAlertDescriptionForAlert>
                   </Alert>
                 )}
 
@@ -1047,7 +1046,7 @@ export default function MyActiveRidePage() {
                   <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300">
                     <CheckCheck className="h-5 w-5 text-current" />
                     <ShadAlertTitle className="font-semibold text-current">Arrival Acknowledged - Free Waiting</ShadAlertTitle>
-                    <AlertDescription className="text-current">
+                    <ShadAlertDescriptionForAlert className="text-current">
                       {freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
                         <span>Free waiting time: {formatTimerPassenger(freeWaitingSecondsLeft)}. Charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.</span>
                       )}
@@ -1055,7 +1054,7 @@ export default function MyActiveRidePage() {
                         <span>Extra waiting: {formatTimerPassenger(extraWaitingSeconds)}. Current Charge: £{currentWaitingCharge.toFixed(2)}</span>
                       )}
                       {!isBeyondFreeWaiting && freeWaitingSecondsLeft === 0 && <span>Free waiting time expired. Charges (£0.20/min) may apply.</span>}
-                    </AlertDescription>
+                    </ShadAlertDescriptionForAlert>
                   </Alert>
                 )}
                 
@@ -1077,18 +1076,18 @@ export default function MyActiveRidePage() {
                     <Alert variant="default" className="bg-purple-50 border-purple-300 text-purple-700 mt-2">
                         <Timer className="h-5 w-5" />
                         <ShadAlertTitle className="font-semibold">Wait & Return Requested</ShadAlertTitle>
-                        <AlertDescription>
+                        <ShadAlertDescriptionForAlert>
                           Your request for wait & return (approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins wait) is awaiting driver confirmation.
-                        </AlertDescription>
+                        </ShadAlertDescriptionForAlert>
                     </Alert>
                  )}
                  {activeRide.status === 'in_progress_wait_and_return' && (
                      <Alert variant="default" className="bg-teal-50 border-teal-300 text-teal-700 mt-2">
                         <CheckCheck className="h-5 w-5" />
                         <ShadAlertTitle className="font-semibold">Wait & Return Active!</ShadAlertTitle>
-                        <AlertDescription>
+                        <ShadAlertDescriptionForAlert>
                           Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {fareDisplay}.
-                        </AlertDescription>
+                        </ShadAlertDescriptionForAlert>
                     </Alert>
                  )}
             </CardContent>
@@ -1101,9 +1100,9 @@ export default function MyActiveRidePage() {
                     <Alert variant="default" className="w-full text-xs p-2 bg-yellow-50 border-yellow-400 dark:bg-yellow-800/30 dark:border-yellow-700">
                       <AlertTriangle className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
                       <ShadAlertTitle className="text-yellow-700 dark:text-yellow-300 font-semibold">Editing Disabled</ShadAlertTitle>
-                      <AlertDescription className="text-yellow-600 dark:text-yellow-400">
+                      <ShadAlertDescriptionForAlert className="text-yellow-600 dark:text-yellow-400">
                         Ride details cannot be changed once a driver is assigned or the ride is in progress. Please cancel and rebook if major changes are needed.
-                      </AlertDescription>
+                      </ShadAlertDescriptionForAlert>
                     </Alert>
                   )}
                 </CardFooter>
@@ -1113,18 +1112,21 @@ export default function MyActiveRidePage() {
       )}
       <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen) { setRideIdToCancel(null); if (cancellationSuccess) { setActiveRide(null); setCancellationSuccess(false); } } }}>
         {activeRide && activeRide.status === 'pending_assignment' && (
-          <AlertDialogTrigger 
-            className={cn(buttonVariants({ variant: "destructive" }), "w-full sm:w-auto mt-2")}
-            onClick={() => {
-              if (activeRide) {
-                  setRideIdToCancel(activeRide.id);
-                  setCancellationSuccess(false); 
-                  setShowCancelConfirmationDialog(true);
-              }
-            }}
-            disabled={!!actionLoading[activeRide?.id || '']}
-          >
-            <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
+          <AlertDialogTrigger asChild> 
+            <Button
+              variant="destructive"
+              className="w-full sm:w-auto mt-2"
+              onClick={() => {
+                if (activeRide) {
+                    setRideIdToCancel(activeRide.id);
+                    setCancellationSuccess(false); 
+                    setShowCancelConfirmationDialog(true);
+                }
+              }}
+              disabled={!!actionLoading[activeRide?.id || '']}
+            >
+              <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
+            </Button>
           </AlertDialogTrigger>
         )}
         <AlertDialogContent>
@@ -1164,7 +1166,7 @@ export default function MyActiveRidePage() {
       </AlertDialog>
       <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset(); setDialogFareEstimate(null);}}}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
-          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescription>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescription> </DialogHeader>
+          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescriptionDialog>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescriptionDialog> </DialogHeader>
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
           <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
           <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
@@ -1205,9 +1207,9 @@ export default function MyActiveRidePage() {
        <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
-          <ShadDialogDescription>
+          <ShadDialogDescriptionDialog>
             Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
-          </ShadDialogDescription>
+          </ShadDialogDescriptionDialog>
           <div className="py-4 space-y-2">
             <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
             <Input
@@ -1234,5 +1236,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
-
