@@ -28,21 +28,21 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-background via-primary/5 to-background">
       {/* Hero Section */}
-      <section className="pt-1 md:pt-2 lg:pt-2 pb-1 md:pb-2 lg:pb-2 bg-primary/5">
+      <section className="pt-0 md:pt-1 lg:pt-1 pb-0 md:pb-1 lg:pb-1 bg-primary/5">
         <div className="container mx-auto px-4 text-center">
           <Image
             src="/mybase-logo.png"
             alt="MyBase Logo"
             width={500}
-            height={125}
-            className="mx-auto mb-4" 
+            height={80}
+            className="mx-auto mb-2" 
             priority
             data-ai-hint="logo brand"
           />
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight text-primary mb-6 max-w-2xl mx-auto">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight text-primary mb-3 max-w-2xl mx-auto">
             MyBase: Your Journey, Simplified.
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto mb-8">
+          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto mb-4">
             The all-in-one taxi platform connecting passengers, drivers, and operators for a seamless, efficient, and reliable experience.
           </p>
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 max-w-lg mx-auto">
