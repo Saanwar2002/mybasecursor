@@ -1832,7 +1832,7 @@ export default function AvailableRidesPage() {
         <div className={mapContainerClasses}>
             <GoogleMapDisplay
               center={driverLocation}
-              zoom={13}
+              zoom={15}
               markers={mapDisplayElements.markers}
               customMapLabels={mapDisplayElements.labels}
               className="w-full h-full"
@@ -1987,9 +1987,9 @@ export default function AvailableRidesPage() {
               <ShadAlertDialogTitle className="flex items-center gap-2">
                 <Navigation className="w-5 h-5 text-primary" /> Time to Go!
               </ShadAlertDialogTitle>
-              <ShadAlertDescription>
+              <DialogDescription>
                 Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
-              </ShadAlertDescription>
+              </DialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
@@ -2002,7 +2002,7 @@ export default function AvailableRidesPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-              <ShadAlertDescription><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDescription>
+              <DialogDescription><span>This action cannot be undone. The passenger will be notified.</span></DialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
@@ -2037,9 +2037,9 @@ export default function AvailableRidesPage() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                    <ShadAlertDescription>
+                    <DialogDescription>
                         Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                    </ShadAlertDescription>
+                    </DialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
@@ -2204,7 +2204,7 @@ let displayedFare = `£${totalFare.toFixed(2)}`;
 if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
   const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
   const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
-  displayedFare = `£${(wrBaseFare + wrWaitCharge + priorityFeeAmount + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
+  displayedFare = `£${(wrBaseFare + wrWaitCharge + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
 }
 
 const paymentMethodDisplay = 
@@ -2530,15 +2530,17 @@ return (
             })}
 
              <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base font-bold">
-                <p className="flex items-center gap-0.5">
-                  <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300" />
-                  Fare: {displayedFare}
-                </p>
-                <p className="flex items-center gap-0.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300" /> Passengers: {activeRide.passengerCount}</p>
+                <div className="col-span-2 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1">
+                  <p className="flex items-center gap-0.5 font-bold">
+                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300" />
+                    Fare: {displayedFare}
+                  </p>
+                </div>
+                <p className="flex items-center gap-0.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300" /> Passengers: {activeRide.passengerCount}</p>
                 {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-0.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                  <p className="flex items-center gap-0.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                 )}
-                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300" />} Payment: {paymentMethodDisplay} </p> )}
+                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300" />} Payment: {paymentMethodDisplay} </p> )}
              </div>
         </div>
         {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div>
@@ -2682,9 +2684,9 @@ return (
           <AlertDialogContent>
               <AlertDialogHeader>
                   <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                  <ShadAlertDescription>
+                  <DialogDescription>
                       Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                  </ShadAlertDescription>
+                  </DialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
