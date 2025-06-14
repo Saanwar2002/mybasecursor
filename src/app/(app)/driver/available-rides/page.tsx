@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ThumbsUp, ShieldAlert as ShieldAlertIcon } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1865,9 +1865,9 @@ export default function AvailableRidesPage() {
                     <AlertDialogContent>
                     <AlertDialogHeader>
                         <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
-                        <ShadAlertDescription>
+                        <DialogDescription>
                         Select the type of assistance needed. Your current location will be shared with your operator.
-                        </ShadAlertDescription>
+                        </DialogDescription>
                     </AlertDialogHeader>
                     <div className="space-y-3 py-2">
                         <Button
@@ -1913,9 +1913,9 @@ export default function AvailableRidesPage() {
                         <ShadAlertDialogTitle className="text-destructive flex items-center gap-2">
                             <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
                         </ShadAlertDialogTitle>
-                        <ShadAlertDescription>
+                        <DialogDescription>
                             This will immediately alert your operator. Proceed with caution.
-                        </ShadAlertDescription>
+                        </DialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}><span>No, Cancel</span></AlertDialogCancel>
@@ -2084,80 +2084,80 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* 4-Digit Account Job PIN Dialog */}
-      <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
-        <DialogContent className="sm:max-w-xs">
+    {/* 4-Digit Account Job PIN Dialog */}
+    <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
+          <DialogDescription>
+            Ask the passenger for their 4-digit Job PIN to start this account ride.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 space-y-2">
+          <Label htmlFor="account-job-pin-input">Enter 4-Digit Job PIN</Label>
+          <Input
+            id="account-job-pin-input"
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={enteredAccountJobPin}
+            onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+            placeholder="••••"
+            className="text-center text-xl tracking-[0.3em]"
+            disabled={isVerifyingAccountJobPin}
+          />
+        </div>
+        <DialogFooter className="grid grid-cols-1 gap-2">
+          <div className="flex justify-between">
+              <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
+              Cancel
+              </Button>
+              <Button type="button" onClick={verifyAndStartAccountJobRide} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
+              {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Verify & Start Ride
+              </Button>
+          </div>
+          <Button type="button" variant="link" size="sm" className="text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
+            Problem with PIN? Start ride manually.
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
             <DialogDescription>
-              Ask the passenger for their 4-digit Job PIN to start this account ride.
+              Select the type of hazard or observation you want to report at your current location.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="account-job-pin-input">Enter 4-Digit Job PIN</Label>
-            <Input
-              id="account-job-pin-input"
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              value={enteredAccountJobPin}
-              onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
-              placeholder="••••"
-              className="text-center text-xl tracking-[0.3em]"
-              disabled={isVerifyingAccountJobPin}
-            />
+          <div className="grid grid-cols-2 gap-3 py-4">
+            {[
+              { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
+              { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheckIcon },
+              { label: "Road Closure", type: "road_closure", icon: MinusCircle },
+              { label: "Accident", type: "accident", icon: AlertTriangle },
+              { label: "Road Works", type: "road_works", icon: Construction },
+              { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
+            ].map(hazard => (
+              <Button
+                key={hazard.type}
+                className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
+                onClick={() => handleReportHazard(hazard.type)}
+                disabled={reportingHazard}
+              >
+                {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />}
+                <span className="text-sm font-semibold">{hazard.label}</span>
+              </Button>
+            ))}
           </div>
-          <DialogFooter className="grid grid-cols-1 gap-2">
-            <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
-                Cancel
-                </Button>
-                <Button type="button" onClick={verifyAndStartAccountJobRide} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
-                {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Verify & Start Ride
-                </Button>
-            </div>
-            <Button type="button" variant="link" size="sm" className="text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
-              Problem with PIN? Start ride manually.
-            </Button>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={reportingHazard}>Cancel</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/> Add a map report</DialogTitle>
-              <DialogDescription>
-                Select the type of hazard or observation you want to report at your current location.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-3 py-4">
-              {[
-                { label: "Mobile Speed Camera", type: "mobile_speed_camera", icon: Gauge },
-                { label: "Roadside Taxi Checking", type: "roadside_taxi_checking", icon: ShieldCheckIcon },
-                { label: "Road Closure", type: "road_closure", icon: MinusCircle },
-                { label: "Accident", type: "accident", icon: AlertTriangle },
-                { label: "Road Works", type: "road_works", icon: Construction },
-                { label: "Heavy Traffic", type: "heavy_traffic", icon: UsersIcon },
-              ].map(hazard => (
-                <Button
-                  key={hazard.type}
-                  className="flex flex-col items-center justify-center h-24 text-center bg-yellow-100 dark:bg-yellow-800/30 border-2 border-red-500 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-700/40 hover:border-red-600"
-                  onClick={() => handleReportHazard(hazard.type)}
-                  disabled={reportingHazard}
-                >
-                  {hazard.icon && <hazard.icon className="w-7 h-7 mb-1" />}
-                  <span className="text-sm font-semibold">{hazard.label}</span>
-                </Button>
-              ))}
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline" disabled={reportingHazard}>Cancel</Button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
     </div>
   );
 }
@@ -2298,9 +2298,9 @@ return (
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <ShadAlertDialogTitle className="flex items-center gap-2"><ShieldAlertIcon className="w-6 h-6 text-destructive"/>SOS - Request Assistance</ShadAlertDialogTitle>
-                  <ShadAlertDescription>
+                  <DialogDescription>
                     Select the type of assistance needed. Your current location will be shared with your operator.
-                  </ShadAlertDescription>
+                  </DialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-3 py-2">
                   <Button
@@ -2346,9 +2346,9 @@ return (
                     <ShadAlertDialogTitle className="text-destructive flex items-center gap-2">
                         <AlertTriangle className="w-6 h-6" /> Confirm EMERGENCY?
                     </ShadAlertDialogTitle>
-                    <ShadAlertDescription>
+                    <DialogDescription>
                         This will immediately alert your operator. Proceed with caution.
-                    </ShadAlertDescription>
+                    </DialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsConfirmEmergencyOpen(false)}><span>No, Cancel</span></AlertDialogCancel>
@@ -2529,16 +2529,16 @@ return (
                 );
             })}
 
-             <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 pt-0.5 text-base">
+             <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 pt-2 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100">
                 <p className="flex items-center gap-0.5">
-                  <DollarSign className="w-4 h-4 text-muted-foreground" />
+                  <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300" />
                   <strong className="font-bold">Fare:</strong> <span className="font-bold">{displayedFare}</span>
                 </p>
-                <p className="flex items-center gap-0.5"><UsersIcon className="w-4 h-4 text-muted-foreground" /> <strong className="font-bold">Passengers:</strong> <span className="font-bold">{activeRide.passengerCount}</span></p>
+                <p className="flex items-center gap-0.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300" /> <strong className="font-bold">Passengers:</strong> <span className="font-bold">{activeRide.passengerCount}</span></p>
                 {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-0.5"><Route className="w-4 h-4 text-muted-foreground" /> <strong className="font-bold">Distance:</strong> <span className="font-bold">~{activeRide.distanceMiles.toFixed(1)} mi</span></p>
+                  <p className="flex items-center gap-0.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300" /> <strong className="font-bold">Distance:</strong> <span className="font-bold">~{activeRide.distanceMiles.toFixed(1)} mi</span></p>
                 )}
-                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong className="font-bold">Payment:</strong> <span className="font-bold">{paymentMethodDisplay}</span> </p> )}
+                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300" />} <strong className="font-bold">Payment:</strong> <span className="font-bold">{paymentMethodDisplay}</span> </p> )}
              </div>
         </div>
         {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div>
@@ -2647,7 +2647,7 @@ return (
         <AlertDialogContent>
           <AlertDialogHeader>
             <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-            <ShadAlertDescription><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDescription>
+            <DialogDescription><span>This action cannot be undone. The passenger will be notified.</span></DialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
               <AlertDialogCancel
@@ -2682,9 +2682,9 @@ return (
           <AlertDialogContent>
               <AlertDialogHeader>
                   <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                  <ShadAlertDescription>
+                  <DialogDescription>
                       Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                  </ShadAlertDescription>
+                  </DialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
