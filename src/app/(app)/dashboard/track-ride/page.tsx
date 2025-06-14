@@ -82,6 +82,7 @@ interface ActiveRide {
   passengerName: string;
   isSurgeApplied?: boolean;
   paymentMethod?: "card" | "cash" | "account";
+  accountJobPin?: string; // Added for one-time job PIN
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
@@ -988,7 +989,7 @@ export default function MyActiveRidePage() {
 
           {showEndOfRideReminder && activeRide.status === 'in_progress' && (
             <Alert variant="default" className="bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700">
-              <ThumbsUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <CheckCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
               <ShadAlertTitle className="font-semibold text-green-700 dark:text-green-300">Enjoying Your Ride?</ShadAlertTitle>
               <AlertDescription className="text-sm text-green-600 dark:text-green-400">
                 Ride nearing destination! Please remember to rate your experience and appreciate your driver after completion. Have a great day!
@@ -1048,6 +1049,19 @@ export default function MyActiveRidePage() {
                     </ShadAlertDescription>
                   </Alert>
                 )}
+                
+                {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
+                  <Alert variant="default" className="mt-3 bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700">
+                    <LockKeyhole className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <ShadAlertTitle className="font-semibold text-purple-700 dark:text-purple-300">Your One-Time Job PIN</ShadAlertTitle>
+                    <AlertDescription className="text-sm text-purple-600 dark:text-purple-400">
+                      Please provide this 4-digit PIN to your driver to start the ride:
+                      <strong className="block text-2xl tracking-wider my-1 text-purple-700 dark:text-purple-200">{activeRide.accountJobPin}</strong>
+                      This PIN is for this job only.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
 
                 {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
                 <Separator />
