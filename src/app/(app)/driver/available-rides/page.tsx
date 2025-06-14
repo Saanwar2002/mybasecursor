@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react"; // Added ShieldAlert
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle,
+  AlertDialogTitle as ShadAlertDialogTitle, // Renamed to avoid conflict
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -34,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription as ShadDialogDescriptionDialog,
+  DialogDescription as ShadDialogDescriptionDialog, // Renamed DialogDescription
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -1786,7 +1786,6 @@ export default function AvailableRidesPage() {
   };
   const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
 
-  // Current Leg Display Logic
   const currentLegDisplayInfo = useMemo(() => {
     if (!activeRide || !journeyPoints.length) return null;
 
@@ -1804,14 +1803,14 @@ export default function AvailableRidesPage() {
     let bgColor = "bg-gray-600";
     let textColor = "text-white";
 
-    if (currentLegIdx === 0) { // Pickup
+    if (currentLegIdx === 0) {
       label = "Next: Pickup";
       bgColor = "bg-green-600";
-    } else if (currentLegIdx < journeyPoints.length - 1) { // Intermediate Stop
+    } else if (currentLegIdx < journeyPoints.length - 1) { 
       label = `Next: Stop ${currentLegIdx}`;
       bgColor = "bg-yellow-400";
       textColor = "text-black";
-    } else { // Final Dropoff
+    } else { 
       label = "Next: Final Dropoff";
       bgColor = "bg-red-600";
     }
@@ -1853,6 +1852,16 @@ export default function AvailableRidesPage() {
               disableDefaultUI={true}
               onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
             />
+             {currentLegDisplayInfo && (
+              <div className={cn(
+                "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-xs sm:max-w-sm",
+                currentLegDisplayInfo.bgColor,
+                currentLegDisplayInfo.textColor
+              )}>
+                <p className="text-xs md:text-sm font-medium">{currentLegDisplayInfo.label}</p>
+                <p className="text-lg md:text-xl font-bold leading-tight">{currentLegDisplayInfo.address}</p>
+              </div>
+            )}
             <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
                 <Button
                     variant="secondary"
@@ -2288,16 +2297,16 @@ return (
           disableDefaultUI={true}
           onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
         />
-         {currentLegDisplayInfo && (
-          <div className={cn(
-            "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-xs sm:max-w-sm",
-            currentLegDisplayInfo.bgColor,
-            currentLegDisplayInfo.textColor
-          )}>
-            <p className="text-xs md:text-sm font-medium">{currentLegDisplayInfo.label}</p>
-            <p className="text-lg md:text-xl font-bold leading-tight">{currentLegDisplayInfo.address}</p>
-          </div>
-        )}
+          {currentLegDisplayInfo && (
+              <div className={cn(
+                "absolute bottom-4 left-4 z-20 p-2 md:p-3 rounded-lg shadow-xl border-2 border-black dark:border-gray-300 max-w-xs sm:max-w-sm",
+                currentLegDisplayInfo.bgColor,
+                currentLegDisplayInfo.textColor
+              )}>
+                <p className="text-xs md:text-sm font-medium">{currentLegDisplayInfo.label}</p>
+                <p className="text-lg md:text-xl font-bold leading-tight">{currentLegDisplayInfo.address}</p>
+              </div>
+            )}
         <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-20">
             <Button
                 variant="secondary"
@@ -2669,7 +2678,7 @@ return (
                      <React.Fragment>
                        <ShieldX className="mr-2 h-4 w-4" />
                        <span>Confirm Cancel</span>
-                    </React.Fragment>
+                      </React.Fragment>
                   )}
                 </span>
               </AlertDialogAction>
@@ -2806,3 +2815,4 @@ return (
   </div>
 );
 }
+    
