@@ -23,7 +23,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription, // Correct import is here
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle as ShadAlertDialogTitle, 
@@ -34,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription as ShadDialogDescriptionDialog, // Renamed for clarity
+  DialogDescription as ShadDialogDescriptionDialog,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -896,7 +896,6 @@ export default function AvailableRidesPage() {
     };
   }, [activeRide, driverLocation]);
 
-  // End of ride reminder effect
   useEffect(() => {
     if (endOfRideReminderTimerRef.current) {
       clearTimeout(endOfRideReminderTimerRef.current);
@@ -2187,7 +2186,7 @@ const totalFare = (fareEstimate || 0) + (priorityFeeAmount || 0) + currentWaitin
 let displayedFare = `£${totalFare.toFixed(2)}`;
 if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
   const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-  const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+  const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
   displayedFare = `£${(wrBaseFare + wrWaitCharge + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
 }
 
@@ -2512,22 +2511,30 @@ return (
                     </p>
                 );
             })}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
-                 <div className="col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 mb-1 font-bold">
-                  <p className="flex items-center gap-0.5">
-                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
-                    Fare: {displayedFare}
-                  </p>
-                </div>
-                <p className="flex items-center gap-0.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
-                {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-0.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
-                )}
-                {paymentMethod && ( <p className="flex items-center gap-0.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
-             </div>
         </div>
-        {notes && !isRideInProgressOrFurther && ( <div className="border-l-4 border-accent pl-2 py-1 bg-accent/10 rounded-r-md my-1"> <p className="text-[10px] md:text-xs text-muted-foreground whitespace-pre-wrap"><strong>Notes:</strong> {notes}</p> </div>
+
+        {notes && !isRideInProgressOrFurther && (
+            <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
+                <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
+                <strong>Notes:</strong> {notes}
+                </p>
+            </div>
         )}
+
+        <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
+              <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1 font-bold", (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && "col-span-2")}>
+                <p className="flex items-center gap-1.5 font-bold">
+                  <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
+                  Fare: {displayedFare}
+                </p>
+              </div>
+              <p className="flex items-center gap-1.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
+              {activeRide.distanceMiles != null && (
+                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+              )}
+              {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+        </div>
+      
 
         {(showCompletedStatus || showCancelledNoShowStatus) && (
           <div className="mt-2 pt-2 border-t text-center">
