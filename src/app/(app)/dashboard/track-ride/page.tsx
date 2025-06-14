@@ -37,7 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription } from "@/components/ui/alert"; // Added AlertDescription
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription } from "@/components/ui/alert"; 
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
@@ -1013,17 +1013,13 @@ export default function MyActiveRidePage() {
             <CardContent className="space-y-3">
                 <p className="text-base text-muted-foreground">{getStatusMessage(activeRide)}</p>
                 
-                {/* Account Job PIN Display */}
+                {/* Compact One-Time PIN Display */}
                 {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
-                  <Alert variant="default" className="my-3 bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700">
-                    <LockKeyhole className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    <ShadAlertTitle className="font-semibold text-purple-700 dark:text-purple-300">Your One-Time Job PIN</ShadAlertTitle>
-                    <AlertDescription className="text-sm text-purple-600 dark:text-purple-400">
-                      Please provide this 4-digit PIN to your driver to start the ride:
-                      <strong className="block text-2xl tracking-wider my-1 text-purple-700 dark:text-purple-200">{activeRide.accountJobPin}</strong>
-                      This PIN is for this job only.
-                    </AlertDescription>
-                  </Alert>
+                  <div className="my-2 p-2.5 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center shadow-sm">
+                    <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                      One Time PIN: <strong className="text-lg font-bold tracking-wider text-purple-800 dark:text-purple-200">{activeRide.accountJobPin}</strong>
+                    </span>
+                  </div>
                 )}
 
                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
@@ -1238,4 +1234,5 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
 
