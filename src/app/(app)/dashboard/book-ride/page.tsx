@@ -22,7 +22,7 @@ import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircl
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader } from '@googlemaps/js-api-loader';
+import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader'; // Renamed to avoid conflict
 import { useAuth } from '@/contexts/auth-context';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -460,7 +460,7 @@ export default function BookRidePage() {
         setIsMapSdkLoaded(false);
         return;
     }
-    const loader = new Loader({
+    const loader = new GoogleApiLoader({ // Renamed to GoogleApiLoader
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
       libraries: ["geocoding", "maps", "marker", "places"],
@@ -514,6 +514,51 @@ export default function BookRidePage() {
         setIsMapSdkLoaded(false);
     });
   }, [toast]);
+
+  const handleManualGpsRequest = async () => {
+    if (!isMapSdkLoaded || !navigator.geolocation || !geocoderRef.current) {
+      toast({ title: "Geolocation Not Ready", description: "Location services are not available or still initializing.", variant: "default" });
+      setGeolocationFetchStatus("error_unavailable");
+      return;
+    }
+    setGeolocationFetchStatus("fetching");
+    setShowGpsSuggestionAlert(false); // Hide previous suggestion if any
+    setSuggestedGpsPickup(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+        if (geocoderRef.current) {
+          geocoderRef.current.geocode({ location: currentCoords }, (results, status) => {
+            if (status === "OK" && results && results[0]) {
+              setSuggestedGpsPickup({ address: results[0].formatted_address, coords: currentCoords, accuracy: position.coords.accuracy });
+              setShowGpsSuggestionAlert(true);
+              setGeolocationFetchStatus("success"); // Set success after geocoding
+              toast({ title: "Location Found!", description: `GPS suggests: ${results[0].formatted_address}. Accuracy: ${position.coords.accuracy.toFixed(0)}m.` });
+            } else {
+              setGeolocationFetchStatus("error_geocoding");
+              toast({ title: "Geocoding Failed", description: `Could not determine address for your location. Status: ${status}`, variant: "destructive" });
+            }
+          });
+        } else {
+            setGeolocationFetchStatus("error_geocoding");
+            toast({ title: "Geocoder Not Ready", description: "Address lookup service is not available.", variant: "destructive" });
+        }
+      },
+      (error) => {
+        console.warn("Manual Geolocation error:", error);
+        let fetchErrorStatus: GeolocationFetchStatus = "error_unavailable";
+        let toastMessage = "Could not get your location.";
+        if (error.code === error.PERMISSION_DENIED) { fetchErrorStatus = "error_permission"; toastMessage = "Location permission denied."; }
+        else if (error.code === error.POSITION_UNAVAILABLE) { fetchErrorStatus = "error_unavailable"; toastMessage = "Location information unavailable."; }
+        else if (error.code === error.TIMEOUT) { fetchErrorStatus = "error_unavailable"; toastMessage = "Getting location timed out."; }
+        setGeolocationFetchStatus(fetchErrorStatus);
+        toast({ title: "Location Error", description: toastMessage, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // force fresh location
+    );
+  };
+
 
   const handleApplyGpsSuggestion = () => {
     if (suggestedGpsPickup && suggestedGpsPickup.accuracy <= 75) { 
@@ -1136,7 +1181,7 @@ export default function BookRidePage() {
       else if (values.paymentMethod === 'account') {
           toastDescription += `Payment: Via Account (Operator will bill). `;
           if (result.data.accountJobPin) { // The 4-digit one-time PIN
-            toastDescription += `Your 4-digit Job PIN for the driver is: ${result.data.accountJobPin}.`;
+            toastDescription += `Your One Time Job PIN is: ${result.data.accountJobPin}. Give this to your driver.`;
           }
       }
       
@@ -1914,14 +1959,27 @@ const handleProceedToConfirmation = async () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <FormLabel className="flex items-center gap-1"><UserIcon className="w-4 h-4 text-muted-foreground" /> Pickup Location</FormLabel>
-                         <Button type="button" variant={isListening ? "destructive" : "outline"} size="icon" 
-                            className={cn("h-7 w-7", isListening && "animate-pulse ring-2 ring-destructive ring-offset-2", isProcessingAi && "opacity-50 cursor-not-allowed")}
-                            onMouseDown={handleMicMouseDown} onMouseUp={handleMicMouseUpOrLeave} onMouseLeave={handleMicMouseUpOrLeave} onTouchStart={handleMicMouseDown} onTouchEnd={handleMicMouseUpOrLeave}
-                            disabled={isProcessingAi}
-                            aria-label="Use voice input for booking"
-                            >
-                            {isProcessingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-accent"
+                            onClick={handleManualGpsRequest}
+                            disabled={geolocationFetchStatus === 'fetching' || !isMapSdkLoaded}
+                            aria-label="Detect my current location for pickup"
+                          >
+                            {geolocationFetchStatus === 'fetching' ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                          </Button>
+                          <Button type="button" variant={isListening ? "destructive" : "outline"} size="icon" 
+                              className={cn("h-7 w-7", isListening && "animate-pulse ring-2 ring-destructive ring-offset-2", isProcessingAi && "opacity-50 cursor-not-allowed")}
+                              onMouseDown={handleMicMouseDown} onMouseUp={handleMicMouseUpOrLeave} onMouseLeave={handleMicMouseUpOrLeave} onTouchStart={handleMicMouseDown} onTouchEnd={handleMicMouseUpOrLeave}
+                              disabled={isProcessingAi}
+                              aria-label="Use voice input for booking"
+                              >
+                              {isProcessingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+                          </Button>
+                        </div>
                     </div>
                     <FormField
                         control={form.control}
@@ -2632,4 +2690,5 @@ const handleProceedToConfirmation = async () => {
     
 
     
+
 
