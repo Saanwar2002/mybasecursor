@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, Briefcase } from 'lucide-react'; // Added Briefcase
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, LockKeyhole } from 'lucide-react'; // Added LockKeyhole
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -261,6 +261,12 @@ export default function BookRidePage() {
 
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
 
+  // State for Account Job PIN
+  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
+  const [accountJobPinInput, setAccountJobPinInput] = useState("");
+  const [isAccountJobPinVerified, setIsAccountJobPinVerified] = useState(false);
+  const [previousPaymentMethod, setPreviousPaymentMethod] = useState<BookingFormValues["paymentMethod"]>("card");
+
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -294,9 +300,7 @@ export default function BookRidePage() {
 
   useEffect(() => {
     if (fields.length > previousFieldsLengthRef.current) {
-      // A new stop was added
       const newStopIndex = fields.length - 1;
-      // Delay slightly to ensure the input is rendered and focusable
       setTimeout(() => {
         form.setFocus(`stops.${newStopIndex}.location`);
       }, 100);
@@ -394,8 +398,8 @@ export default function BookRidePage() {
                 } else {
                      message = `MyBase driver available. Est. wait: ~${randomWait}. (Mock)`;
                 }
-                currentLevel = 'available'; // Assume available if no preference and not overall unavailable
-                 if (Math.random() < 0.25) { // Simulate a chance of high demand even for general pool
+                currentLevel = 'available'; 
+                 if (Math.random() < 0.25) { 
                     message = `Area experiencing high demand. Estimated wait: ~${randomWaitTimes[randomWaitTimes.length -1]}. (Mock)`;
                     currentLevel = 'high_demand';
                 }
@@ -721,7 +725,7 @@ export default function BookRidePage() {
         },
         (place, status) => {
           setIsFetchingDetailsFunc(false);
-          const finalAddressToSet = addressText; // Always use the suggestion.description
+          const finalAddressToSet = addressText; 
           formOnChange(finalAddressToSet);
 
           if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
@@ -869,7 +873,6 @@ export default function BookRidePage() {
       isFetchingDetails: false,
       coords: null
     }]);
-    // Focus will be handled by the useEffect hook watching `fields`
   };
 
 
@@ -1043,6 +1046,13 @@ export default function BookRidePage() {
         return;
     }
 
+    if (values.paymentMethod === "account" && !isAccountJobPinVerified) {
+        toast({ title: "Account Payment Not Verified", description: "Please verify your account PIN via the payment method selection.", variant: "destructive" });
+        setIsAccountJobPinDialogOpen(true);
+        return;
+    }
+
+
     let scheduledPickupAt: string | undefined = undefined;
     if (values.bookingType === 'scheduled' && values.desiredPickupDate && values.desiredPickupTime) {
       const [hours, minutes] = values.desiredPickupTime.split(':').map(Number);
@@ -1102,7 +1112,7 @@ export default function BookRidePage() {
 
       if (values.paymentMethod === 'cash') toastDescription += `Payment: Cash to driver.`;
       else if (values.paymentMethod === 'card') toastDescription += `Payment: Card (Pay driver directly).`;
-      else if (values.paymentMethod === 'account') toastDescription += `Payment: Via Account (Operator will bill).`;
+      else if (values.paymentMethod === 'account') toastDescription += `Payment: Via Account (Operator will bill). PIN Verified.`;
       
       if (values.waitAndReturn) {
         toastDescription += ` Wait & Return with ~${values.estimatedWaitTimeMinutes} min wait.`;
@@ -1147,6 +1157,8 @@ export default function BookRidePage() {
       setCalculatedChargedWaitMinutes(0);
       setEstimatedWaitMinutesInput("10");
       setPriorityFeeInput("2.00");
+      setIsAccountJobPinVerified(false);
+      setAccountJobPinInput("");
       
       router.push('/dashboard/track-ride');
 
@@ -1570,7 +1582,6 @@ const handleProceedToConfirmation = async () => {
       await form.trigger("stops");
     }
 
-
     if (!pickupValid || !dropoffValid) {
       toast({
         title: "Missing Journey Details",
@@ -1601,6 +1612,16 @@ const handleProceedToConfirmation = async () => {
                  return;
             }
         }
+    }
+
+    if (form.getValues("paymentMethod") === "account" && !isAccountJobPinVerified) {
+      toast({
+        title: "Account Payment Not Verified",
+        description: "Please enter and verify your 6-digit PIN to use Account payment.",
+        variant: "destructive",
+      });
+      setIsAccountJobPinDialogOpen(true); // Re-open dialog if they try to proceed
+      return;
     }
     setShowConfirmationDialog(true);
   };
@@ -1700,6 +1721,19 @@ const handleProceedToConfirmation = async () => {
   };
   const gpsStyles = getGpsAlertStyles(suggestedGpsPickup?.accuracy);
 
+  const handleAccountJobPinConfirm = () => {
+    if (accountJobPinInput === "123456") { // Mock PIN validation
+      setIsAccountJobPinVerified(true);
+      // Ensure 'account' is still the selected method in the form if this dialog was opened from proceedToConfirmation
+      form.setValue("paymentMethod", "account"); 
+      toast({ title: "Account PIN Verified!", description: "You can now proceed with the account booking." });
+      setIsAccountJobPinDialogOpen(false);
+    } else {
+      toast({ title: "Invalid PIN", description: "The PIN entered is incorrect. Please try again.", variant: "destructive" });
+      setIsAccountJobPinVerified(false);
+      setAccountJobPinInput(""); // Clear input on wrong PIN
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1986,7 +2020,11 @@ const handleProceedToConfirmation = async () => {
                     <FormItem className="space-y-2">
                         <FormLabel className="flex items-center gap-1"><CalendarClock className="w-4 h-4 text-muted-foreground" /> Booking Time</FormLabel>
                         <FormControl>
-                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-1">
+                        <RadioGroup 
+                            onValueChange={field.onChange} 
+                            value={field.value} // Ensure value is controlled
+                            className="flex space-x-1"
+                        >
                             <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="asap" /></FormControl><FormLabel className="font-normal">ASAP</FormLabel></FormItem>
                             <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="scheduled" /></FormControl><FormLabel className="font-normal">Schedule Later</FormLabel></FormItem>
                         </RadioGroup>
@@ -2042,7 +2080,7 @@ const handleProceedToConfirmation = async () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-1"><Car className="w-4 h-4 text-muted-foreground" /> Vehicle Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select a vehicle type" />
@@ -2157,7 +2195,6 @@ const handleProceedToConfirmation = async () => {
                             className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-orange-500/30"
                             />
                         </FormControl>
-                        {/* No FormMessage here as it's handled by the main form's superRefine */}
                         </FormItem>
                     )}
                     />
@@ -2192,8 +2229,20 @@ const handleProceedToConfirmation = async () => {
                         <FormLabel className="text-base">Payment Method</FormLabel>
                             <FormControl>
                                 <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
+                                onValueChange={(value) => {
+                                  const currentVal = form.getValues("paymentMethod");
+                                  setPreviousPaymentMethod(currentVal); // Store current value before changing
+                                  field.onChange(value); // Update form with new selection
+
+                                  if (value === "account") {
+                                    setIsAccountJobPinVerified(false); // Reset verification status
+                                    setAccountJobPinInput(""); // Clear previous PIN input
+                                    setIsAccountJobPinDialogOpen(true);
+                                  } else {
+                                    setIsAccountJobPinVerified(false); // Reset if switching away
+                                  }
+                                }}
+                                value={field.value} // Controlled component
                                 className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4"
                                 >
                                 <FormItem className="flex items-center space-x-2">
@@ -2211,7 +2260,12 @@ const handleProceedToConfirmation = async () => {
                                 <FormItem className="flex items-center space-x-2">
                                     <FormControl><RadioGroupItem value="account" id="account" /></FormControl>
                                     <FormLabel htmlFor="account" className="font-normal flex items-center gap-1">
-                                    <Briefcase className="w-4 h-4 text-purple-500" /> Account (If eligible)
+                                      <Briefcase className="w-4 h-4 text-purple-500" /> Account
+                                      {field.value === "account" && (
+                                        isAccountJobPinVerified 
+                                          ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 ml-1" title="PIN Verified" />
+                                          : <AlertTriangle className="w-3.5 h-3.5 text-orange-500 ml-1" title="PIN Required" />
+                                      )}
                                     </FormLabel>
                                 </FormItem>
                                 </RadioGroup>
@@ -2293,8 +2347,18 @@ const handleProceedToConfirmation = async () => {
                                   <FormItem className="space-y-3">
                                     <FormControl>
                                       <RadioGroup
-                                        onValueChange={field.onChange}
-                                        defaultValue={field.value}
+                                        onValueChange={(value) => {
+                                          const currentVal = form.getValues("paymentMethod");
+                                          setPreviousPaymentMethod(currentVal);
+                                          field.onChange(value);
+                                          if (value === "account") {
+                                            setIsAccountJobPinVerified(false);
+                                            setIsAccountJobPinDialogOpen(true);
+                                          } else {
+                                            setIsAccountJobPinVerified(false);
+                                          }
+                                        }}
+                                        value={field.value}
                                         className="grid grid-cols-1 gap-3"
                                       >
                                         <FormItem className="flex-1">
@@ -2332,8 +2396,12 @@ const handleProceedToConfirmation = async () => {
                                             className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
                                           >
                                             <Briefcase className="mb-2 h-6 w-6 text-purple-600 peer-data-[state=checked]:text-purple-600" />
-                                            Pay via Account
-                                            <span className="text-xs text-muted-foreground mt-0.5">(If eligible, operator will bill)</span>
+                                              Account
+                                              {field.value === "account" && isAccountJobPinVerified 
+                                                ? <span className="text-xs text-green-500 mt-0.5">(PIN Verified)</span>
+                                                : <span className="text-xs text-orange-500 mt-0.5">(PIN Required)</span>
+                                              }
+                                            <span className="text-xs text-muted-foreground mt-0.5">(Operator will bill)</span>
                                           </Label>
                                         </FormItem>
                                       </RadioGroup>
@@ -2354,7 +2422,7 @@ const handleProceedToConfirmation = async () => {
                           type="button"
                           onClick={() => form.handleSubmit(handleBookRide)()}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                          disabled={!totalFareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking}
+                          disabled={!totalFareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking || (form.getValues("paymentMethod") === "account" && !isAccountJobPinVerified)}
                         >
                           {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                           {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
@@ -2449,7 +2517,6 @@ const handleProceedToConfirmation = async () => {
               onChange={(e) => setPriorityFeeInput(e.target.value)}
               placeholder="e.g., 2.00"
             />
-            {/* Removed FormMessage as it caused context error */}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>
@@ -2461,7 +2528,53 @@ const handleProceedToConfirmation = async () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Account Job PIN Dialog */}
+      <Dialog open={isAccountJobPinDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen && form.getValues("paymentMethod") === "account" && !isAccountJobPinVerified) {
+          form.setValue("paymentMethod", previousPaymentMethod); // Revert if dialog is closed without verification
+          toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
+        }
+        setIsAccountJobPinDialogOpen(isOpen);
+      }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <ShadDialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary"/> Account Job Authorization</ShadDialogTitle>
+            <ShadDialogDescription>
+              Please enter your 6-digit authorization PIN for account bookings. (Hint: 123456)
+            </ShadDialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="account-job-pin">Enter 6-Digit PIN</Label>
+            <Input
+              id="account-job-pin"
+              type="password" 
+              inputMode="numeric"
+              value={accountJobPinInput}
+              onChange={(e) => setAccountJobPinInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+              maxLength={6}
+              placeholder="••••••"
+              className="text-center text-xl tracking-[0.3em]"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {
+              form.setValue("paymentMethod", previousPaymentMethod);
+              setIsAccountJobPinVerified(false);
+              setAccountJobPinInput("");
+              setIsAccountJobPinDialogOpen(false);
+              toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
+            }}>Cancel & Change Payment</Button>
+            <Button type="button" onClick={handleAccountJobPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              Confirm PIN
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+    
+
     
