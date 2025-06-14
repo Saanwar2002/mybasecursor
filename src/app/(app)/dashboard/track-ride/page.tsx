@@ -82,7 +82,7 @@ interface ActiveRide {
   passengerName: string;
   isSurgeApplied?: boolean;
   paymentMethod?: "card" | "cash" | "account";
-  accountJobPin?: string; // Added for one-time job PIN
+  accountJobPin?: string;
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
@@ -1012,6 +1012,19 @@ export default function MyActiveRidePage() {
             </CardHeader>
             <CardContent className="space-y-3">
                 <p className="text-base text-muted-foreground">{getStatusMessage(activeRide)}</p>
+                
+                {/* Account Job PIN Display */}
+                {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
+                  <Alert variant="default" className="my-3 bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700">
+                    <LockKeyhole className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <ShadAlertTitle className="font-semibold text-purple-700 dark:text-purple-300">Your One-Time Job PIN</ShadAlertTitle>
+                    <AlertDescription className="text-sm text-purple-600 dark:text-purple-400">
+                      Please provide this 4-digit PIN to your driver to start the ride:
+                      <strong className="block text-2xl tracking-wider my-1 text-purple-700 dark:text-purple-200">{activeRide.accountJobPin}</strong>
+                      This PIN is for this job only.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
                   <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
@@ -1050,19 +1063,6 @@ export default function MyActiveRidePage() {
                   </Alert>
                 )}
                 
-                {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
-                  <Alert variant="default" className="mt-3 bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700">
-                    <LockKeyhole className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    <ShadAlertTitle className="font-semibold text-purple-700 dark:text-purple-300">Your One-Time Job PIN</ShadAlertTitle>
-                    <AlertDescription className="text-sm text-purple-600 dark:text-purple-400">
-                      Please provide this 4-digit PIN to your driver to start the ride:
-                      <strong className="block text-2xl tracking-wider my-1 text-purple-700 dark:text-purple-200">{activeRide.accountJobPin}</strong>
-                      This PIN is for this job only.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-
                 {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
                 <Separator />
                 <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
