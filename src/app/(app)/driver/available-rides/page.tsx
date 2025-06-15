@@ -1839,7 +1839,8 @@ export default function AvailableRidesPage() {
     priorityFeeAmount,
     waitAndReturn,
     estimatedAdditionalWaitTimeMinutes,
-    accountJobPin
+    accountJobPin,
+    distanceMiles
   } = activeRide;
 
   const currentStatusNormalized = activeRide?.status?.toLowerCase();
@@ -1987,8 +1988,9 @@ export default function AvailableRidesPage() {
                   variant="default"
                   size="icon"
                   className={cn(
-                    "absolute right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                    isSosButtonVisible ? "top-12 md:top-[4.5rem]" : "top-2"
+                    "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                    "h-8 w-8 md:h-9 md:w-9", 
+                    isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-2" 
                   )}
                   aria-label="Report Road Hazard"
                   title="Report Road Hazard"
@@ -2055,9 +2057,9 @@ export default function AvailableRidesPage() {
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="text-xs md:text-sm font-medium flex items-center justify-center gap-1">
-                  <dispatchInfo.icon className="w-3 h-3 md:w-4 md:h-4 text-white"/> {dispatchInfo.text}
+              <div className={cn("p-1 my-1.5 rounded-lg text-center text-white font-semibold", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="text-sm flex items-center justify-center gap-1">
+                  <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
           )}
@@ -2128,7 +2130,41 @@ export default function AvailableRidesPage() {
                   </ShadAlertDescription>
               </Alert>
           )}
-          {/* Removed the old journey details list from here */}
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-sm">
+                <div className={cn("col-span-2 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1 font-bold")}>
+                  <p className="flex items-center gap-1.5 font-bold text-base">
+                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
+                    Fare: {displayedFare}
+                  </p>
+                </div>
+                <p className="flex items-center gap-1.5 font-medium"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
+                {activeRide.distanceMiles != null && (
+                  <p className="flex items-center gap-1.5 font-medium"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                )}
+                {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-medium"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+                 {(showCompletedStatus || showCancelledNoShowStatus) && (
+                  <>
+                    <Separator className="col-span-2 my-1 bg-green-300 dark:bg-green-700/50" />
+                    {journeyPoints.map((point, index) => {
+                      const isPickup = index === 0;
+                      const isDropoff = index === journeyPoints.length - 1;
+                      let legType = "";
+                      if (isPickup) legType = "Pickup";
+                      else if (isDropoff) legType = "Dropoff";
+                      else legType = `Stop ${index}`;
+                      return (
+                        <div key={`completed-leg-${index}`} className="col-span-2 flex items-start gap-1.5">
+                          <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
+                          <div className="text-xs">
+                            <span className="font-semibold">{legType}:</span> {point.address}
+                            {point.doorOrFlat && <span className="text-green-800 dark:text-green-200/80"> ({point.doorOrFlat})</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+          </div>
           {notes && !isRideInProgressOrFurther && (
               <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
                   <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
@@ -2136,19 +2172,6 @@ export default function AvailableRidesPage() {
                   </p>
               </div>
           )}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
-                <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1 font-bold", (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && "col-span-2")}>
-                  <p className="flex items-center gap-1.5 font-bold">
-                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
-                    Fare: {displayedFare}
-                  </p>
-                </div>
-                <p className="flex items-center gap-1.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
-                {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
-                )}
-                {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
-          </div>
           {(showCompletedStatus || showCancelledNoShowStatus) && (
             <div className="mt-2 pt-2 border-t text-center">
               <p className="text-xs font-medium mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
@@ -2471,3 +2494,4 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
+
