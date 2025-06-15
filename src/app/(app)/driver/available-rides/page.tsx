@@ -761,10 +761,10 @@ export default function AvailableRidesPage() {
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
 
-    const isPriority = Math.random() < 0.4;
+    const isPriority = Math.random() < 0.4; // 40% chance for priority
     let currentPriorityFeeAmount = 0;
     if (isPriority) {
-      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); 
+      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); // £1.00 to £3.50
     }
 
     const mockOffer: RideOffer = {
@@ -1558,10 +1558,10 @@ export default function AvailableRidesPage() {
       )}>
         <div className="flex-1 min-w-0">
           <p className={cn("text-xs font-bold uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
-          <p className={cn("text-base md:text-lg font-semibold truncate", textColorClass)}>
+          <p className={cn("text-base md:text-lg font-bold truncate", textColorClass)}>
             {primaryAddressLine}
           </p>
-          {secondaryAddressLine && <p className={cn("text-xs truncate", textColorClass, "opacity-80")}>{secondaryAddressLine}</p>}
+          {secondaryAddressLine && <p className={cn("text-xs font-bold truncate", textColorClass, "opacity-80")}>{secondaryAddressLine}</p>}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Button 
@@ -1827,6 +1827,7 @@ export default function AvailableRidesPage() {
   const {
     status,
     passengerName,
+    passengerPhone,
     pickupLocation,
     dropoffLocation,
     stops,
@@ -1962,7 +1963,7 @@ export default function AvailableRidesPage() {
                   <ShadAlertDialogDescriptionForDialog className="text-base py-2">
                     Select a quick alert or send a general emergency notification.
                     Your operator will be notified immediately.
-                    <strong>Use this for genuine emergencies only.</strong>
+                    <strong className="block mt-1">Use this for genuine emergencies only.</strong>
                   </ShadAlertDialogDescriptionForDialog>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-2 gap-2 my-3">
@@ -2036,11 +2037,11 @@ export default function AvailableRidesPage() {
       )}>
         <ScrollArea className={cn( (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) ? "" : "flex-1" )}>
           <CardContent className="p-2 space-y-1.5">
-          {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md font-semibold shadow"> En Route to Pickup </Badge> </div> )}
-          {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="outline" className="text-xs w-fit mx-auto border-blue-500 text-blue-500 py-1 px-3 rounded-md font-semibold shadow"> Arrived At Pickup </Badge> </div> )}
-          {showInProgressStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="text-xs w-fit mx-auto bg-green-600 text-white py-1 px-3 rounded-md font-semibold shadow"> Ride In Progress </Badge> </div> )}
-          {showPendingWRApprovalStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="text-xs w-fit mx-auto bg-purple-500 text-white py-1 px-3 rounded-md font-semibold shadow"> W&R Request Pending </Badge> </div> )}
-          {showInProgressWRStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="text-xs w-fit mx-auto bg-teal-600 text-white py-1 px-3 rounded-md font-semibold shadow"> Ride In Progress (W&R) </Badge> </div> )}
+          {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md font-bold shadow"> En Route to Pickup </Badge> </div> )}
+          {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="outline" className="text-xs w-fit mx-auto border-blue-500 text-blue-500 py-1 px-3 rounded-md font-bold shadow"> Arrived At Pickup </Badge> </div> )}
+          {showInProgressStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="text-xs w-fit mx-auto bg-green-600 text-white py-1 px-3 rounded-md font-bold shadow"> Ride In Progress </Badge> </div> )}
+          {showPendingWRApprovalStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="text-xs w-fit mx-auto bg-purple-500 text-white py-1 px-3 rounded-md font-bold shadow"> W&R Request Pending </Badge> </div> )}
+          {showInProgressWRStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="text-xs w-fit mx-auto bg-teal-600 text-white py-1 px-3 rounded-md font-bold shadow"> Ride In Progress (W&R) </Badge> </div> )}
           {showCompletedStatus && ( <div className="flex justify-center my-3"> <Badge variant="default" className="text-base w-fit mx-auto bg-primary text-primary-foreground py-1.5 px-4 rounded-lg font-bold shadow-lg flex items-center gap-2"> <CheckCircleIcon className="w-5 h-5" /> Ride Completed </Badge> </div> )}
           {showCancelledByDriverStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="text-base w-fit mx-auto py-1.5 px-4 rounded-lg font-bold shadow-lg flex items-center gap-2"> <XCircle className="w-5 h-5" /> Ride Cancelled By You </Badge> </div> )}
           {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="text-base w-fit mx-auto py-1.5 px-4 rounded-lg font-bold shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
@@ -2052,17 +2053,17 @@ export default function AvailableRidesPage() {
             </Avatar>
             <div className="flex-1">
               <p className="font-semibold text-sm md:text-base">{activeRide.passengerName}</p>
-              {activeRide.passengerPhone && (
+              {passengerPhone && (
                 <p className="text-xs text-muted-foreground flex items-center gap-0.5">
-                  <PhoneCall className="w-2.5 h-2.5"/> {activeRide.passengerPhone}
+                  <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone}
                 </p>
               )}
             </div>
             {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
               <div className="flex items-center gap-1">
-                {activeRide.passengerPhone && !isChatDisabled && (
+                {passengerPhone && !isChatDisabled && (
                    <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
-                    <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
+                    <a href={`tel:${passengerPhone}`} aria-label="Call passenger">
                       <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
                     </a>
                   </Button>
@@ -2081,7 +2082,7 @@ export default function AvailableRidesPage() {
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1 my-1.5 rounded-lg text-center text-white font-semibold", dispatchInfo.bgColorClassName, "border border-black")}>
+              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
                 <p className="text-sm flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
@@ -2091,8 +2092,8 @@ export default function AvailableRidesPage() {
           {isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
               <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                   <Crown className="h-3.5 w-3.5" />
-                  <ShadAlertTitle className="font-medium text-xs">Priority Booking</ShadAlertTitle>
-                  <ShadAlertDescription className="text-[10px]">
+                  <ShadAlertTitle className="font-bold text-xs">Priority Booking</ShadAlertTitle>
+                  <ShadAlertDescription className="text-[10px] font-bold">
                       Passenger offered +£{(priorityFeeAmount || 0).toFixed(2)}.
                   </ShadAlertDescription>
               </Alert>
@@ -2100,8 +2101,8 @@ export default function AvailableRidesPage() {
           {showArrivedAtPickupStatus && (
             <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
               <Timer className="h-4 w-4 text-current" />
-              <ShadAlertTitle className="font-semibold text-current text-xs">Passenger Waiting Status</ShadAlertTitle>
-              <ShadAlertDescription className="text-current text-[10px] font-semibold">
+              <ShadAlertTitle className="font-bold text-current text-xs">Passenger Waiting Status</ShadAlertTitle>
+              <ShadAlertDescription className="text-current text-[10px] font-bold">
                 {ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && (
                   `Waiting for passenger acknowledgment: ${formatTimer(ackWindowSecondsLeft)} left.`
                 )}
@@ -2129,7 +2130,7 @@ export default function AvailableRidesPage() {
               <ShadAlertTitle className="font-bold text-current text-xs">
                 Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}
               </ShadAlertTitle>
-              <ShadAlertDescription className="font-semibold text-current text-[10px]">
+              <ShadAlertDescription className="font-bold text-current text-[10px]">
                 {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
                   `Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`
                 )}
@@ -2142,8 +2143,8 @@ export default function AvailableRidesPage() {
           {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
                <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5">
                   <RefreshCw className="h-4 w-4 text-current animate-spin" />
-                  <ShadAlertTitle className="font-semibold text-current text-xs">Wait & Return Request</ShadAlertTitle>
-                  <ShadAlertDescription className="text-current text-[10px]">
+                  <ShadAlertTitle className="font-bold text-current text-xs">Wait & Return Request</ShadAlertTitle>
+                  <ShadAlertDescription className="text-current text-[10px] font-bold">
                       Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.
                       <br />
                       New estimated total fare (if accepted): £{(( (fareEstimate || 0) + (priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.
@@ -2161,11 +2162,11 @@ export default function AvailableRidesPage() {
                     Fare: {displayedFare}
                   </p>
                 </div>
-                <p className="flex items-center gap-1.5 font-medium"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
+                <p className="flex items-center gap-1.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
                 {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-1.5 font-medium"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                  <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                 )}
-                {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-medium"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+                {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
                  {(showCompletedStatus || showCancelledNoShowStatus) && (
                   <>
                     <Separator className="col-span-2 my-1 bg-green-300 dark:bg-green-700/50" />
@@ -2183,8 +2184,8 @@ export default function AvailableRidesPage() {
                       return (
                         <div key={`completed-leg-${index}`} className="col-span-2 flex items-start gap-1.5">
                           <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
-                          <div className="text-xs">
-                            <span className="font-semibold">{legType}:</span> {point.address}
+                          <div className="text-xs font-bold">
+                            <span className="font-bold">{legType}:</span> {point.address}
                             {point.doorOrFlat && <span className="text-green-800 dark:text-green-200/80"> ({point.doorOrFlat})</span>}
                           </div>
                         </div>
@@ -2195,14 +2196,14 @@ export default function AvailableRidesPage() {
           </div>
           {notes && !isRideInProgressOrFurther && (
               <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-                  <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
+                  <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-bold whitespace-pre-wrap">
                   <strong>Notes:</strong> {notes}
                   </p>
               </div>
           )}
           {(showCompletedStatus || showCancelledNoShowStatus) && (
             <div className="mt-2 pt-2 border-t text-center">
-              <p className="text-xs font-medium mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
+              <p className="text-xs font-bold mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
               <div className="flex justify-center space-x-0.5 mb-1">
                 {[...Array(5)].map((_, i) => (
                   <Star
@@ -2267,8 +2268,8 @@ export default function AvailableRidesPage() {
                  {showCompletedStatus && (
                   <div className="mb-1 text-center">
                     <Separator className="my-1.5"/>
-                    <p className="text-xs text-muted-foreground">You completed the ride for:</p>
-                    <p className="font-semibold text-base">{activeRide.passengerName}</p>
+                    <p className="text-xs text-muted-foreground font-bold">You completed the ride for:</p>
+                    <p className="font-bold text-base">{activeRide.passengerName}</p>
                     <Separator className="mt-1.5 mb-0.5"/>
                   </div>
                 )}
@@ -2474,15 +2475,15 @@ export default function AvailableRidesPage() {
                       isCurrentLeg && "ring-2 ring-primary shadow-md"
                     )}
                   >
-                    <p className={cn("font-semibold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}>
+                    <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}>
                       <Icon className="w-4 h-4 shrink-0" />
                       {legType}
                     </p>
-                    <p className={cn("text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                    <p className={cn("text-sm text-foreground pl-6 font-bold", isPastLeg && "line-through text-muted-foreground/70")}>
                       {point.address}
                     </p>
                     {point.doorOrFlat && (
-                      <p className={cn("text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                      <p className={cn("text-xs text-muted-foreground pl-6 font-bold", isPastLeg && "line-through text-muted-foreground/70")}>
                         (Unit/Flat: {point.doorOrFlat})
                       </p>
                     )}

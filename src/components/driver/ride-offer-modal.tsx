@@ -348,7 +348,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <ScrollArea className="flex-1">
           <div className="px-4 pt-2 pb-4">
             {rideDetails.paymentMethod === 'account' && (
-              <Badge variant="default" className="mb-2 text-sm py-1.5 px-4 w-full justify-center bg-purple-600 hover:bg-purple-700 text-white shadow-md border border-black">
+              <Badge variant="default" className="mb-2 text-sm py-1.5 px-4 w-full justify-center bg-purple-600 hover:bg-purple-700 text-white shadow-md border border-black font-bold">
                 <LockKeyhole className="w-4 h-4 mr-2" />
                 ACCOUNT JOB
               </Badge>
@@ -371,70 +371,78 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             </div>
 
             {dispatchInfo && (
-              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white font-semibold", dispatchInfo.bgColorClassName, "border border-black")}>
+              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
                 <p className="text-sm flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
             )}
 
-            <div className="mt-2 flex items-center justify-between gap-2 py-1.5 px-3 rounded-lg bg-amber-600 text-white shadow-md border border-black">
-              <span className="text-lg font-bold">
-                £{totalFareForDriver.toFixed(2)}
-                {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-                  <span className="text-xs font-normal ml-1">(+£{rideDetails.priorityFeeAmount.toFixed(2)} Prio)</span>
+            {/* Combined Fare/Distance and Priority Badge Container */}
+            <div className="mt-2 flex items-stretch justify-between gap-2">
+                {/* Fare & Distance Badge */}
+                <div className="flex-1 py-1.5 px-3 rounded-lg bg-amber-600 text-white shadow-md border border-black flex flex-col justify-center items-center">
+                    <span className="text-lg font-bold">
+                        £{totalFareForDriver.toFixed(2)}
+                        {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
+                            <span className="text-xs font-bold ml-1">(+£{rideDetails.priorityFeeAmount.toFixed(2)} Prio)</span>
+                        )}
+                    </span>
+                    {rideDetails.distanceMiles && (
+                        <span className="text-xs font-bold">({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
+                    )}
+                </div>
+
+                {/* Priority Badge (Conditional) */}
+                {rideDetails.isPriorityPickup && (
+                    <div className="py-1.5 px-3 rounded-lg bg-orange-100 text-orange-700 border-2 border-orange-500 shadow-md flex flex-col items-center justify-center">
+                        <Crown className="w-5 h-5 mb-0.5" />
+                        <span className="text-xs font-bold whitespace-nowrap">Priority</span>
+                    </div>
                 )}
-                {rideDetails.distanceMiles && (
-                  <span className="text-xs font-normal ml-1"> ({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
-                )}
-              </span>
-              {rideDetails.isPriorityPickup && (
-                <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-500 px-2 py-0.5 h-fit border-2">
-                  <Crown className="w-3.5 h-3.5 mr-1"/> Priority
-                </Badge>
-              )}
             </div>
 
+
             <div className="p-3 bg-muted/50 rounded-lg border border-muted mt-2">
-              <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
+              <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-bold">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-1" />
                 <span>Pickup: {rideDetails.pickupLocation}</span>
               </p>
               {rideDetails.stops && rideDetails.stops.length > 0 && (
                 <div className="mt-1.5 pl-2">
                   {rideDetails.stops.map((stop, index) => (
-                    <p key={`stop-display-${index}`} className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
+                    <p key={`stop-display-${index}`} className="flex items-start gap-2 mb-1 text-base md:text-lg font-bold">
                        <MapPin className="w-4 h-4 text-yellow-500 shrink-0 mt-1" />
                        <span>Stop {index + 1}: {stop.address}</span>
                     </p>
                   ))}
                 </div>
               )}
-              <p className="flex items-start gap-2 text-base md:text-lg font-semibold">
+              <p className="flex items-start gap-2 text-base md:text-lg font-bold">
                 <MapPin className="w-4 h-4 text-accent shrink-0 mt-1" />
                 <span>Dropoff: {rideDetails.dropoffLocation}</span>
               </p>
             </div>
 
             {rideDetails.passengerName && (
-              <p className="text-sm flex items-center gap-1.5 mt-1.5"><Info className="inline w-4 h-4 mr-0.5 text-muted-foreground shrink-0" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
+              <p className="text-sm flex items-center gap-1.5 mt-1.5 font-bold"><Info className="inline w-4 h-4 mr-0.5 text-muted-foreground shrink-0" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
             )}
 
             {rideDetails.notes && (
                <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-                  <p className="text-xs md:text-sm text-yellow-900 dark:text-yellow-200 font-semibold whitespace-pre-wrap">
+                  <p className="text-xs md:text-sm text-yellow-900 dark:text-yellow-200 font-bold whitespace-pre-wrap">
                     <strong>Notes:</strong> {rideDetails.notes}
                   </p>
                </div>
             )}
 
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-3 rounded-lg bg-muted/30 border border-border text-sm">
-              <p className="flex items-center gap-1.5 font-medium"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
+              <p className="flex items-center gap-1.5 font-bold"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
               {rideDetails.distanceMiles && (
-                <p className="flex items-center gap-1.5 font-medium"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> Dist: ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
+                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> Dist: ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
               )}
               {rideDetails.paymentMethod && (
-                  <div className="col-span-2 flex items-center gap-1.5 font-medium">
+                  <div className="col-span-2 flex items-center gap-1.5 font-bold">
                     <PaymentIcon className="w-4 h-4 text-muted-foreground shrink-0" />
                     Payment: {getPaymentMethodDisplay()}
                   </div>
@@ -459,3 +467,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
