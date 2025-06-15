@@ -54,13 +54,13 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 });
 
 const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
-  <path d="M15 45 C5 30 2 20 7.5 12.5 A12.5 12.5 0 1 1 22.5 12.5 C28 20 25 30 15 45 Z" fill="#FFA500"/>
-  <circle cx="15" cy="15" r="11" fill="white"/>
-  <rect x="10" y="8" width="10" height="3" fill="black"/>
-  <rect x="9" y="11" width="12" height="5" fill="black"/>
-  <rect x="7" y="16" width="16" height="6" fill="black"/>
-  <circle cx="10" cy="23" r="2" fill="black"/>
-  <circle cx="20" cy="23" r="2" fill="black"/>
+  <!-- Pin Needle (Black) -->
+  <path d="M15 45 L10 30 H20 Z" fill="black"/>
+  <!-- Blue Circle with Thick Black Border -->
+  <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
+  <!-- White Car Silhouette -->
+  <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
+  <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
 </svg>`;
 
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -1308,7 +1308,7 @@ export default function AvailableRidesPage() {
             position: currentLocToDisplay,
             title: "Your Current Location",
             iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 30, height: 45} // Updated size
+            iconScaledSize: {width: 30, height: 45}
         });
     }
 
@@ -1592,20 +1592,20 @@ export default function AvailableRidesPage() {
     if (!currentLeg) return null;
 
     let bgColorClass = "bg-gray-100 dark:bg-gray-700";
-    let textColorClass = "font-bold text-gray-800 dark:text-gray-200";
+    let textColorClass = "text-gray-800 dark:text-gray-200";
     let legTypeLabel = "";
 
     if (localCurrentLegIndex === 0) { 
       bgColorClass = "bg-green-100 dark:bg-green-900/50";
-      textColorClass = "font-bold text-green-700 dark:text-green-300";
+      textColorClass = "text-green-700 dark:text-green-300";
       legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
     } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
       bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
-      textColorClass = "font-bold text-yellow-700 dark:text-yellow-300";
+      textColorClass = "text-yellow-700 dark:text-yellow-300";
       legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
     } else { 
       bgColorClass = "bg-red-100 dark:bg-red-800/50";
-      textColorClass = "font-bold text-red-700 dark:text-red-300";
+      textColorClass = "text-red-700 dark:text-red-300";
       legTypeLabel = "TO DROPOFF";
     }
     
@@ -1631,7 +1631,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="outline" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
@@ -1640,7 +1640,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="default" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
             title={`Navigate to ${legTypeLabel}`}
           >
