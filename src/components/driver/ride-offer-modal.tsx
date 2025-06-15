@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"; // Removed DialogDescription
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
@@ -381,6 +381,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             <div className="mt-2 flex items-center justify-between gap-2 py-1.5 px-3 rounded-lg bg-amber-600 text-white shadow-md border border-black">
               <span className="text-lg font-bold">
                 £{totalFareForDriver.toFixed(2)}
+                {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
+                  <span className="text-xs font-normal ml-1">(+£{rideDetails.priorityFeeAmount.toFixed(2)} Prio)</span>
+                )}
                 {rideDetails.distanceMiles && (
                   <span className="text-xs font-normal ml-1"> ({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
                 )}
@@ -456,5 +459,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
-    
