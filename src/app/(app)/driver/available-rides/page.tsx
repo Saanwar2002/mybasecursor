@@ -2040,8 +2040,7 @@ export default function AvailableRidesPage() {
           {showCancelledByDriverStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="text-base w-fit mx-auto py-1.5 px-4 rounded-lg font-bold shadow-lg flex items-center gap-2"> <XCircle className="w-5 h-5" /> Ride Cancelled By You </Badge> </div> )}
           {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="text-base w-fit mx-auto py-1.5 px-4 rounded-lg font-bold shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
 
-
-          <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30 border">
+          <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
             <Avatar className="h-7 w-7 md:h-8 md:h-8">
                 <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
                 <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback>
@@ -2054,26 +2053,26 @@ export default function AvailableRidesPage() {
                 </p>
               )}
             </div>
-              {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
-                <div className="flex items-center gap-0.5">
-                  {activeRide.passengerPhone && (
-                    <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
-                      <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
-                        <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
-                      </a>
-                    </Button>
-                  )}
-                  {isChatDisabled ? (
-                      <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled>
-                        <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
-                      </Button>
-                    ) : (
-                      <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
-                        <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></Link>
-                      </Button>
-                    )}
-                </div>
-               )}
+            {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
+              <div className="flex items-center gap-1">
+                {activeRide.passengerPhone && (
+                  <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+                    <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
+                      <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
+                    </a>
+                  </Button>
+                )}
+                {isChatDisabled ? (
+                  <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled>
+                    <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
+                  </Button>
+                ) : (
+                  <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+                    <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></Link>
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
@@ -2169,9 +2168,13 @@ export default function AvailableRidesPage() {
                       const isPickup = index === 0;
                       const isDropoff = index === journeyPoints.length - 1;
                       let legType = "";
-                      if (isPickup) legType = "Pickup";
-                      else if (isDropoff) legType = "Dropoff";
-                      else legType = `Stop ${index}`;
+                      let Icon = MapPin;
+                      let iconColor = "text-muted-foreground";
+
+                      if (isPickup) { legType = "Pickup"; iconColor = "text-green-700 dark:text-green-300"; }
+                      else if (isDropoff) { legType = "Dropoff"; iconColor = "text-red-700 dark:text-red-300"; }
+                      else { legType = `Stop ${index}`; iconColor = "text-blue-700 dark:text-blue-300"; }
+
                       return (
                         <div key={`completed-leg-${index}`} className="col-span-2 flex items-start gap-1.5">
                           <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
@@ -2441,14 +2444,12 @@ export default function AvailableRidesPage() {
               {activeRide && journeyPoints.map((point, index) => {
                 const isCurrentLeg = index === localCurrentLegIndex;
                 const isPastLeg = index < localCurrentLegIndex;
-                const isPickup = index === 0;
-                const isDropoff = index === journeyPoints.length - 1;
                 let legType = "";
                 let Icon = MapPin;
                 let iconColor = "text-muted-foreground";
 
-                if (isPickup) { legType = "Pickup"; iconColor = "text-green-500"; }
-                else if (isDropoff) { legType = "Dropoff"; iconColor = "text-orange-500"; }
+                if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
+                else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
                 else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
 
                 return (
@@ -2488,3 +2489,4 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
+
