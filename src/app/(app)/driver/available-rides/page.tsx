@@ -53,6 +53,11 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
+// Updated Car Icon: Smaller size (16x16) and brighter blue fill (#3B82F6)
+const driverCarIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#3B82F6" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
+const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
+
+
 interface LocationPoint {
   address: string;
   latitude: number;
@@ -110,10 +115,6 @@ interface ActiveRide {
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
-
-const driverCarIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#2563EB" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
-const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
-
 
 const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
@@ -347,15 +348,22 @@ export default function AvailableRidesPage() {
   const [currentMockSpeed, setCurrentMockSpeed] = useState(20);
   const [currentMockLimit, setCurrentMockLimit] = useState(30);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null); // For route calculation
+  const [currentRoutePolyline, setCurrentRoutePolyline] = useState<{ path: google.maps.LatLngLiteral[]; color: string; } | null>(null);
+  const [driverMarkerHeading, setDriverMarkerHeading] = useState<number | null>(null);
   const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
 
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
+
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
       if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
+      }
+      if (!directionsServiceRef.current && window.google.maps.DirectionsService) {
+        directionsServiceRef.current = new window.google.maps.DirectionsService();
       }
     }
   }, [isMapSdkLoaded]);
@@ -386,13 +394,13 @@ export default function AvailableRidesPage() {
     if (!isSpeedLimitFeatureEnabled) return;
     const speedInterval = setInterval(() => {
       setCurrentMockSpeed(prev => {
-        const change = Math.floor(Math.random() * 7) - 3; // -3 to +3
+        const change = Math.floor(Math.random() * 7) - 3; 
         let newSpeed = prev + change;
         if (newSpeed < 0) newSpeed = 0;
         if (newSpeed > 70) newSpeed = 70;
         return newSpeed;
       });
-      if (Math.random() < 0.1) { // 10% chance to change limit
+      if (Math.random() < 0.1) { 
         const limits = [20, 30, 40, 50, 60, 70];
         setCurrentMockLimit(limits[Math.floor(Math.random() * limits.length)]);
       }
@@ -751,6 +759,54 @@ export default function AvailableRidesPage() {
       }
     };
   }, [activeRide?.status]);
+
+  useEffect(() => {
+    if (!activeRide || !driverLocation || !isMapSdkLoaded || !directionsServiceRef.current) {
+      setCurrentRoutePolyline(null);
+      setDriverMarkerHeading(null);
+      return;
+    }
+
+    const currentLeg = journeyPoints[localCurrentLegIndex];
+    if (!currentLeg || !currentLeg.latitude || !currentLeg.longitude) {
+      setCurrentRoutePolyline(null);
+      setDriverMarkerHeading(null);
+      return;
+    }
+
+    const origin = driverLocation;
+    const destination = { lat: currentLeg.latitude, lng: currentLeg.longitude };
+
+    let routeColor = "#808080"; // Default grey
+    if (localCurrentLegIndex === 0) routeColor = "#008000"; // Green for pickup
+    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; // Red for final dropoff
+    else routeColor = "#FFD700"; // Yellow for intermediate stops
+
+    directionsServiceRef.current.route(
+      { origin, destination, travelMode: google.maps.TravelMode.DRIVING },
+      (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result && result.routes && result.routes.length > 0) {
+          const overviewPath = result.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
+          setCurrentRoutePolyline({ path: overviewPath, color: routeColor });
+
+          if (window.google && window.google.maps && window.google.maps.geometry && window.google.maps.geometry.spherical) {
+            const heading = window.google.maps.geometry.spherical.computeHeading(
+              new window.google.maps.LatLng(origin.lat, origin.lng),
+              new window.google.maps.LatLng(destination.lat, destination.lng)
+            );
+            setDriverMarkerHeading(heading);
+          } else {
+            setDriverMarkerHeading(null);
+          }
+        } else {
+          setCurrentRoutePolyline(null);
+          setDriverMarkerHeading(null);
+          console.warn("Directions request failed due to " + status);
+        }
+      }
+    );
+  }, [activeRide, localCurrentLegIndex, driverLocation, isMapSdkLoaded, journeyPoints]);
+
 
   const handleSimulateOffer = () => {
     const randomPickupIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
@@ -1244,7 +1300,7 @@ export default function AvailableRidesPage() {
             position: currentLocToDisplay,
             title: "Your Current Location",
             iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 30, height: 30}
+            iconScaledSize: {width: 16, height: 16} // Updated icon size
         });
     }
 
@@ -1607,7 +1663,11 @@ export default function AvailableRidesPage() {
               customMapLabels={mapDisplayElements.labels}
               className="w-full h-full"
               disableDefaultUI={true}
-              onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
+              onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
+              mapHeading={0}
+              mapRotateControl={false}
+              polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
+              driverIconRotation={driverMarkerHeading ?? undefined}
             />
             
             <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
@@ -1939,7 +1999,11 @@ export default function AvailableRidesPage() {
             customMapLabels={mapDisplayElements.labels}
             className="w-full h-full"
             disableDefaultUI={true}
-            onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
+            onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
+            mapHeading={0}
+            mapRotateControl={false}
+            polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
+            driverIconRotation={driverMarkerHeading ?? undefined}
           />
           {isSosButtonVisible && (
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
@@ -2052,7 +2116,7 @@ export default function AvailableRidesPage() {
                 <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <p className="font-semibold text-sm md:text-base">{activeRide.passengerName}</p>
+              <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p>
               {passengerPhone && (
                 <p className="text-xs text-muted-foreground flex items-center gap-0.5">
                   <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone}
@@ -2083,7 +2147,7 @@ export default function AvailableRidesPage() {
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
               <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="text-sm flex items-center justify-center gap-1">
+                <p className="text-sm font-bold flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
@@ -2224,11 +2288,11 @@ export default function AvailableRidesPage() {
 
         {!(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
           <div className="p-2 border-t grid gap-1.5 shrink-0">
-            {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Driver Assigned) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to pickup."})}}> <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
-            {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Arrived) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to dropoff."})}} > <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
+            {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="w-full text-sm py-2 h-auto font-bold" onClick={() => {console.log("Navigate (Driver Assigned) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to pickup."})}}> <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto font-bold" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
+            {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="w-full text-sm py-2 h-auto font-bold" onClick={() => {console.log("Navigate (Arrived) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to dropoff."})}} > <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto font-bold" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
             <Button
                 variant="destructive"
-                className="w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800"
+                className="w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800 font-bold"
                 onClick={() => {
                     setRideToReportNoShow(activeRide);
                     setIsNoShowConfirmDialogOpen(true);
@@ -2242,7 +2306,7 @@ export default function AvailableRidesPage() {
             {(showInProgressStatus || showInProgressWRStatus) && (
               <div className="grid grid-cols-1 gap-1.5">
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto font-bold"
                   onClick={mainActionBtnAction}
                   disabled={!!actionLoading[activeRide.id]}
                 >
@@ -2252,7 +2316,7 @@ export default function AvailableRidesPage() {
                 {showInProgressStatus && !activeRide.waitAndReturn && (
                   <Button
                     variant="outline"
-                    className="w-full text-sm py-2 h-auto border-accent text-accent hover:bg-accent/10"
+                    className="w-full text-sm py-2 h-auto border-accent text-accent hover:bg-accent/10 font-bold"
                     onClick={() => setIsWRRequestDialogOpen(true)}
                     disabled={isRequestingWR || !!actionLoading[activeRide.id]}
                   >
@@ -2289,7 +2353,7 @@ export default function AvailableRidesPage() {
                   </div>
                 )}
                 <Button
-                    className="w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto"
+                    className="w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto font-bold"
                     onClick={() => {
                         console.log("Done button clicked. Current status:", activeRide.status, "Rating given:", driverRatingForPassenger);
                         if(showCompletedStatus && driverRatingForPassenger > 0 && activeRide.passengerName) {

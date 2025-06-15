@@ -30,6 +30,15 @@ interface GoogleMapDisplayProps {
   fitBoundsToMarkers?: boolean;
   onSdkLoaded?: (isLoaded: boolean) => void; 
   gestureHandling?: 'cooperative' | 'greedy' | 'none' | 'auto';
+  mapHeading?: number; // New: For map orientation
+  mapRotateControl?: boolean; // New: To disable rotation controls
+  polylines?: Array<{ // New: For drawing routes
+    path: google.maps.LatLngLiteral[];
+    color: string;
+    weight: number;
+    opacity?: number;
+  }>;
+  driverIconRotation?: number; // Will be accepted but might not visually rotate image icons
 }
 
 const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; 
@@ -46,12 +55,17 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   fitBoundsToMarkers = false,
   onSdkLoaded,
   gestureHandling = 'greedy',
+  mapHeading,
+  mapRotateControl,
+  polylines,
+  driverIconRotation, // Accepted, but standard image markers don't rotate
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const currentMarkersRef = useRef<google.maps.Marker[]>([]);
   const customLabelOverlaysRef = useRef<ICustomMapLabelOverlay[]>([]); 
   const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
+  const currentPolylinesRef = useRef<google.maps.Polyline[]>([]); // New: Ref for polylines
   const [isInternalSdkLoaded, setIsInternalSdkLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [usedApiKeySource, setUsedApiKeySource] = useState<string>("unknown");
@@ -88,7 +102,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     const loader = new Loader({
       apiKey: apiKeyToUse,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places"],
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], // Added "geometry" and "routes"
     });
 
     loader.load().then((loadedGoogle) => {
@@ -131,6 +145,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         streetViewControl: !disableDefaultUI, 
         fullscreenControl: !disableDefaultUI,
         gestureHandling: gestureHandling,
+        heading: mapHeading, // Apply heading
+        rotateControl: mapRotateControl, // Apply rotate control setting
     };
 
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
@@ -145,11 +161,16 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           mapInstanceRef.current.setZoom(zoom);
         }
       }
-       // Ensure gestureHandling is updated if it changes dynamically
        if (mapInstanceRef.current && typeof mapInstanceRef.current.getOptions === 'function') {
         const currentGestureHandling = mapInstanceRef.current.getOptions()?.gestureHandling;
         if (currentGestureHandling !== gestureHandling) {
           mapInstanceRef.current.setOptions({ gestureHandling });
+        }
+        if (mapHeading !== undefined && mapInstanceRef.current.getHeading() !== mapHeading) {
+          mapInstanceRef.current.setHeading(mapHeading);
+        }
+        if (mapRotateControl !== undefined && mapInstanceRef.current.getOptions()?.rotateControl !== mapRotateControl) {
+          mapInstanceRef.current.setOptions({ rotateControl: mapRotateControl });
         }
       }
     }
@@ -171,6 +192,10 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
             anchor: new window.google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height),
           };
         }
+        // Icon rotation for Symbol-based icons (not directly for image URLs)
+        // if (driverIconRotation !== undefined && markerData.title === "Your Current Location" && markerOptions.icon && typeof markerOptions.icon !== 'string') {
+        //   (markerOptions.icon as google.maps.Symbol).rotation = driverIconRotation;
+        // }
         const newMarker = new window.google.maps.Marker(markerOptions);
         currentMarkersRef.current.push(newMarker);
         if (markerData.position) bounds.extend(markerData.position);
@@ -207,8 +232,24 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         });
       }
     }
+    
+    // Polyline drawing logic
+    currentPolylinesRef.current.forEach(polyline => polyline.setMap(null));
+    currentPolylinesRef.current = [];
+    if (polylines && polylines.length > 0 && mapInstanceRef.current && window.google.maps.Polyline) {
+      polylines.forEach(polylineData => {
+        const newPolyline = new window.google.maps.Polyline({
+          path: polylineData.path,
+          strokeColor: polylineData.color,
+          strokeOpacity: polylineData.opacity ?? 0.8,
+          strokeWeight: polylineData.weight,
+          map: mapInstanceRef.current,
+        });
+        currentPolylinesRef.current.push(newPolyline);
+      });
+    }
 
-  }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling]);
+  }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling, mapHeading, mapRotateControl, polylines, driverIconRotation]);
 
   useEffect(() => {
     return () => {
@@ -216,6 +257,8 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       currentMarkersRef.current = [];
       customLabelOverlaysRef.current.forEach(overlay => overlay.setMap(null));
       customLabelOverlaysRef.current = [];
+      currentPolylinesRef.current.forEach(polyline => polyline.setMap(null));
+      currentPolylinesRef.current = [];
     };
   }, []);
 
