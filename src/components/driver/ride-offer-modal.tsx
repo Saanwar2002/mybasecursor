@@ -343,17 +343,19 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               New Ride Offer!
             </span>
           </DialogTitle>
-          {/* DialogDescription removed as per user request */}
-          {rideDetails.paymentMethod === 'account' && (
-            <Badge variant="default" className="mt-2 text-sm py-1 px-3 w-fit self-center bg-purple-600 hover:bg-purple-700 text-white shadow-md">
-              <LockKeyhole className="w-4 h-4 mr-1.5" />
-              ACCOUNT JOB
-            </Badge>
-          )}
+          <p className="text-sm text-muted-foreground text-center">
+            Review the details below and respond quickly before the timer runs out.
+          </p>
         </DialogHeader>
 
         <ScrollArea className="flex-1">
           <div className="px-4 pt-2 pb-4">
+            {rideDetails.paymentMethod === 'account' && (
+              <Badge variant="default" className="mb-2 text-sm py-1.5 px-4 w-full justify-center bg-purple-600 hover:bg-purple-700 text-white shadow-md">
+                <LockKeyhole className="w-4 h-4 mr-2" />
+                ACCOUNT JOB
+              </Badge>
+            )}
             <div className="h-36 sm:h-48 w-full mb-3 rounded-md overflow-hidden border shrink-0">
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
@@ -378,6 +380,20 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 </p>
               </div>
             )}
+
+            <div className="mt-2 flex items-center justify-between gap-2 p-3 rounded-lg bg-amber-600 text-white shadow-md">
+                <span className="text-lg font-bold">
+                  £{totalFareForDriver.toFixed(2)}
+                  {rideDetails.distanceMiles && (
+                    <span className="text-xs font-normal ml-1"> ({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
+                  )}
+                </span>
+                {rideDetails.isPriorityPickup && (
+                    <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 px-2 py-0.5 h-fit">
+                        <Crown className="w-3.5 h-3.5 mr-1"/> Priority
+                    </Badge>
+                )}
+            </div>
              
             <div className="p-3 bg-muted/50 rounded-lg border border-muted mt-2">
               <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
@@ -412,31 +428,18 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                </div>
             )}
 
-            {/* Summary Box - New Styling */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
-              <div className="col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1">
-                <p className="flex items-center gap-1.5 font-bold">
-                  <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
-                  Total Est. Fare: £{totalFareForDriver.toFixed(2)}
-                </p>
-              </div>
-              <p className="flex items-center gap-1.5 font-bold"><Users className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-3 rounded-lg bg-muted/30 border border-border text-sm">
+              <p className="flex items-center gap-1.5 font-medium"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
               {rideDetails.distanceMiles && (
-                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
+                <p className="flex items-center gap-1.5 font-medium"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> Dist: ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
               )}
               {rideDetails.paymentMethod && (
-                  <div className="col-span-2 flex items-center gap-1.5 font-bold">
-                    <PaymentIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
+                  <div className="col-span-2 flex items-center gap-1.5 font-medium">
+                    <PaymentIcon className="w-4 h-4 text-muted-foreground shrink-0" />
                     Payment: {getPaymentMethodDisplay()}
                   </div>
                 )}
-              {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && (
-                  <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1.5 font-bold col-span-2">
-                      <Crown className="w-3.5 h-3.5"/> Includes +£{rideDetails.priorityFeeAmount.toFixed(2)} priority fee
-                  </p>
-              )}
             </div>
-            {/* End Summary Box */}
           </div>
         </ScrollArea>
 
