@@ -343,7 +343,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               New Ride Offer!
             </span>
           </DialogTitle>
-          {/* Removed the descriptive paragraph here */}
         </DialogHeader>
 
         <ScrollArea className="flex-1">
@@ -379,18 +378,18 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               </div>
             )}
 
-            <div className="mt-2 flex items-center justify-between gap-2 p-3 rounded-lg bg-amber-600 text-white shadow-md border border-black">
-                <span className="text-lg font-bold">
-                  £{totalFareForDriver.toFixed(2)}
-                  {rideDetails.distanceMiles && (
-                    <span className="text-xs font-normal ml-1"> ({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
-                  )}
-                </span>
-                {rideDetails.isPriorityPickup && (
-                    <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-500 px-2 py-0.5 h-fit border-2">
-                        <Crown className="w-3.5 h-3.5 mr-1"/> Priority
-                    </Badge>
+            <div className="mt-2 flex items-center justify-between gap-2 py-1.5 px-3 rounded-lg bg-amber-600 text-white shadow-md border border-black">
+              <span className="text-lg font-bold">
+                £{totalFareForDriver.toFixed(2)}
+                {rideDetails.distanceMiles && (
+                  <span className="text-xs font-normal ml-1"> ({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
                 )}
+              </span>
+              {rideDetails.isPriorityPickup && (
+                <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-500 px-2 py-0.5 h-fit border-2">
+                  <Crown className="w-3.5 h-3.5 mr-1"/> Priority
+                </Badge>
+              )}
             </div>
 
             <div className="p-3 bg-muted/50 rounded-lg border border-muted mt-2">
@@ -457,3 +456,5 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
+    
