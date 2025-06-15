@@ -270,15 +270,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {sidebarContent(false)}
         </aside>
         <main className="flex-1 flex flex-col overflow-y-auto p-4 md:p-6">
-           <div style={{ border: '3px dashed blue', padding: '10px', marginBlockEnd: '1rem', backgroundColor: 'rgba(0,0,255,0.05)' }}>
-            <p style={{ color: 'blue', fontWeight: 'bold', fontSize: '10px' }}>
-              DEBUG: AppLayout (BLUE BORDER) rendering children... User: {user?.email || 'None'}, Role: {user?.role || 'None'}. Pathname: {pathname}
-            </p>
-          </div>
+           {/* The blue border debug box has been removed from here */}
           {children}
         </main>
       </div>
     </div>
   );
 }
-
