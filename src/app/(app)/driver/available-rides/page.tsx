@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, TrafficCone } from "lucide-react"; // Added TrafficCone
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react"; // Added TrafficCone
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -761,22 +761,28 @@ export default function AvailableRidesPage() {
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
 
+    const isPriority = Math.random() < 0.4; // 40% chance for a priority job
+    let currentPriorityFeeAmount = 0;
+    if (isPriority) {
+      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); // e.g. 1.00 to 3.50
+    }
+
     const mockOffer: RideOffer = {
       id: `mock-offer-${Date.now()}`,
       pickupLocation: pickup.address,
       pickupCoords: pickup.coords,
       dropoffLocation: dropoff.address,
       dropoffCoords: dropoff.coords,
-      fareEstimate: Math.floor(Math.random() * 20) + 5,
+      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)), // Base fare: 5.00 to 19.99
+      isPriorityPickup: isPriority,
+      priorityFeeAmount: currentPriorityFeeAmount,
       passengerCount: Math.floor(Math.random() * 3) + 1,
       passengerId: `pass-mock-${Date.now().toString().slice(-4)}`,
       passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
       notes: Math.random() < 0.3 ? "Has some luggage." : undefined,
       requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
-      distanceMiles: Math.random() * 10 + 1,
+      distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)), // Distance 1.0 to 9.9 miles
       paymentMethod: Math.random() < 0.6 ? 'card' : (Math.random() < 0.8 ? 'cash' : 'account'),
-      isPriorityPickup: Math.random() < 0.2,
-      priorityFeeAmount: Math.random() < 0.2 ? parseFloat((Math.random() * 3 + 1).toFixed(2)) : 0,
       dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
       accountJobPin: Math.random() < 0.1 ? Math.floor(1000 + Math.random() * 9000).toString() : undefined,
     };
@@ -1541,7 +1547,10 @@ export default function AvailableRidesPage() {
                     <Button
                     variant="default"
                     size="icon"
-                    className="absolute top-3 right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50"
+                    className={cn(
+                        "absolute right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                        isSosButtonVisible ? "top-16 md:top-20" : "top-3" 
+                    )}
                     aria-label="Report Road Hazard"
                     title="Report Road Hazard"
                     onClick={() => setIsHazardReportDialogOpen(true)}
@@ -1848,7 +1857,10 @@ export default function AvailableRidesPage() {
         />
       }
       {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
-      <div className="h-[calc(45%-0.5rem)] w-full rounded-b-xl overflow-hidden shadow-lg border-b relative">
+      <div className={cn(
+        "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
+        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[400px]" // Adjust height if no active ride
+      )}>
           <GoogleMapDisplay
             center={memoizedMapCenter}
             zoom={15}
