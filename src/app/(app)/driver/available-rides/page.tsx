@@ -53,10 +53,11 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <circle cx="12" cy="12" r="11" fill="#FFD700" stroke="black" stroke-width="1.5"/>
-  <path fill="#3B82F6" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="11" fill="#FFD700" stroke="black" stroke-width="1.5"/>
+<path fill="#3B82F6" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
 </svg>`;
+
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
 
@@ -451,7 +452,7 @@ export default function AvailableRidesPage() {
           }
           setGeolocationError(message);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 } // Updated timeout and maximumAge
       );
     } else {
       if (watchIdRef.current !== null) {
@@ -1619,13 +1620,13 @@ export default function AvailableRidesPage() {
           <p className={cn("text-base md:text-lg font-bold truncate", textColorClass)}>
             {primaryAddressLine}
           </p>
-          {secondaryAddressLine && <p className={cn("text-xs truncate", textColorClass, "opacity-80 font-bold")}>{secondaryAddressLine}</p>}
+          {secondaryAddressLine && <p className={cn("text-xs truncate font-bold", textColorClass, "opacity-80")}>{secondaryAddressLine}</p>}
         </div>
         <div className="flex items-start gap-1.5 shrink-0">
           <Button 
             variant="outline" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
@@ -2077,7 +2078,7 @@ export default function AvailableRidesPage() {
                     <Button
                       key={hazard.id}
                       variant="outline"
-                      className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
+                      className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
                       onClick={() => handleReportHazard(hazard.label)}
                     >
                       <hazard.icon className="w-6 h-6 mb-1" />
@@ -2120,7 +2121,7 @@ export default function AvailableRidesPage() {
             <div className="flex-1">
               <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p>
               {passengerPhone && (
-                <p className="text-xs text-muted-foreground flex items-center gap-0.5">
+                <p className="text-xs text-muted-foreground flex items-center gap-0.5 font-bold">
                   <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone}
                 </p>
               )}
@@ -2148,7 +2149,7 @@ export default function AvailableRidesPage() {
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
+              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
                 <p className="text-sm font-bold flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
@@ -2249,7 +2250,7 @@ export default function AvailableRidesPage() {
 
                       return (
                         <div key={`completed-leg-${index}`} className="col-span-2 flex items-start gap-1.5">
-                          <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
+                          <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5 font-bold", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
                           <div className="text-xs font-bold">
                             <span className="font-bold">{legType}:</span> {point.address}
                             {point.doorOrFlat && <span className="text-green-800 dark:text-green-200/80"> ({point.doorOrFlat})</span>}
@@ -2345,7 +2346,7 @@ export default function AvailableRidesPage() {
                       else { legType = `Stop ${index}`; }
                       return (
                         <div key={`completed-leg-summary-${index}`} className="flex items-start gap-1.5 text-xs justify-center">
-                          <MapPin className={cn("w-3 h-3 shrink-0 mt-0.5", isPickup ? "text-green-500" : isDropoff ? "text-red-500" : "text-blue-500")} />
+                          <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5 font-bold", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
                           <span className="font-bold">{legType}:</span> {point.address}
                           {point.doorOrFlat && <span className="text-muted-foreground">({point.doorOrFlat})</span>}
                         </div>
