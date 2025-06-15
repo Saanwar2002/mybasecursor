@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle,
+  AlertDialogTitle as ShadAlertDialogTitle, // Renamed to avoid conflict with CardTitle
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -34,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription as ShadDialogDescriptionDialog,
+  DialogDescription as ShadDialogDescriptionDialog, // Renamed DialogDescription
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -221,7 +221,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   return `${type}:\n${street}\n${locationLine}`;
 }
 
-const mockHuddersfieldLocations: Array<{address: string, coords: {lat: number, lng: number}}> = [
+const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number; lng: number } }> = [
     { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", coords: { lat: 53.6483, lng: -1.7805 } },
     { address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", coords: { lat: 53.6465, lng: -1.7833 } },
     { address: "University of Huddersfield, Queensgate, Huddersfield HD1 3DH", coords: { lat: 53.6438, lng: -1.7787 } },
@@ -305,7 +305,7 @@ export default function AvailableRidesPage() {
   const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
 
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
-  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false); // SOS Dialog state
+  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false); 
 
   const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
   const journeyPoints = useMemo(() => {
@@ -732,160 +732,6 @@ export default function AvailableRidesPage() {
       }
     };
   }, [activeRide?.status]);
-
-
-  const handleSimulateOffer = () => {
-    if (!driverUser) {
-      toast({ title: "Driver Info Missing", description: "Cannot simulate offer without driver details.", variant: "destructive" });
-      return;
-    }
-
-    const operatorCode = driverUser.operatorCode || driverUser.customId || "OP_DefaultGuest";
-    const acceptsPlatformJobs = driverUser.acceptsPlatformJobs || false;
-    const maxDistancePref = driverUser.maxJourneyDistance || "no_limit";
-
-    let simulatedOfferType: 'own_operator' | 'platform_op001' | 'general_pool';
-    const canReceivePlatformOrGeneral = acceptsPlatformJobs || operatorCode === PLATFORM_OPERATOR_CODE;
-
-    if (canReceivePlatformOrGeneral) {
-      const rand = Math.random();
-      if (rand < 0.4) simulatedOfferType = 'own_operator';
-      else if (rand < 0.8) simulatedOfferType = 'platform_op001';
-      else simulatedOfferType = 'general_pool';
-    } else {
-      simulatedOfferType = 'own_operator';
-    }
-
-    let availableLocations = [...mockHuddersfieldLocations];
-    const numStops = 2;
-
-    const getRandomLocation = () => {
-      if (availableLocations.length === 0) {
-          availableLocations = [...mockHuddersfieldLocations];
-          console.warn("Ran out of unique mock locations, reusing.");
-      }
-      const index = Math.floor(Math.random() * availableLocations.length);
-      const selected = availableLocations[index];
-      availableLocations.splice(index, 1);
-      return selected;
-    };
-
-    const pickup = getRandomLocation();
-    const stops: RideOffer['stops'] = [];
-    for (let i = 0; i < numStops; i++) {
-      if (availableLocations.length > 0) {
-        const stopLoc = getRandomLocation();
-        stops.push({
-          address: stopLoc.address,
-          coords: stopLoc.coords,
-        });
-      }
-    }
-    const dropoff = getRandomLocation();
-
-    const distance = parseFloat((Math.random() * 10 + 1).toFixed(1));
-    const paymentMethodOptions: Array<RideOffer['paymentMethod']> = ['card', 'cash', 'account'];
-    const paymentMethod: RideOffer['paymentMethod'] = paymentMethodOptions[Math.floor(Math.random() * paymentMethodOptions.length)];
-    const isPriority = Math.random() < 0.3;
-    const priorityFee = isPriority ? parseFloat((Math.random() * 2.5 + 0.5).toFixed(2)) : undefined;
-    const dispatchMethods: RideOffer['dispatchMethod'][] = ['auto_system', 'manual_operator', 'priority_override'];
-    const randomDispatchMethod = dispatchMethods[Math.floor(Math.random() * dispatchMethods.length)];
-    const mockPassengerId = `pass-mock-${Date.now().toString().slice(-5)}`;
-    const mockPhone = `+447700900${Math.floor(Math.random() * 900) + 100}`;
-    let accountJobPinForOffer: string | undefined = undefined;
-    if (paymentMethod === 'account') {
-      accountJobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString();
-    }
-
-    let requiredOperatorIdForOffer: string | undefined = undefined;
-    let passengerNameForOffer = "Simulated Passenger";
-    let offerContextDescription = "";
-
-    switch (simulatedOfferType) {
-      case 'own_operator':
-        requiredOperatorIdForOffer = operatorCode;
-        passengerNameForOffer = `Passenger (for ${operatorCode})`;
-        offerContextDescription = `for your operator (${operatorCode})`;
-        break;
-      case 'platform_op001':
-        requiredOperatorIdForOffer = PLATFORM_OPERATOR_CODE;
-        passengerNameForOffer = "Passenger (Platform MyBase)";
-        offerContextDescription = `from MyBase platform pool (${PLATFORM_OPERATOR_CODE})`;
-        break;
-      case 'general_pool':
-        requiredOperatorIdForOffer = undefined;
-        passengerNameForOffer = "Passenger (General Pool)";
-        offerContextDescription = `from the general MyBase pool`;
-        break;
-    }
-
-    const mockOffer: RideOffer = {
-      id: `mock-offer-${simulatedOfferType}-${Date.now()}`,
-      passengerId: mockPassengerId,
-      passengerName: passengerNameForOffer,
-      passengerPhone: mockPhone,
-      pickupLocation: pickup.address,
-      pickupCoords: pickup.coords,
-      dropoffLocation: dropoff.address,
-      dropoffCoords: dropoff.coords,
-      stops: stops.length > 0 ? stops : undefined,
-      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)),
-      passengerCount: Math.floor(Math.random() * 3) + 1,
-      notes: Math.random() < 0.3 ? "Simulated: Passenger has luggage and needs assistance." : undefined,
-      requiredOperatorId: requiredOperatorIdForOffer,
-      distanceMiles: distance,
-      paymentMethod: paymentMethod,
-      isPriorityPickup: isPriority,
-      priorityFeeAmount: priorityFee,
-      dispatchMethod: randomDispatchMethod,
-      accountJobPin: accountJobPinForOffer,
-    };
-
-    let showThisOfferToDriver = false;
-    if (mockOffer.requiredOperatorId === operatorCode) {
-      showThisOfferToDriver = true;
-    } else if ((!mockOffer.requiredOperatorId || mockOffer.requiredOperatorId === PLATFORM_OPERATOR_CODE) && canReceivePlatformOrGeneral) {
-      showThisOfferToDriver = true;
-    }
-
-    let distanceLimitExceeded = false;
-    if (maxDistancePref !== "no_limit") {
-      const limitValue = parseInt(maxDistancePref.split('_')[1]);
-      if (mockOffer.distanceMiles && mockOffer.distanceMiles > limitValue) {
-        distanceLimitExceeded = true;
-      }
-    }
-
-    if (showThisOfferToDriver && !distanceLimitExceeded) {
-      setCurrentOfferDetails(mockOffer);
-      setIsOfferModalOpen(true);
-    } else {
-      const currentOperatorDisplay = operatorCode || "N/A";
-      let skipReason = `An offer ${offerContextDescription} was received, but your current preferences mean it wasn't shown. Your operator: ${currentOperatorDisplay}.`;
-      if (distanceLimitExceeded) {
-        skipReason = `An offer ${offerContextDescription} was received, but its distance of ${mockOffer.distanceMiles?.toFixed(1)} miles exceeds your preference of ${maxDistancePref.replace("_", " ")} miles.`;
-      }
-      toast({
-        title: "Offer Skipped (Simulation)",
-        description: skipReason,
-        variant: "default",
-        duration: 8000,
-      });
-
-      const newMissedCount = consecutiveMissedOffers + 1;
-      setConsecutiveMissedOffers(newMissedCount);
-      if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
-        setIsDriverOnline(false);
-        toast({
-          title: "Automatically Set Offline (Simulation)",
-          description: `You've missed/skipped ${MAX_CONSECUTIVE_MISSED_OFFERS} simulated offers and have been set to Offline. Please go Online manually if you wish to continue receiving offers.`,
-          variant: "default",
-          duration: 10000,
-        });
-        setConsecutiveMissedOffers(0);
-      }
-    }
-  };
 
 
   const handleAcceptOffer = async (rideId: string) => {
@@ -1466,6 +1312,15 @@ export default function AvailableRidesPage() {
     setIsSosDialogOpen(false);
   };
 
+  const handleQuickSOSAlert = (alertType: string) => {
+    toast({
+      title: "QUICK SOS ALERT SENT!",
+      description: `Your operator has been notified: ${alertType}. Stay safe.`,
+      variant: "destructive",
+      duration: 10000
+    });
+  };
+
   const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
     setIsDriverOnline(newOnlineStatus);
     if (newOnlineStatus) {
@@ -1604,7 +1459,13 @@ export default function AvailableRidesPage() {
             <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/>
             <Label htmlFor="speed-limit-mock-toggle" className="text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label>
         </div>
-        {isDriverOnline && ( <Button variant="outline" size="sm" onClick={handleSimulateOffer} className="mt-2 text-xs h-8 px-3 py-1" > Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+        {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => {
+            if (!activeRide) {
+              handleSimulateOffer();
+            } else {
+              toast({ title: "Action Not Allowed", description: "Please complete your current ride before simulating a new offer.", variant: "default" });
+            }
+          }} className="mt-2 text-xs h-8 px-3 py-1" disabled={!!activeRide}> Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
         <AlertDialog
           open={isStationaryReminderVisible}
           onOpenChange={setIsStationaryReminderVisible}
@@ -1880,24 +1741,30 @@ export default function AvailableRidesPage() {
                   <AlertTriangle className="h-5 w-5 md:h-6 md:h-6" />
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="sm:max-w-md">
                 <AlertDialogHeader>
                   <ShadAlertDialogTitle className="text-2xl flex items-center gap-2">
                     <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
                   </ShadAlertDialogTitle>
                   <AlertDialogDescription className="text-base py-2">
-                    Are you sure you want to send an emergency alert?
-                    This will immediately notify your operator.
-                    <strong>Use this button for genuine emergencies only.</strong>
+                    Select a quick alert or send a general emergency notification.
+                    Your operator will be notified immediately.
+                    <strong>Use this for genuine emergencies only.</strong>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="grid grid-cols-2 gap-2 my-3">
+                    <Button onClick={() => handleQuickSOSAlert("Emergency")} className="bg-red-500 hover:bg-red-600 text-white border border-black" size="sm">Emergency</Button>
+                    <Button onClick={() => handleQuickSOSAlert("Car Broken Down")} className="bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Car Broken Down</Button>
+                    <Button onClick={() => handleQuickSOSAlert("Customer Aggressive")} className="bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Customer Aggressive</Button>
+                    <Button onClick={() => handleQuickSOSAlert("Call Me Back")} className="bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Call Me Back</Button>
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleConfirmEmergency}
                     className="bg-destructive hover:bg-destructive/90"
                   >
-                    Send Alert Now
+                    Send General Alert Now
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
