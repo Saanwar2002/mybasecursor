@@ -1520,6 +1520,73 @@ export default function AvailableRidesPage() {
   
   const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
+  const CurrentNavigationLegBar = () => {
+    if (!activeRide || !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
+      return null;
+    }
+    const currentLeg = journeyPoints[localCurrentLegIndex];
+    if (!currentLeg) return null;
+
+    let bgColorClass = "bg-gray-100 dark:bg-gray-700";
+    let textColorClass = "text-gray-800 dark:text-gray-200";
+    let legTypeLabel = "";
+
+    if (localCurrentLegIndex === 0) { // Pickup
+      bgColorClass = "bg-green-100 dark:bg-green-900/50";
+      textColorClass = "text-green-700 dark:text-green-300";
+      legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
+    } else if (localCurrentLegIndex < journeyPoints.length - 1) { // Stop
+      bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
+      textColorClass = "text-yellow-700 dark:text-yellow-300";
+      legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
+    } else { // Dropoff
+      bgColorClass = "bg-red-100 dark:bg-red-800/50";
+      textColorClass = "text-red-700 dark:text-red-300";
+      legTypeLabel = "TO DROPOFF";
+    }
+    
+    const addressParts = currentLeg.address.split(',');
+    const primaryAddressLine = addressParts[0]?.trim();
+    const secondaryAddressLine = addressParts.slice(1).join(',').trim();
+
+
+    return (
+      <div className={cn(
+        "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-center justify-between gap-2",
+        bgColorClass,
+        "border-t-2 border-black/20 dark:border-white/20" 
+      )}>
+        <div className="flex-1 min-w-0">
+          <p className={cn("text-xs font-bold uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
+          <p className={cn("text-base md:text-lg font-semibold truncate", textColorClass)}>
+            {primaryAddressLine}
+          </p>
+          {secondaryAddressLine && <p className={cn("text-xs truncate", textColorClass, "opacity-80")}>{secondaryAddressLine}</p>}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-9 w-9 md:h-10 md:w-10 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            onClick={() => setIsJourneyDetailsModalOpen(true)}
+            title="View Full Journey Details"
+          >
+            <Info className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+          </Button>
+          <Button 
+            variant="default" 
+            size="icon" 
+            className="h-9 w-9 md:h-10 md:w-10 bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
+            title={`Navigate to ${legTypeLabel}`}
+          >
+            <Navigation className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
 
   if (!activeRide) {
     const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
@@ -1877,7 +1944,7 @@ export default function AvailableRidesPage() {
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute top-3 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
+                  className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
                   aria-label="SOS Emergency Alert"
                   title="SOS Emergency Alert"
                   onClick={() => setIsSosDialogOpen(true)}
@@ -1921,7 +1988,7 @@ export default function AvailableRidesPage() {
                   size="icon"
                   className={cn(
                     "absolute right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                    isSosButtonVisible ? "top-12 md:top-[4.5rem]" : "top-3"
+                    isSosButtonVisible ? "top-12 md:top-[4.5rem]" : "top-2"
                   )}
                   aria-label="Report Road Hazard"
                   title="Report Road Hazard"
@@ -1931,6 +1998,7 @@ export default function AvailableRidesPage() {
                   </Button>
               </AlertDialogTrigger>
           </AlertDialog>
+          <CurrentNavigationLegBar />
       </div>
       )}
       <Card className={cn(
@@ -2060,49 +2128,7 @@ export default function AvailableRidesPage() {
                   </ShadAlertDescription>
               </Alert>
           )}
-
-          <div className="my-2 p-2 bg-muted/40 rounded-lg border space-y-1.5">
-            <div className="flex justify-between items-center">
-              <p className="text-xs font-medium text-muted-foreground">JOURNEY DETAILS</p>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={() => setIsJourneyDetailsModalOpen(true)}>
-                <Info className="h-4 w-4" />
-              </Button>
-            </div>
-            {journeyPoints.map((point, index) => {
-              const isCurrentLeg = index === localCurrentLegIndex;
-              const isPickup = index === 0;
-              const isDropoff = index === journeyPoints.length - 1;
-              const isStop = !isPickup && !isDropoff;
-              
-              let Icon = MapPin;
-              let iconColor = "text-muted-foreground";
-              let legType = "";
-
-              if (isPickup) { Icon = MapPin; iconColor = "text-green-500"; legType = "Pickup"; }
-              else if (isStop) { Icon = MapPin; iconColor = "text-blue-500"; legType = `Stop ${index}`; }
-              else if (isDropoff) { Icon = MapPin; iconColor = "text-orange-500"; legType = "Dropoff"; }
-              
-              return (
-                <div key={`leg-row-${index}`} className={cn("flex items-center gap-2 p-1 rounded-md text-sm", isCurrentLeg && (status === 'driver_assigned' || status === 'arrived_at_pickup' || status.startsWith('in_progress')) && "bg-primary/10 ring-1 ring-primary/50")}>
-                  <Icon className={cn("w-4 h-4 shrink-0", iconColor)} />
-                  <span className="font-medium text-foreground truncate flex-1">
-                    {legType}: {point.address?.split(',')[0]}
-                    {point.doorOrFlat && <span className="text-xs text-muted-foreground"> ({point.doorOrFlat})</span>}
-                  </span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 text-blue-500 hover:bg-blue-500/10 hover:text-blue-600"
-                    onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${legType}: ${point.address}`})}
-                    title={`Navigate to ${legType}`}
-                  >
-                    <Navigation className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-
+          {/* Removed the old journey details list from here */}
           {notes && !isRideInProgressOrFurther && (
               <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
                   <p className="text-yellow-900 dark:text-yellow-200 text-xs md:text-sm font-semibold whitespace-pre-wrap">
@@ -2445,4 +2471,3 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-
