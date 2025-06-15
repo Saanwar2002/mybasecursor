@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react"; // Added TrafficCone
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -23,10 +23,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as ShadAlertDialogDescription, // Renamed to avoid conflict with CardDescription
+  AlertDialogDescription as ShadAlertDialogDescriptionForDialog, 
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle, 
+  AlertDialogTitle as ShadAlertDialogTitleForDialog, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -1550,7 +1550,7 @@ export default function AvailableRidesPage() {
                     size="icon"
                     className={cn(
                         "absolute right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                         "top-2" 
+                         "top-3" 
                     )}
                     aria-label="Report Road Hazard"
                     title="Report Road Hazard"
@@ -1587,12 +1587,12 @@ export default function AvailableRidesPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle className="flex items-center gap-2">
+              <ShadAlertDialogTitleForDialog className="flex items-center gap-2">
                 <Navigation className="w-5 h-5 text-primary" /> Time to Go!
-              </ShadAlertDialogTitle>
-              <ShadAlertDialogDescription>
+              </ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog>
                 Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
-              </ShadAlertDialogDescription>
+              </ShadAlertDialogDescriptionForDialog>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
@@ -1604,8 +1604,8 @@ export default function AvailableRidesPage() {
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-              <ShadAlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescription>
+              <ShadAlertDialogTitleForDialog><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
@@ -1639,10 +1639,10 @@ export default function AvailableRidesPage() {
          <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                    <ShadAlertDialogDescription>
+                    <ShadAlertDialogTitleForDialog className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>
                         Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                    </ShadAlertDialogDescription>
+                    </ShadAlertDialogDescriptionForDialog>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
@@ -1877,7 +1877,7 @@ export default function AvailableRidesPage() {
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
+                  className="absolute top-3 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
                   aria-label="SOS Emergency Alert"
                   title="SOS Emergency Alert"
                   onClick={() => setIsSosDialogOpen(true)}
@@ -1887,14 +1887,14 @@ export default function AvailableRidesPage() {
               </AlertDialogTrigger>
               <AlertDialogContent className="sm:max-w-md">
                 <AlertDialogHeader>
-                  <ShadAlertDialogTitle className="text-2xl flex items-center gap-2">
+                  <ShadAlertDialogTitleForDialog className="text-2xl flex items-center gap-2">
                     <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
-                  </ShadAlertDialogTitle>
-                  <ShadAlertDialogDescription className="text-base py-2">
+                  </ShadAlertDialogTitleForDialog>
+                  <ShadAlertDialogDescriptionForDialog className="text-base py-2">
                     Select a quick alert or send a general emergency notification.
                     Your operator will be notified immediately.
                     <strong>Use this for genuine emergencies only.</strong>
-                  </ShadAlertDialogDescription>
+                  </ShadAlertDialogDescriptionForDialog>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-2 gap-2 my-3">
                     <Button onClick={() => handleQuickSOSAlert("Emergency")} className="bg-red-500 hover:bg-red-600 text-white border border-black" size="sm">Emergency</Button>
@@ -1921,7 +1921,7 @@ export default function AvailableRidesPage() {
                   size="icon"
                   className={cn(
                     "absolute right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                    isSosButtonVisible ? "top-12 md:top-[4.5rem]" : "top-2"
+                    isSosButtonVisible ? "top-12 md:top-[4.5rem]" : "top-3"
                   )}
                   aria-label="Report Road Hazard"
                   title="Report Road Hazard"
@@ -1985,26 +1985,24 @@ export default function AvailableRidesPage() {
                 </div>
                )}
           </div>
-
-          {dispatchInfo && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
-              <div className={cn("p-1 my-1 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
-                <p className="text-[10px] md:text-xs font-medium flex items-center justify-center gap-1">
-                  <dispatchInfo.icon className="w-3 h-3 md:w-3.5 md:h-3.5 text-white"/> {dispatchInfo.text}
+          
+          {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
+              <div className={cn("p-1 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="text-xs md:text-sm font-medium flex items-center justify-center gap-1">
+                  <dispatchInfo.icon className="w-3 h-3 md:w-4 md:h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
           )}
 
-          {activeRide.isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+          {isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
               <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                   <Crown className="h-3.5 w-3.5" />
                   <ShadAlertTitle className="font-medium text-xs">Priority Booking</ShadAlertTitle>
                   <ShadAlertDescription className="text-[10px]">
-                      Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.
+                      Passenger offered +£{(priorityFeeAmount || 0).toFixed(2)}.
                   </ShadAlertDescription>
               </Alert>
           )}
-
-
           {showArrivedAtPickupStatus && (
             <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
               <Timer className="h-4 w-4 text-current" />
@@ -2025,7 +2023,6 @@ export default function AvailableRidesPage() {
               </ShadAlertDescription>
             </Alert>
           )}
-
          {currentStopTimerDisplay &&
             activeRide.driverCurrentLegIndex &&
             activeRide.driverCurrentLegIndex > 0 &&
@@ -2048,8 +2045,6 @@ export default function AvailableRidesPage() {
               </ShadAlertDescription>
             </Alert>
           )}
-
-
           {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
                <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5">
                   <RefreshCw className="h-4 w-4 text-current animate-spin" />
@@ -2066,41 +2061,46 @@ export default function AvailableRidesPage() {
               </Alert>
           )}
 
+          <div className="my-2 p-2 bg-muted/40 rounded-lg border space-y-1.5">
+            <div className="flex justify-between items-center">
+              <p className="text-xs font-medium text-muted-foreground">JOURNEY DETAILS</p>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={() => setIsJourneyDetailsModalOpen(true)}>
+                <Info className="h-4 w-4" />
+              </Button>
+            </div>
+            {journeyPoints.map((point, index) => {
+              const isCurrentLeg = index === localCurrentLegIndex;
+              const isPickup = index === 0;
+              const isDropoff = index === journeyPoints.length - 1;
+              const isStop = !isPickup && !isDropoff;
+              
+              let Icon = MapPin;
+              let iconColor = "text-muted-foreground";
+              let legType = "";
 
-          <div className="space-y-0.5 text-base py-1">
-              {journeyPoints.map((point, index) => {
-                  const isCurrentLeg = index === localCurrentLegIndex;
-                  const isPastLeg = index < localCurrentLegIndex;
-                  let legType = "";
-                  let iconColor = "text-muted-foreground";
-
-                  if (index === 0) {
-                      legType = "Pickup";
-                      iconColor = isCurrentLeg ? "text-green-500" : (isPastLeg && isRideInProgressOrFurther ? "text-muted-foreground opacity-60" : "text-green-500");
-                  } else if (index === journeyPoints.length - 1) {
-                      legType = "Dropoff";
-                      iconColor = isCurrentLeg ? "text-orange-500" : (isPastLeg ? "text-muted-foreground opacity-60" : "text-orange-500");
-                  } else {
-                      legType = `Stop ${index}`;
-                      iconColor = isCurrentLeg ? "text-blue-500" : (isPastLeg ? "text-muted-foreground opacity-60" : "text-blue-500");
-                  }
-
-                  return (
-                      <p
-                          key={`leg-${index}`}
-                          className={cn(
-                              "flex items-start gap-1 p-0.5 rounded text-base font-bold",
-                              isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
-                              isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
-                          )}
-                      >
-                          <MapPin className={cn("w-4 h-4 mt-0.5 shrink-0", iconColor)} />
-                          <span>
-                              {legType}: {point.address} {point.doorOrFlat && `(${point.doorOrFlat})`}
-                          </span>
-                      </p>
-                  );
-              })}
+              if (isPickup) { Icon = MapPin; iconColor = "text-green-500"; legType = "Pickup"; }
+              else if (isStop) { Icon = MapPin; iconColor = "text-blue-500"; legType = `Stop ${index}`; }
+              else if (isDropoff) { Icon = MapPin; iconColor = "text-orange-500"; legType = "Dropoff"; }
+              
+              return (
+                <div key={`leg-row-${index}`} className={cn("flex items-center gap-2 p-1 rounded-md text-sm", isCurrentLeg && (status === 'driver_assigned' || status === 'arrived_at_pickup' || status.startsWith('in_progress')) && "bg-primary/10 ring-1 ring-primary/50")}>
+                  <Icon className={cn("w-4 h-4 shrink-0", iconColor)} />
+                  <span className="font-medium text-foreground truncate flex-1">
+                    {legType}: {point.address?.split(',')[0]}
+                    {point.doorOrFlat && <span className="text-xs text-muted-foreground"> ({point.doorOrFlat})</span>}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-blue-500 hover:bg-blue-500/10 hover:text-blue-600"
+                    onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${legType}: ${point.address}`})}
+                    title={`Navigate to ${legType}`}
+                  >
+                    <Navigation className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
 
           {notes && !isRideInProgressOrFurther && (
@@ -2110,7 +2110,6 @@ export default function AvailableRidesPage() {
                   </p>
               </div>
           )}
-
           <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-base">
                 <div className={cn("col-span-1 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1 font-bold", (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && "col-span-2")}>
                   <p className="flex items-center gap-1.5 font-bold">
@@ -2124,8 +2123,6 @@ export default function AvailableRidesPage() {
                 )}
                 {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
           </div>
-
-
           {(showCompletedStatus || showCancelledNoShowStatus) && (
             <div className="mt-2 pt-2 border-t text-center">
               <p className="text-xs font-medium mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
@@ -2221,12 +2218,12 @@ export default function AvailableRidesPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle className="flex items-center gap-2">
+              <ShadAlertDialogTitleForDialog className="flex items-center gap-2">
                 <Navigation className="w-5 h-5 text-primary" /> Time to Go!
-              </ShadAlertDialogTitle>
-              <ShadAlertDialogDescription>
+              </ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog>
                 Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
-              </ShadAlertDialogDescription>
+              </ShadAlertDialogDescriptionForDialog>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
@@ -2238,8 +2235,8 @@ export default function AvailableRidesPage() {
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-              <ShadAlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescription>
+              <ShadAlertDialogTitleForDialog><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
@@ -2273,10 +2270,10 @@ export default function AvailableRidesPage() {
          <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                    <ShadAlertDialogDescription>
+                    <ShadAlertDialogTitleForDialog className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>
                         Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                    </ShadAlertDialogDescription>
+                    </ShadAlertDialogDescriptionForDialog>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
@@ -2388,6 +2385,63 @@ export default function AvailableRidesPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+     <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
+            <ShadDialogDescriptionDialog>
+              Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}).
+            </ShadDialogDescriptionDialog>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] p-1 -mx-1">
+            <div className="p-4 space-y-3">
+              {activeRide && journeyPoints.map((point, index) => {
+                const isCurrentLeg = index === localCurrentLegIndex;
+                const isPastLeg = index < localCurrentLegIndex;
+                const isPickup = index === 0;
+                const isDropoff = index === journeyPoints.length - 1;
+                let legType = "";
+                let Icon = MapPin;
+                let iconColor = "text-muted-foreground";
+
+                if (isPickup) { legType = "Pickup"; iconColor = "text-green-500"; }
+                else if (isDropoff) { legType = "Dropoff"; iconColor = "text-orange-500"; }
+                else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
+
+                return (
+                  <div 
+                    key={`modal-leg-${index}`} 
+                    className={cn(
+                      "p-2.5 rounded-md border",
+                      isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card",
+                      isCurrentLeg && "ring-2 ring-primary shadow-md"
+                    )}
+                  >
+                    <p className={cn("font-semibold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {legType}
+                    </p>
+                    <p className={cn("text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                      {point.address}
+                    </p>
+                    {point.doorOrFlat && (
+                      <p className={cn("text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                        (Unit/Flat: {point.doorOrFlat})
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              {!activeRide && <p>No active ride details to display.</p>}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   </div>
 );
 }
