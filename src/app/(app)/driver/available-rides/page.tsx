@@ -56,7 +56,9 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
   <path d="M14 40 C5 30 3 20 7 14 A10 10 0 1 1 21 14 C25 20 23 30 14 40 Z" fill="black"/>
   <circle cx="14" cy="14" r="9.5" fill="#FFD700" stroke="black" stroke-width="0.5"/>
-  <path d="M12,12 H16 L17.5,16 H10.5 Z" fill="white"/>
+  <!-- White car silhouette -->
+  <rect x="11" y="9.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
+  <rect x="8" y="13.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
 </svg>`;
 
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -781,10 +783,10 @@ export default function AvailableRidesPage() {
     const origin = driverLocation;
     const destination = { lat: currentLeg.latitude, lng: currentLeg.longitude };
 
-    let routeColor = "#808080"; 
-    if (localCurrentLegIndex === 0) routeColor = "#008000"; 
-    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; 
-    else routeColor = "#FFD700"; 
+    let routeColor = "#808080"; // Default gray
+    if (localCurrentLegIndex === 0) routeColor = "#008000"; // Green to Pickup
+    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; // Red to final Dropoff
+    else routeColor = "#FFD700"; // Yellow to intermediate Stop
 
     directionsServiceRef.current.route(
       { origin, destination, travelMode: google.maps.TravelMode.DRIVING },
@@ -1627,7 +1629,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="outline" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
@@ -1636,7 +1638,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="default" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
             title={`Navigate to ${legTypeLabel}`}
           >
@@ -1838,7 +1840,7 @@ export default function AvailableRidesPage() {
             <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleRequestWaitAndReturn} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" disabled={isRequestingWR}>
+            <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
               {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Request
             </Button>
@@ -2150,8 +2152,8 @@ export default function AvailableRidesPage() {
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white shadow-md font-bold", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="text-sm flex items-center justify-center gap-1">
+              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="font-bold text-sm flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
