@@ -1616,8 +1616,9 @@ export default function AvailableRidesPage() {
                     variant="default"
                     size="icon"
                     className={cn(
-                        "absolute right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                         "top-3" 
+                        "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                        "h-8 w-8 md:h-9 md:w-9", 
+                         isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
                     )}
                     aria-label="Report Road Hazard"
                     title="Report Road Hazard"
@@ -1842,9 +1843,11 @@ export default function AvailableRidesPage() {
   } = activeRide;
 
   const currentStatusNormalized = activeRide?.status?.toLowerCase();
-  const isChatDisabled = currentStatusNormalized?.includes('in_progress') ||
-    currentStatusNormalized?.includes('completed') ||
-    currentStatusNormalized?.includes('cancelled');
+  const isChatDisabled = currentStatusNormalized?.includes('completed') ||
+    currentStatusNormalized?.includes('cancelled_by_driver') ||
+    currentStatusNormalized?.includes('cancelled_no_show') ||
+    currentStatusNormalized?.includes('cancelled_by_operator');
+
 
   const showDriverAssignedStatus = status === 'driver_assigned';
   const showArrivedAtPickupStatus = status === 'arrived_at_pickup';
@@ -1988,7 +1991,7 @@ export default function AvailableRidesPage() {
                   className={cn(
                     "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
                     "h-8 w-8 md:h-9 md:w-9", 
-                    isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
+                     isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
                   )}
                   aria-label="Report Road Hazard"
                   title="Report Road Hazard"
@@ -2016,7 +2019,9 @@ export default function AvailableRidesPage() {
                   ))}
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                  </AlertDialogCancel>
                 </AlertDialogFooter>
               </AlertDialogContent>
           </AlertDialog>
@@ -2055,7 +2060,7 @@ export default function AvailableRidesPage() {
             </div>
             {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
               <div className="flex items-center gap-1">
-                {activeRide.passengerPhone && (
+                {activeRide.passengerPhone && !isChatDisabled && (
                   <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
                     <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
                       <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
