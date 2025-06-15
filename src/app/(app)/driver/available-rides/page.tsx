@@ -53,8 +53,10 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-// Updated Car Icon: Smaller size (16x16) and brighter blue fill (#3B82F6)
-const driverCarIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#3B82F6" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="11" fill="#FFD700" stroke="black" stroke-width="1.5"/>
+  <path fill="#3B82F6" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+</svg>`;
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
 
@@ -778,7 +780,7 @@ export default function AvailableRidesPage() {
     const destination = { lat: currentLeg.latitude, lng: currentLeg.longitude };
 
     let routeColor = "#808080"; // Default grey
-    if (localCurrentLegIndex === 0) routeColor = "#008000"; // Green for pickup
+    if (localCurrentLegIndex === 0) routeColor = "#00FF00"; // Green for pickup
     else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; // Red for final dropoff
     else routeColor = "#FFD700"; // Yellow for intermediate stops
 
@@ -1300,7 +1302,7 @@ export default function AvailableRidesPage() {
             position: currentLocToDisplay,
             title: "Your Current Location",
             iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 16, height: 16} // Updated icon size
+            iconScaledSize: {width: 28, height: 28}
         });
     }
 
@@ -1584,7 +1586,7 @@ export default function AvailableRidesPage() {
     if (!currentLeg) return null;
 
     let bgColorClass = "bg-gray-100 dark:bg-gray-700";
-    let textColorClass = "text-gray-800 dark:text-gray-200";
+    let textColorClass = "text-gray-800 dark:text-gray-200 font-bold";
     let legTypeLabel = "";
 
     if (localCurrentLegIndex === 0) { // Pickup
@@ -1617,13 +1619,13 @@ export default function AvailableRidesPage() {
           <p className={cn("text-base md:text-lg font-bold truncate", textColorClass)}>
             {primaryAddressLine}
           </p>
-          {secondaryAddressLine && <p className={cn("text-xs font-bold truncate", textColorClass, "opacity-80")}>{secondaryAddressLine}</p>}
+          {secondaryAddressLine && <p className={cn("text-xs truncate", textColorClass, "opacity-80 font-bold")}>{secondaryAddressLine}</p>}
         </div>
         <div className="flex items-start gap-1.5 shrink-0">
           <Button 
             variant="outline" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
@@ -1632,7 +1634,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="default" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
             title={`Navigate to ${legTypeLabel}`}
           >
@@ -2582,4 +2584,3 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-
