@@ -343,9 +343,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               New Ride Offer!
             </span>
           </DialogTitle>
-          <p className="text-sm text-muted-foreground text-center">
-            Review the details below and respond quickly before the timer runs out.
-          </p>
+          {/* Removed the descriptive paragraph here */}
         </DialogHeader>
 
         <ScrollArea className="flex-1">
