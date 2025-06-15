@@ -761,10 +761,10 @@ export default function AvailableRidesPage() {
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
 
-    const isPriority = Math.random() < 0.4; // 40% chance for priority
+    const isPriority = Math.random() < 0.4; 
     let currentPriorityFeeAmount = 0;
     if (isPriority) {
-      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); // £1.00 to £3.50
+      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); 
     }
 
     const mockOffer: RideOffer = {
@@ -1533,15 +1533,15 @@ export default function AvailableRidesPage() {
 
     if (localCurrentLegIndex === 0) { // Pickup
       bgColorClass = "bg-green-100 dark:bg-green-900/50";
-      textColorClass = "text-green-700 dark:text-green-300";
+      textColorClass = "text-green-700 dark:text-green-300 font-bold";
       legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
     } else if (localCurrentLegIndex < journeyPoints.length - 1) { // Stop
       bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
-      textColorClass = "text-yellow-700 dark:text-yellow-300";
+      textColorClass = "text-yellow-700 dark:text-yellow-300 font-bold";
       legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
     } else { // Dropoff
       bgColorClass = "bg-red-100 dark:bg-red-800/50";
-      textColorClass = "text-red-700 dark:text-red-300";
+      textColorClass = "text-red-700 dark:text-red-300 font-bold";
       legTypeLabel = "TO DROPOFF";
     }
     
@@ -1552,7 +1552,7 @@ export default function AvailableRidesPage() {
 
     return (
       <div className={cn(
-        "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-center justify-between gap-2",
+        "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
         bgColorClass,
         "border-t-2 border-black/20 dark:border-white/20" 
       )}>
@@ -1563,24 +1563,24 @@ export default function AvailableRidesPage() {
           </p>
           {secondaryAddressLine && <p className={cn("text-xs font-bold truncate", textColorClass, "opacity-80")}>{secondaryAddressLine}</p>}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-start gap-1.5 shrink-0">
           <Button 
             variant="outline" 
             size="icon" 
-            className="h-9 w-9 md:h-10 md:w-10 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
-            <Info className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+            <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
           </Button>
           <Button 
             variant="default" 
             size="icon" 
-            className="h-9 w-9 md:h-10 md:w-10 bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
             title={`Navigate to ${legTypeLabel}`}
           >
-            <Navigation className="h-5 w-5" />
+            <Navigation className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -2270,6 +2270,21 @@ export default function AvailableRidesPage() {
                     <Separator className="my-1.5"/>
                     <p className="text-xs text-muted-foreground font-bold">You completed the ride for:</p>
                     <p className="font-bold text-base">{activeRide.passengerName}</p>
+                     {journeyPoints.map((point, index) => {
+                      const isPickup = index === 0;
+                      const isDropoff = index === journeyPoints.length - 1;
+                      let legType = "";
+                      if (isPickup) { legType = "Pickup"; }
+                      else if (isDropoff) { legType = "Dropoff"; }
+                      else { legType = `Stop ${index}`; }
+                      return (
+                        <div key={`completed-leg-summary-${index}`} className="flex items-start gap-1.5 text-xs justify-center">
+                          <MapPin className={cn("w-3 h-3 shrink-0 mt-0.5", isPickup ? "text-green-500" : isDropoff ? "text-red-500" : "text-blue-500")} />
+                          <span className="font-bold">{legType}:</span> {point.address}
+                          {point.doorOrFlat && <span className="text-muted-foreground">({point.doorOrFlat})</span>}
+                        </div>
+                      );
+                    })}
                     <Separator className="mt-1.5 mb-0.5"/>
                   </div>
                 )}
@@ -2448,7 +2463,7 @@ export default function AvailableRidesPage() {
      <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
+            <DialogTitle className="text-xl flex items-center gap-2 font-bold"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
             <ShadDialogDescriptionDialog>
               Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}).
             </ShadDialogDescriptionDialog>
@@ -2503,3 +2518,4 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
+
