@@ -1583,6 +1583,14 @@ export default function AvailableRidesPage() {
     const primaryAddressLine = addressParts[0]?.trim();
     const secondaryAddressLine = addressParts.slice(1).join(',').trim();
 
+    const handleNavigateClick = () => {
+      if (currentLeg.latitude && currentLeg.longitude) {
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}&travelmode=driving`;
+        window.open(mapsUrl, '_blank');
+      } else {
+        toast({title: "Navigation Error", description: "Destination coordinates are missing.", variant: "destructive"});
+      }
+    };
 
     return (
       <div className={cn(
@@ -1601,13 +1609,21 @@ export default function AvailableRidesPage() {
           <Button 
             variant="outline" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
             <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
           </Button>
-          {/* Navigate button removed from here based on recent request, remains on map bar */}
+           <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-blue-500 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/50"
+            onClick={handleNavigateClick}
+            title="Open Navigation in Google Maps"
+          >
+            <Navigation className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          </Button>
         </div>
       </div>
     );
@@ -1908,6 +1924,8 @@ export default function AvailableRidesPage() {
       : activeRide?.paymentMethod === 'cash' ? 'Cash'
       : activeRide?.paymentMethod === 'account' ? 'Account'
       : 'Payment N/A';
+
+  const isEditingDisabled = activeRide?.status !== 'pending_assignment';
 
   const mainButtonText = () => {
     const currentLegIdx = localCurrentLegIndex;
@@ -2417,4 +2435,3 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-
