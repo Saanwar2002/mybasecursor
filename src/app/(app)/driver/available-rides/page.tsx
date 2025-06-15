@@ -53,12 +53,14 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
-  <path d="M14 40 C5 30 3 20 7 14 A10 10 0 1 1 21 14 C25 20 23 30 14 40 Z" fill="black"/>
-  <circle cx="14" cy="14" r="9.5" fill="#FFD700" stroke="black" stroke-width="0.5"/>
-  <!-- White car silhouette -->
-  <rect x="11" y="9.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
-  <rect x="8" y="13.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
+  <path d="M15 45 C5 30 2 20 7.5 12.5 A12.5 12.5 0 1 1 22.5 12.5 C28 20 25 30 15 45 Z" fill="#FFA500"/>
+  <circle cx="15" cy="15" r="11" fill="white"/>
+  <rect x="10" y="8" width="10" height="3" fill="black"/>
+  <rect x="9" y="11" width="12" height="5" fill="black"/>
+  <rect x="7" y="16" width="16" height="6" fill="black"/>
+  <circle cx="10" cy="23" r="2" fill="black"/>
+  <circle cx="20" cy="23" r="2" fill="black"/>
 </svg>`;
 
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -1306,7 +1308,7 @@ export default function AvailableRidesPage() {
             position: currentLocToDisplay,
             title: "Your Current Location",
             iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 28, height: 40}
+            iconScaledSize: {width: 30, height: 45} // Updated size
         });
     }
 
@@ -1663,7 +1665,7 @@ export default function AvailableRidesPage() {
         }
         <div className={cn(mapContainerClasses, "relative")}> 
             <GoogleMapDisplay
-              mapHeading={0}
+              mapHeading={0} 
               mapRotateControl={false}
               polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
               driverIconRotation={driverMarkerHeading ?? undefined}
@@ -2006,7 +2008,7 @@ export default function AvailableRidesPage() {
             className="w-full h-full"
             disableDefaultUI={true}
             onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
-            mapHeading={0}
+            mapHeading={0} 
             mapRotateControl={false}
             polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
             driverIconRotation={driverMarkerHeading ?? undefined}
