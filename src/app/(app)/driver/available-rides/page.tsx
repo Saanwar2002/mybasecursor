@@ -45,6 +45,7 @@ import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -1566,15 +1567,15 @@ export default function AvailableRidesPage() {
 
     if (localCurrentLegIndex === 0) { 
       bgColorClass = "bg-green-100 dark:bg-green-900/50";
-      textColorClass = "text-green-700 dark:text-green-300";
+      textColorClass = "font-bold text-green-700 dark:text-green-300";
       legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
     } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
       bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
-      textColorClass = "text-yellow-700 dark:text-yellow-300";
+      textColorClass = "font-bold text-yellow-700 dark:text-yellow-300";
       legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
     } else { 
       bgColorClass = "bg-red-100 dark:bg-red-800/50";
-      textColorClass = "text-red-700 dark:text-red-300";
+      textColorClass = "font-bold text-red-700 dark:text-red-300";
       legTypeLabel = "TO DROPOFF";
     }
     
@@ -1606,15 +1607,7 @@ export default function AvailableRidesPage() {
           >
             <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
           </Button>
-          <Button 
-            variant="default" 
-            size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
-            title={`Navigate to ${legTypeLabel}`}
-          >
-            <Navigation className="h-4 w-4" />
-          </Button>
+          {/* Navigate button removed from here based on recent request, remains on map bar */}
         </div>
       </div>
     );
@@ -2361,12 +2354,12 @@ export default function AvailableRidesPage() {
             <AlertDialogFooter> <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}> Okay, I&apos;m Going! </AlertDialogAction> </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); }}}>
+      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
           <AlertDialogContent>
             <AlertDialogHeader> <ShadAlertDialogTitleForDialog><span className="font-bold">Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog> <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog> </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => {setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? !!actionLoading[activeRide.id] : false}> Keep Ride </AlertDialogCancel>
-                <AlertDialogAction onClick={() => { if (activeRide) {handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={!activeRide || (!!actionLoading[activeRide?.id ?? ''])} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"> <span className="font-bold flex items-center justify-center"> {activeRide && (!!actionLoading[activeRide.id]) ? ( <><Loader2 className="animate-spin mr-2 h-4 w-4" /><span>Cancelling...</span></>) : ( <><ShieldX className="mr-2 h-4 w-4" /><span>Confirm Cancel</span></>)} </span> </AlertDialogAction>
+                <AlertDialogCancel onClick={() => {console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? !!actionLoading[activeRide.id] : false}> Keep Ride </AlertDialogCancel>
+                <AlertDialogAction onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={!activeRide || (!!actionLoading[activeRide?.id ?? ''])} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"> <span className="font-bold flex items-center justify-center"> {activeRide && (!!actionLoading[activeRide.id]) ? ( <><Loader2 className="animate-spin mr-2 h-4 w-4" /><span>Cancelling...</span></>) : ( <><ShieldX className="mr-2 h-4 w-4" /><span>Confirm Cancel</span></>)} </span> </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
@@ -2376,50 +2369,52 @@ export default function AvailableRidesPage() {
               <AlertDialogFooter> <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span className="font-bold">Back</span></AlertDialogCancel> <AlertDialogAction onClick={() => { if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show'); setIsNoShowConfirmDialogOpen(false);}} className="bg-destructive hover:bg-destructive/90"> <span className="font-bold">Confirm No-Show</span> </AlertDialogAction> </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-      <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
+       <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader> <DialogTitle className="font-bold flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle> <ShadDialogDescriptionDialog> Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve. </ShadDialogDescriptionDialog> </DialogHeader>
           <div className="py-4 space-y-2"> <Label htmlFor="wr-wait-time-input" className="font-bold">Additional Wait Time (minutes)</Label> <Input id="wr-wait-time-input" type="number" min="0" value={wrRequestDialogMinutes} onChange={(e) => setWrRequestDialogMinutes(e.target.value)} placeholder="e.g., 15" disabled={isRequestingWR}/> </div>
           <DialogFooter> <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}> Cancel </Button> <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}> {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Request </Button> </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader> <DialogTitle className="font-bold flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle> <ShadDialogDescriptionDialog> Ask the passenger for their 4-digit Job PIN to start this account ride. </ShadDialogDescriptionDialog> </DialogHeader>
-          <div className="py-4 space-y-2"> <Label htmlFor="account-job-pin-input" className="font-bold">Enter 4-Digit Job PIN</Label> <Input id="account-job-pin-input" type="password" inputMode="numeric" maxLength={4} value={enteredAccountJobPin} onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="••••" className="text-center text-xl tracking-[0.3em]" disabled={isVerifyingAccountJobPin}/> </div>
-          <DialogFooter className="grid grid-cols-1 gap-2"> <div className="flex justify-between"> <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}> Cancel </Button> <Button type="button" onClick={verifyAndStartAccountJobRide} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}> {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Verify & Start Ride </Button> </div> <Button type="button" variant="link" size="sm" className="font-bold text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}> Problem with PIN? Start ride manually. </Button> </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader> <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle> <ShadDialogDescriptionDialog> Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}). </ShadDialogDescriptionDialog> </DialogHeader>
-          <ScrollArea className="max-h-[60vh] p-1 -mx-1">
-            <div className="p-4 space-y-3">
-              {activeRide && journeyPoints.map((point, index) => {
-                const isCurrentLeg = index === localCurrentLegIndex;
-                const isPastLeg = index < localCurrentLegIndex;
-                let legType = "";
-                let Icon = MapPin;
-                let iconColor = "text-muted-foreground";
 
-                if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
-                else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
-                else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
+    <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader> <DialogTitle className="font-bold flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle> <ShadDialogDescriptionDialog> Ask the passenger for their 4-digit Job PIN to start this account ride. </ShadDialogDescriptionDialog> </DialogHeader>
+        <div className="py-4 space-y-2"> <Label htmlFor="account-job-pin-input" className="font-bold">Enter 4-Digit Job PIN</Label> <Input id="account-job-pin-input" type="password" inputMode="numeric" maxLength={4} value={enteredAccountJobPin} onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="••••" className="text-center text-xl tracking-[0.3em]" disabled={isVerifyingAccountJobPin}/> </div>
+        <DialogFooter className="grid grid-cols-1 gap-2"> <div className="flex justify-between"> <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}> Cancel </Button> <Button type="button" onClick={verifyAndStartAccountJobRide} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}> {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Verify & Start Ride </Button> </div> <Button type="button" variant="link" size="sm" className="font-bold text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}> Problem with PIN? Start ride manually. </Button> </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader> <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle> <ShadDialogDescriptionDialog> Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}). </ShadDialogDescriptionDialog> </DialogHeader>
+        <ScrollArea className="max-h-[60vh] p-1 -mx-1">
+          <div className="p-4 space-y-3">
+            {activeRide && journeyPoints.map((point, index) => {
+              const isCurrentLeg = index === localCurrentLegIndex;
+              const isPastLeg = index < localCurrentLegIndex;
+              let legType = "";
+              let Icon = MapPin;
+              let iconColor = "text-muted-foreground";
 
-                return (
-                  <div key={`modal-leg-${index}`} className={cn( "p-2.5 rounded-md border", isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card", isCurrentLeg && "ring-2 ring-primary shadow-md")}>
-                    <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}> <Icon className="w-4 h-4 shrink-0" /> {legType} </p>
-                    <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}> {point.address} </p>
-                    {point.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}> (Unit/Flat: {point.doorOrFlat}) </p> )}
-                  </div>
-                );
-              })}
-              {!activeRide && <p>No active ride details to display.</p>}
-            </div>
-          </ScrollArea>
-          <DialogFooter> <DialogClose asChild> <Button type="button" variant="outline">Close</Button> </DialogClose> </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
+              else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
+              else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
+
+              return (
+                <div key={`modal-leg-${index}`} className={cn( "p-2.5 rounded-md border", isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card", isCurrentLeg && "ring-2 ring-primary shadow-md")}>
+                  <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}> <Icon className="w-4 h-4 shrink-0" /> {legType} </p>
+                  <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}> {point.address} </p>
+                  {point.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}> (Unit/Flat: {point.doorOrFlat}) </p> )}
+                </div>
+              );
+            })}
+            {!activeRide && <p>No active ride details to display.</p>}
+          </div>
+        </ScrollArea>
+        <DialogFooter> <DialogClose asChild> <Button type="button" variant="outline">Close</Button> </DialogClose> </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 );
 }
+
