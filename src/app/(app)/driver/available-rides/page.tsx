@@ -253,7 +253,7 @@ interface HazardType {
   id: string;
   label: string;
   icon: LucideIcon;
-  className: string; // For Tailwind bg, text, border
+  className: string; 
 }
 
 const hazardTypes: HazardType[] = [
@@ -761,10 +761,10 @@ export default function AvailableRidesPage() {
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
 
-    const isPriority = Math.random() < 0.4; // 40% chance for a priority job
+    const isPriority = Math.random() < 0.4; 
     let currentPriorityFeeAmount = 0;
     if (isPriority) {
-      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); // e.g. 1.00 to 3.50
+      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); 
     }
 
     const mockOffer: RideOffer = {
@@ -773,7 +773,7 @@ export default function AvailableRidesPage() {
       pickupCoords: pickup.coords,
       dropoffLocation: dropoff.address,
       dropoffCoords: dropoff.coords,
-      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)), // Base fare: 5.00 to 19.99
+      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)), 
       isPriorityPickup: isPriority,
       priorityFeeAmount: currentPriorityFeeAmount,
       passengerCount: Math.floor(Math.random() * 3) + 1,
@@ -781,7 +781,7 @@ export default function AvailableRidesPage() {
       passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
       notes: Math.random() < 0.3 ? "Has some luggage." : undefined,
       requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
-      distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)), // Distance 1.0 to 9.9 miles
+      distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)), 
       paymentMethod: Math.random() < 0.6 ? 'card' : (Math.random() < 0.8 ? 'cash' : 'account'),
       dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
       accountJobPin: Math.random() < 0.1 ? Math.floor(1000 + Math.random() * 9000).toString() : undefined,
@@ -1532,7 +1532,7 @@ export default function AvailableRidesPage() {
             isEnabled={isSpeedLimitFeatureEnabled}
           />
         }
-        <div className={cn(mapContainerClasses, "relative")}> {/* Ensure relative for button positioning */}
+        <div className={cn(mapContainerClasses, "relative")}> 
             <GoogleMapDisplay
               center={driverLocation}
               zoom={15}
@@ -1542,23 +1542,23 @@ export default function AvailableRidesPage() {
               disableDefaultUI={true}
               onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
             />
-             <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+            
+            <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
                 <AlertDialogTrigger asChild>
                     <Button
                     variant="default"
                     size="icon"
                     className={cn(
-                        "absolute right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                        isSosButtonVisible ? "top-16 md:top-20" : "top-3" 
+                        "absolute right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                         "top-2" 
                     )}
                     aria-label="Report Road Hazard"
                     title="Report Road Hazard"
                     onClick={() => setIsHazardReportDialogOpen(true)}
                     >
-                    <TrafficCone className="h-5 w-5 md:h-6 md:h-6" />
+                    <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
                     </Button>
                 </AlertDialogTrigger>
-                {/* Hazard Dialog Content defined globally below */}
             </AlertDialog>
         </div>
         <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
@@ -1859,7 +1859,7 @@ export default function AvailableRidesPage() {
       {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
       <div className={cn(
         "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
-        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[400px]" // Adjust height if no active ride
+        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[400px]" 
       )}>
           <GoogleMapDisplay
             center={memoizedMapCenter}
@@ -1877,12 +1877,12 @@ export default function AvailableRidesPage() {
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute top-3 right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl animate-pulse"
+                  className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
                   aria-label="SOS Emergency Alert"
                   title="SOS Emergency Alert"
                   onClick={() => setIsSosDialogOpen(true)}
                 >
-                  <AlertTriangle className="h-5 w-5 md:h-6 md:h-6" />
+                  <AlertTriangle className="h-4 w-4 md:h-5 md:h-5" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent className="sm:max-w-md">
@@ -1920,17 +1920,16 @@ export default function AvailableRidesPage() {
                   variant="default"
                   size="icon"
                   className={cn(
-                    "absolute right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                    isSosButtonVisible ? "top-16 md:top-20" : "top-3"
+                    "absolute right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                    isSosButtonVisible ? "top-12 md:top-[4.5rem]" : "top-2"
                   )}
                   aria-label="Report Road Hazard"
                   title="Report Road Hazard"
                   onClick={() => setIsHazardReportDialogOpen(true)}
                   >
-                  <TrafficCone className="h-5 w-5 md:h-6 md:h-6" />
+                  <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
                   </Button>
               </AlertDialogTrigger>
-              {/* Hazard Dialog Content is globally defined below, no need to repeat it here */}
           </AlertDialog>
       </div>
       )}
