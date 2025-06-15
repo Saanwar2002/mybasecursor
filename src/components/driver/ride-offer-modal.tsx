@@ -12,7 +12,7 @@ import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context'; 
+import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context';
 import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 
@@ -28,7 +28,7 @@ export interface RideOffer {
   pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
   dropoffCoords: { lat: number; lng: number };
-  stops?: Array<{ address: string; coords: { lat: number; lng: number } }>; 
+  stops?: Array<{ address: string; coords: { lat: number; lng: number } }>;
   fareEstimate: number;
   passengerCount: number;
   passengerId: string;
@@ -94,7 +94,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
 
   let addressRemainder = fullAddress;
   let outwardPostcode = "";
-  
+
   const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
   const postcodeMatch = fullAddress.match(postcodeRegex);
 
@@ -104,35 +104,35 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   }
 
   const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-  
+
   let street = parts[0] || "Location";
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1]; 
+    area = parts[1];
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area"; 
+    street = "Area";
   }
-  
+
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', '); 
+      area = parts.slice(1).join(', ');
   }
 
   let locationLine = area;
   if (outwardPostcode) {
     locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
   }
-  
+
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = ""; 
+      street = "";
   }
-  if (street && !locationLine) { 
+  if (street && !locationLine) {
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) { 
+  if (!street && locationLine) {
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -145,7 +145,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
 
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const { user: driverUser } = useAuth(); 
+  const { user: driverUser } = useAuth();
   const [isMapSdkLoadedForModal, setIsMapSdkLoadedForModal] = useState(false);
 
 
@@ -176,8 +176,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
 
     if (rideDetails.pickupCoords) {
-        markers.push({ 
-            position: rideDetails.pickupCoords, 
+        markers.push({
+            position: rideDetails.pickupCoords,
             title: `Pickup: ${rideDetails.pickupLocation}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
         });
@@ -190,8 +190,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     }
     rideDetails.stops?.forEach((stop, index) => {
         if (stop.coords) {
-            markers.push({ 
-                position: stop.coords, 
+            markers.push({
+                position: stop.coords,
                 title: `Stop ${index + 1}: ${stop.address}`,
                 label: { text: `S${index + 1}`, color: "white", fontWeight: "bold"}
             });
@@ -204,9 +204,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         }
     });
     if (rideDetails.dropoffCoords) {
-        markers.push({ 
-            position: rideDetails.dropoffCoords, 
-            title: `Dropoff: ${rideDetails.dropoffLocation}`, 
+        markers.push({
+            position: rideDetails.dropoffCoords,
+            title: `Dropoff: ${rideDetails.dropoffLocation}`,
             label: { text: "D", color: "white", fontWeight: "bold"}
         });
         labels.push({
@@ -249,20 +249,20 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const getDispatchMethodText = () => {
     if (!rideDetails) return null;
-    
+
     const isManual = rideDetails.dispatchMethod === 'manual_operator';
     const isPriority = rideDetails.dispatchMethod === 'priority_override';
-    
+
     let text = "";
     let icon = CheckCircle;
-    let bgColorClassName = "bg-green-600"; 
+    let bgColorClassName = "bg-green-600";
 
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
       if (isManual) {
         text = "Dispatched By App: MANUAL MODE";
         icon = Briefcase;
         bgColorClassName = "bg-blue-600";
-      } else { 
+      } else {
         text = "Dispatched By App: AUTO MODE";
         icon = CheckCircle;
         bgColorClassName = "bg-green-600";
@@ -272,14 +272,14 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         text = "Dispatched By YOUR BASE: MANUAL MODE";
         icon = Briefcase;
         bgColorClassName = "bg-blue-600";
-      } else { 
+      } else {
         text = "Dispatched By YOUR BASE: AUTO MODE";
         icon = CheckCircle;
         bgColorClassName = "bg-green-600";
       }
-    } else { 
+    } else {
       if (isManual) {
-        text = rideDetails.requiredOperatorId 
+        text = rideDetails.requiredOperatorId
           ? `Manual Dispatch from ${rideDetails.requiredOperatorId}`
           : "Manually Dispatched by Platform Admin";
         icon = Briefcase;
@@ -288,7 +288,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         text = "Dispatched by Operator (Priority)";
         icon = AlertOctagon;
         bgColorClassName = "bg-purple-600";
-      } else { 
+      } else {
         text = "Dispatched By App (Auto)";
         icon = CheckCircle;
         bgColorClassName = "bg-green-600";
@@ -303,7 +303,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     switch (rideDetails.paymentMethod) {
       case "card": return "Card";
       case "cash": return "Cash";
-      case "account": return "Account Job"; 
+      case "account": return "Account Job";
       default: return "N/A";
     }
   };
@@ -351,7 +351,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <ScrollArea className="flex-1">
           <div className="px-4 pt-2 pb-4">
             {rideDetails.paymentMethod === 'account' && (
-              <Badge variant="default" className="mb-2 text-sm py-1.5 px-4 w-full justify-center bg-purple-600 hover:bg-purple-700 text-white shadow-md">
+              <Badge variant="default" className="mb-2 text-sm py-1.5 px-4 w-full justify-center bg-purple-600 hover:bg-purple-700 text-white shadow-md border border-black">
                 <LockKeyhole className="w-4 h-4 mr-2" />
                 ACCOUNT JOB
               </Badge>
@@ -360,9 +360,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
                     center={mapCenter}
-                    zoom={13} 
+                    zoom={13}
                     markers={mapDisplayElements.markers}
-                    customMapLabels={mapDisplayElements.labels} 
+                    customMapLabels={mapDisplayElements.labels}
                     className="w-full h-full"
                     disableDefaultUI={true}
                     fitBoundsToMarkers={true}
@@ -372,16 +372,16 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   <Skeleton className="w-full h-full rounded-md" />
                 )}
             </div>
-            
+
             {dispatchInfo && (
-              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white", dispatchInfo.bgColorClassName)}>
-                <p className="text-sm font-medium flex items-center justify-center gap-1">
+              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white font-semibold", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="text-sm flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
             )}
 
-            <div className="mt-2 flex items-center justify-between gap-2 p-3 rounded-lg bg-amber-600 text-white shadow-md">
+            <div className="mt-2 flex items-center justify-between gap-2 p-3 rounded-lg bg-amber-600 text-white shadow-md border border-black">
                 <span className="text-lg font-bold">
                   £{totalFareForDriver.toFixed(2)}
                   {rideDetails.distanceMiles && (
@@ -389,12 +389,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                   )}
                 </span>
                 {rideDetails.isPriorityPickup && (
-                    <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 px-2 py-0.5 h-fit">
+                    <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-500 px-2 py-0.5 h-fit border-2">
                         <Crown className="w-3.5 h-3.5 mr-1"/> Priority
                     </Badge>
                 )}
             </div>
-             
+
             <div className="p-3 bg-muted/50 rounded-lg border border-muted mt-2">
               <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-semibold">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-1" />
@@ -415,7 +415,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 <span>Dropoff: {rideDetails.dropoffLocation}</span>
               </p>
             </div>
-            
+
             {rideDetails.passengerName && (
               <p className="text-sm flex items-center gap-1.5 mt-1.5"><Info className="inline w-4 h-4 mr-0.5 text-muted-foreground shrink-0" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
             )}
@@ -459,4 +459,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
