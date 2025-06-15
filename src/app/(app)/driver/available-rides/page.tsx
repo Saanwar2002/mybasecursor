@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ShieldAlert } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle, 
+  AlertDialogTitle as ShadAlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -98,7 +98,7 @@ interface ActiveRide {
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
-  accountJobPin?: string; 
+  accountJobPin?: string;
   distanceMiles?: number;
   cancellationFeeApplicable?: boolean;
   noShowFeeApplicable?: boolean;
@@ -188,16 +188,16 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1]; 
+    area = parts[1];
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area"; 
+    street = "Area";
   }
-  
+
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', '); 
+      area = parts.slice(1).join(', ');
   }
 
   let locationLine = area;
@@ -206,12 +206,12 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   }
 
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = ""; 
+      street = "";
   }
-  if (street && !locationLine) { 
+  if (street && !locationLine) {
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) { 
+  if (!street && locationLine) {
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -300,11 +300,12 @@ export default function AvailableRidesPage() {
   const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
   const [isRequestingWR, setIsRequestingWR] = useState(false);
 
-  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false); 
+  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
   const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
   const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
 
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
+  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false); // SOS Dialog state
 
   const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
   const journeyPoints = useMemo(() => {
@@ -472,7 +473,7 @@ export default function AvailableRidesPage() {
               setLocalCurrentLegIndex(0);
               setCompletedStopWaitCharges({});
               setAccumulatedStopWaitingCharges(0);
-              setActiveStopDetails(null); 
+              setActiveStopDetails(null);
             }
             return data;
         }
@@ -481,13 +482,13 @@ export default function AvailableRidesPage() {
       });
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
-        
+
         if (data.status === 'in_progress' || data.status === 'in_progress_wait_and_return') {
             const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < (data.stops?.length || 0) + 1;
             if (newLegIsIntermediateStop) {
                 setActiveStopDetails({ stopDataIndex: data.driverCurrentLegIndex - 1, arrivalTime: new Date() });
             } else {
-                setActiveStopDetails(null); 
+                setActiveStopDetails(null);
             }
         }
       }
@@ -549,7 +550,7 @@ export default function AvailableRidesPage() {
 
       stopIntervalRef.current = intervalId;
 
-      
+
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
       let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
@@ -920,7 +921,7 @@ export default function AvailableRidesPage() {
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
         driverCurrentLocation: driverLocation,
-        accountJobPin: offerToAccept.accountJobPin, 
+        accountJobPin: offerToAccept.accountJobPin,
       };
       console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
 
@@ -993,7 +994,7 @@ export default function AvailableRidesPage() {
         driverEtaMinutes: serverBooking.driverEtaMinutes,
         waitAndReturn: serverBooking.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
-        accountJobPin: serverBooking.accountJobPin, 
+        accountJobPin: serverBooking.accountJobPin,
         distanceMiles: offerToAccept.distanceMiles,
       };
       console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
@@ -1070,8 +1071,8 @@ export default function AvailableRidesPage() {
     }
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && activeRide.accountJobPin) {
         if (!isAccountJobPinDialogOpen) {
-          setIsAccountJobPinDialogOpen(true); 
-          return; 
+          setIsAccountJobPinDialogOpen(true);
+          return;
         }
     }
 
@@ -1099,7 +1100,7 @@ export default function AvailableRidesPage() {
       payload.driverCurrentLocation = driverLocation;
     }
 
-    const updateDataFromPayload = payload; 
+    const updateDataFromPayload = payload;
 
     switch(actionType) {
         case 'notify_arrival':
@@ -1259,7 +1260,7 @@ export default function AvailableRidesPage() {
           requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
           dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
           driverCurrentLocation: serverData.driverCurrentLocation,
-          accountJobPin: serverData.accountJobPin || prev.accountJobPin, 
+          accountJobPin: serverData.accountJobPin || prev.accountJobPin,
           distanceMiles: serverData.distanceMiles || prev.distanceMiles,
           cancellationFeeApplicable: serverData.cancellationFeeApplicable,
           noShowFeeApplicable: serverData.noShowFeeApplicable,
@@ -1461,9 +1462,7 @@ export default function AvailableRidesPage() {
 
 
   const handleConfirmEmergency = () => {
-    toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified of an emergency. Stay safe.", variant: "destructive", duration: 10000 });
-    // playBeep(); // Removed SOS audio to avoid conflict
-    setIsConfirmEmergencyOpen(false);
+    toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified. Stay safe.", variant: "destructive", duration: 10000 });
     setIsSosDialogOpen(false);
   };
 
@@ -1519,7 +1518,6 @@ export default function AvailableRidesPage() {
   };
 
   const handleReportHazard = async (hazardType: string) => {
-    // This function is now empty as per removal request
     console.log("Hazard reporting feature has been temporarily removed.");
     toast({title: "Feature Unavailable", description: "Hazard reporting is currently disabled.", variant: "default"});
   };
@@ -1592,7 +1590,6 @@ export default function AvailableRidesPage() {
               disableDefaultUI={true}
               onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
             />
-            {/* Hazard and SOS buttons removed */}
         </div>
         <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
         {geolocationError && isDriverOnline && (
@@ -1603,7 +1600,6 @@ export default function AvailableRidesPage() {
             </Alert>
         )}
         {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
-        {/* Seed Mock Hazards Button removed */}
         <div className="pt-1">
             <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/>
             <Label htmlFor="speed-limit-mock-toggle" className="text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label>
@@ -1629,7 +1625,6 @@ export default function AvailableRidesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        {/* Cancel Ride Dialog and No Show Dialog remain */}
         <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -1718,7 +1713,7 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    
+
     <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
@@ -1757,7 +1752,6 @@ export default function AvailableRidesPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    {/* Hazard Dialog Removed */}
   </div>
   );
   }
@@ -1803,13 +1797,13 @@ export default function AvailableRidesPage() {
   let displayedFare = `£${totalFare.toFixed(2)}`;
   if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
     const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
+    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
     displayedFare = `£${(wrBaseFare + wrWaitCharge + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
   }
 
-  const paymentMethodDisplay = 
-      activeRide?.paymentMethod === 'card' ? 'Card' 
-      : activeRide?.paymentMethod === 'cash' ? 'Cash' 
+  const paymentMethodDisplay =
+      activeRide?.paymentMethod === 'card' ? 'Card'
+      : activeRide?.paymentMethod === 'cash' ? 'Cash'
       : activeRide?.paymentMethod === 'account' ? 'Account'
       : 'Payment N/A';
 
@@ -1829,20 +1823,20 @@ export default function AvailableRidesPage() {
     if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
       return "Complete Ride";
     }
-    return "Status Action"; 
+    return "Status Action";
   };
 
   const mainButtonAction = () => {
     const currentLegIdx = localCurrentLegIndex;
     if (status === 'arrived_at_pickup') {
-      
+
       handleRideAction(activeRide.id, 'start_ride');
     }
     else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) { 
+        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
             handleRideAction(activeRide.id, 'proceed_to_next_leg');
-        } else { 
-            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()}); 
+        } else {
+            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
         }
     }
     else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) { handleRideAction(activeRide.id, 'complete_ride'); }
@@ -1865,7 +1859,6 @@ export default function AvailableRidesPage() {
           <GoogleMapDisplay
             center={memoizedMapCenter}
             zoom={15}
-            // shouldFitBounds={activeRide.status === 'driver_assigned' || !activeRide} // Simplified
             fitBoundsToMarkers={true}
             markers={mapDisplayElements.markers}
             customMapLabels={mapDisplayElements.labels}
@@ -1873,7 +1866,43 @@ export default function AvailableRidesPage() {
             disableDefaultUI={true}
             onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
           />
-          {/* SOS Button and Hazard Reporting Removed */}
+          {activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase()) && (
+            <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-3 right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl animate-pulse"
+                  aria-label="SOS Emergency Alert"
+                  title="SOS Emergency Alert"
+                  onClick={() => setIsSosDialogOpen(true)}
+                >
+                  <AlertTriangle className="h-5 w-5 md:h-6 md:h-6" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <ShadAlertDialogTitle className="text-2xl flex items-center gap-2">
+                    <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
+                  </ShadAlertDialogTitle>
+                  <AlertDialogDescription className="text-base py-2">
+                    Are you sure you want to send an emergency alert?
+                    This will immediately notify your operator.
+                    <strong>Use this button for genuine emergencies only.</strong>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmEmergency}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Send Alert Now
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
       </div>
       )}
       <Card className={cn(
@@ -2032,7 +2061,7 @@ export default function AvailableRidesPage() {
                       <p
                           key={`leg-${index}`}
                           className={cn(
-                              "flex items-start gap-1 p-0.5 rounded text-base font-bold", 
+                              "flex items-start gap-1 p-0.5 rounded text-base font-bold",
                               isCurrentLeg && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup' || activeRide.status.startsWith('in_progress')) && "bg-primary/10 border-l-2 border-primary",
                               isPastLeg && isRideInProgressOrFurther && "text-muted-foreground opacity-60 line-through"
                           )}
@@ -2067,7 +2096,7 @@ export default function AvailableRidesPage() {
                 )}
                 {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
           </div>
-        
+
 
           {(showCompletedStatus || showCancelledNoShowStatus) && (
             <div className="mt-2 pt-2 border-t text-center">
@@ -2158,18 +2187,27 @@ export default function AvailableRidesPage() {
               </div>
            )}
         </Card>
-        {/* Remaining Dialogs from the full component */}
         <AlertDialog
-          open={showCancelConfirmationDialog}
-          onOpenChange={(isOpen) => {
-              console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen);
-              setShowCancelConfirmationDialog(isOpen);
-              if (!isOpen && activeRide && isCancelSwitchOn) {
-                  console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false.");
-                  setIsCancelSwitchOn(false);
-              }
-          }}
+          open={isStationaryReminderVisible}
+          onOpenChange={setIsStationaryReminderVisible}
         >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <ShadAlertDialogTitle className="flex items-center gap-2">
+                <Navigation className="w-5 h-5 text-primary" /> Time to Go!
+              </ShadAlertDialogTitle>
+              <AlertDialogDescription>
+                Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
+                Okay, I&apos;m Going!
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
@@ -2257,7 +2295,7 @@ export default function AvailableRidesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    
+
     <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
@@ -2296,8 +2334,6 @@ export default function AvailableRidesPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    {/* Hazard Dialog was removed from the main return for if (!activeRide) block, 
-        so it should also be removed here if it was duplicated or outside the main conditional return */}
   </div>
 );
 }
