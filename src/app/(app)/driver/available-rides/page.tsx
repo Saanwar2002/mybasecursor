@@ -1916,8 +1916,9 @@ export default function AvailableRidesPage() {
       </Dialog>
   </div>
 );
-}
 
+// Constants and helper functions that depend on `activeRide` must be inside the component,
+// after `activeRide` is defined and potentially after early returns if `activeRide` is null.
 const {
   status,
   passengerName,
@@ -2572,5 +2573,4 @@ return (
   </div>
 );
 }
-}
-```
+
