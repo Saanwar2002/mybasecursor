@@ -761,7 +761,7 @@ export default function AvailableRidesPage() {
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
 
-    const isPriority = Math.random() < 0.4; 
+    const isPriority = Math.random() < 0.4;
     let currentPriorityFeeAmount = 0;
     if (isPriority) {
       currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); 
@@ -2061,7 +2061,7 @@ export default function AvailableRidesPage() {
             {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
               <div className="flex items-center gap-1">
                 {activeRide.passengerPhone && !isChatDisabled && (
-                  <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+                   <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
                     <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
                       <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
                     </a>
@@ -2264,6 +2264,14 @@ export default function AvailableRidesPage() {
         )}
          {(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
               <div className="p-2 border-t grid gap-1.5 shrink-0">
+                 {showCompletedStatus && (
+                  <div className="mb-1 text-center">
+                    <Separator className="my-1.5"/>
+                    <p className="text-xs text-muted-foreground">You completed the ride for:</p>
+                    <p className="font-semibold text-base">{activeRide.passengerName}</p>
+                    <Separator className="mt-1.5 mb-0.5"/>
+                  </div>
+                )}
                 <Button
                     className="w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto"
                     onClick={() => {
@@ -2494,4 +2502,3 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-
