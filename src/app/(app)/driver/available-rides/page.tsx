@@ -1626,6 +1626,30 @@ export default function AvailableRidesPage() {
                     <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
                     </Button>
                 </AlertDialogTrigger>
+                 <AlertDialogContent className="sm:max-w-md">
+                    <AlertDialogHeader>
+                    <ShadAlertDialogTitleForDialog className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>Select the type of hazard or observation you want to report at your current location.</ShadAlertDialogDescriptionForDialog>
+                    </AlertDialogHeader>
+                    <div className="py-4 grid grid-cols-2 gap-3">
+                    {hazardTypes.map((hazard) => (
+                        <Button
+                        key={hazard.id}
+                        variant="outline"
+                        className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
+                        onClick={() => handleReportHazard(hazard.label)}
+                        >
+                        <hazard.icon className="w-6 h-6 mb-1" />
+                        {hazard.label}
+                        </Button>
+                    ))}
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel asChild>
+                        <Button type="button" variant="outline">Cancel</Button>
+                      </AlertDialogCancel>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
             </AlertDialog>
         </div>
         <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
@@ -1792,32 +1816,6 @@ export default function AvailableRidesPage() {
           <Button type="button" variant="link" size="sm" className="text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
             Problem with PIN? Start ride manually.
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</DialogTitle>
-          <ShadDialogDescriptionDialog>Select the type of hazard or observation you want to report at your current location.</ShadDialogDescriptionDialog>
-        </DialogHeader>
-        <div className="py-4 grid grid-cols-2 gap-3">
-          {hazardTypes.map((hazard) => (
-            <Button
-              key={hazard.id}
-              variant="outline"
-              className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
-              onClick={() => handleReportHazard(hazard.label)}
-            >
-              <hazard.icon className="w-6 h-6 mb-1" />
-              {hazard.label}
-            </Button>
-          ))}
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">Cancel</Button>
-          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -2018,9 +2016,7 @@ export default function AvailableRidesPage() {
                   ))}
                 </div>
                 <AlertDialogFooter>
-                  <AlertDialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                  </AlertDialogClose>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
                 </AlertDialogFooter>
               </AlertDialogContent>
           </AlertDialog>
@@ -2432,32 +2428,6 @@ export default function AvailableRidesPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</DialogTitle>
-          <ShadDialogDescriptionDialog>Select the type of hazard or observation you want to report at your current location.</ShadDialogDescriptionDialog>
-        </DialogHeader>
-        <div className="py-4 grid grid-cols-2 gap-3">
-          {hazardTypes.map((hazard) => (
-            <Button
-              key={hazard.id}
-              variant="outline"
-              className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
-              onClick={() => handleReportHazard(hazard.label)}
-            >
-              <hazard.icon className="w-6 h-6 mb-1" />
-              {hazard.label}
-            </Button>
-          ))}
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">Cancel</Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
      <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -2518,4 +2488,3 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-
