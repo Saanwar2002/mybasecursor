@@ -1436,15 +1436,32 @@ export default function AvailableRidesPage() {
       location: driverLocation,
       reportedByDriverId: driverUser?.id || "unknown_driver",
       reportedAt: new Date().toISOString(),
-      status: "active", // Or 'pending_verification' if needed
+      status: "active", 
     };
     console.log("Map Hazard Report Payload:", payload);
 
-    // For this mock-up, just a toast. In reality, send to /api/driver/map-hazards/report
-    toast({
-      title: "Hazard Reported (Mock)",
-      description: `${hazardType} reported at your current location.`,
-    });
+    try {
+      const response = await fetch('/api/driver/map-hazards/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to submit hazard report to server.");
+      }
+      toast({
+        title: "Hazard Reported",
+        description: `${hazardType} reported at your current location. Other drivers will be notified.`,
+      });
+    } catch (error) {
+      console.error("Error reporting hazard:", error);
+      toast({
+        title: "Hazard Report Failed",
+        description: error instanceof Error ? error.message : "Could not send hazard report.",
+        variant: "destructive",
+      });
+    }
     setIsHazardReportDialogOpen(false); 
   };
 
@@ -1494,6 +1511,9 @@ export default function AvailableRidesPage() {
         <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
     </div>;
   }
+  
+  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
+
 
   if (!activeRide) {
     const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
@@ -1506,7 +1526,7 @@ export default function AvailableRidesPage() {
             isEnabled={isSpeedLimitFeatureEnabled}
           />
         }
-        <div className={mapContainerClasses}>
+        <div className={cn(mapContainerClasses, "relative")}> {/* Ensure relative for button positioning */}
             <GoogleMapDisplay
               center={driverLocation}
               zoom={15}
@@ -1516,6 +1536,21 @@ export default function AvailableRidesPage() {
               disableDefaultUI={true}
               onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
             />
+             <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+                <AlertDialogTrigger asChild>
+                    <Button
+                    variant="default"
+                    size="icon"
+                    className="absolute top-3 right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50"
+                    aria-label="Report Road Hazard"
+                    title="Report Road Hazard"
+                    onClick={() => setIsHazardReportDialogOpen(true)}
+                    >
+                    <TrafficCone className="h-5 w-5 md:h-6 md:h-6" />
+                    </Button>
+                </AlertDialogTrigger>
+                {/* Hazard Dialog Content defined globally below */}
+            </AlertDialog>
         </div>
         <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "text-lg font-semibold", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
         {geolocationError && isDriverOnline && (
@@ -1526,17 +1561,6 @@ export default function AvailableRidesPage() {
             </Alert>
         )}
         {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
-        {isDriverOnline && (
-            <Button
-                variant="default"
-                size="sm"
-                onClick={() => setIsHazardReportDialogOpen(true)}
-                className="mt-2 text-xs h-8 px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-black"
-                disabled={!!activeRide}
-            >
-                <TrafficCone className="mr-1.5 h-4 w-4" /> Report Road Hazard
-            </Button>
-        )}
         <div className="pt-1">
             <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/>
             <Label htmlFor="speed-limit-mock-toggle" className="text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label>
@@ -1835,7 +1859,7 @@ export default function AvailableRidesPage() {
             disableDefaultUI={true}
             onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); } }}
           />
-          {activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase()) && (
+          {isSosButtonVisible && (
             <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button
@@ -1878,6 +1902,24 @@ export default function AvailableRidesPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+           <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+              <AlertDialogTrigger asChild>
+                  <Button
+                  variant="default"
+                  size="icon"
+                  className={cn(
+                    "absolute right-3 z-[1001] h-10 w-10 md:h-12 md:w-12 rounded-full shadow-xl bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                    isSosButtonVisible ? "top-16 md:top-20" : "top-3"
+                  )}
+                  aria-label="Report Road Hazard"
+                  title="Report Road Hazard"
+                  onClick={() => setIsHazardReportDialogOpen(true)}
+                  >
+                  <TrafficCone className="h-5 w-5 md:h-6 md:h-6" />
+                  </Button>
+              </AlertDialogTrigger>
+              {/* Hazard Dialog Content is globally defined below, no need to repeat it here */}
+          </AlertDialog>
       </div>
       )}
       <Card className={cn(
@@ -2339,4 +2381,3 @@ export default function AvailableRidesPage() {
 );
 }
 
-    
