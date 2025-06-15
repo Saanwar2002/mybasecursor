@@ -53,9 +53,10 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24">
-<circle cx="12" cy="12" r="11" fill="#FFD700" stroke="black" stroke-width="1.5"/>
-<path fill="#3B82F6" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
+  <path d="M14 40 C5 30 3 20 7 14 A10 10 0 1 1 21 14 C25 20 23 30 14 40 Z" fill="black"/>
+  <circle cx="14" cy="14" r="9.5" fill="#FFD700" stroke="black" stroke-width="0.75"/>
+  <path d="M10,16.5 L10,15 A1.5,1.5 0 0,1 11.5,13.5 L12.5,13.5 L13,11.5 L15,11.5 L15.5,13.5 L16.5,13.5 A1.5,1.5 0 0,1 18,15 L18,16.5 L10,16.5 Z M11,14.5 L12,14.5 L12,15.5 L11,15.5 L11,14.5 Z M17,14.5 L16,14.5 L16,15.5 L17,15.5 L17,14.5 Z" fill="white" transform="translate(0, -0.5)"/>
 </svg>`;
 
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -452,7 +453,7 @@ export default function AvailableRidesPage() {
           }
           setGeolocationError(message);
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 } // Updated timeout and maximumAge
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 } 
       );
     } else {
       if (watchIdRef.current !== null) {
@@ -1303,7 +1304,7 @@ export default function AvailableRidesPage() {
             position: currentLocToDisplay,
             title: "Your Current Location",
             iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 28, height: 28}
+            iconScaledSize: {width: 28, height: 40}
         });
     }
 
@@ -1332,7 +1333,7 @@ export default function AvailableRidesPage() {
             markers.push({
               position: {lat: stop.latitude, lng: stop.longitude},
               title: `Stop ${index+1}: ${stop.address}`,
-              label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+              label: { text: `S${index+1}`, color: "white", fontWeight: "bold"}
             });
             if (currentLegIdxToUse === stopLegIndex) {
                  labels.push({
@@ -1356,7 +1357,7 @@ export default function AvailableRidesPage() {
           markers.push({
             position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
             title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-            label: { text: "D", color: "white", fontWeight: "bold" }
+            label: { text: "D", color: "white", fontWeight: "bold"}
           });
           if (currentLegIdxToUse === dropoffLegIndex) {
             labels.push({
@@ -1635,7 +1636,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="default" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
             title={`Navigate to ${legTypeLabel}`}
           >
@@ -1700,7 +1701,7 @@ export default function AvailableRidesPage() {
                         <Button
                         key={hazard.id}
                         variant="outline"
-                        className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
+                        className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
                         onClick={() => handleReportHazard(hazard.label)}
                         >
                         <hazard.icon className="w-6 h-6 mb-1" />
