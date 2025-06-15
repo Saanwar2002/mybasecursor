@@ -1990,7 +1990,7 @@ export default function AvailableRidesPage() {
                   className={cn(
                     "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
                     "h-8 w-8 md:h-9 md:w-9", 
-                    isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-2" 
+                    isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
                   )}
                   aria-label="Report Road Hazard"
                   title="Report Road Hazard"
@@ -1999,6 +1999,30 @@ export default function AvailableRidesPage() {
                   <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
                   </Button>
               </AlertDialogTrigger>
+               <AlertDialogContent className="sm:max-w-md">
+                <AlertDialogHeader>
+                  <ShadAlertDialogTitleForDialog className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</ShadAlertDialogTitleForDialog>
+                  <ShadAlertDialogDescriptionForDialog>Select the type of hazard or observation you want to report at your current location.</ShadAlertDialogDescriptionForDialog>
+                </AlertDialogHeader>
+                <div className="py-4 grid grid-cols-2 gap-3">
+                  {hazardTypes.map((hazard) => (
+                    <Button
+                      key={hazard.id}
+                      variant="outline"
+                      className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
+                      onClick={() => handleReportHazard(hazard.label)}
+                    >
+                      <hazard.icon className="w-6 h-6 mb-1" />
+                      {hazard.label}
+                    </Button>
+                  ))}
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                  </AlertDialogClose>
+                </AlertDialogFooter>
+              </AlertDialogContent>
           </AlertDialog>
           <CurrentNavigationLegBar />
       </div>
