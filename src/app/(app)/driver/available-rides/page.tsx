@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, TrafficCone } from "lucide-react"; // Added TrafficCone
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -23,10 +23,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as ShadAlertDialogDescription, // Renamed to avoid conflict with CardDescription
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitle, // Renamed to avoid conflict with CardTitle
+  AlertDialogTitle as ShadAlertDialogTitle, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -34,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription as ShadDialogDescriptionDialog, // Renamed DialogDescription
+  DialogDescription as ShadDialogDescriptionDialog, 
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -45,6 +45,7 @@ import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
+import type { LucideIcon } from 'lucide-react';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -188,16 +189,16 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1];
+    area = parts[1]; 
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area";
+    street = "Area"; 
   }
-
+  
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', ');
+      area = parts.slice(1).join(', '); 
   }
 
   let locationLine = area;
@@ -206,12 +207,12 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   }
 
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = "";
+      street = ""; 
   }
-  if (street && !locationLine) {
+  if (street && !locationLine) { 
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) {
+  if (!street && locationLine) { 
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -247,6 +248,22 @@ interface CurrentStopTimerDisplay {
   extraSeconds: number | null;
   charge: number;
 }
+
+interface HazardType {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  className: string; // For Tailwind bg, text, border
+}
+
+const hazardTypes: HazardType[] = [
+  { id: 'speed_camera', label: 'Mobile Speed Cam', icon: Gauge, className: 'bg-blue-500 hover:bg-blue-600 text-white border border-black' },
+  { id: 'taxi_check', label: 'Roadside Check', icon: ShieldCheckIcon, className: 'bg-sky-500 hover:bg-sky-600 text-white border border-black' },
+  { id: 'road_closure', label: 'Road Closure', icon: MinusCircle, className: 'bg-red-500 hover:bg-red-600 text-white border border-black' },
+  { id: 'accident', label: 'Accident', icon: AlertTriangle, className: 'bg-orange-500 hover:bg-orange-600 text-white border border-black' },
+  { id: 'road_works', label: 'Road Works', icon: Construction, className: 'bg-yellow-500 hover:bg-yellow-600 text-black border border-black' },
+  { id: 'heavy_traffic', label: 'Heavy Traffic', icon: UsersIcon, className: 'bg-amber-500 hover:bg-amber-600 text-black border border-black' },
+];
 
 
 export default function AvailableRidesPage() {
@@ -306,6 +323,8 @@ export default function AvailableRidesPage() {
 
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
   const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
+  const [isHazardReportDialogOpen, setIsHazardReportDialogOpen] = useState(false);
+
 
   const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
   const journeyPoints = useMemo(() => {
@@ -1407,8 +1426,26 @@ export default function AvailableRidesPage() {
   };
 
   const handleReportHazard = async (hazardType: string) => {
-    console.log("Hazard reporting feature has been temporarily removed.");
-    toast({title: "Feature Unavailable", description: "Hazard reporting is currently disabled.", variant: "default"});
+    if (!driverLocation) {
+      toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" });
+      return;
+    }
+    
+    const payload = {
+      hazardType: hazardType,
+      location: driverLocation,
+      reportedByDriverId: driverUser?.id || "unknown_driver",
+      reportedAt: new Date().toISOString(),
+      status: "active", // Or 'pending_verification' if needed
+    };
+    console.log("Map Hazard Report Payload:", payload);
+
+    // For this mock-up, just a toast. In reality, send to /api/driver/map-hazards/report
+    toast({
+      title: "Hazard Reported (Mock)",
+      description: `${hazardType} reported at your current location.`,
+    });
+    setIsHazardReportDialogOpen(false); 
   };
 
   const getActiveRideDispatchInfo = (
@@ -1489,6 +1526,17 @@ export default function AvailableRidesPage() {
             </Alert>
         )}
         {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("text-sm font-medium", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
+        {isDriverOnline && (
+            <Button
+                variant="default"
+                size="sm"
+                onClick={() => setIsHazardReportDialogOpen(true)}
+                className="mt-2 text-xs h-8 px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-black"
+                disabled={!!activeRide}
+            >
+                <TrafficCone className="mr-1.5 h-4 w-4" /> Report Road Hazard
+            </Button>
+        )}
         <div className="pt-1">
             <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/>
             <Label htmlFor="speed-limit-mock-toggle" className="text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label>
@@ -1509,9 +1557,9 @@ export default function AvailableRidesPage() {
               <ShadAlertDialogTitle className="flex items-center gap-2">
                 <Navigation className="w-5 h-5 text-primary" /> Time to Go!
               </ShadAlertDialogTitle>
-              <AlertDialogDescription>
+              <ShadAlertDialogDescription>
                 Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
-              </AlertDialogDescription>
+              </ShadAlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
@@ -1524,7 +1572,7 @@ export default function AvailableRidesPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+              <ShadAlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
@@ -1559,9 +1607,9 @@ export default function AvailableRidesPage() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                    <AlertDialogDescription>
+                    <ShadAlertDialogDescription>
                         Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                    </AlertDialogDescription>
+                    </ShadAlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
@@ -1647,6 +1695,32 @@ export default function AvailableRidesPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</DialogTitle>
+          <ShadDialogDescriptionDialog>Select the type of hazard or observation you want to report at your current location.</ShadDialogDescriptionDialog>
+        </DialogHeader>
+        <div className="py-4 grid grid-cols-2 gap-3">
+          {hazardTypes.map((hazard) => (
+            <Button
+              key={hazard.id}
+              variant="outline"
+              className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
+              onClick={() => handleReportHazard(hazard.label)}
+            >
+              <hazard.icon className="w-6 h-6 mb-1" />
+              {hazard.label}
+            </Button>
+          ))}
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">Cancel</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
   );
   }
@@ -1692,7 +1766,7 @@ export default function AvailableRidesPage() {
   let displayedFare = `£${totalFare.toFixed(2)}`;
   if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
     const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
     displayedFare = `£${(wrBaseFare + wrWaitCharge + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
   }
 
@@ -1780,11 +1854,11 @@ export default function AvailableRidesPage() {
                   <ShadAlertDialogTitle className="text-2xl flex items-center gap-2">
                     <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
                   </ShadAlertDialogTitle>
-                  <AlertDialogDescription className="text-base py-2">
+                  <ShadAlertDialogDescription className="text-base py-2">
                     Select a quick alert or send a general emergency notification.
                     Your operator will be notified immediately.
                     <strong>Use this for genuine emergencies only.</strong>
-                  </AlertDialogDescription>
+                  </ShadAlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-2 gap-2 my-3">
                     <Button onClick={() => handleQuickSOSAlert("Emergency")} className="bg-red-500 hover:bg-red-600 text-white border border-black" size="sm">Emergency</Button>
@@ -1993,7 +2067,7 @@ export default function AvailableRidesPage() {
                 </div>
                 <p className="flex items-center gap-1.5 font-bold"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
                 {activeRide.distanceMiles != null && (
-                  <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Distance: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                  <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                 )}
                 {paymentMethod && ( <p className="flex items-center gap-1.5 col-span-2 font-bold"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
           </div>
@@ -2097,9 +2171,9 @@ export default function AvailableRidesPage() {
               <ShadAlertDialogTitle className="flex items-center gap-2">
                 <Navigation className="w-5 h-5 text-primary" /> Time to Go!
               </ShadAlertDialogTitle>
-              <AlertDialogDescription>
+              <ShadAlertDialogDescription>
                 Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
-              </AlertDialogDescription>
+              </ShadAlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
@@ -2112,7 +2186,7 @@ export default function AvailableRidesPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <ShadAlertDialogTitle><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitle>
-              <AlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></AlertDialogDescription>
+              <ShadAlertDialogDescription><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
@@ -2147,9 +2221,9 @@ export default function AvailableRidesPage() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <ShadAlertDialogTitle className="text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitle>
-                    <AlertDialogDescription>
+                    <ShadAlertDialogDescription>
                         Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
-                    </AlertDialogDescription>
+                    </ShadAlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel>
@@ -2235,6 +2309,34 @@ export default function AvailableRidesPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <Dialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</DialogTitle>
+          <ShadDialogDescriptionDialog>Select the type of hazard or observation you want to report at your current location.</ShadDialogDescriptionDialog>
+        </DialogHeader>
+        <div className="py-4 grid grid-cols-2 gap-3">
+          {hazardTypes.map((hazard) => (
+            <Button
+              key={hazard.id}
+              variant="outline"
+              className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-medium", hazard.className)}
+              onClick={() => handleReportHazard(hazard.label)}
+            >
+              <hazard.icon className="w-6 h-6 mb-1" />
+              {hazard.label}
+            </Button>
+          ))}
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">Cancel</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 );
 }
+
+    
