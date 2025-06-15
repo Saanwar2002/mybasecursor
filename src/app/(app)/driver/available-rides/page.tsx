@@ -305,7 +305,7 @@ export default function AvailableRidesPage() {
   const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
 
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
-  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false); 
+  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
 
   const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
   const journeyPoints = useMemo(() => {
@@ -732,6 +732,39 @@ export default function AvailableRidesPage() {
       }
     };
   }, [activeRide?.status]);
+
+  const handleSimulateOffer = () => {
+    const randomPickupIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+    let randomDropoffIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+    while (randomDropoffIndex === randomPickupIndex) {
+      randomDropoffIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+    }
+    const pickup = mockHuddersfieldLocations[randomPickupIndex];
+    const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
+
+    const mockOffer: RideOffer = {
+      id: `mock-offer-${Date.now()}`,
+      pickupLocation: pickup.address,
+      pickupCoords: pickup.coords,
+      dropoffLocation: dropoff.address,
+      dropoffCoords: dropoff.coords,
+      fareEstimate: Math.floor(Math.random() * 20) + 5,
+      passengerCount: Math.floor(Math.random() * 3) + 1,
+      passengerId: `pass-mock-${Date.now().toString().slice(-4)}`,
+      passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
+      notes: Math.random() < 0.3 ? "Has some luggage." : undefined,
+      requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
+      distanceMiles: Math.random() * 10 + 1,
+      paymentMethod: Math.random() < 0.6 ? 'card' : (Math.random() < 0.8 ? 'cash' : 'account'),
+      isPriorityPickup: Math.random() < 0.2,
+      priorityFeeAmount: Math.random() < 0.2 ? parseFloat((Math.random() * 3 + 1).toFixed(2)) : 0,
+      dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
+      accountJobPin: Math.random() < 0.1 ? Math.floor(1000 + Math.random() * 9000).toString() : undefined,
+    };
+    console.log("Simulating offer:", mockOffer);
+    setCurrentOfferDetails(mockOffer);
+    setIsOfferModalOpen(true);
+  };
 
 
   const handleAcceptOffer = async (rideId: string) => {
@@ -1319,6 +1352,7 @@ export default function AvailableRidesPage() {
       variant: "destructive",
       duration: 10000
     });
+    setIsSosDialogOpen(false);
   };
 
   const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
