@@ -1502,272 +1502,7 @@ export default function AvailableRidesPage() {
     await handleRideAction(activeRide.id, 'start_ride');
   };
 
-  const mainButtonText = () => {
-    if (!activeRide) return "Status Action";
-    const currentLegIdx = localCurrentLegIndex;
-    if (activeRide.status === 'arrived_at_pickup') return "Start Ride";
-    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-      const nextLegIsDropoff = currentLegIdx + 1 === journeyPoints.length - 1;
-      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-          return `Depart Stop ${currentLegIdx} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx +1}`}`;
-      } else {
-          return `Arrived at Stop ${currentLegIdx} / Start Timer`;
-      }
-    }
-    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
-      return "Complete Ride";
-    }
-    return "Status Action";
-  };
-  
-  const mainButtonAction = () => {
-    if (!activeRide) return; 
-    const currentLegIdx = localCurrentLegIndex;
-    if (activeRide.status === 'arrived_at_pickup') {
-      handleRideAction(activeRide.id, 'start_ride');
-    }
-    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-            handleRideAction(activeRide.id, 'proceed_to_next_leg');
-        } else {
-            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
-        }
-    }
-    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
-        handleRideAction(activeRide.id, 'complete_ride');
-    }
-  };
-
-  if (isLoading && !activeRide) {
-    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  }
-  if (error && !activeRide && !isLoading) {
-    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
-        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
-        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
-        <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <Button onClick={fetchActiveRide} variant="outline"><span>Try Again</span></Button>
-    </div>;
-  }
-  
-  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
-
-  const CurrentNavigationLegBar = () => {
-    if (!activeRide || !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
-      return null;
-    }
-    const currentLeg = journeyPoints[localCurrentLegIndex];
-    if (!currentLeg) return null;
-
-    let bgColorClass = "bg-gray-100 dark:bg-gray-700";
-    let textColorClass = "text-gray-800 dark:text-gray-200";
-    let legTypeLabel = "";
-
-    if (localCurrentLegIndex === 0) { 
-      bgColorClass = "bg-green-100 dark:bg-green-900/50";
-      textColorClass = "text-green-700 dark:text-green-300";
-      legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
-    } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
-      bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
-      textColorClass = "text-yellow-700 dark:text-yellow-300";
-      legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
-    } else { 
-      bgColorClass = "bg-red-100 dark:bg-red-800/50";
-      textColorClass = "text-red-700 dark:text-red-300";
-      legTypeLabel = "TO DROPOFF";
-    }
-    
-    const addressParts = currentLeg.address.split(',');
-    const primaryAddressLine = addressParts[0]?.trim();
-    const secondaryAddressLine = addressParts.slice(1).join(',').trim();
-
-
-    return (
-      <div className={cn(
-        "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
-        bgColorClass,
-        "border-t-2 border-black/20 dark:border-white/20" 
-      )}>
-        <div className="flex-1 min-w-0">
-          <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
-          <p className={cn("font-bold text-base md:text-lg truncate", textColorClass)}>
-            {primaryAddressLine}
-          </p>
-          {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
-        </div>
-        <div className="flex items-start gap-1.5 shrink-0">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
-            onClick={() => setIsJourneyDetailsModalOpen(true)}
-            title="View Full Journey Details"
-          >
-            <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-          </Button>
-          <Button 
-            variant="default" 
-            size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => {
-                if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
-                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
-                    window.open(mapsUrl, '_blank');
-                } else {
-                    toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
-                }
-            }}
-            title={`Navigate to ${legTypeLabel}`}
-          >
-            <Navigation className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  const handleCancelSwitchChange = (checked: boolean) => {
-    console.log("handleCancelSwitchChange: Switch toggled to", checked);
-    setIsCancelSwitchOn(checked);
-    if (checked) {
-        console.log("handleCancelSwitchChange: Showing cancel confirmation dialog.");
-        setShowCancelConfirmationDialog(true);
-    } else {
-        console.log("handleCancelSwitchChange: Hiding cancel confirmation dialog (switch off).");
-        setShowCancelConfirmationDialog(false);
-    }
-  };
-
-
-  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
-    if (!ride || !['driver_assigned'].includes(ride.status.toLowerCase())) return null;
-    if (ride.status.toLowerCase() === 'arrived_at_pickup') return null;
-
-    return (
-        <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
-        <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="font-bold text-destructive text-sm">
-            <span>Initiate Cancellation</span>
-        </Label>
-        <Switch
-            id={`cancel-ride-switch-${ride.id}`}
-            checked={isCancelSwitchOn}
-            onCheckedChange={handleCancelSwitchChange}
-            disabled={actionIsLoadingProp}
-            className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0"
-        />
-        </div>
-    );
-  };
-
-
-  const handleConfirmEmergency = () => {
-    toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified. Stay safe.", variant: "destructive", duration: 10000 });
-    setIsSosDialogOpen(false);
-  };
-
-  const handleQuickSOSAlert = (alertType: string) => {
-    toast({
-      title: "QUICK SOS ALERT SENT!",
-      description: `Your operator has been notified: ${alertType}. Stay safe.`,
-      variant: "destructive",
-      duration: 10000
-    });
-    setIsSosDialogOpen(false);
-  };
-
-  const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
-    setIsDriverOnline(newOnlineStatus);
-    if (newOnlineStatus) {
-        setConsecutiveMissedOffers(0);
-        if (geolocationError) {
-            setGeolocationError(null);
-        }
-        setIsPollingEnabled(true);
-    } else {
-        setRideRequests([]);
-        setIsPollingEnabled(false);
-        if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-        }
-    }
-  };
-
-  const handleRequestWaitAndReturn = async () => {
-    if (!activeRide || !driverUser) return;
-    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
-    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
-      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
-      return;
-    }
-    setIsRequestingWR(true);
-    try {
-      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'request_wait_and_return',
-          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to request Wait & Return.");
-      }
-      const updatedBooking = await response.json();
-      setActiveRide(updatedBooking.booking);
-      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
-      setIsWRRequestDialogOpen(false);
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : "Unknown error.";
-      toast({ title: "Request Failed", description: message, variant: "destructive" });
-    } finally {
-      setIsRequestingWR(false);
-    }
-  };
-
-  const handleReportHazard = async (hazardType: string) => {
-    if (!driverLocation) {
-      toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" });
-      return;
-    }
-    
-    const payload = {
-      hazardType: hazardType,
-      location: driverLocation,
-      reportedByDriverId: driverUser?.id || "unknown_driver",
-      reportedAt: new Date().toISOString(),
-      status: "active", 
-    };
-    console.log("Map Hazard Report Payload:", payload);
-
-    try {
-      const response = await fetch('/api/driver/map-hazards/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit hazard report to server.");
-      }
-      toast({
-        title: "Hazard Reported",
-        description: `${hazardType} reported at your current location. Other drivers will be notified.`,
-      });
-    } catch (error) {
-      console.error("Error reporting hazard:", error);
-      toast({
-        title: "Hazard Report Failed",
-        description: error instanceof Error ? error.message : "Could not send hazard report.",
-        variant: "destructive",
-      });
-    }
-    setIsHazardReportDialogOpen(false); 
-  };
-
   const mainActionBtnText = mainButtonText();
-  // const mainActionBtnAction = mainButtonAction; // Redundant, removed
 
   const showCompletedStatus = activeRide?.status === 'completed';
   const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
@@ -1811,6 +1546,19 @@ export default function AvailableRidesPage() {
   }
 
 
+  if (isLoading && !activeRide) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  }
+  if (error && !activeRide && !isLoading) {
+    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
+        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
+        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
+        <p className="text-sm text-muted-foreground mb-4">{error}</p>
+        <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
+    </div>;
+  }
+
+
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
         {isSpeedLimitFeatureEnabled &&
@@ -1822,9 +1570,8 @@ export default function AvailableRidesPage() {
         }
         <div className={cn(
             "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
-            activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-12rem)]",
-            activeRide && !isRideTerminated(activeRide.status) && !isRideDetailsPanelMinimized ? "pb-[calc(60vh-env(safe-area-inset-bottom))]" : /* When panel is open */
-            activeRide && !isRideTerminated(activeRide.status) && isRideDetailsPanelMinimized ? "pb-[6rem]" : "" /* When panel is closed, padding for nav bar */
+            activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-12rem)]", // Takes available space for map if active
+            activeRide && !isRideTerminated(activeRide.status) && !isRideDetailsPanelMinimized ? "pb-[calc(60vh-env(safe-area-inset-bottom))]" : "" // Padding for when panel is FULLY open
         )}>
             <GoogleMapDisplay
               center={memoizedMapCenter}
@@ -1858,10 +1605,11 @@ export default function AvailableRidesPage() {
                 <AlertDialogContent className="sm:max-w-md">
                   <AlertDialogHeader>
                     <ShadAlertDialogTitleForDialog className="font-bold text-2xl flex items-center gap-2">
-                      <AlertTriangle className="w-7 h-7 text-destructive" /> <span>Confirm Emergency Alert</span>
+                      <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
                     </ShadAlertDialogTitleForDialog>
                     <ShadAlertDialogDescriptionForDialog className="text-base py-2">
-                      <span>Select a quick alert or send a general emergency notification. Your operator has been notified immediately.</span>
+                      Select a quick alert or send a general emergency notification.
+                      Your operator has been notified immediately.
                       <strong className="block mt-1">Use this for genuine emergencies only.</strong>
                     </ShadAlertDialogDescriptionForDialog>
                   </AlertDialogHeader>
@@ -1902,8 +1650,8 @@ export default function AvailableRidesPage() {
                 </AlertDialogTrigger>
                  <AlertDialogContent className="sm:max-w-md">
                   <AlertDialogHeader>
-                    <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/><span>Add a map report</span></ShadAlertDialogTitleForDialog>
-                    <ShadAlertDialogDescriptionForDialog><span>Select the type of hazard or observation you want to report at your current location.</span></ShadAlertDialogDescriptionForDialog>
+                    <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>Select the type of hazard or observation you want to report at your current location.</ShadAlertDialogDescriptionForDialog>
                   </AlertDialogHeader>
                   <div className="py-4 grid grid-cols-2 gap-3">
                     {hazardTypes.map((hazard) => (
@@ -1925,7 +1673,7 @@ export default function AvailableRidesPage() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            {activeRide && !isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
+           {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
         </div>
         
         {activeRide && isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && (
@@ -1933,7 +1681,7 @@ export default function AvailableRidesPage() {
             onClick={() => setIsRideDetailsPanelMinimized(false)}
             className={cn(
               "absolute right-4 z-20 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg px-3 py-1.5 h-auto text-xs font-semibold",
-              "bottom-[calc(6rem+0.5rem)]"
+               "bottom-[calc(5rem+0.5rem)]" // Adjust if nav bar height changes
             )}
           >
             <span>JOB DETAIL</span> <ChevronUp className="ml-1 h-4 w-4"/>
@@ -1943,8 +1691,8 @@ export default function AvailableRidesPage() {
         {activeRide ? (
              <Card
                 className={cn(
-                    "absolute bottom-0 left-0 right-0 z-30 bg-card shadow-2xl border-t-4 border-primary rounded-t-xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out",
-                    isRideDetailsPanelMinimized ? "translate-y-full" : "translate-y-0",
+                    "absolute left-0 right-0 z-30 bg-card shadow-2xl border-t-4 border-primary rounded-t-xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out",
+                    isRideDetailsPanelMinimized ? "translate-y-full" : "bottom-0 translate-y-0",
                     isRideDetailsPanelMinimized && isRideTerminated(activeRide.status) && "hidden", 
                     isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && "pointer-events-none",
                     "max-h-[calc(60vh-env(safe-area-inset-bottom))] md:max-h-[calc(55vh-env(safe-area-inset-bottom))]"
@@ -2001,7 +1749,7 @@ export default function AvailableRidesPage() {
                             </Button>
                             )}
                             {isChatDisabled ? (
-                            <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled>
+                            <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8" disabled>
                                 <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
                             </Button>
                             ) : (
@@ -2052,9 +1800,11 @@ export default function AvailableRidesPage() {
                           </p>
                         </div>
                         <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Passengers: {activeRide.passengerCount}</span></p>
-                        {activeRide.distanceMiles != null && (<p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</span></p>)}
+                        {activeRide.distanceMiles != null && (
+                          <p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</span></p>
+                        )}
                         {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} <span>Payment: {paymentMethodDisplay}</span> </p> )}
-                          {(showCompletedStatus || showCancelledNoShowStatus) && (
+                           {(showCompletedStatus || showCancelledNoShowStatus) && (
                             <>
                               <Separator className="col-span-2 my-1 bg-green-300 dark:bg-green-700/50" />
                               {journeyPoints.map((point, index) => {
@@ -2160,7 +1910,7 @@ export default function AvailableRidesPage() {
                                   disabled={!!actionLoading[activeRide.id]}
                               >
                                   {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Navigation className="mr-1.5 h-4 w-4" />}
-                                  <span>{mainButtonText}</span>
+                                  <span>{mainActionBtnText}</span>
                               </Button>
                               {showInProgressStatus && !activeRide.waitAndReturn && (
                                   <Button
@@ -2219,6 +1969,7 @@ export default function AvailableRidesPage() {
                         <span>{isDriverOnline ? "Online" : "Offline"}</span>
                         </Label> 
                     </div>
+                    
                     {isDriverOnline && ( 
                         <Button 
                         variant="outline" 
@@ -2230,7 +1981,7 @@ export default function AvailableRidesPage() {
                               toast({ title: "Action Not Allowed", description: "Please complete your current ride before simulating a new offer.", variant: "default" });
                             }
                           }} 
-                        className="mt-3 text-xs h-8 px-3 py-1 font-bold" 
+                        className="mt-2 text-xs h-8 px-3 py-1 font-bold" 
                         disabled={!!activeRide}
                         > 
                         <span>Simulate Incoming Ride Offer (Test)</span> 
@@ -2269,7 +2020,7 @@ export default function AvailableRidesPage() {
           <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <ShadAlertDialogTitleForDialog><span className="font-bold">Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog>
+                <ShadAlertDialogTitleForDialog><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog>
                 <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog>
               </AlertDialogHeader>
               <AlertDialogFooter>
