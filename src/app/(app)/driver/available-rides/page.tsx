@@ -345,13 +345,6 @@ export default function AvailableRidesPage() {
 
 
   const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
-  const journeyPoints = useMemo(() => {
-    if (!activeRide) return [];
-    const points: LocationPoint[] = [activeRide.pickupLocation];
-    if (activeRide.stops) points.push(...activeRide.stops);
-    points.push(activeRide.dropoffLocation);
-    return points;
-  }, [activeRide]);
 
   const [activeStopDetails, setActiveStopDetails] = useState<ActiveStopDetails | null>(null);
   const stopIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -373,6 +366,157 @@ export default function AvailableRidesPage() {
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
+  // ===== HOISTED useMemo HOOKS START =====
+  const journeyPoints = useMemo(() => {
+    if (!activeRide) return [];
+    const points: LocationPoint[] = [activeRide.pickupLocation];
+    if (activeRide.stops) points.push(...activeRide.stops);
+    points.push(activeRide.dropoffLocation);
+    return points;
+  }, [activeRide]);
+
+  const { isChatDisabled } = useMemo(() => ({
+    isChatDisabled: !(activeRide?.status === 'driver_assigned' || activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'in_progress' || activeRide?.status === 'in_progress_wait_and_return')
+  }), [activeRide?.status]);
+
+  const mapDisplayElements = useMemo(() => {
+    const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
+    
+    if (!activeRide) {
+       if (isDriverOnline && driverLocation) {
+        markers.push({
+            position: driverLocation,
+            title: "Your Current Location",
+            iconUrl: driverCarIconDataUrl,
+            iconScaledSize: {width: 30, height: 45}
+        });
+        if (driverCurrentStreetName) {
+            labels.push({
+                position: driverLocation,
+                content: driverCurrentStreetName,
+                type: 'driver',
+                variant: 'compact'
+            });
+        }
+      }
+      return { markers, labels }; 
+    }
+
+    const currentStatusLower = activeRide.status.toLowerCase();
+    const currentLegIdx = localCurrentLegIndex;
+
+    const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
+        ? driverLocation
+        : activeRide.driverCurrentLocation;
+
+    if (currentLocToDisplay) {
+        markers.push({
+            position: currentLocToDisplay,
+            title: "Your Current Location",
+            iconUrl: driverCarIconDataUrl,
+            iconScaledSize: {width: 30, height: 45}
+        });
+        if (driverCurrentStreetName && (currentStatusLower === 'driver_assigned' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return')) {
+            let driverLabelContent = driverCurrentStreetName;
+            if (activeRide.driverEtaMinutes !== undefined && activeRide.driverEtaMinutes !== null && currentStatusLower === 'driver_assigned') {
+                driverLabelContent += `\nETA: ${activeRide.driverEtaMinutes} min${activeRide.driverEtaMinutes !== 1 ? 's' : ''}`;
+            }
+            labels.push({
+                position: currentLocToDisplay,
+                content: driverLabelContent,
+                type: 'driver',
+                variant: 'compact'
+            });
+        }
+    }
+    
+    const isEnRouteToPickup = currentStatusLower === 'driver_assigned';
+    const isAtPickup = currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0;
+    const isRideInProgress = currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return';
+
+    if (activeRide.pickupLocation && (isEnRouteToPickup || isAtPickup || (isRideInProgress && currentLegIdx > 0 ))) { // Show pickup marker if en_route or at_pickup, or if ride is in progress and driver is past pickup
+      if (isEnRouteToPickup || isAtPickup) { // Always show pickup marker if en_route or at_pickup
+        markers.push({
+            position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
+            title: `Pickup: ${activeRide.pickupLocation.address}`,
+            label: { text: "P", color: "white", fontWeight: "bold"}
+        });
+      }
+      if (isEnRouteToPickup || isAtPickup) { // Show pickup label if en_route or at_pickup
+        labels.push({
+            position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
+            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+            type: 'pickup',
+            variant: isAtPickup ? 'default' : 'compact' // Pickup label is large if AT pickup
+        });
+      }
+      // No pickup marker or label if ride is in_progress (meaning passenger picked up)
+    }
+    
+    // Logic for stops and dropoff markers/labels when ride is in progress or at pickup
+    if (isRideInProgress || isAtPickup) {
+        const dropoffLegIndex = journeyPoints.length -1;
+
+        activeRide.stops?.forEach((stop, index) => {
+            const stopLegIndex = index + 1; 
+            if(stop.latitude && stop.longitude) {
+                if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) { // Show current or upcoming stops
+                    markers.push({
+                        position: {lat: stop.latitude, lng: stop.longitude},
+                        title: `Stop ${index+1}: ${stop.address}`,
+                        label: { text: `S${index+1}`, color: "white", fontWeight: "bold"}
+                    });
+                    labels.push({
+                        position: { lat: stop.latitude, lng: stop.longitude },
+                        content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
+                        type: 'stop',
+                        variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact' // Current stop large, others compact
+                    });
+                }
+            }
+        });
+
+        if (activeRide.dropoffLocation) {
+            // Show dropoff marker if it's the current leg or an upcoming leg
+            if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
+                markers.push({
+                    position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
+                    title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+                    label: { text: "D", color: "white", fontWeight: "bold"}
+                });
+                labels.push({
+                    position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+                    content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+                    type: 'dropoff',
+                    // Make dropoff label large if it's the current target,
+                    // OR if driver is at pickup and it's the *only* other point (no intermediate stops)
+                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2) || // at pickup, direct to dropoff
+                               (localCurrentLegIndex === dropoffLegIndex) // currently heading to dropoff
+                               ? 'default' : 'compact'
+                });
+            }
+        }
+    }
+    return { markers, labels };
+  }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
+
+  const memoizedMapCenter = useMemo(() => {
+    if (driverLocation && driverMarkerHeading !== null && activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
+        return driverLocation;
+    }
+    if (!activeRide) {
+      return driverLocation || huddersfieldCenterGoogle;
+    }
+    const currentLegIdxToUse = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
+    const currentTargetPoint = journeyPoints[currentLegIdxToUse];
+    if (currentTargetPoint) {
+        return {lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude};
+    }
+    return driverLocation || huddersfieldCenterGoogle;
+  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, driverMarkerHeading]);
+  // ===== HOISTED useMemo HOOKS END =====
+
 
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
@@ -384,46 +528,6 @@ export default function AvailableRidesPage() {
       }
     }
   }, [isMapSdkLoaded]);
-
-
-  useEffect(() => {
-    if (activeRide?.driverCurrentLocation && geocoderRef.current && isMapSdkLoaded) {
-      geocoderRef.current.geocode({ location: activeRide.driverCurrentLocation }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const routeComponent = results[0].address_components.find(c => c.types.includes('route'));
-          if (routeComponent) {
-            setDriverCurrentStreetName(routeComponent.long_name);
-          } else {
-            const addressParts = results[0].formatted_address.split(',');
-            setDriverCurrentStreetName(addressParts[0] || "Tracking...");
-          }
-        } else {
-          console.warn('Reverse geocoding for driver street failed:', status);
-          setDriverCurrentStreetName("Location updating...");
-        }
-      });
-    } else if (!activeRide?.driverCurrentLocation) {
-      setDriverCurrentStreetName(null);
-    }
-  }, [activeRide?.driverCurrentLocation, isMapSdkLoaded]);
-
-  useEffect(() => {
-    if (!isSpeedLimitFeatureEnabled) return;
-    const speedInterval = setInterval(() => {
-      setCurrentMockSpeed(prev => {
-        const change = Math.floor(Math.random() * 7) - 3; 
-        let newSpeed = prev + change;
-        if (newSpeed < 0) newSpeed = 0;
-        if (newSpeed > 70) newSpeed = 70;
-        return newSpeed;
-      });
-      if (Math.random() < 0.1) { 
-        const limits = [20, 30, 40, 50, 60, 70];
-        setCurrentMockLimit(limits[Math.floor(Math.random() * limits.length)]);
-      }
-    }, 3000);
-    return () => clearInterval(speedInterval);
-  }, [isSpeedLimitFeatureEnabled]);
 
 
   useEffect(() => {
@@ -505,9 +609,7 @@ export default function AvailableRidesPage() {
       console.log("fetchActiveRide - Data received from API:", data);
 
       setError(null);
-
-      // Removed the problematic condition that retained 'completed' rides
-      setActiveRide(data);
+      setActiveRide(data); // Directly set to what API returns, even if null
 
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
@@ -534,8 +636,47 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, localCurrentLegIndex]); // Removed `activeRide` from dependency array
+  }, [driverUser?.id, localCurrentLegIndex]);
 
+
+  useEffect(() => {
+    if (activeRide?.driverCurrentLocation && geocoderRef.current && isMapSdkLoaded) {
+      geocoderRef.current.geocode({ location: activeRide.driverCurrentLocation }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          const routeComponent = results[0].address_components.find(c => c.types.includes('route'));
+          if (routeComponent) {
+            setDriverCurrentStreetName(routeComponent.long_name);
+          } else {
+            const addressParts = results[0].formatted_address.split(',');
+            setDriverCurrentStreetName(addressParts[0] || "Tracking...");
+          }
+        } else {
+          console.warn('Reverse geocoding for driver street failed:', status);
+          setDriverCurrentStreetName("Location updating...");
+        }
+      });
+    } else if (!activeRide?.driverCurrentLocation) {
+      setDriverCurrentStreetName(null);
+    }
+  }, [activeRide?.driverCurrentLocation, isMapSdkLoaded]);
+
+  useEffect(() => {
+    if (!isSpeedLimitFeatureEnabled) return;
+    const speedInterval = setInterval(() => {
+      setCurrentMockSpeed(prev => {
+        const change = Math.floor(Math.random() * 7) - 3; 
+        let newSpeed = prev + change;
+        if (newSpeed < 0) newSpeed = 0;
+        if (newSpeed > 70) newSpeed = 70;
+        return newSpeed;
+      });
+      if (Math.random() < 0.1) { 
+        const limits = [20, 30, 40, 50, 60, 70];
+        setCurrentMockLimit(limits[Math.floor(Math.random() * limits.length)]);
+      }
+    }, 3000);
+    return () => clearInterval(speedInterval);
+  }, [isSpeedLimitFeatureEnabled]);
 
   useEffect(() => {
     if (stopIntervalRef.current) {
@@ -1320,152 +1461,129 @@ export default function AvailableRidesPage() {
     await handleRideAction(activeRide.id, 'start_ride');
   };
 
-
-  const mapDisplayElements = useMemo(() => {
-    const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
-    
-    if (!activeRide) {
-       if (isDriverOnline && driverLocation) {
-        markers.push({
-            position: driverLocation,
-            title: "Your Current Location",
-            iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 30, height: 45}
-        });
-        if (driverCurrentStreetName) {
-            labels.push({
-                position: driverLocation,
-                content: driverCurrentStreetName,
-                type: 'driver',
-                variant: 'compact'
-            });
-        }
-      }
-      return { markers, labels }; 
-    }
-
-    const currentStatusLower = activeRide.status.toLowerCase();
+  const mainButtonText = () => {
+    if (!activeRide) return "Status Action";
     const currentLegIdx = localCurrentLegIndex;
-
-    const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
-        ? driverLocation
-        : activeRide.driverCurrentLocation;
-
-    if (currentLocToDisplay) {
-        markers.push({
-            position: currentLocToDisplay,
-            title: "Your Current Location",
-            iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 30, height: 45}
-        });
-        if (driverCurrentStreetName && (currentStatusLower === 'driver_assigned' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return')) {
-            let driverLabelContent = driverCurrentStreetName;
-            if (activeRide.driverEtaMinutes !== undefined && activeRide.driverEtaMinutes !== null && currentStatusLower === 'driver_assigned') {
-                driverLabelContent += `\nETA: ${activeRide.driverEtaMinutes} min${activeRide.driverEtaMinutes !== 1 ? 's' : ''}`;
-            }
-            labels.push({
-                position: currentLocToDisplay,
-                content: driverLabelContent,
-                type: 'driver',
-                variant: 'compact'
-            });
+    if (activeRide.status === 'arrived_at_pickup') return "Start Ride";
+    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
+      const nextLegIsDropoff = currentLegIdx + 1 === journeyPoints.length - 1;
+      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
+          return `Depart Stop ${currentLegIdx} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx +1}`}`;
+      } else {
+          return `Arrived at Stop ${currentLegIdx} / Start Timer`;
+      }
+    }
+    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
+      return "Complete Ride";
+    }
+    return "Status Action";
+  };
+  
+  const mainButtonAction = () => {
+    if (!activeRide) return; 
+    const currentLegIdx = localCurrentLegIndex;
+    if (activeRide.status === 'arrived_at_pickup') {
+      handleRideAction(activeRide.id, 'start_ride');
+    }
+    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
+        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
+            handleRideAction(activeRide.id, 'proceed_to_next_leg');
+        } else {
+            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
         }
     }
-    
-    const isEnRouteToPickup = currentStatusLower === 'driver_assigned';
-    const isAtPickup = currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0;
-    const isRideInProgress = currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return';
+    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
+        handleRideAction(activeRide.id, 'complete_ride');
+    }
+  };
 
-    if (activeRide.pickupLocation && (isEnRouteToPickup || isAtPickup || (isRideInProgress && localCurrentLegIndex > 0 ))) {
-      if (isEnRouteToPickup || isAtPickup) { // Always show pickup marker if en_route or at_pickup
-        markers.push({
-            position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
-            title: `Pickup: ${activeRide.pickupLocation.address}`,
-            label: { text: "P", color: "white", fontWeight: "bold"}
-        });
-      }
-      if (isEnRouteToPickup || isAtPickup) { // Show pickup label if en_route or at_pickup
-        labels.push({
-            position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
-            type: 'pickup',
-            variant: isAtPickup ? 'default' : 'compact'
-        });
-      }
+  if (isLoading && !activeRide) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  }
+  if (error && !activeRide && !isLoading) {
+    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
+        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
+        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
+        <p className="text-sm text-muted-foreground mb-4">{error}</p>
+        <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
+    </div>;
+  }
+  
+  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
+
+  const CurrentNavigationLegBar = () => {
+    if (!activeRide || !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
+      return null;
+    }
+    const currentLeg = journeyPoints[localCurrentLegIndex];
+    if (!currentLeg) return null;
+
+    let bgColorClass = "bg-gray-100 dark:bg-gray-700";
+    let textColorClass = "text-gray-800 dark:text-gray-200";
+    let legTypeLabel = "";
+
+    if (localCurrentLegIndex === 0) { 
+      bgColorClass = "bg-green-100 dark:bg-green-900/50";
+      textColorClass = "text-green-700 dark:text-green-300";
+      legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
+    } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
+      bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
+      textColorClass = "text-yellow-700 dark:text-yellow-300";
+      legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
+    } else { 
+      bgColorClass = "bg-red-100 dark:bg-red-800/50";
+      textColorClass = "text-red-700 dark:text-red-300";
+      legTypeLabel = "TO DROPOFF";
     }
     
-    if (isRideInProgress || (isAtPickup && journeyPoints.length > 1) ) {
-        const dropoffLegIndex = journeyPoints.length -1;
+    const addressParts = currentLeg.address.split(',');
+    const primaryAddressLine = addressParts[0]?.trim();
+    const secondaryAddressLine = addressParts.slice(1).join(',').trim();
 
-        activeRide.stops?.forEach((stop, index) => {
-            const stopLegIndex = index + 1; 
-            if(stop.latitude && stop.longitude) {
-                if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) {
-                    markers.push({
-                        position: {lat: stop.latitude, lng: stop.longitude},
-                        title: `Stop ${index+1}: ${stop.address}`,
-                        label: { text: `S${index+1}`, color: "white", fontWeight: "bold"}
-                    });
-                    labels.push({
-                        position: { lat: stop.latitude, lng: stop.longitude },
-                        content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
-                        type: 'stop',
-                        variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact'
-                    });
+
+    return (
+      <div className={cn(
+        "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
+        bgColorClass,
+        "border-t-2 border-black/20 dark:border-white/20" 
+      )}>
+        <div className="flex-1 min-w-0">
+          <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
+          <p className={cn("font-bold text-base md:text-lg truncate", textColorClass)}>
+            {primaryAddressLine}
+          </p>
+          {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
+        </div>
+        <div className="flex items-start gap-1.5 shrink-0">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            onClick={() => setIsJourneyDetailsModalOpen(true)}
+            title="View Full Journey Details"
+          >
+            <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+          </Button>
+          <Button 
+            variant="default" 
+            size="icon" 
+            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => {
+                if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
+                    window.open(mapsUrl, '_blank');
+                } else {
+                    toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
                 }
-            }
-        });
-
-        if (activeRide.dropoffLocation) {
-            if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
-                markers.push({
-                    position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
-                    title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-                    label: { text: "D", color: "white", fontWeight: "bold"}
-                });
-                labels.push({
-                    position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-                    content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-                    type: 'dropoff',
-                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2) || (localCurrentLegIndex === dropoffLegIndex) ? 'default' : 'compact'
-                });
-            }
-        }
-    } else if (isAtPickup && journeyPoints.length > 1) { // Special case for "arrived_at_pickup" to show dropoff too
-         if (activeRide.dropoffLocation) {
-            markers.push({
-                position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
-                title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-                label: { text: "D", color: "white", fontWeight: "bold"}
-            });
-            labels.push({
-                position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-                content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-                type: 'dropoff',
-                variant: 'default' 
-            });
-        }
-    }
-    return { markers, labels };
-  }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
-
-
-  const memoizedMapCenter = useMemo(() => {
-    if (driverLocation && driverMarkerHeading !== null && activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
-        return driverLocation;
-    }
-    if (!activeRide) {
-      return driverLocation || huddersfieldCenterGoogle;
-    }
-    const currentLegIdxToUse = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
-    const currentTargetPoint = journeyPoints[currentLegIdxToUse];
-    if (currentTargetPoint) {
-        return {lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude};
-    }
-    return driverLocation || huddersfieldCenterGoogle;
-  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, driverMarkerHeading]);
-
+            }}
+            title={`Navigate to ${legTypeLabel}`}
+          >
+            <Navigation className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   const handleCancelSwitchChange = (checked: boolean) => {
     console.log("handleCancelSwitchChange: Switch toggled to", checked);
@@ -1607,131 +1725,8 @@ export default function AvailableRidesPage() {
     setIsHazardReportDialogOpen(false); 
   };
 
-
-  if (isLoading && !activeRide) {
-    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  }
-  if (error && !activeRide && !isLoading) {
-    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
-        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
-        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
-        <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
-    </div>;
-  }
-  
-  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
-
-  const CurrentNavigationLegBar = () => {
-    if (!activeRide || !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
-      return null;
-    }
-    const currentLeg = journeyPoints[localCurrentLegIndex];
-    if (!currentLeg) return null;
-
-    let bgColorClass = "bg-gray-100 dark:bg-gray-700";
-    let textColorClass = "text-gray-800 dark:text-gray-200";
-    let legTypeLabel = "";
-
-    if (localCurrentLegIndex === 0) { 
-      bgColorClass = "bg-green-100 dark:bg-green-900/50";
-      textColorClass = "text-green-700 dark:text-green-300";
-      legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
-    } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
-      bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
-      textColorClass = "text-yellow-700 dark:text-yellow-300";
-      legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
-    } else { 
-      bgColorClass = "bg-red-100 dark:bg-red-800/50";
-      textColorClass = "text-red-700 dark:text-red-300";
-      legTypeLabel = "TO DROPOFF";
-    }
-    
-    const addressParts = currentLeg.address.split(',');
-    const primaryAddressLine = addressParts[0]?.trim();
-    const secondaryAddressLine = addressParts.slice(1).join(',').trim();
-
-
-    return (
-      <div className={cn(
-        "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
-        bgColorClass,
-        "border-t-2 border-black/20 dark:border-white/20" 
-      )}>
-        <div className="flex-1 min-w-0">
-          <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
-          <p className={cn("font-bold text-base md:text-lg truncate", textColorClass)}>
-            {primaryAddressLine}
-          </p>
-          {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
-        </div>
-        <div className="flex items-start gap-1.5 shrink-0">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
-            onClick={() => setIsJourneyDetailsModalOpen(true)}
-            title="View Full Journey Details"
-          >
-            <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-          </Button>
-          <Button 
-            variant="default" 
-            size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => {
-                if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
-                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
-                    window.open(mapsUrl, '_blank');
-                } else {
-                    toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
-                }
-            }}
-            title={`Navigate to ${legTypeLabel}`}
-          >
-            <Navigation className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  const mainButtonText = () => {
-    if (!activeRide) return "Status Action";
-    const currentLegIdx = localCurrentLegIndex;
-    if (activeRide.status === 'arrived_at_pickup') return "Start Ride";
-    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-      const nextLegIsDropoff = currentLegIdx + 1 === journeyPoints.length - 1;
-      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-          return `Depart Stop ${currentLegIdx} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx +1}`}`;
-      } else {
-          return `Arrived at Stop ${currentLegIdx} / Start Timer`;
-      }
-    }
-    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
-      return "Complete Ride";
-    }
-    return "Status Action";
-  };
-  
-  const mainButtonAction = () => {
-    if (!activeRide) return; 
-    const currentLegIdx = localCurrentLegIndex;
-    if (activeRide.status === 'arrived_at_pickup') {
-      handleRideAction(activeRide.id, 'start_ride');
-    }
-    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-            handleRideAction(activeRide.id, 'proceed_to_next_leg');
-        } else {
-            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
-        }
-    }
-    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
-        handleRideAction(activeRide.id, 'complete_ride');
-    }
-  };
-
+  const mainActionBtnText = mainButtonText();
+  const mainActionBtnAction = mainButtonAction;
 
   const showCompletedStatus = activeRide?.status === 'completed';
   const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
@@ -1744,11 +1739,6 @@ export default function AvailableRidesPage() {
   const showPendingWRApprovalStatus = activeRide?.status === 'pending_driver_wait_and_return_approval';
   const showInProgressWRStatus = activeRide?.status === 'in_progress_wait_and_return';
 
-  const { passengerName, fareEstimate, priorityFeeAmount, isPriorityPickup, paymentMethod, notes, status } = activeRide || {};
-  const { isChatDisabled } = useMemo(() => ({
-    isChatDisabled: !(activeRide?.status === 'driver_assigned' || activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'in_progress' || activeRide?.status === 'in_progress_wait_and_return')
-  }), [activeRide?.status]);
-
   const passengerPhone = activeRide?.passengerPhone;
 
   let displayedFare = "£0.00";
@@ -1757,14 +1747,15 @@ export default function AvailableRidesPage() {
   let currentPriorityAmount = 0;
   let basePlusWRFare = 0;
   let paymentMethodDisplay = "N/A";
-
+  
   if (activeRide) {
     let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
     if (activeRide.waitAndReturn) {
-      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; // Example calculation
       const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
       baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
     }
+  
     numericGrandTotal = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
     displayedFare = `£${numericGrandTotal.toFixed(2)}`;
     
@@ -1773,7 +1764,7 @@ export default function AvailableRidesPage() {
       : activeRide.paymentMethod === 'cash' ? 'Cash' 
       : activeRide.paymentMethod === 'account' ? 'Account'
       : 'Payment N/A';
-
+  
     hasPriority = !!(activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0);
     currentPriorityAmount = hasPriority ? activeRide.priorityFeeAmount! : 0;
     basePlusWRFare = numericGrandTotal - currentPriorityAmount;
@@ -1781,122 +1772,122 @@ export default function AvailableRidesPage() {
 
 
   return (
-    <div className="flex flex-col h-full p-2 md:p-4">
-      {isSpeedLimitFeatureEnabled &&
-        <SpeedLimitDisplay
-          currentSpeed={currentMockSpeed}
-          speedLimit={currentMockLimit}
-          isEnabled={isSpeedLimitFeatureEnabled}
-        />
-      }
-      {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
-      <div className={cn(
-        "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
-        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[calc(100%-10rem)]" 
-      )}>
-          <GoogleMapDisplay
-            center={memoizedMapCenter}
-            zoom={16} 
-            mapHeading={driverMarkerHeading ?? 0}
-            mapRotateControl={false}
-            fitBoundsToMarkers={true} 
-            markers={mapDisplayElements.markers}
-            customMapLabels={mapDisplayElements.labels}
-            className="w-full h-full"
-            disableDefaultUI={true}
-            onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
-            polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
-            driverIconRotation={driverMarkerHeading ?? undefined}
+      <div className="flex flex-col h-full p-2 md:p-4">
+        {isSpeedLimitFeatureEnabled &&
+          <SpeedLimitDisplay
+            currentSpeed={currentMockSpeed}
+            speedLimit={currentMockLimit}
+            isEnabled={isSpeedLimitFeatureEnabled}
           />
-          {isSosButtonVisible && (
-            <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
-                  aria-label="SOS Emergency Alert"
-                  title="SOS Emergency Alert"
-                  onClick={() => setIsSosDialogOpen(true)}
-                >
-                  <AlertTriangle className="h-4 w-4 md:h-5 md:h-5" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="sm:max-w-md">
-                <AlertDialogHeader>
-                  <ShadAlertDialogTitleForDialog className="font-bold text-2xl flex items-center gap-2">
-                    <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
-                  </ShadAlertDialogTitleForDialog>
-                  <ShadAlertDialogDescriptionForDialog className="text-base py-2">
-                    Select a quick alert or send a general emergency notification.
-                    Your operator has been notified immediately.
-                    <strong className="block mt-1">Use this for genuine emergencies only.</strong>
-                  </ShadAlertDialogDescriptionForDialog>
-                </AlertDialogHeader>
-                <div className="grid grid-cols-2 gap-2 my-3">
-                    <Button onClick={() => handleQuickSOSAlert("Emergency")} className="font-bold bg-red-500 hover:bg-red-600 text-white border border-black" size="sm">Emergency</Button>
-                    <Button onClick={() => handleQuickSOSAlert("Car Broken Down")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Car Broken Down</Button>
-                    <Button onClick={() => handleQuickSOSAlert("Customer Aggressive")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Customer Aggressive</Button>
-                    <Button onClick={() => handleQuickSOSAlert("Call Me Back")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Call Me Back</Button>
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleConfirmEmergency}
-                    className="bg-destructive hover:bg-destructive/90 font-bold"
-                  >
-                    Send General Alert Now
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-           <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
-              <AlertDialogTrigger asChild>
+        }
+        {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
+        <div className={cn(
+          "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
+          activeRide ? "h-[calc(45%-0.5rem)]" : "h-[calc(100%-10rem)]" 
+        )}>
+            <GoogleMapDisplay
+              center={memoizedMapCenter}
+              zoom={16} 
+              mapHeading={driverMarkerHeading ?? 0}
+              mapRotateControl={false}
+              fitBoundsToMarkers={true} 
+              markers={mapDisplayElements.markers}
+              customMapLabels={mapDisplayElements.labels}
+              className="w-full h-full"
+              disableDefaultUI={true}
+              onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
+              polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
+              driverIconRotation={driverMarkerHeading ?? undefined}
+            />
+            {isSosButtonVisible && (
+              <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
+                <AlertDialogTrigger asChild>
                   <Button
-                  variant="default"
-                  size="icon"
-                  className={cn(
-                    "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                    "h-8 w-8 md:h-9 md:w-9", 
-                     isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
-                  )}
-                  aria-label="Report Road Hazard"
-                  title="Report Road Hazard"
-                  onClick={() => setIsHazardReportDialogOpen(true)}
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
+                    aria-label="SOS Emergency Alert"
+                    title="SOS Emergency Alert"
+                    onClick={() => setIsSosDialogOpen(true)}
                   >
-                  <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
+                    <AlertTriangle className="h-4 w-4 md:h-5 md:h-5" />
                   </Button>
-              </AlertDialogTrigger>
-               <AlertDialogContent className="sm:max-w-md">
-                <AlertDialogHeader>
-                  <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</ShadAlertDialogTitleForDialog>
-                  <ShadAlertDialogDescriptionForDialog>Select the type of hazard or observation you want to report at your current location.</ShadAlertDialogDescriptionForDialog>
-                </AlertDialogHeader>
-                <div className="py-4 grid grid-cols-2 gap-3">
-                  {hazardTypes.map((hazard) => (
-                    <Button
-                      key={hazard.id}
-                      variant="outline"
-                      className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
-                      onClick={() => handleReportHazard(hazard.label)}
+                </AlertDialogTrigger>
+                <AlertDialogContent className="sm:max-w-md">
+                  <AlertDialogHeader>
+                    <ShadAlertDialogTitleForDialog className="font-bold text-2xl flex items-center gap-2">
+                      <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
+                    </ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog className="text-base py-2">
+                      Select a quick alert or send a general emergency notification.
+                      Your operator has been notified immediately.
+                      <strong className="block mt-1">Use this for genuine emergencies only.</strong>
+                    </ShadAlertDialogDescriptionForDialog>
+                  </AlertDialogHeader>
+                  <div className="grid grid-cols-2 gap-2 my-3">
+                      <Button onClick={() => handleQuickSOSAlert("Emergency")} className="font-bold bg-red-500 hover:bg-red-600 text-white border border-black" size="sm">Emergency</Button>
+                      <Button onClick={() => handleQuickSOSAlert("Car Broken Down")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Car Broken Down</Button>
+                      <Button onClick={() => handleQuickSOSAlert("Customer Aggressive")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Customer Aggressive</Button>
+                      <Button onClick={() => handleQuickSOSAlert("Call Me Back")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Call Me Back</Button>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleConfirmEmergency}
+                      className="bg-destructive hover:bg-destructive/90 font-bold"
                     >
-                      <hazard.icon className="w-6 h-6 mb-1" />
-                      {hazard.label}
+                      Send General Alert Now
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+             <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+                <AlertDialogTrigger asChild>
+                    <Button
+                    variant="default"
+                    size="icon"
+                    className={cn(
+                      "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                      "h-8 w-8 md:h-9 md:w-9", 
+                       isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
+                    )}
+                    aria-label="Report Road Hazard"
+                    title="Report Road Hazard"
+                    onClick={() => setIsHazardReportDialogOpen(true)}
+                    >
+                    <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
                     </Button>
-                  ))}
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                  </AlertDialogCancel>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-          </AlertDialog>
-          <CurrentNavigationLegBar />
-      </div>
-      )}
-      {activeRide ? (
+                </AlertDialogTrigger>
+                 <AlertDialogContent className="sm:max-w-md">
+                  <AlertDialogHeader>
+                    <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>Select the type of hazard or observation you want to report at your current location.</ShadAlertDialogDescriptionForDialog>
+                  </AlertDialogHeader>
+                  <div className="py-4 grid grid-cols-2 gap-3">
+                    {hazardTypes.map((hazard) => (
+                      <Button
+                        key={hazard.id}
+                        variant="outline"
+                        className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
+                        onClick={() => handleReportHazard(hazard.label)}
+                      >
+                        <hazard.icon className="w-6 h-6 mb-1" />
+                        {hazard.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel asChild>
+                      <Button type="button" variant="outline">Cancel</Button>
+                    </AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <CurrentNavigationLegBar />
+        </div>
+        )}
+        {activeRide ? (
         <Card className={cn(
           "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card flex flex-col overflow-hidden",
           (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus)
@@ -1948,20 +1939,20 @@ export default function AvailableRidesPage() {
                 </div>
               )}
             </div>
-            {notes && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
+            {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
                 <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
                     <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
-                      <strong>Notes:</strong> {notes}
+                      <strong>Notes:</strong> {activeRide.notes}
                     </p>
                 </div>
             )}
             
-            {hasPriority && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
+            {hasPriority && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
                 <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                     <Crown className="h-3.5 w-3.5" />
                     <ShadAlertTitle className="font-bold text-xs">Priority Booking</ShadAlertTitle>
                     <ShadAlertDescription className="font-bold text-[10px]">
-                        Passenger offered +£{(priorityAmount || 0).toFixed(2)}.
+                        Passenger offered +£{(currentPriorityAmount || 0).toFixed(2)}.
                     </ShadAlertDescription>
                 </Alert>
             )}
@@ -2014,7 +2005,7 @@ export default function AvailableRidesPage() {
                     <ShadAlertDescription className="font-bold text-current text-[10px]">
                         Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.
                         <br />
-                        New estimated total fare (if accepted): £{(( (fareEstimate || 0) + (priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.
+                        New estimated total fare (if accepted): £{(( (activeRide.fareEstimate || 0) + (activeRide.priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.
                         <div className="flex gap-1 mt-1">
                             <Button size="sm" className="font-bold bg-green-600 hover:bg-green-700 text-white h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Accept W&R</Button>
                             <Button size="sm" variant="destructive" className="font-bold h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Decline W&R</Button>
@@ -2033,7 +2024,7 @@ export default function AvailableRidesPage() {
                   {activeRide.distanceMiles != null && (
                     <p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                   )}
-                  {paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+                  {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
                    {(showCompletedStatus || showCancelledNoShowStatus) && (
                     <>
                       <Separator className="col-span-2 my-1 bg-green-300 dark:bg-green-700/50" />
@@ -2061,7 +2052,7 @@ export default function AvailableRidesPage() {
             {(showCompletedStatus || showCancelledNoShowStatus) && (
               <div className="mt-2 pt-2 border-t text-center">
                 <p className="text-xs text-muted-foreground mt-1">Job ID: {activeRide.displayBookingId || activeRide.id}</p>
-                <p className="font-bold text-xs mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
+                <p className="font-bold text-xs mb-0.5">Rate {activeRide.passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
                 <div className="flex justify-center space-x-0.5 mb-1">
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -2111,11 +2102,11 @@ export default function AvailableRidesPage() {
                 <div className="grid grid-cols-1 gap-1.5">
                   <Button
                     className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
-                    onClick={mainButtonAction}
+                    onClick={mainActionBtnAction}
                     disabled={!!actionLoading[activeRide.id]}
                   >
                     {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Navigation className="mr-1.5 h-4 w-4" />}
-                    {mainButtonText()}
+                    {mainActionBtnText}
                   </Button>
                   {showInProgressStatus && !activeRide.waitAndReturn && (
                     <Button
