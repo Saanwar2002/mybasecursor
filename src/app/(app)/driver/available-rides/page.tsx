@@ -298,7 +298,7 @@ export default function AvailableRidesPage() {
 
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [currentOfferDetails, setCurrentOfferDetails] = useState<RideOffer | null>(null);
-  const [stagedOfferDetails, setStagedOfferDetails] = useState<RideOffer | null>(null); // New state for staging
+  const [stagedOfferDetails, setStagedOfferDetails] = useState<RideOffer | null>(null);
 
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
@@ -367,6 +367,7 @@ export default function AvailableRidesPage() {
 
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
+
 
   const journeyPoints = useMemo(() => {
     if (!activeRide) return [];
@@ -512,6 +513,7 @@ export default function AvailableRidesPage() {
     return driverLocation || huddersfieldCenterGoogle;
   }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, driverMarkerHeading]);
 
+
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
       if (!geocoderRef.current && window.google.maps.Geocoder) {
@@ -603,7 +605,22 @@ export default function AvailableRidesPage() {
       console.log("fetchActiveRide - Data received from API:", data);
 
       setError(null);
-      setActiveRide(data); 
+      // setActiveRide(data); // Original problematic line
+      // Corrected logic: only set activeRide if data is not null (i.e., API returned an active ride)
+      // If API returns null (no active ride), we want the client's activeRide to become null
+      // so the driver goes back to "awaiting offers" state.
+      if (data === null) {
+        if(activeRide && (activeRide.status === 'completed' || activeRide.status.startsWith('cancelled'))) {
+          // If the previous client state was already terminal, no need to set to null again aggressively
+          // unless we are sure the server also confirms no *new* active ride.
+          // The "Done" button is now the primary way to clear terminal rides from UI.
+        } else {
+          setActiveRide(null);
+        }
+      } else {
+        setActiveRide(data);
+      }
+
 
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
@@ -630,7 +647,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, localCurrentLegIndex]);
+  }, [driverUser?.id, localCurrentLegIndex, activeRide]); // Added activeRide
 
 
   useEffect(() => {
@@ -949,7 +966,7 @@ export default function AvailableRidesPage() {
     if (stagedOfferDetails) {
       setCurrentOfferDetails(stagedOfferDetails);
       setIsOfferModalOpen(true);
-      setStagedOfferDetails(null); // Reset the trigger
+      setStagedOfferDetails(null); 
     }
   }, [stagedOfferDetails]);
 
@@ -1031,10 +1048,7 @@ export default function AvailableRidesPage() {
     }
     setConsecutiveMissedOffers(0);
 
-    // setIsOfferModalOpen(false); // This is now handled by onClose via stagedOfferDetails effect
-    // setCurrentOfferDetails(null); // This is now handled by onClose via stagedOfferDetails effect
-
-    const offerToAccept = currentOfferDetails; // Use currentOfferDetails as it's set by the effect
+    const offerToAccept = currentOfferDetails; 
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
@@ -1094,6 +1108,9 @@ export default function AvailableRidesPage() {
         toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
         setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
         console.log(`Reset actionLoading for ${currentActionRideId} to false after server error.`);
+        setIsOfferModalOpen(false); 
+        setCurrentOfferDetails(null);
+        setIsPollingEnabled(true);
         return;
       }
 
@@ -1138,6 +1155,9 @@ export default function AvailableRidesPage() {
       setActiveRide(newActiveRideFromServer);
       setLocalCurrentLegIndex(0);
       setRideRequests([]);
+      setIsOfferModalOpen(false); 
+      setCurrentOfferDetails(null);
+
 
       let toastDesc = `En Route to Pickup for ${newActiveRideFromServer.passengerName}. Payment: ${newActiveRideFromServer.paymentMethod === 'card' ? 'Card' : newActiveRideFromServer.paymentMethod === 'account' ? 'Account' : 'Cash'}.`;
       if (newActiveRideFromServer.isPriorityPickup && newActiveRideFromServer.priorityFeeAmount) {
@@ -1161,6 +1181,9 @@ export default function AvailableRidesPage() {
       }
 
       toast({ title: "Acceptance Failed", description: detailedMessage, variant: "destructive" });
+      setIsOfferModalOpen(false); 
+      setCurrentOfferDetails(null);
+      setIsPollingEnabled(true);
     } finally {
       console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
       setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
@@ -1170,8 +1193,8 @@ export default function AvailableRidesPage() {
 
   const handleDeclineOffer = (rideId: string) => {
     const offerThatWasDeclined = currentOfferDetails;
-    // setIsOfferModalOpen(false); // Handled by onClose from stagedEffect
-    // setCurrentOfferDetails(null); // Handled by onClose from stagedEffect
+    setIsOfferModalOpen(false); 
+    setCurrentOfferDetails(null); 
 
     const newMissedCount = consecutiveMissedOffers + 1;
     setConsecutiveMissedOffers(newMissedCount);
@@ -1799,6 +1822,7 @@ export default function AvailableRidesPage() {
               onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
               polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
               driverIconRotation={driverMarkerHeading ?? undefined}
+              gestureHandling="greedy"
             />
             {isSosButtonVisible && (
               <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
@@ -1948,12 +1972,12 @@ export default function AvailableRidesPage() {
                 </div>
             )}
             
-            {hasPriority && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+            {activeRide.isPriorityPickup && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
                 <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                     <Crown className="h-3.5 w-3.5" />
                     <ShadAlertTitle className="font-bold text-xs">Priority Booking</ShadAlertTitle>
                     <ShadAlertDescription className="font-bold text-[10px]">
-                        Passenger offered +£{(currentPriorityAmount || 0).toFixed(2)}.
+                        Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.
                     </ShadAlertDescription>
                 </Alert>
             )}
@@ -2205,7 +2229,7 @@ export default function AvailableRidesPage() {
         isOpen={isOfferModalOpen}
         onClose={() => {
             setIsOfferModalOpen(false);
-            setCurrentOfferDetails(null); // Clear details when modal is closed
+            setCurrentOfferDetails(null); 
         }}
         onAccept={handleAcceptOffer}
         onDecline={handleDeclineOffer}
