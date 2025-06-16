@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
@@ -8,8 +7,8 @@ import { Skeleton } from './skeleton';
 import { getCustomMapLabelOverlayClass, type ICustomMapLabelOverlay, type CustomMapLabelOverlayConstructor, type LabelType } from './custom-map-label-overlay';
 
 interface GoogleMapDisplayProps {
-  center: google.maps.LatLngLiteral;
-  zoom?: number;
+  center?: google.maps.LatLngLiteral; // Made center optional
+  zoom?: number; // Made zoom optional
   markers?: Array<{
     position: google.maps.LatLngLiteral;
     title?: string;
@@ -30,22 +29,25 @@ interface GoogleMapDisplayProps {
   fitBoundsToMarkers?: boolean;
   onSdkLoaded?: (isLoaded: boolean) => void; 
   gestureHandling?: 'cooperative' | 'greedy' | 'none' | 'auto';
-  mapHeading?: number; // New: For map orientation
-  mapRotateControl?: boolean; // New: To disable rotation controls
-  polylines?: Array<{ // New: For drawing routes
+  mapHeading?: number; 
+  mapRotateControl?: boolean; 
+  polylines?: Array<{ 
     path: google.maps.LatLngLiteral[];
     color: string;
     weight: number;
     opacity?: number;
   }>;
-  driverIconRotation?: number; // Will be accepted but might not visually rotate image icons
+  driverIconRotation?: number; 
 }
 
 const FALLBACK_API_KEY_FOR_MAPS = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; 
+const DEFAULT_CENTER: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 }; // Huddersfield center
+const DEFAULT_ZOOM = 13;
+
 
 const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
-  center,
-  zoom = 13,
+  center: centerProp,
+  zoom: zoomProp,
   markers,
   customMapLabels, 
   className,
@@ -58,14 +60,14 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   mapHeading,
   mapRotateControl,
   polylines,
-  driverIconRotation, // Accepted, but standard image markers don't rotate
+  driverIconRotation, 
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const currentMarkersRef = useRef<google.maps.Marker[]>([]);
   const customLabelOverlaysRef = useRef<ICustomMapLabelOverlay[]>([]); 
   const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
-  const currentPolylinesRef = useRef<google.maps.Polyline[]>([]); // New: Ref for polylines
+  const currentPolylinesRef = useRef<google.maps.Polyline[]>([]); 
   const [isInternalSdkLoaded, setIsInternalSdkLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [usedApiKeySource, setUsedApiKeySource] = useState<string>("unknown");
@@ -102,7 +104,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     const loader = new Loader({
       apiKey: apiKeyToUse,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], // Added "geometry" and "routes"
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], 
     });
 
     loader.load().then((loadedGoogle) => {
@@ -134,10 +136,13 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
   useEffect(() => {
     if (!isInternalSdkLoaded || !mapRef.current || typeof window.google === 'undefined' || !window.google.maps) return;
+    
+    const currentCenter = centerProp !== undefined ? centerProp : DEFAULT_CENTER;
+    const currentZoom = zoomProp !== undefined ? zoomProp : DEFAULT_ZOOM;
 
     const mapOptions: google.maps.MapOptions = {
-        center, 
-        zoom, 
+        center: currentCenter, 
+        zoom: currentZoom, 
         mapId: mapIdProp, 
         disableDefaultUI,
         mapTypeControl: !disableDefaultUI, 
@@ -145,20 +150,20 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         streetViewControl: !disableDefaultUI, 
         fullscreenControl: !disableDefaultUI,
         gestureHandling: gestureHandling,
-        heading: mapHeading, // Apply heading
-        rotateControl: mapRotateControl, // Apply rotate control setting
+        heading: mapHeading, 
+        rotateControl: mapRotateControl, 
     };
 
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
       mapInstanceRef.current = new window.google.maps.Map(mapRef.current, mapOptions);
     } else if (mapInstanceRef.current) {
        if (!fitBoundsToMarkers || !markers || markers.length < 1) {
-        const currentMapCenter = mapInstanceRef.current.getCenter();
-        if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
-          mapInstanceRef.current.setCenter(center);
+        const mapInternalCenter = mapInstanceRef.current.getCenter();
+        if (centerProp !== undefined && mapInternalCenter && (mapInternalCenter.lat() !== centerProp.lat || mapInternalCenter.lng() !== centerProp.lng)) {
+          mapInstanceRef.current.setCenter(centerProp);
         }
-        if (mapInstanceRef.current.getZoom() !== zoom) {
-          mapInstanceRef.current.setZoom(zoom);
+        if (zoomProp !== undefined && mapInstanceRef.current.getZoom() !== zoomProp) {
+          mapInstanceRef.current.setZoom(zoomProp);
         }
       }
        if (mapInstanceRef.current && typeof mapInstanceRef.current.getOptions === 'function') {
@@ -211,7 +216,6 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           map: mapInstanceRef.current,
         });
         currentPolylinesRef.current.push(newPolyline);
-        // Extend bounds with polyline paths if fitBoundsToMarkers is true
         if (fitBoundsToMarkers && polylineData.path && polylineData.path.length > 0) {
             polylineData.path.forEach(point => {
               bounds.extend(new window.google.maps.LatLng(point.lat, point.lng));
@@ -223,17 +227,18 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
         if (markers && markers.length === 1 && (!polylines || polylines.every(p => !p.path || p.path.length === 0))) {
             mapInstanceRef.current.setCenter(bounds.getCenter());
-            mapInstanceRef.current.setZoom(15); 
+            if (zoomProp !== undefined) mapInstanceRef.current.setZoom(zoomProp); // Use prop zoom if available
+            else mapInstanceRef.current.setZoom(15); // Default zoom for single marker
         } else {
-            mapInstanceRef.current.fitBounds(bounds, 20); // Padding of 20
+            mapInstanceRef.current.fitBounds(bounds, 20); 
         }
-    } else if (mapInstanceRef.current && (!markers || markers.length === 0) && (!polylines || polylines.length === 0)) {
-       const currentMapCenter = mapInstanceRef.current.getCenter();
-        if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
-          mapInstanceRef.current.setCenter(center);
+    } else if (mapInstanceRef.current) {
+       const mapInternalCenter = mapInstanceRef.current.getCenter();
+        if (centerProp !== undefined && mapInternalCenter && (mapInternalCenter.lat() !== centerProp.lat || mapInternalCenter.lng() !== centerProp.lng)) {
+          mapInstanceRef.current.setCenter(centerProp);
         }
-        if (mapInstanceRef.current.getZoom() !== zoom) {
-          mapInstanceRef.current.setZoom(zoom);
+        if (zoomProp !== undefined && mapInstanceRef.current.getZoom() !== zoomProp) {
+          mapInstanceRef.current.setZoom(zoomProp);
         }
     }
 
@@ -251,7 +256,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       }
     }
 
-  }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling, mapHeading, mapRotateControl, polylines, driverIconRotation]);
+  }, [isInternalSdkLoaded, centerProp, zoomProp, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling, mapHeading, mapRotateControl, polylines, driverIconRotation]);
 
   useEffect(() => {
     return () => {
@@ -282,4 +287,3 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 };
 
 export default GoogleMapDisplay;
-

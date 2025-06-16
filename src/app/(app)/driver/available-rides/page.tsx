@@ -380,7 +380,7 @@ export default function AvailableRidesPage() {
     return !(activeRide?.status === 'driver_assigned' || 
              activeRide?.status === 'arrived_at_pickup' || 
              activeRide?.status === 'in_progress' || 
-             activeRide?.status === 'in_progress_wait_and_return');
+             activeRide?.status === 'in_progress_wait_and_return')
   }, [activeRide?.status]);
 
   const mapDisplayElements = useMemo(() => {
@@ -500,23 +500,6 @@ export default function AvailableRidesPage() {
     return { markers, labels };
   }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
 
- const memoizedMapCenter = useMemo(() => {
-    if (!activeRide) { // No active ride, center on driver or default
-      return driverLocation || huddersfieldCenterGoogle;
-    }
-  
-    // Active ride exists
-    if (shouldFitMapBounds) { // We are actively trying to fit bounds, center on current leg target
-      const currentTargetPoint = journeyPoints[localCurrentLegIndex];
-      if (currentTargetPoint) {
-        return { lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude };
-      }
-      // Fallback if target point isn't available for some reason, but still fitting
-      return driverLocation || (activeRide.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
-    } else { // Not actively fitting bounds, driver can pan. Prioritize driver's actual location.
-      return driverLocation || (activeRide.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
-    }
-  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, shouldFitMapBounds]);
 
   useEffect(() => {
     if (activeRide) {
@@ -529,6 +512,32 @@ export default function AvailableRidesPage() {
       return () => clearTimeout(timer);
     }
   }, [activeRide?.id, activeRide?.driverCurrentLegIndex]);
+
+  const memoizedMapCenter = useMemo(() => {
+    if (shouldFitMapBounds) {
+      const currentTargetPoint = journeyPoints[localCurrentLegIndex];
+      if (currentTargetPoint) {
+        return { lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude };
+      }
+    }
+    // If not actively fitting bounds AND a route is visible, let GoogleMapDisplay manage its center
+    if (!shouldFitMapBounds && currentRoutePolyline) {
+        return undefined; 
+    }
+    // Default behavior if no route or not fitting: center on driver or fallback
+    return driverLocation || (activeRide?.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
+  }, [activeRide?.pickupLocation, driverLocation, journeyPoints, localCurrentLegIndex, shouldFitMapBounds, currentRoutePolyline]);
+
+  const mapZoomToUse = useMemo(() => {
+    if (shouldFitMapBounds) {
+      return undefined; // Let fitBoundsToMarkers handle zoom entirely
+    }
+    if (currentRoutePolyline) { // If a route is active and we are not actively fitting
+      return undefined; // Let the map keep its current zoom after fitBounds
+    }
+    return 16; // Default zoom when no route or specifically when not fitting bounds (e.g., driver just online)
+  }, [shouldFitMapBounds, currentRoutePolyline]);
+
 
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
@@ -1814,7 +1823,7 @@ export default function AvailableRidesPage() {
         )}>
             <GoogleMapDisplay
               center={memoizedMapCenter}
-              zoom={16} 
+              zoom={mapZoomToUse} 
               mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}
               fitBoundsToMarkers={shouldFitMapBounds}
@@ -2443,3 +2452,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
