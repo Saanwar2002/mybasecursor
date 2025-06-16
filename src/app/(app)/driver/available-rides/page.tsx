@@ -1641,8 +1641,16 @@ export default function AvailableRidesPage() {
             variant="default" 
             size="icon" 
             className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
-            title={`Navigate to ${legTypeLabel}`}
+             onClick={() => {
+              const currentLegNav = journeyPoints[localCurrentLegIndex];
+              if (currentLegNav?.latitude && currentLegNav?.longitude) {
+                const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLegNav.latitude},${currentLegNav.longitude}`;
+                window.open(mapsUrl, '_blank');
+              } else {
+                toast({ title: "Navigation Error", description: "Destination coordinates are not available for the current leg.", variant: "destructive" });
+              }
+            }}
+            title={`Open Navigation in Google Maps to ${legTypeLabel}`}
           >
             <Navigation className="h-4 w-4" />
           </Button>
@@ -2145,7 +2153,7 @@ export default function AvailableRidesPage() {
                     <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
                   </Button>
                 ) : (
-                  <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8">
+                  <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
                     <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></Link>
                   </Button>
                 )}
@@ -2154,8 +2162,8 @@ export default function AvailableRidesPage() {
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="font-bold text-sm flex items-center justify-center gap-1">
+              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="text-sm flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
@@ -2254,7 +2262,7 @@ export default function AvailableRidesPage() {
                           <MapPin className={cn("font-bold w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
                           <div className="font-bold text-xs">
                             <span className="font-bold">{legType}:</span> {point.address}
-                            {point.doorOrFlat && <span className="text-muted-foreground"> ({point.doorOrFlat})</span>}
+                            {point.doorOrFlat && <span className="text-green-800 dark:text-green-200/80"> ({point.doorOrFlat})</span>}
                           </div>
                         </div>
                       );
@@ -2292,8 +2300,17 @@ export default function AvailableRidesPage() {
 
         {!(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
           <div className="p-2 border-t grid gap-1.5 shrink-0">
-            {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="font-bold w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Driver Assigned) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to pickup."})}}> <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
-            {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="font-bold w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Arrived) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to dropoff."})}} > <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
+            {showDriverAssignedStatus && (
+              <>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <Button className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}>
+                    {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival
+                  </Button>
+                </div>
+                <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} />
+              </>
+            )}
+            {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-1 gap-1.5"> <Button className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
             <Button
                 variant="destructive"
                 className="font-bold w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800"
@@ -2349,7 +2366,7 @@ export default function AvailableRidesPage() {
                         <div key={`completed-leg-summary-${index}`} className="flex items-start gap-1.5 text-xs justify-center">
                           <MapPin className={cn("font-bold w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
                           <span className="font-bold">{legType}:</span> {point.address}
-                          {point.doorOrFlat && <span className="text-muted-foreground"> ({point.doorOrFlat})</span>}
+                          {point.doorOrFlat && <span className="text-muted-foreground">({point.doorOrFlat})</span>}
                         </div>
                       );
                     })}
