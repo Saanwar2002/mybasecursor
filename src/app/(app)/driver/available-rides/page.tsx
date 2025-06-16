@@ -310,7 +310,6 @@ export default function AvailableRidesPage() {
   const [isNoShowConfirmDialogOpen, setIsNoShowConfirmDialogOpen] = useState(false);
   const [rideToReportNoShow, setRideToReportNoShow] = useState<ActiveRide | null>(null);
 
-
   const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string | null>(null);
   const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
 
@@ -332,7 +331,6 @@ export default function AvailableRidesPage() {
 
   const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
 
-
   const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
   const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
   const [isRequestingWR, setIsRequestingWR] = useState(false);
@@ -344,7 +342,6 @@ export default function AvailableRidesPage() {
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
   const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
   const [isHazardReportDialogOpen, setIsHazardReportDialogOpen] = useState(false);
-
 
   const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
 
@@ -368,7 +365,9 @@ export default function AvailableRidesPage() {
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
-  // Moved all useMemo hooks to the top, before conditional returns
+  const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
+
+
   const journeyPoints = useMemo(() => {
     if (!activeRide) return [];
     const points: LocationPoint[] = [activeRide.pickupLocation];
@@ -501,20 +500,35 @@ export default function AvailableRidesPage() {
     return { markers, labels };
   }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
 
-  const memoizedMapCenter = useMemo(() => {
-    if (driverLocation && driverMarkerHeading !== null && activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
-        return driverLocation;
-    }
-    if (!activeRide) {
+ const memoizedMapCenter = useMemo(() => {
+    if (!activeRide) { // No active ride, center on driver or default
       return driverLocation || huddersfieldCenterGoogle;
     }
-    const currentLegIdxToUse = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
-    const currentTargetPoint = journeyPoints[currentLegIdxToUse];
-    if (currentTargetPoint) {
-        return {lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude};
+  
+    // Active ride exists
+    if (shouldFitMapBounds) { // We are actively trying to fit bounds, center on current leg target
+      const currentTargetPoint = journeyPoints[localCurrentLegIndex];
+      if (currentTargetPoint) {
+        return { lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude };
+      }
+      // Fallback if target point isn't available for some reason, but still fitting
+      return driverLocation || (activeRide.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
+    } else { // Not actively fitting bounds, driver can pan. Prioritize driver's actual location.
+      return driverLocation || (activeRide.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
     }
-    return driverLocation || huddersfieldCenterGoogle;
-  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, driverMarkerHeading]);
+  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, shouldFitMapBounds]);
+
+  useEffect(() => {
+    if (activeRide) {
+      console.log("FitBoundsEffect: activeRide.id or driverCurrentLegIndex changed. Setting shouldFitMapBounds to true.");
+      setShouldFitMapBounds(true);
+      const timer = setTimeout(() => {
+        console.log("FitBoundsEffect: Timeout expired. Setting shouldFitMapBounds to false.");
+        setShouldFitMapBounds(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [activeRide?.id, activeRide?.driverCurrentLegIndex]);
 
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
@@ -608,7 +622,6 @@ export default function AvailableRidesPage() {
 
       setError(null);
       
-      // This is the crucial change: directly set activeRide to what the API returns (null if no active ride)
       setActiveRide(data);
 
 
@@ -637,7 +650,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, localCurrentLegIndex]); // Added localCurrentLegIndex as it's used in logic dependent on activeRide
+  }, [driverUser?.id, localCurrentLegIndex, activeRide]); 
 
 
   useEffect(() => {
@@ -961,7 +974,7 @@ export default function AvailableRidesPage() {
   }, [stagedOfferDetails]);
 
   const handleSimulateOffer = () => {
-    setIsPollingEnabled(false); // Pause polling when simulating an offer
+    setIsPollingEnabled(false); 
     const randomPickupIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
     let randomDropoffIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
     while (randomDropoffIndex === randomPickupIndex) {
@@ -1204,7 +1217,7 @@ export default function AvailableRidesPage() {
             title: "Ride Offer Declined",
             description: `You declined the offer for ${passengerName}. (${newMissedCount}/${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive before auto-offline).`
         });
-        if (isDriverOnline && !activeRide) { // Resume polling if still online and no active ride
+        if (isDriverOnline && !activeRide) { 
             setIsPollingEnabled(true);
         }
     }
@@ -1804,7 +1817,7 @@ export default function AvailableRidesPage() {
               zoom={16} 
               mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}
-              fitBoundsToMarkers={true} 
+              fitBoundsToMarkers={shouldFitMapBounds}
               markers={mapDisplayElements.markers}
               customMapLabels={mapDisplayElements.labels}
               className="w-full h-full"
@@ -2305,7 +2318,7 @@ export default function AvailableRidesPage() {
          <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle className="font-bold flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
+              <DialogTitle className="font-bold text-xl flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
               <ShadDialogDescriptionDialog>
                 Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.
               </ShadDialogDescriptionDialog>
