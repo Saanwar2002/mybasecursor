@@ -1032,11 +1032,13 @@ export default function AvailableRidesPage() {
     }
     console.log(`handleRideAction: rideId=${rideId}, actionType=${actionType}. Current activeRide status: ${activeRide.status}, localCurrentLegIndex: ${localCurrentLegIndex}`);
 
-    if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && !activeRide.accountJobPin) {
-        toast({title: "Account PIN Error", description: "This account job is missing its verification PIN. Cannot start ride. Please contact support.", variant: "destructive"});
-        return;
-    }
-    if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && activeRide.accountJobPin) {
+    if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup') {
+        if (!activeRide.accountJobPin) {
+            toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride automatically. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
+            // Optionally, still open the dialog to allow manual override if that's a feature
+            // setIsAccountJobPinDialogOpen(true); 
+            return; // Prevent automatic start if PIN is absolutely required and missing
+        }
         if (!isAccountJobPinDialogOpen) {
           setIsAccountJobPinDialogOpen(true);
           return;
@@ -1640,7 +1642,14 @@ export default function AvailableRidesPage() {
             variant="default" 
             size="icon" 
             className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
+            onClick={() => {
+                if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
+                    window.open(mapsUrl, '_blank');
+                } else {
+                    toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
+                }
+            }}
             title={`Navigate to ${legTypeLabel}`}
           >
             <Navigation className="h-4 w-4" />
@@ -1887,9 +1896,64 @@ export default function AvailableRidesPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+     <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
+            <ShadDialogDescriptionDialog>
+              Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}).
+            </ShadDialogDescriptionDialog>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] p-1 -mx-1">
+            <div className="p-4 space-y-3">
+              {activeRide && journeyPoints.map((point, index) => {
+                const isCurrentLeg = index === localCurrentLegIndex;
+                const isPastLeg = index < localCurrentLegIndex;
+                let legType = "";
+                let Icon = MapPin;
+                let iconColor = "text-muted-foreground";
+
+                if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
+                else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
+                else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
+
+                return (
+                  <div 
+                    key={`modal-leg-${index}`} 
+                    className={cn(
+                      "p-2.5 rounded-md border",
+                      isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card",
+                      isCurrentLeg && "ring-2 ring-primary shadow-md"
+                    )}
+                  >
+                    <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {legType}
+                    </p>
+                    <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                      {point.address}
+                    </p>
+                    {point.doorOrFlat && (
+                      <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                        (Unit/Flat: {point.doorOrFlat})
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              {!activeRide && <p>No active ride details to display.</p>}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   </div>
-  );
-  }
+);
+}
 
   const {
     status,
@@ -1968,7 +2032,12 @@ export default function AvailableRidesPage() {
   const mainButtonAction = () => {
     const currentLegIdx = localCurrentLegIndex;
     if (status === 'arrived_at_pickup') {
-
+      if (activeRide.paymentMethod === 'account' && !activeRide.accountJobPin) {
+        toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
+        // Optionally, still open the dialog if manual override should be possible
+        // setIsAccountJobPinDialogOpen(true); 
+        return; 
+      }
       handleRideAction(activeRide.id, 'start_ride');
     }
     else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
@@ -2153,8 +2222,8 @@ export default function AvailableRidesPage() {
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="text-sm flex items-center justify-center gap-1">
+              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="font-bold text-sm flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
@@ -2253,7 +2322,7 @@ export default function AvailableRidesPage() {
                           <MapPin className={cn("font-bold w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
                           <div className="font-bold text-xs">
                             <span className="font-bold">{legType}:</span> {point.address}
-                            {point.doorOrFlat && <span className="text-green-800 dark:text-green-200/80"> ({point.doorOrFlat})</span>}
+                            {point.doorOrFlat && <span className="text-muted-foreground">({point.doorOrFlat})</span>}
                           </div>
                         </div>
                       );
@@ -2293,7 +2362,7 @@ export default function AvailableRidesPage() {
           <div className="p-2 border-t grid gap-1.5 shrink-0">
             {showDriverAssignedStatus && (
               <>
-                <div className="grid grid-cols-1 gap-1.5"> {/* Changed to grid-cols-1 */}
+                <div className="grid grid-cols-1 gap-1.5"> 
                   <Button className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}>
                     {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival
                   </Button>
@@ -2301,20 +2370,38 @@ export default function AvailableRidesPage() {
                 <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} />
               </>
             )}
-            {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="font-bold w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Arrived) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to dropoff."})}} > <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
-            <Button
-                variant="destructive"
-                className="font-bold w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800"
-                onClick={() => {
-                    setRideToReportNoShow(activeRide);
-                    setIsNoShowConfirmDialogOpen(true);
-                }}
-                disabled={!!actionLoading[activeRide.id]}
-              >
-                {actionLoading[activeRide.id] && activeRide.status === 'cancelled_no_show' ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <UserXIcon className="mr-1.5 h-4 w-4"/>}
-                Report No Show
-            </Button>
-            </div> )}
+            {showArrivedAtPickupStatus && (
+              <div className="grid grid-cols-1 gap-1.5">
+                <Button 
+                  className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" 
+                  onClick={() => {
+                    if (activeRide.paymentMethod === 'account' && !activeRide.accountJobPin) {
+                        toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
+                        // If you want to allow manual override even if PIN is missing, you might still open the dialog.
+                        // For now, let's prevent starting if PIN is required and truly missing from data.
+                        return; 
+                    }
+                    console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); 
+                    handleRideAction(activeRide.id, 'start_ride');
+                  }} 
+                  disabled={!!actionLoading[activeRide.id]}
+                >
+                  {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride
+                </Button>
+                <Button
+                    variant="destructive"
+                    className="font-bold w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800"
+                    onClick={() => {
+                        setRideToReportNoShow(activeRide);
+                        setIsNoShowConfirmDialogOpen(true);
+                    }}
+                    disabled={!!actionLoading[activeRide.id]}
+                  >
+                    {actionLoading[activeRide.id] && activeRide.status === 'cancelled_no_show' ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <UserXIcon className="mr-1.5 h-4 w-4"/>}
+                    Report No Show
+                </Button>
+              </div>
+            )}
             {(showInProgressStatus || showInProgressWRStatus) && (
               <div className="grid grid-cols-1 gap-1.5">
                 <Button
