@@ -40,6 +40,8 @@ interface SerializedTimestamp {
 
 interface Ride {
   id: string;
+  displayBookingId?: string;
+  originatingOperatorId?: string;
   passengerName: string;
   driverId?: string;
   driverName?: string;
@@ -149,6 +151,8 @@ export default function OperatorManageRidesPage() {
       
       const fetchedRides = data.bookings.map((b: any) => ({
         id: b.id,
+        displayBookingId: b.displayBookingId,
+        originatingOperatorId: b.originatingOperatorId,
         passengerName: b.passengerName || 'N/A',
         driverId: b.driverId,
         driverName: b.driverName,
@@ -286,7 +290,7 @@ export default function OperatorManageRidesPage() {
           status: updatedRideResult.booking.status as Ride['status'] 
         } : r
       ));
-      toast({ title: "Driver Assigned", description: `Driver ${driverToAssign.name} assigned to ride ${selectedRideForAssignment.id}.` });
+      toast({ title: "Driver Assigned", description: `Driver ${driverToAssign.name} assigned to ride ${selectedRideForAssignment.displayBookingId || selectedRideForAssignment.id}.` });
       setIsAssignDialogOpen(false);
     } catch (error) {
       toast({ title: "Assignment Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
@@ -309,7 +313,7 @@ export default function OperatorManageRidesPage() {
         }
         const result = await response.json();
         setRides(prev => prev.map(r => r.id === rideId ? { ...r, status: result.booking.status as Ride['status'] } : r));
-        toast({ title: "Ride Cancelled", description: `Booking ID ${rideId} has been cancelled by operator.` });
+        toast({ title: "Ride Cancelled", description: `Booking ID ${result.booking.displayBookingId || rideId} has been cancelled by operator.` });
     } catch (error) {
         toast({ title: "Cancellation Failed", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });
     } finally {
@@ -382,7 +386,7 @@ export default function OperatorManageRidesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[150px]">Passenger / Vehicle</TableHead>
+                    <TableHead className="min-w-[150px]">Job ID / Passenger / Vehicle</TableHead>
                     <TableHead className="min-w-[150px]">Driver</TableHead>
                     <TableHead className="min-w-[200px]">Pickup / Dropoff / Stops</TableHead>
                     <TableHead className="min-w-[100px]">Status</TableHead>
@@ -395,6 +399,7 @@ export default function OperatorManageRidesPage() {
                   {rides.map((ride) => (
                     <TableRow key={ride.id}>
                       <TableCell>
+                        <div className="font-semibold text-xs text-muted-foreground">{ride.displayBookingId || ride.id}</div>
                         <div className="font-medium">{ride.passengerName || 'N/A'} ({ride.passengers || 1} <Users className="inline h-3 w-3 -mt-1"/>)</div>
                         <div className="text-xs text-muted-foreground">{ride.vehicleType || 'N/A'}</div>
                          {ride.isPriorityPickup && <Badge variant="outline" className="mt-1 text-xs border-orange-500 text-orange-600 bg-orange-500/10"><Crown className="h-3 w-3 mr-1"/>Priority +£{(ride.priorityFeeAmount || 0).toFixed(2)}</Badge>}
@@ -446,7 +451,7 @@ export default function OperatorManageRidesPage() {
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Confirm Cancellation</AlertDialogTitle><AlertDialogDescription>Are you sure you want to cancel this pending ride for {ride.passengerName}?</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogHeader><AlertDialogTitle>Confirm Cancellation</AlertDialogTitle><AlertDialogDescription>Are you sure you want to cancel this pending ride for {ride.passengerName} (ID: {ride.displayBookingId || ride.id})?</AlertDialogDescription></AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Keep Ride</AlertDialogCancel>
                                         <AlertDialogAction onClick={() => handleOperatorCancelRide(ride.id)} className="bg-destructive hover:bg-destructive/90">
@@ -461,7 +466,7 @@ export default function OperatorManageRidesPage() {
                             <Eye className="h-4 w-4" title="View Details"/>
                         </Button>
                          {ride.driverNotes && (
-                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => toast({ title: `Notes for Ride ${ride.id}`, description: ride.driverNotes, duration: 8000})}>
+                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => toast({ title: `Notes for Ride ${ride.displayBookingId || ride.id}`, description: ride.driverNotes, duration: 8000})}>
                              <MessageSquare className="h-4 w-4" title="View Passenger Notes"/>
                            </Button>
                          )}
@@ -497,9 +502,9 @@ export default function OperatorManageRidesPage() {
       <AlertDialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Assign Driver to Ride</AlertDialogTitle>
+            <AlertDialogTitle>Assign Driver to Ride (ID: {selectedRideForAssignment?.displayBookingId || selectedRideForAssignment?.id})</AlertDialogTitle>
             <AlertDialogDescription>
-              Assign an active driver from your fleet to ride ID: {selectedRideForAssignment?.id}. <br />
+              Assign an active driver from your fleet to ride ID: {selectedRideForAssignment?.displayBookingId || selectedRideForAssignment?.id}. <br />
               Passenger: {selectedRideForAssignment?.passengerName} <br/>
               Vehicle Type Requested: {selectedRideForAssignment?.vehicleType || 'Any'}
             </AlertDialogDescription>
@@ -537,7 +542,7 @@ export default function OperatorManageRidesPage() {
        <Dialog open={isRideDetailsDialogOpen} onOpenChange={setIsRideDetailsDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <ShadDialogTitle className="text-xl font-headline">Ride Details: {rideForDetailsModal?.id}</ShadDialogTitle>
+            <ShadDialogTitle className="text-xl font-headline">Ride Details: {rideForDetailsModal?.displayBookingId || rideForDetailsModal?.id}</ShadDialogTitle>
             <ShadDialogDescription>
               Detailed information for the selected ride.
             </ShadDialogDescription>
@@ -607,4 +612,5 @@ export default function OperatorManageRidesPage() {
     </div>
   );
 }
+
 

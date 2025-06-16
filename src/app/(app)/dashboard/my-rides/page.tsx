@@ -50,6 +50,8 @@ interface LocationPoint {
 
 interface Ride {
   id: string;
+  displayBookingId?: string;
+  originatingOperatorId?: string;
   bookingTimestamp?: JsonTimestamp | null;
   scheduledPickupAt?: string | null;
   pickupLocation: LocationPoint;
@@ -190,7 +192,7 @@ export default function MyRidesPage() {
       prevRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r)
     );
 
-    let toastDescription = `You rated your ride ${currentRating} stars.`;
+    let toastDescription = `You rated your ride ${currentRating} stars. (Ride ID: ${selectedRideForRating.displayBookingId || selectedRideForRating.id})`;
     
     toast({
       title: "Rating Submitted (Mock)",
@@ -273,6 +275,7 @@ export default function MyRidesPage() {
                   {ride.status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}
                 </Badge>
               </div>
+              {ride.displayBookingId && <CardDescription className="text-xs mt-1">ID: {ride.displayBookingId}</CardDescription>}
             </CardHeader>
             <CardContent className="space-y-3">
               {ride.driver && (<div className="flex items-center gap-2"><Image src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver.charAt(0)}`} alt={ride.driver} width={40} height={40} className="rounded-full" data-ai-hint="driver avatar" /><div><p className="font-medium">{ride.driver}</p><p className="text-xs text-muted-foreground">Driver</p></div></div>)}
@@ -326,7 +329,7 @@ export default function MyRidesPage() {
           <div className="relative bg-card rounded-lg p-6">
             <CardHeader>
               <CardTitle>Rate ride with {selectedRideForRating.driver || 'driver'}</CardTitle>
-              <CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address}</CardDescription>
+              <CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address} (ID: {selectedRideForRating.displayBookingId || selectedRideForRating.id})</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-center space-x-1 py-2">
@@ -350,3 +353,4 @@ export default function MyRidesPage() {
 }
 
     
+

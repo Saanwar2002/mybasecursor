@@ -36,6 +36,8 @@ interface SerializedTimestamp {
 
 interface DriverRide {
   id: string;
+  displayBookingId?: string;
+  originatingOperatorId?: string;
   bookingTimestamp?: SerializedTimestamp | null;
   scheduledPickupAt?: string | null;
   completedAt?: SerializedTimestamp | null;
@@ -116,7 +118,7 @@ export default function DriverRideHistoryPage() {
     if (!ratingRide || !driverUser) return;
     // Mock: Update local state and show toast
     setRidesHistory(prev => prev.map(r => r.id === ratingRide.id ? { ...r, driverRatingForPassenger: currentRating } : r));
-    toast({ title: "Passenger Rating Submitted (Mock)", description: `You rated ${ratingRide.passengerName} ${currentRating} stars for ride ${ratingRide.id}.` });
+    toast({ title: "Passenger Rating Submitted (Mock)", description: `You rated ${ratingRide.passengerName} ${currentRating} stars for ride ${ratingRide.displayBookingId || ratingRide.id}.` });
     setRatingRide(null);
     setCurrentRating(0);
     // In a real app: await api.submitPassengerRating(ratingRide.id, driverUser.id, currentRating);
@@ -198,6 +200,7 @@ export default function DriverRideHistoryPage() {
                   {ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </Badge>
               </div>
+              {ride.displayBookingId && <CardDescription className="text-xs mt-1">ID: {ride.displayBookingId}</CardDescription>}
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-sm space-y-1">
@@ -261,7 +264,7 @@ export default function DriverRideHistoryPage() {
           <div className="relative bg-card rounded-lg p-6">
             <CardHeader>
               <CardTitle>Rate {ratingRide.passengerName}</CardTitle>
-              <CardDescription>How was your experience with this passenger?</CardDescription>
+              <CardDescription>How was your experience with this passenger? Ride ID: {ratingRide.displayBookingId || ratingRide.id}</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center space-x-1 py-4">
               {[...Array(5)].map((_, i) => (
@@ -282,3 +285,4 @@ export default function DriverRideHistoryPage() {
     </div>
   );
 }
+

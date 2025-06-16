@@ -23,7 +23,9 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 });
 
 export interface RideOffer {
-  id: string;
+  id: string; // This is the Firestore document ID
+  displayBookingId?: string; // Formatted ID like "001/firestore_id"
+  originatingOperatorId?: string; // e.g., "OP001", "OP002"
   pickupLocation: string;
   pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
@@ -342,6 +344,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )} />
               New Ride Offer!
             </span>
+            {rideDetails.displayBookingId && <Badge variant="outline" className="text-xs ml-auto">{rideDetails.displayBookingId}</Badge>}
           </DialogTitle>
         </DialogHeader>
 

@@ -65,6 +65,8 @@ interface SerializedTimestamp {
 
 interface ActiveRide {
   id: string;
+  displayBookingId?: string;
+  originatingOperatorId?: string;
   passengerName: string;
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
@@ -954,22 +956,22 @@ export default function MyActiveRidePage() {
   const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
   
 
-  let finalFareDisplay = "£0.00";
-  let fareSuffix = "";
+  let baseFareWithWRSurcharge = activeRide?.fareEstimate || 0;
+  let finalFareDisplay = "";
+  let finalFareSuffix = "";
+
   if (activeRide) {
-    let calculatedDisplayFare = activeRide.fareEstimate || 0;
-    
-    if (activeRide.waitAndReturn) { // Simplified condition, specific minutes check happens elsewhere if needed
+    if (activeRide.waitAndReturn) {
+      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
       const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * WAITING_CHARGE_PER_MINUTE_PASSENGER;
-      const waitAndReturnBaseFare = (activeRide.fareEstimate || 0) * 1.70; // 70% surcharge on base one-way fare
-      calculatedDisplayFare = waitAndReturnBaseFare + additionalWaitCharge;
-      fareSuffix = " (W&R)";
+      baseFareWithWRSurcharge = wrBaseFare + additionalWaitCharge;
+      finalFareSuffix = " (Base + W&R)";
     }
 
-    if (activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0) {
-      calculatedDisplayFare += activeRide.priorityFeeAmount;
-    }
-    finalFareDisplay = `£${calculatedDisplayFare.toFixed(2)}${fareSuffix}`;
+    const totalIncludingPriority = baseFareWithWRSurcharge + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
+    finalFareDisplay = `£${totalIncludingPriority.toFixed(2)}`;
+  } else {
+    finalFareDisplay = "£0.00";
   }
 
 
@@ -990,7 +992,7 @@ export default function MyActiveRidePage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live.</CardDescription> </CardHeader> </Card>
+      <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live. Ride ID: {activeRide?.displayBookingId || activeRide?.id || "N/A"}</CardDescription> </CardHeader> </Card>
       {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride">Book a New Ride</Link> </Button> </CardContent> </Card> )}
       {activeRide && (
         <>
@@ -1082,7 +1084,7 @@ export default function MyActiveRidePage() {
                 <Separator />
                 <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> 
                   
-                  <div className="flex items-center gap-1 flex-wrap"> {/* Added flex-wrap */}
+                  <div className="flex items-center gap-1 flex-wrap">
                     <DollarSign className="w-4 h-4 text-muted-foreground" />
                     <strong>Fare:</strong>
                     {hasPriority ? (
@@ -1176,7 +1178,7 @@ export default function MyActiveRidePage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will cancel your ride request (ID: {rideIdToCancel || 'N/A'}). This action cannot be undone.
+                This will cancel your ride request (ID: {activeRide?.displayBookingId || rideIdToCancel || 'N/A'}). This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1201,7 +1203,7 @@ export default function MyActiveRidePage() {
       </AlertDialog>
       <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset(); setDialogFareEstimate(null);}}}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
-          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescriptionDialog>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescriptionDialog> </DialogHeader>
+          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details (ID: {activeRide?.displayBookingId || activeRide?.id || "N/A"})</ShadDialogTitle> <ShadDialogDescriptionDialog>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescriptionDialog> </DialogHeader>
           <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
           <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
           <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
