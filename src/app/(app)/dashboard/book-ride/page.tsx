@@ -464,10 +464,10 @@ export default function BookRidePage() {
         setIsMapSdkLoaded(false);
         return;
     }
-    const loader = new GoogleApiLoader({ // Renamed to GoogleApiLoader
+    const loader = new GoogleApiLoader({ 
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places"],
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], // Standardized libraries
     });
 
     loader.load().then((google) => {
@@ -2694,6 +2694,7 @@ const handleProceedToConfirmation = async () => {
     
 
     
+
 
 
 

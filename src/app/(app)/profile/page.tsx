@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from 'date-fns';
 import Image from 'next/image';
+import { Loader } from '@googlemaps/js-api-loader'; // For Favorite Locations (if any)
 
 // Helper to safely format date strings
 const formatDateString = (dateString?: string): string => {
@@ -99,6 +100,21 @@ export default function ProfilePage() {
       }
     };
   }, [profilePicPreview]);
+
+  // Ensure Maps API for address search is loaded if needed on this page
+  // (It's not directly used in the profile, but good practice if expanding to address editing)
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+      console.warn("Google Maps API Key is missing. Address features disabled.");
+      return;
+    }
+    const loader = new Loader({
+      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+      version: "weekly",
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], // Standardized libraries
+    });
+    loader.load().catch(e => console.error("Failed to load Google Maps API for Profile page:", e));
+  }, []);
 
   const handleSaveProfile = () => {
     if (!user) return;

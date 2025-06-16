@@ -32,7 +32,7 @@ import { format, parseISO, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Loader } from '@googlemaps/js-api-loader';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
@@ -149,7 +149,11 @@ export default function MyRidesPage() {
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) { console.warn("Google Maps API Key missing."); return; }
-    const loader = new Loader({ apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, version: "weekly", libraries: ["geocoding", "maps", "marker", "places"]});
+    const loader = new Loader({ 
+      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, 
+      version: "weekly", 
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"] // Standardized libraries
+    });
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
       placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));

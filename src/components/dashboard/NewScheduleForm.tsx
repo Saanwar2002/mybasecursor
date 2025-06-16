@@ -349,7 +349,7 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
     const loader = new GoogleApiLoader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places"],
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], // Standardized libraries
     });
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
@@ -748,3 +748,4 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
     </Form>
   );
 }
+
