@@ -298,6 +298,8 @@ export default function AvailableRidesPage() {
 
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [currentOfferDetails, setCurrentOfferDetails] = useState<RideOffer | null>(null);
+  const [stagedOfferDetails, setStagedOfferDetails] = useState<RideOffer | null>(null); // New state for staging
+
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -366,7 +368,6 @@ export default function AvailableRidesPage() {
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
-  // ===== HOISTED useMemo HOOKS START =====
   const journeyPoints = useMemo(() => {
     if (!activeRide) return [];
     const points: LocationPoint[] = [activeRide.pickupLocation];
@@ -432,36 +433,34 @@ export default function AvailableRidesPage() {
     }
     
     const isEnRouteToPickup = currentStatusLower === 'driver_assigned';
-    const isAtPickup = currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0;
+    const isAtPickup = currentStatusLower === 'arrived_at_pickup';
     const isRideInProgress = currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return';
 
-    if (activeRide.pickupLocation && (isEnRouteToPickup || isAtPickup || (isRideInProgress && currentLegIdx > 0 ))) { // Show pickup marker if en_route or at_pickup, or if ride is in progress and driver is past pickup
-      if (isEnRouteToPickup || isAtPickup) { // Always show pickup marker if en_route or at_pickup
+    if (activeRide.pickupLocation && (isEnRouteToPickup || isAtPickup || (isRideInProgress && currentLegIdx > 0 ))) {
+      if (isEnRouteToPickup || isAtPickup) { 
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
             title: `Pickup: ${activeRide.pickupLocation.address}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
         });
       }
-      if (isEnRouteToPickup || isAtPickup) { // Show pickup label if en_route or at_pickup
+      if (isEnRouteToPickup || isAtPickup) {
         labels.push({
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
             content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
             type: 'pickup',
-            variant: isAtPickup ? 'default' : 'compact' // Pickup label is large if AT pickup
+            variant: (isAtPickup && (currentLegIdx === 0 || journeyPoints.length === 2)) ? 'default' : 'compact'
         });
       }
-      // No pickup marker or label if ride is in_progress (meaning passenger picked up)
     }
     
-    // Logic for stops and dropoff markers/labels when ride is in progress or at pickup
     if (isRideInProgress || isAtPickup) {
         const dropoffLegIndex = journeyPoints.length -1;
 
         activeRide.stops?.forEach((stop, index) => {
             const stopLegIndex = index + 1; 
             if(stop.latitude && stop.longitude) {
-                if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) { // Show current or upcoming stops
+                if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) { 
                     markers.push({
                         position: {lat: stop.latitude, lng: stop.longitude},
                         title: `Stop ${index+1}: ${stop.address}`,
@@ -471,14 +470,13 @@ export default function AvailableRidesPage() {
                         position: { lat: stop.latitude, lng: stop.longitude },
                         content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                         type: 'stop',
-                        variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact' // Current stop large, others compact
+                        variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact'
                     });
                 }
             }
         });
 
         if (activeRide.dropoffLocation) {
-            // Show dropoff marker if it's the current leg or an upcoming leg
             if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
                 markers.push({
                     position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
@@ -489,10 +487,8 @@ export default function AvailableRidesPage() {
                     position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
                     content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
                     type: 'dropoff',
-                    // Make dropoff label large if it's the current target,
-                    // OR if driver is at pickup and it's the *only* other point (no intermediate stops)
-                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2) || // at pickup, direct to dropoff
-                               (localCurrentLegIndex === dropoffLegIndex) // currently heading to dropoff
+                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2 && dropoffLegIndex === 1) || // Special case for direct trip from pickup
+                               (localCurrentLegIndex === dropoffLegIndex)
                                ? 'default' : 'compact'
                 });
             }
@@ -515,8 +511,6 @@ export default function AvailableRidesPage() {
     }
     return driverLocation || huddersfieldCenterGoogle;
   }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, driverMarkerHeading]);
-  // ===== HOISTED useMemo HOOKS END =====
-
 
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
@@ -609,7 +603,7 @@ export default function AvailableRidesPage() {
       console.log("fetchActiveRide - Data received from API:", data);
 
       setError(null);
-      setActiveRide(data); // Directly set to what API returns, even if null
+      setActiveRide(data); 
 
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
@@ -951,6 +945,14 @@ export default function AvailableRidesPage() {
   }, [activeRide, localCurrentLegIndex, driverLocation, isMapSdkLoaded, journeyPoints]);
 
 
+  useEffect(() => {
+    if (stagedOfferDetails) {
+      setCurrentOfferDetails(stagedOfferDetails);
+      setIsOfferModalOpen(true);
+      setStagedOfferDetails(null); // Reset the trigger
+    }
+  }, [stagedOfferDetails]);
+
   const handleSimulateOffer = () => {
     setIsPollingEnabled(false);
     const randomPickupIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
@@ -1016,8 +1018,7 @@ export default function AvailableRidesPage() {
       originatingOperatorId: mockOriginatingOperatorId,
     };
     console.log("Simulating offer:", mockOfferWithDisplayId);
-    setCurrentOfferDetails(mockOfferWithDisplayId);
-    setIsOfferModalOpen(true);
+    setStagedOfferDetails(mockOfferWithDisplayId);
   };
 
 
@@ -1030,9 +1031,10 @@ export default function AvailableRidesPage() {
     }
     setConsecutiveMissedOffers(0);
 
-    setIsOfferModalOpen(false);
-    const offerToAccept = currentOfferDetails;
-    setCurrentOfferDetails(null);
+    // setIsOfferModalOpen(false); // This is now handled by onClose via stagedOfferDetails effect
+    // setCurrentOfferDetails(null); // This is now handled by onClose via stagedOfferDetails effect
+
+    const offerToAccept = currentOfferDetails; // Use currentOfferDetails as it's set by the effect
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
@@ -1168,8 +1170,8 @@ export default function AvailableRidesPage() {
 
   const handleDeclineOffer = (rideId: string) => {
     const offerThatWasDeclined = currentOfferDetails;
-    setIsOfferModalOpen(false);
-    setCurrentOfferDetails(null);
+    // setIsOfferModalOpen(false); // Handled by onClose from stagedEffect
+    // setCurrentOfferDetails(null); // Handled by onClose from stagedEffect
 
     const newMissedCount = consecutiveMissedOffers + 1;
     setConsecutiveMissedOffers(newMissedCount);
@@ -1732,7 +1734,6 @@ export default function AvailableRidesPage() {
   const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
   const showCancelledNoShowStatus = activeRide?.status === 'cancelled_no_show';
 
-  // Conditional rendering flags based on activeRide status
   const showDriverAssignedStatus = activeRide?.status === 'driver_assigned';
   const showArrivedAtPickupStatus = activeRide?.status === 'arrived_at_pickup';
   const showInProgressStatus = activeRide?.status === 'in_progress';
@@ -1751,7 +1752,7 @@ export default function AvailableRidesPage() {
   if (activeRide) {
     let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
     if (activeRide.waitAndReturn) {
-      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; // Example calculation
+      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
       const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
       baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
     }
@@ -2187,7 +2188,7 @@ export default function AvailableRidesPage() {
                 <ShadAlertDescription>{geolocationError}</ShadAlertDescription>
             </Alert>
         )}
-        {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
+        {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </>) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
         <div className="pt-1">
             <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/>
             <Label htmlFor="speed-limit-mock-toggle" className="font-bold text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label>
@@ -2200,6 +2201,16 @@ export default function AvailableRidesPage() {
             }
           }} className="mt-2 text-xs h-8 px-3 py-1 font-bold" disabled={!!activeRide}> Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> 
       )}
+      <RideOfferModal
+        isOpen={isOfferModalOpen}
+        onClose={() => {
+            setIsOfferModalOpen(false);
+            setCurrentOfferDetails(null); // Clear details when modal is closed
+        }}
+        onAccept={handleAcceptOffer}
+        onDecline={handleDeclineOffer}
+        rideDetails={currentOfferDetails}
+      />
           <AlertDialog
             open={isStationaryReminderVisible}
             onOpenChange={setIsStationaryReminderVisible}
