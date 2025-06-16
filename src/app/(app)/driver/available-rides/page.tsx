@@ -10,7 +10,7 @@ import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import Image from 'next/image';
 import {
@@ -42,6 +42,23 @@ import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelTyp
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader';
 
+
+const editDetailsFormSchema = z.object({
+  pickupDoorOrFlat: z.string().max(50).optional(),
+  pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
+  dropoffDoorOrFlat: z.string().max(50).optional(),
+  dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
+  stops: z.array(z.object({
+      doorOrFlat: z.string().max(50).optional(),
+      location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
+  })).optional(),
+  desiredPickupDate: z.date().optional(),
+  desiredPickupTime: z.string().optional(),
+}).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
+  message: "If scheduling, both date and time must be provided. For ASAP, leave both empty.", path: ["desiredPickupTime"],
+});
+
+type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
 
 const driverCarIconSvg = `<svg width="30" height="45" viewBox="0 0 30 45" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 45 L10 30 H20 Z" fill="black"/><circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/><rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/><rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/></svg>`;
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -206,24 +223,9 @@ function getDistanceInMiles(coords1: google.maps.LatLngLiteral | null, coords2: 
   return d * 0.621371; 
 }
 
-const editDetailsFormSchema = z.object({
-  pickupDoorOrFlat: z.string().max(50).optional(),
-  pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
-  dropoffDoorOrFlat: z.string().max(50).optional(),
-  dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
-  stops: z.array(z.object({
-      doorOrFlat: z.string().max(50).optional(),
-      location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
-  })).optional(),
-  desiredPickupDate: z.date().optional(),
-  desiredPickupTime: z.string().optional(),
-}).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
-  message: "If scheduling, both date and time must be provided. For ASAP, leave both empty.", path: ["desiredPickupTime"],
-});
-type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
 
 type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
-
+type RideOffer = import('@/components/driver/ride-offer-modal').RideOffer;
 
 export default function MyActiveRidePage() {
   const { user } = useAuth();
@@ -311,7 +313,7 @@ export default function MyActiveRidePage() {
         placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
       }
       if (!autocompleteSessionTokenRef.current && window.google.maps.places) {
-        autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+        autocompleteSessionTokenRef.current = new window.google.maps.AutocompleteSessionToken();
       }
       if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
@@ -844,17 +846,17 @@ export default function MyActiveRidePage() {
       
       directionsServiceRef.current.route(
         {
-          origin: new google.maps.LatLng(origin.lat, origin.lng),
-          destination: new google.maps.LatLng(destination.lat, destination.lng),
-          travelMode: google.maps.TravelMode.DRIVING,
+          origin: new window.google.maps.LatLng(origin.lat, origin.lng),
+          destination: new window.google.maps.LatLng(destination.lat, destination.lng),
+          travelMode: window.google.maps.TravelMode.DRIVING,
         },
         (result, status) => {
-          if (status === google.maps.DirectionsStatus.OK && result?.routes && result.routes.length > 0) {
+          if (status === window.google.maps.DirectionsStatus.OK && result?.routes && result.routes.length > 0) {
             const path = result.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
             setCurrentRoutePolyline({ path, color: routeColor });
 
-            if (path.length > 1) {
-                const heading = google.maps.geometry.spherical.computeHeading(path[0], path[1]);
+            if (path.length > 1 && window.google.maps.geometry && window.google.maps.geometry.spherical) {
+                const heading = window.google.maps.geometry.spherical.computeHeading(path[0], path[1]);
                 setDriverMarkerHeading(heading);
             } else {
                  setDriverMarkerHeading(null);
@@ -1038,7 +1040,7 @@ export default function MyActiveRidePage() {
       return ( <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] p-2 bg-black/70 text-white rounded-lg shadow-xl text-xs md:text-sm text-center backdrop-blur-sm"> Preparing navigation... </div> );
     }
     const currentLeg = journeyPoints[localCurrentLegIndex];
-    const legType = 
+    const legTypeDisplay = 
       localCurrentLegIndex === 0 ? "Pickup" :
       localCurrentLegIndex === journeyPoints.length - 1 ? "Final Dropoff" :
       `Stop ${localCurrentLegIndex}`;
@@ -1047,17 +1049,17 @@ export default function MyActiveRidePage() {
     return (
       <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[1000] p-2 md:p-2.5 bg-black/75 text-white rounded-lg shadow-xl flex items-center gap-2 md:gap-3 backdrop-blur-sm max-w-[calc(100%-2rem)]">
         <div className="flex-1 min-w-0">
-          <p className="text-[0.6rem] md:text-xs font-semibold uppercase tracking-wider text-blue-300">NEXT: {legType}</p>
+          <p className="text-[0.6rem] md:text-xs font-semibold uppercase tracking-wider text-blue-300">NEXT: {legTypeDisplay}</p>
           <p className="text-xs md:text-sm font-bold truncate" title={currentLeg.address}>{nextAddressShort}</p>
         </div>
         <div className="flex items-start gap-1.5 shrink-0">
-           <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700" title="View Full Journey Details" onClick={() => setIsJourneyDetailsModalOpen(true)}>
+           <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700" title="View Full Journey Details" onClick={() => setIsJourneyDetailsModalOpen(true)}>
             <Info className="h-4 w-4" />
           </Button>
            <Button 
             variant="outline" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             title="Open Navigation in Google Maps"
             onClick={() => {
                 if (currentLeg?.coords) {
@@ -1205,11 +1207,17 @@ export default function MyActiveRidePage() {
                         disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
                         className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                     >
-                        {actionLoading[rideIdToCancel || ''] ? (
-                            <> <Loader2 key="loader-cancel" className="animate-spin h-4 w-4" /> <span>Cancelling...</span> </>
-                        ) : (
-                            <> <ShieldX key="icon-cancel" className="h-4 w-4" /> <span>Confirm Cancel</span> </>
-                        )}
+                      {actionLoading[rideIdToCancel || ''] ? (
+                        <span className="flex items-center justify-center">
+                            <Loader2 key="loader-cancel" className="animate-spin h-4 w-4 mr-2" />
+                            Cancelling...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center">
+                            <ShieldX key="icon-cancel" className="h-4 w-4 mr-2" />
+                            Confirm Cancel
+                        </span>
+                      )}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1334,13 +1342,17 @@ export default function MyActiveRidePage() {
             <div className="p-4 space-y-3">
               {activeRide && journeyPoints.map((point, index) => {
                 const isCurrentLeg = index === localCurrentLegIndex;
+                const legTypeDisplay = 
+                    index === 0 ? "Pickup" :
+                    index === journeyPoints.length - 1 ? "Dropoff" :
+                    `Stop ${index}`;
                 return (
                   <div key={`modal-leg-${index}`} className={cn( "p-2.5 rounded-md border", isCurrentLeg && "ring-2 ring-primary shadow-md")}>
                     <p className={cn("font-bold flex items-center gap-2", 
                       index === 0 && (isCurrentLeg ? "text-green-500" : "text-muted-foreground line-through"),
                       index > 0 && index < journeyPoints.length - 1 && (isCurrentLeg ? "text-blue-500" : "text-muted-foreground line-through"),
                       index === journeyPoints.length -1 && (isCurrentLeg ? "text-orange-500" : "text-muted-foreground line-through")
-                    )}> <MapPin className="w-4 h-4 shrink-0" /> {index === 0 ? "Pickup" : index === journeyPoints.length - 1 ? "Dropoff" : `Stop ${index}`} </p>
+                    )}> <MapPin className="w-4 h-4 shrink-0" /> {legTypeDisplay} </p>
                     <p className={cn("font-bold text-sm text-foreground pl-6", !isCurrentLeg && "text-muted-foreground line-through")}> {point.address} </p>
                     {point.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", !isCurrentLeg && "line-through")}> (Unit/Flat: {point.doorOrFlat}) </p> )}
                   </div>
