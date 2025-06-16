@@ -760,7 +760,7 @@ export default function MyActiveRidePage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to cancel ride.');
       }
-      toast({ title: "Ride Cancelled", description: `Your ride ${currentRideId} has been cancelled.` });
+      toast({ title: "Ride Cancelled", description: `Your ride ${activeRide?.displayBookingId || currentRideId} has been cancelled.` });
       setCancellationSuccess(true); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
@@ -1104,6 +1104,7 @@ export default function MyActiveRidePage() {
                       <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>
                     )}
                   </div>
+                  <p className="text-xs text-muted-foreground pl-5">Booking ID: {activeRide.displayBookingId || activeRide.id}</p>
 
                 <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
@@ -1278,4 +1279,5 @@ export default function MyActiveRidePage() {
 
 
     
+
 

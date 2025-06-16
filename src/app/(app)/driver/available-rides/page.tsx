@@ -881,10 +881,9 @@ export default function AvailableRidesPage() {
     const mockOriginatingOperatorId = offer.requiredOperatorId || PLATFORM_OPERATOR_CODE;
     const mockDisplayPrefix = getOperatorPrefix(mockOriginatingOperatorId);
     
-    const timestampPart = Date.now().toString().slice(-4); // Last 4 digits of timestamp
-    const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0'); // 2 random digits
-    const numericSuffix = `${timestampPart}${randomPart}`; // 6-digit numeric suffix
+    const numericSuffix = `${Date.now().toString().slice(-4)}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`;
     const mockDisplayBookingId = `${mockDisplayPrefix}/${numericSuffix}`;
+
 
     const mockOfferWithDisplayId: RideOffer = {
       ...offer,
@@ -1165,9 +1164,9 @@ export default function AvailableRidesPage() {
 
             toastTitle = "Ride Completed";
             if (activeRide.paymentMethod === "account" && activeRide.accountJobPin) {
-                 toastMessage = `Ride with ${activeRide.passengerName} completed. Account holder will be notified. PIN used: ${activeRide.accountJobPin}. Final Fare: £${finalFare.toFixed(2)}.`;
+                 toastMessage = `Ride with ${activeRide.passengerName} completed. Account holder will be notified. PIN used: ${activeRide.accountJobPin}. Final Fare: £${finalFare.toFixed(2)}. (Job ID: ${activeRide.displayBookingId || activeRide.id})`;
             } else {
-                 toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, all waiting): £${finalFare.toFixed(2)}.`;
+                 toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, all waiting): £${finalFare.toFixed(2)}. (Job ID: ${activeRide.displayBookingId || activeRide.id})`;
             }
 
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
@@ -2342,6 +2341,7 @@ export default function AvailableRidesPage() {
          
           {(showCompletedStatus || showCancelledNoShowStatus) && (
             <div className="mt-2 pt-2 border-t text-center">
+              <p className="text-xs text-muted-foreground mt-1">Job ID: {activeRide.displayBookingId || activeRide.id}</p> {/* Added Job ID here */}
               <p className="font-bold text-xs mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
               <div className="flex justify-center space-x-0.5 mb-1">
                 {[...Array(5)].map((_, i) => (
@@ -2667,3 +2667,4 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
+
