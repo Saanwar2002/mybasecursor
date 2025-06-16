@@ -368,7 +368,7 @@ export default function AvailableRidesPage() {
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
-
+  // Moved all useMemo hooks to the top, before conditional returns
   const journeyPoints = useMemo(() => {
     if (!activeRide) return [];
     const points: LocationPoint[] = [activeRide.pickupLocation];
@@ -376,6 +376,13 @@ export default function AvailableRidesPage() {
     points.push(activeRide.dropoffLocation);
     return points;
   }, [activeRide]);
+
+  const isChatDisabled = useMemo(() => {
+    return !(activeRide?.status === 'driver_assigned' || 
+             activeRide?.status === 'arrived_at_pickup' || 
+             activeRide?.status === 'in_progress' || 
+             activeRide?.status === 'in_progress_wait_and_return');
+  }, [activeRide?.status]);
 
   const mapDisplayElements = useMemo(() => {
     const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
@@ -509,7 +516,6 @@ export default function AvailableRidesPage() {
     return driverLocation || huddersfieldCenterGoogle;
   }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, driverMarkerHeading]);
 
-
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
       if (!geocoderRef.current && window.google.maps.Geocoder) {
@@ -602,11 +608,8 @@ export default function AvailableRidesPage() {
 
       setError(null);
       
-      if (data === null) {
-          setActiveRide(null);
-      } else {
-        setActiveRide(data);
-      }
+      // This is the crucial change: directly set activeRide to what the API returns (null if no active ride)
+      setActiveRide(data);
 
 
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
@@ -634,7 +637,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, localCurrentLegIndex]);
+  }, [driverUser?.id, localCurrentLegIndex]); // Added localCurrentLegIndex as it's used in logic dependent on activeRide
 
 
   useEffect(() => {
@@ -958,7 +961,7 @@ export default function AvailableRidesPage() {
   }, [stagedOfferDetails]);
 
   const handleSimulateOffer = () => {
-    setIsPollingEnabled(false);
+    setIsPollingEnabled(false); // Pause polling when simulating an offer
     const randomPickupIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
     let randomDropoffIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
     while (randomDropoffIndex === randomPickupIndex) {
@@ -1201,7 +1204,7 @@ export default function AvailableRidesPage() {
             title: "Ride Offer Declined",
             description: `You declined the offer for ${passengerName}. (${newMissedCount}/${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive before auto-offline).`
         });
-        if (isDriverOnline && !activeRide) {
+        if (isDriverOnline && !activeRide) { // Resume polling if still online and no active ride
             setIsPollingEnabled(true);
         }
     }
@@ -2263,12 +2266,12 @@ export default function AvailableRidesPage() {
                     <span className="font-bold flex items-center justify-center">
                     {activeRide && (!!actionLoading[activeRide.id]) ? (
                          <React.Fragment>
-                           <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                           <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />
                            <span>Cancelling...</span>
                          </React.Fragment>
                       ) : (
                          <React.Fragment>
-                           <ShieldX className="mr-2 h-4 w-4" />
+                           <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />
                            <span>Confirm Cancel</span>
                         </React.Fragment>
                       )}
@@ -2427,4 +2430,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
