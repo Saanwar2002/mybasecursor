@@ -1,67 +1,68 @@
 
 "use client";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
-import dynamic from 'next/dynamic';
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts/auth-context';
-import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
-import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from "@/contexts/auth-context";
+import { RideOfferModal, type RideOffer } from "@/components/driver/ride-offer-modal";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as ShadAlertDialogDescriptionForDialog, 
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogTitle as ShadAlertDialogTitleForDialog, 
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescriptionDialog, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Renamed DialogDescription
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
-import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription as ShadDialogDescriptionDialog, 
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from '@/components/ui/input';
+import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
+import { Separator } from '@/components/ui/separator';
+import { db } from '@/lib/firebase';
+import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
-import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
-import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
-import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader';
+import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
+import type { LucideIcon } from 'lucide-react';
 
 
-const editDetailsFormSchema = z.object({
-  pickupDoorOrFlat: z.string().max(50).optional(),
-  pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
-  dropoffDoorOrFlat: z.string().max(50).optional(),
-  dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
-  stops: z.array(z.object({
-      doorOrFlat: z.string().max(50).optional(),
-      location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
-  })).optional(),
-  desiredPickupDate: z.date().optional(),
-  desiredPickupTime: z.string().optional(),
-}).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
-  message: "If scheduling, both date and time must be provided. For ASAP, leave both empty.", path: ["desiredPickupTime"],
+const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
+  <!-- Pin Needle (Black) -->
+  <path d="M15 45 L10 30 H20 Z" fill="black"/>
+  <!-- Blue Circle with Thick Black Border -->
+  <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
+  <!-- White Car Silhouette -->
+  <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
+  <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
+</svg>`;
 
-
-const driverCarIconSvg = `<svg width="30" height="45" viewBox="0 0 30 45" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 45 L10 30 H20 Z" fill="black"/><circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/><rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/><rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/></svg>`;
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
 
@@ -92,6 +93,7 @@ interface ActiveRide {
   status: string;
   passengerCount: number;
   passengerRating?: number;
+  driverRatingForPassenger?: number | null;
   notes?: string;
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
@@ -111,7 +113,7 @@ interface ActiveRide {
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
   accountJobPin?: string;
-  distanceMiles?: number; 
+  distanceMiles?: number;
   cancellationFeeApplicable?: boolean;
   noShowFeeApplicable?: boolean;
   cancellationType?: string;
@@ -122,22 +124,17 @@ interface ActiveRide {
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
-const FREE_WAITING_TIME_SECONDS_PASSENGER = 3 * 60;
-const WAITING_CHARGE_PER_MINUTE_PASSENGER = 0.20;
-const ACKNOWLEDGMENT_WINDOW_SECONDS = 30;
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10; 
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
+const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
+const STATIONARY_REMINDER_TIMEOUT_MS = 60000;
+const MOVEMENT_THRESHOLD_METERS = 50;
+const STOP_FREE_WAITING_TIME_SECONDS = 3 * 60;
+const STOP_WAITING_CHARGE_PER_MINUTE = 0.20;
 
 
-const blueDotSvg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
-    <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
-  </svg>
-`;
-const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
-
-
-const parseTimestampToDatePassenger = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
+const parseTimestampToDate = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
   if (!timestamp) return null;
   if (typeof timestamp === 'string') {
     const date = new Date(timestamp);
@@ -149,174 +146,227 @@ const parseTimestampToDatePassenger = (timestamp: SerializedTimestamp | string |
   return null;
 };
 
-const formatTimerPassenger = (totalSeconds: number): string => {
+const formatTimer = (totalSeconds: number): string => {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-function formatAddressForMapLabel(fullAddress: string, type: string): string { 
-    if (!fullAddress) return `${type}:\nN/A`;
+function getDistanceBetweenPointsInMeters(
+  coord1: google.maps.LatLngLiteral | null,
+  coord2: google.maps.LatLngLiteral | null
+): number {
+  if (!coord1 || !coord2) return Infinity;
 
-    let addressRemainder = fullAddress;
-    let outwardPostcode = "";
-    
-    const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
-    const postcodeMatch = fullAddress.match(postcodeRegex);
+  const R = 6371e3;
+  const lat1Rad = coord1.lat * Math.PI / 180;
+  const lat2Rad = coord2.lat * Math.PI / 180;
+  const deltaLatRad = (coord2.lat - coord1.lat) * Math.PI / 180;
+  const deltaLonRad = (coord2.lng - coord1.lng) * Math.PI / 180;
 
-    if (postcodeMatch) {
-        outwardPostcode = postcodeMatch[1].toUpperCase();
-        addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
-    }
-    
-    const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-    let street = parts[0] || "Location Details"; 
-    let area = ""; 
-
-    if (parts.length > 1) {
-      area = parts[1];
-      if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
-          street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
-      }
-    } else if (parts.length === 0 && outwardPostcode) {
-      street = "Area";
-    }
-
-
-    if (!area && parts.length > 2) {
-        area = parts.slice(1).join(', ');
-    }
-
-    let locationLine = area;
-    if (outwardPostcode) {
-        locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
-    }
-    
-    if (street === "Location Details" && locationLine.trim()) street = "";
-
-    let finalLabel = `${type}:`; 
-    if (street) finalLabel += `\n${street}`;
-    if (locationLine.trim()) finalLabel += `\n${locationLine.trim()}`;
-    
-    return finalLabel;
-}
-
-const BASE_FARE = 0.00;
-const PER_MILE_RATE = 1.00;
-const FIRST_MILE_SURCHARGE = 1.99;
-const PER_MINUTE_RATE = 0.10;
-const AVERAGE_SPEED_MPH = 15;
-const BOOKING_FEE = 0.75;
-const MINIMUM_FARE = 4.00;
-const PER_STOP_SURCHARGE = 0.50;
-const PET_FRIENDLY_SURCHARGE = 2.00;
-
-function deg2rad(deg: number): number { return deg * (Math.PI / 180); }
-function getDistanceInMiles(coords1: google.maps.LatLngLiteral | null, coords2: google.maps.LatLngLiteral | null): number {
-  if (!coords1 || !coords2) return 0;
-  const R = 6371; 
-  const dLat = deg2rad(coords2.lat - coords1.lat);
-  const dLon = deg2rad(coords2.lng - coords1.lng);
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(coords1.lat)) * Math.cos(deg2rad(coords2.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const a = Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
+            Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+            Math.sin(deltaLonRad / 2) * Math.sin(deltaLonRad / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; 
-  return d * 0.621371; 
+
+  return R * c;
 }
 
+interface DispatchDisplayInfo {
+  text: string;
+  icon: React.ElementType;
+  bgColorClassName: string;
+}
 
-type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
-type RideOffer = import('@/components/driver/ride-offer-modal').RideOffer;
+function formatAddressForMapLabel(fullAddress: string, type: string): string {
+  if (!fullAddress) return `${type}:\nN/A`;
 
-export default function MyActiveRidePage() {
-  const { user } = useAuth();
-  const { toast } = useToast();
+  let addressRemainder = fullAddress;
+  let outwardPostcode = "";
+
+  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
+  const postcodeMatch = fullAddress.match(postcodeRegex);
+
+  if (postcodeMatch) {
+    outwardPostcode = postcodeMatch[1].toUpperCase();
+    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
+  }
+
+  const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
+
+  let street = parts[0] || "Location";
+  let area = "";
+
+  if (parts.length > 1) {
+    area = parts[1]; 
+    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
+        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
+    }
+  } else if (parts.length === 0 && outwardPostcode) {
+    street = "Area"; 
+  }
+  
+  if (!area && parts.length > 2) {
+      area = parts.slice(1).join(', '); 
+  }
+
+  let locationLine = area;
+  if (outwardPostcode) {
+    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
+  }
+
+  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
+      street = ""; 
+  }
+  if (street && !locationLine) { 
+     return `${type}:\n${street}`;
+  }
+  if (!street && locationLine) { 
+     return `${type}:\n${locationLine}`;
+  }
+  if (!street && !locationLine) {
+      return `${type}:\nDetails N/A`;
+  }
+
+  return `${type}:\n${street}\n${locationLine}`;
+}
+
+const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number; lng: number } }> = [
+    { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", coords: { lat: 53.6483, lng: -1.7805 } },
+    { address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", coords: { lat: 53.6465, lng: -1.7833 } },
+    { address: "University of Huddersfield, Queensgate, Huddersfield HD1 3DH", coords: { lat: 53.6438, lng: -1.7787 } },
+    { address: "Greenhead Park, Park Drive, Huddersfield HD1 4HS", coords: { lat: 53.6501, lng: -1.7969 } },
+    { address: "Lindley Village, Lidget Street, Huddersfield HD3 3JB", coords: { lat: 53.6580, lng: -1.8280 } },
+    { address: "Beaumont Park, Huddersfield HD4 7AY", coords: { lat: 53.6333, lng: -1.8080 } },
+    { address: "Marsh, Westbourne Road, Huddersfield HD1 4LE", coords: { lat: 53.6531, lng: -1.8122 } },
+    { address: "Almondbury Village, Huddersfield HD5 8XE", coords: { lat: 53.6391, lng: -1.7542 } },
+    { address: "Paddock Head, Gledholt Road, Huddersfield HD1 4HP", coords: { lat: 53.6480, lng: -1.8000 } },
+    { address: "Salendine Nook Shopping Centre, Huddersfield HD3 3XF", coords: { lat: 53.6612, lng: -1.8437 } },
+    { address: "Newsome Road South, Newsome, Huddersfield HD4 6JJ", coords: { lat: 53.6310, lng: -1.7800 } },
+    { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
+];
+
+interface ActiveStopDetails {
+  stopDataIndex: number;
+  arrivalTime: Date;
+}
+
+interface CurrentStopTimerDisplay {
+  stopDataIndex: number;
+  freeSecondsLeft: number | null;
+  extraSeconds: number | null;
+  charge: number;
+}
+
+interface HazardType {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  className: string; 
+}
+
+const hazardTypes: HazardType[] = [
+  { id: 'speed_camera', label: 'Mobile Speed Cam', icon: Gauge, className: 'bg-blue-500 hover:bg-blue-600 text-white border border-black' },
+  { id: 'taxi_check', label: 'Roadside Check', icon: ShieldCheckIcon, className: 'bg-sky-500 hover:bg-sky-600 text-white border border-black' },
+  { id: 'road_closure', label: 'Road Closure', icon: MinusCircle, className: 'bg-red-500 hover:bg-red-600 text-white border border-black' },
+  { id: 'accident', label: 'Accident', icon: AlertTriangle, className: 'bg-orange-500 hover:bg-orange-600 text-white border border-black' },
+  { id: 'road_works', label: 'Road Works', icon: Construction, className: 'bg-yellow-500 hover:bg-yellow-600 text-black border border-black' },
+  { id: 'heavy_traffic', label: 'Heavy Traffic', icon: UsersIcon, className: 'bg-amber-500 hover:bg-amber-600 text-black border border-black' },
+];
+
+
+export default function AvailableRidesPage() {
+  const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [rideToEditDetails, setRideToEditDetails] = useState<ActiveRide | null>(null);
-  const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
-  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
+  const { toast } = useToast();
+  const { user: driverUser } = useAuth();
+  const router = useRouter();
+  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-  const [dialogPickupInputValue, setDialogPickupInputValue] = useState("");
-  const [dialogPickupSuggestions, setDialogPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [showDialogPickupSuggestions, setShowDialogPickupSuggestions] = useState(false);
-  const [isFetchingDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions] = useState(false);
-  const [isFetchingDialogPickupDetails, setIsFetchingDialogPickupDetails] = useState(false);
-  const [dialogPickupCoords, setDialogPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
+  const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+  const [currentOfferDetails, setCurrentOfferDetails] = useState<RideOffer | null>(null);
+  const [isDriverOnline, setIsDriverOnline] = useState(true);
+  const [geolocationError, setGeolocationError] = useState<string | null>(null);
+  const watchIdRef = useRef<number | null>(null);
 
-  const [dialogDropoffInputValue, setDialogDropoffInputValue] = useState("");
-  const [dialogDropoffSuggestions, setDialogDropoffSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [showDialogDropoffSuggestions, setShowDialogDropoffSuggestions] = useState(false);
-  const [isFetchingDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions] = useState(false);
-  const [isFetchingDialogDropoffDetails, setIsFetchingDialogDropoffDetails] = useState(false);
-  const [dialogDropoffCoords, setDialogDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
+  const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
+  const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
 
-  const [dialogStopAutocompleteData, setDialogStopAutocompleteData] = useState<DialogAutocompleteData[]>([]);
-  const [dialogFareEstimate, setDialogFareEstimate] = useState<number | null>(null);
+  const [isNoShowConfirmDialogOpen, setIsNoShowConfirmDialogOpen] = useState(false);
+  const [rideToReportNoShow, setRideToReportNoShow] = useState<ActiveRide | null>(null);
 
 
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
-  const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
-
-  const driverLocation = useMemo(() => activeRide?.driverCurrentLocation || huddersfieldCenterGoogle, [activeRide?.driverCurrentLocation]);
+  const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string | null>(null);
+  const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
 
   const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
   const [freeWaitingSecondsLeft, setFreeWaitingSecondsLeft] = useState<number | null>(null);
-  const [isBeyondFreeWaiting, setIsBeyondFreeWaiting] = useState<boolean>(false);
   const [extraWaitingSeconds, setExtraWaitingSeconds] = useState<number | null>(null);
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
-  const passengerWaitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
-  
-  const [isRequestingWR, setIsRequestingWR] = useState(false);
-  const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
-  const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
+  const waitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
+  const [isPollingEnabled, setIsPollingEnabled] = useState(true);
+  const rideRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
+
+  const driverLocationAtAcceptanceRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const stationaryReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isStationaryReminderVisible, setIsStationaryReminderVisible] = useState(false);
+
+  const [consecutiveMissedOffers, setConsecutiveMissedOffers] = useState(0);
+  const MAX_CONSECUTIVE_MISSED_OFFERS = 3;
+
+  const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
+
+
+  const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
+  const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
+  const [isRequestingWR, setIsRequestingWR] = useState(false);
+
+  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
+  const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
+  const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
+
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
+  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
+  const [isHazardReportDialogOpen, setIsHazardReportDialogOpen] = useState(false);
+
+
+  const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
+  const journeyPoints = useMemo(() => {
+    if (!activeRide) return [];
+    const points: LocationPoint[] = [activeRide.pickupLocation];
+    if (activeRide.stops) points.push(...activeRide.stops);
+    points.push(activeRide.dropoffLocation);
+    return points;
+  }, [activeRide]);
+
+  const [activeStopDetails, setActiveStopDetails] = useState<ActiveStopDetails | null>(null);
+  const stopIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [currentStopTimerDisplay, setCurrentStopTimerDisplay] = useState<CurrentStopTimerDisplay | null>(null);
+  const [completedStopWaitCharges, setCompletedStopWaitCharges] = useState<Record<number, number>>({});
+  const [accumulatedStopWaitingCharges, setAccumulatedStopWaitingCharges] = useState<number>(0);
 
   const [showEndOfRideReminder, setShowEndOfRideReminder] = useState(false);
   const endOfRideReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [rideIdToCancel, setRideIdToCancel] = useState<string | null>(null);
-  const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
-  const [cancellationSuccess, setCancellationSuccess] = useState(false);
-
-  const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false); 
-  const localCurrentLegIndex = activeRide?.driverCurrentLegIndex ?? 0;
-  
+  const [isSpeedLimitFeatureEnabled, setIsSpeedLimitFeatureEnabled] = useState(false);
+  const [currentMockSpeed, setCurrentMockSpeed] = useState(20);
+  const [currentMockLimit, setCurrentMockLimit] = useState(30);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null); 
   const [currentRoutePolyline, setCurrentRoutePolyline] = useState<{ path: google.maps.LatLngLiteral[]; color: string; } | null>(null);
   const [driverMarkerHeading, setDriverMarkerHeading] = useState<number | null>(null);
+  const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
 
-  const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
+  const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
+  const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
-
-  const editDetailsForm = useForm<EditDetailsFormValues>({
-    resolver: zodResolver(editDetailsFormSchema),
-    defaultValues: { pickupDoorOrFlat: "", pickupLocation: "", dropoffDoorOrFlat: "", dropoffLocation: "", stops: [], desiredPickupDate: undefined, desiredPickupTime: "" },
-  });
-
-  const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
-  const previousEditStopsLengthRef = useRef(editStopsFields.length);
 
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
-      if (!autocompleteServiceRef.current && window.google.maps.places) {
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-      }
-      if (!placesServiceRef.current && window.google.maps.places) {
-        const dummyDiv = document.createElement('div'); 
-        placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
-      }
-      if (!autocompleteSessionTokenRef.current && window.google.maps.places) {
-        autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
-      }
       if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
       }
@@ -325,23 +375,6 @@ export default function MyActiveRidePage() {
       }
     }
   }, [isMapSdkLoaded]);
-
-
-  useEffect(() => {
-    if (isEditDetailsDialogOpen) {
-        editDetailsForm.setFocus('pickupLocation');
-    }
-  }, [isEditDetailsDialogOpen, editDetailsForm]);
-
-  useEffect(() => {
-    if (editStopsFields.length > previousEditStopsLengthRef.current) {
-      const newStopIndex = editStopsFields.length - 1;
-      setTimeout(() => {
-        editDetailsForm.setFocus(`stops.${newStopIndex}.location`);
-      }, 100);
-    }
-    previousEditStopsLengthRef.current = editStopsFields.length;
-  }, [editStopsFields, editDetailsForm]);
 
 
   useEffect(() => {
@@ -365,50 +398,231 @@ export default function MyActiveRidePage() {
     }
   }, [activeRide?.driverCurrentLocation, isMapSdkLoaded]);
 
-  const fetchActiveRide = useCallback(async () => {
-    if (!user) return;
-    setError(null);
-    try {
-      const response = await fetch(`/api/driver/active-ride?driverId=${user.id}`);
-      if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`})); throw new Error(errorData.details || errorData.message); }
-      const data: ActiveRide | null = await response.json();
-      setActiveRide(data);
-    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; setError(message); toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" });
-    } finally { setIsLoading(false); }
-  }, [user, toast]);
+  useEffect(() => {
+    if (!isSpeedLimitFeatureEnabled) return;
+    const speedInterval = setInterval(() => {
+      setCurrentMockSpeed(prev => {
+        const change = Math.floor(Math.random() * 7) - 3; 
+        let newSpeed = prev + change;
+        if (newSpeed < 0) newSpeed = 0;
+        if (newSpeed > 70) newSpeed = 70;
+        return newSpeed;
+      });
+      if (Math.random() < 0.1) { 
+        const limits = [20, 30, 40, 50, 60, 70];
+        setCurrentMockLimit(limits[Math.floor(Math.random() * limits.length)]);
+      }
+    }, 3000);
+    return () => clearInterval(speedInterval);
+  }, [isSpeedLimitFeatureEnabled]);
+
 
   useEffect(() => {
-    if (user) {
-      fetchActiveRide();
-      const rideRefreshInterval = setInterval(fetchActiveRide, 30000);
-      return () => clearInterval(rideRefreshInterval);
+    if (driverUser?.operatorCode) {
+      setCurrentDriverOperatorPrefix(driverUser.operatorCode);
+    } else if (driverUser?.id && driverUser.id.includes('/')) {
+      const parts = driverUser.id.split('/');
+      if (parts.length > 0) {
+        setCurrentDriverOperatorPrefix(parts[0]);
+      }
+    } else if (driverUser?.id) {
+      setCurrentDriverOperatorPrefix('OP_DefaultGuest');
+    }
+  }, [driverUser]);
+
+  useEffect(() => {
+    if (isDriverOnline && navigator.geolocation) {
+      setGeolocationError(null);
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          setDriverLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setGeolocationError(null);
+        },
+        (error) => {
+          console.warn("Geolocation Error:", error.message);
+          let message = "Could not get your location. Please enable location services.";
+          if (error.code === error.PERMISSION_DENIED || error.code === error.POSITION_UNAVAILABLE) {
+            message = "Location access denied or unavailable. Please enable it in your browser/device settings.";
+            setIsDriverOnline(false);
+            setIsPollingEnabled(false);
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
+          } else if (error.code === error.TIMEOUT) {
+            message = "Getting location timed out. Please try again.";
+          }
+          setGeolocationError(message);
+        },
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 } 
+      );
     } else {
-      setIsLoading(false);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      if (!navigator.geolocation) {
+        setGeolocationError("Geolocation is not supported by your browser.");
+      }
     }
-  }, [user, fetchActiveRide]);
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [isDriverOnline]);
+
+
+  const fetchActiveRide = useCallback(async () => {
+    console.log("fetchActiveRide called. driverUser ID:", driverUser?.id);
+    if (!driverUser?.id) {
+      setIsLoading(false);
+      return;
+    }
+
+    const initialLoadOrNoRide = !activeRide;
+    if (initialLoadOrNoRide) setIsLoading(true);
+
+    try {
+      const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
+      console.log("fetchActiveRide response status:", response.status);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}` }));
+        throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`);
+      }
+      const data: ActiveRide | null = await response.json();
+      console.log("fetchActiveRide - Data received from API:", data);
+
+      setError(null);
+
+      setActiveRide(currentClientRide => {
+        if (data === null && currentClientRide?.status === 'completed') {
+          console.log("fetchActiveRide: API reports no active ride, but client has a 'completed' ride. Retaining client state for rating.");
+          return currentClientRide;
+        }
+        if (JSON.stringify(data) !== JSON.stringify(currentClientRide)) {
+            console.log("fetchActiveRide: API data differs from client, updating client state.");
+            if (currentClientRide?.id !== data?.id || (currentClientRide && !data)) {
+              setLocalCurrentLegIndex(0);
+              setCompletedStopWaitCharges({});
+              setAccumulatedStopWaitingCharges(0);
+              setActiveStopDetails(null);
+            }
+            return data;
+        }
+        console.log("fetchActiveRide: API data matches client state, no update needed.");
+        return currentClientRide;
+      });
+      if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
+        setLocalCurrentLegIndex(data.driverCurrentLegIndex);
+
+        if (data.status === 'in_progress' || data.status === 'in_progress_wait_and_return') {
+            const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < (data.stops?.length || 0) + 1;
+            if (newLegIsIntermediateStop) {
+                setActiveStopDetails({ stopDataIndex: data.driverCurrentLegIndex - 1, arrivalTime: new Date() });
+            } else {
+                setActiveStopDetails(null);
+            }
+        }
+      }
+      if (data?.completedStopWaitCharges) {
+        setCompletedStopWaitCharges(data.completedStopWaitCharges);
+        setAccumulatedStopWaitingCharges(Object.values(data.completedStopWaitCharges).reduce((sum, charge) => sum + charge, 0));
+      }
+
+
+    } catch (err: any) {
+      const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
+      console.error("Error in fetchActiveRide:", message);
+      setError(message);
+    } finally {
+      if (initialLoadOrNoRide) setIsLoading(false);
+    }
+  }, [driverUser?.id, activeRide, localCurrentLegIndex]);
+
 
   useEffect(() => {
-    if (activeRide && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup')) {
-      const interval = setInterval(() => {
-        setActiveRide(prev => {
-          if (!prev) return null;
-          let newEta = prev.driverEtaMinutes ? Math.max(0, prev.driverEtaMinutes - 1) : (Math.floor(Math.random() * 5) + 2);
-          if (prev.status === 'arrived_at_pickup') newEta = 0;
-          return { ...prev, driverEtaMinutes: newEta };
-        });
-      }, 60000);
-      return () => clearInterval(interval);
+    if (stopIntervalRef.current) {
+      clearInterval(stopIntervalRef.current);
+      stopIntervalRef.current = null;
     }
-  }, [activeRide]);
+    setCurrentStopTimerDisplay(null);
+
+    const currentLegIdx = activeRide?.driverCurrentLegIndex;
+    const isAtIntermediateStop = activeRide &&
+                                 (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
+                                 currentLegIdx !== undefined &&
+                                 currentLegIdx > 0 &&
+                                 currentLegIdx < journeyPoints.length -1;
+
+    if (isAtIntermediateStop && activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx! - 1)) {
+      const { stopDataIndex, arrivalTime } = activeStopDetails;
+
+      console.log(`[StopTimerEffect] Activating timer for Stop ${stopDataIndex + 1}. Arrival: ${arrivalTime}`);
+
+      const intervalId = setInterval(() => {
+        const now = new Date();
+        const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
+
+        let newFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
+        let newExtraSeconds = 0;
+        let newCharge = 0;
+
+        if (newFreeSeconds < 0) {
+          newExtraSeconds = -newFreeSeconds;
+          newFreeSeconds = 0;
+          newCharge = Math.floor(newExtraSeconds / 60) * STOP_WAITING_CHARGE_PER_MINUTE;
+        }
+        setCurrentStopTimerDisplay({
+          stopDataIndex: stopDataIndex,
+          freeSecondsLeft: newFreeSeconds,
+          extraSeconds: newExtraSeconds,
+          charge: newCharge,
+        });
+      }, 1000);
+
+      stopIntervalRef.current = intervalId;
+
+
+      const now = new Date();
+      const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
+      let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
+      let initialExtraSeconds = 0;
+      let initialCharge = 0;
+      if (initialFreeSeconds < 0) {
+          initialExtraSeconds = -initialFreeSeconds;
+          initialFreeSeconds = 0;
+          initialCharge = Math.floor(initialExtraSeconds / 60) * STOP_WAITING_CHARGE_PER_MINUTE;
+      }
+      setCurrentStopTimerDisplay({
+          stopDataIndex: stopDataIndex,
+          freeSecondsLeft: initialFreeSeconds,
+          extraSeconds: initialExtraSeconds,
+          charge: initialCharge,
+      });
+    } else {
+      console.log("[StopTimerEffect] Conditions not met or arrivalTime not set for current stop. Clearing timer display.");
+    }
+
+    return () => {
+      if (stopIntervalRef.current) {
+        console.log("[StopTimerEffect Cleanup] Clearing timer for stop index", activeStopDetails?.stopDataIndex);
+        clearInterval(stopIntervalRef.current);
+      }
+    };
+  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints.length, activeStopDetails]);
+
 
  useEffect(() => {
-    if (passengerWaitingTimerIntervalRef.current) {
-      clearInterval(passengerWaitingTimerIntervalRef.current);
-      passengerWaitingTimerIntervalRef.current = null;
+    if (waitingTimerIntervalRef.current) {
+      clearInterval(waitingTimerIntervalRef.current);
+      waitingTimerIntervalRef.current = null;
     }
 
-    const notifiedTime = parseTimestampToDatePassenger(activeRide?.notifiedPassengerArrivalTimestamp);
-    const ackTime = parseTimestampToDatePassenger(activeRide?.passengerAcknowledgedArrivalTimestamp);
+    const notifiedTime = parseTimestampToDate(activeRide?.notifiedPassengerArrivalTimestamp);
+    const ackTime = parseTimestampToDate(activeRide?.passengerAcknowledgedArrivalTimestamp);
 
     if (activeRide?.status === 'arrived_at_pickup' && notifiedTime) {
       const updateTimers = () => {
@@ -416,75 +630,136 @@ export default function MyActiveRidePage() {
         const secondsSinceNotified = Math.floor((now.getTime() - notifiedTime.getTime()) / 1000);
 
         if (!ackTime) {
-          if (secondsSinceNotified < ACKNOWLEDGMENT_WINDOW_SECONDS) {
-            setAckWindowSecondsLeft(ACKNOWLEDGMENT_WINDOW_SECONDS - secondsSinceNotified);
-            setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_PASSENGER);
-            setIsBeyondFreeWaiting(false);
+          if (secondsSinceNotified < ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER) {
+            setAckWindowSecondsLeft(ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER - secondsSinceNotified);
+            setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER);
             setExtraWaitingSeconds(null);
             setCurrentWaitingCharge(0);
           } else {
             setAckWindowSecondsLeft(0);
-            const effectiveFreeWaitStartTime = addMinutes(notifiedTime, ACKNOWLEDGMENT_WINDOW_SECONDS / 60);
+            const effectiveFreeWaitStartTime = new Date(notifiedTime.getTime() + ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER * 1000);
             const secondsSinceEffectiveFreeWaitStart = Math.floor((now.getTime() - effectiveFreeWaitStartTime.getTime()) / 1000);
 
-            if (secondsSinceEffectiveFreeWaitStart < FREE_WAITING_TIME_SECONDS_PASSENGER) {
-              setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_PASSENGER - secondsSinceEffectiveFreeWaitStart);
-              setIsBeyondFreeWaiting(false);
+            if (secondsSinceEffectiveFreeWaitStart < FREE_WAITING_TIME_SECONDS_DRIVER) {
+              setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceEffectiveFreeWaitStart);
               setExtraWaitingSeconds(null);
               setCurrentWaitingCharge(0);
             } else {
               setFreeWaitingSecondsLeft(0);
-              setIsBeyondFreeWaiting(true);
-              const currentExtra = secondsSinceEffectiveFreeWaitStart - FREE_WAITING_TIME_SECONDS_PASSENGER;
+              const currentExtra = secondsSinceEffectiveFreeWaitStart - FREE_WAITING_TIME_SECONDS_DRIVER;
               setExtraWaitingSeconds(currentExtra);
-              setCurrentWaitingCharge(Math.floor(currentExtra / 60) * WAITING_CHARGE_PER_MINUTE_PASSENGER);
+              setCurrentWaitingCharge(Math.floor(currentExtra / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER);
             }
           }
         } else {
           setAckWindowSecondsLeft(null);
           const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
-          if (secondsSinceAck < FREE_WAITING_TIME_SECONDS_PASSENGER) {
-            setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_PASSENGER - secondsSinceAck);
-            setIsBeyondFreeWaiting(false);
+
+          if (secondsSinceAck < FREE_WAITING_TIME_SECONDS_DRIVER) {
+            setFreeWaitingSecondsLeft(FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceAck);
             setExtraWaitingSeconds(null);
             setCurrentWaitingCharge(0);
           } else {
             setFreeWaitingSecondsLeft(0);
-            setIsBeyondFreeWaiting(true);
-            const currentExtra = secondsSinceAck - FREE_WAITING_TIME_SECONDS_PASSENGER;
+            const currentExtra = secondsSinceAck - FREE_WAITING_TIME_SECONDS_DRIVER;
             setExtraWaitingSeconds(currentExtra);
-            setCurrentWaitingCharge(Math.floor(currentExtra / 60) * WAITING_CHARGE_PER_MINUTE_PASSENGER);
+            setCurrentWaitingCharge(Math.floor(currentExtra / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER);
           }
         }
       };
       updateTimers();
-      passengerWaitingTimerIntervalRef.current = setInterval(updateTimers, 1000);
-    } else {
+      waitingTimerIntervalRef.current = setInterval(updateTimers, 1000);
+    } else if (activeRide?.status !== 'arrived_at_pickup') {
       setAckWindowSecondsLeft(null);
       setFreeWaitingSecondsLeft(null);
-      setIsBeyondFreeWaiting(false);
       setExtraWaitingSeconds(null);
       setCurrentWaitingCharge(0);
     }
+
     return () => {
-      if (passengerWaitingTimerIntervalRef.current) {
-        clearInterval(passengerWaitingTimerIntervalRef.current);
+      if (waitingTimerIntervalRef.current) {
+        clearInterval(waitingTimerIntervalRef.current);
       }
     };
   }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
 
+
+ useEffect(() => {
+    if (rideRefreshIntervalIdRef.current) {
+      clearInterval(rideRefreshIntervalIdRef.current);
+      rideRefreshIntervalIdRef.current = null;
+    }
+    if (driverUser && isPollingEnabled) {
+      console.log("POLLING EFFECT: Polling enabled, fetching active ride and starting interval.");
+      fetchActiveRide();
+      rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
+    } else {
+      console.log("POLLING EFFECT: Polling disabled or no driver user.");
+    }
+    return () => {
+      if (rideRefreshIntervalIdRef.current) {
+        console.log("POLLING EFFECT: Clearing interval on cleanup.");
+        clearInterval(rideRefreshIntervalIdRef.current);
+        rideRefreshIntervalIdRef.current = null;
+      }
+    };
+  }, [driverUser, fetchActiveRide, isPollingEnabled]);
+
+
+  useEffect(() => {
+    const clearStationaryLogic = () => {
+      if (stationaryReminderTimerRef.current) {
+        clearTimeout(stationaryReminderTimerRef.current);
+        stationaryReminderTimerRef.current = null;
+      }
+      setIsStationaryReminderVisible(false);
+      driverLocationAtAcceptanceRef.current = null;
+    };
+
+    if (activeRide && activeRide.status === 'driver_assigned') {
+      if (!driverLocationAtAcceptanceRef.current && driverLocation) {
+        console.log("Driver assigned: Setting initial location for stationary check and starting timer.");
+        driverLocationAtAcceptanceRef.current = driverLocation;
+
+        if (stationaryReminderTimerRef.current) clearTimeout(stationaryReminderTimerRef.current);
+        stationaryReminderTimerRef.current = setTimeout(() => {
+          if (activeRide && activeRide.status === 'driver_assigned' && driverLocationAtAcceptanceRef.current && driverLocation) {
+            const distanceMoved = getDistanceBetweenPointsInMeters(driverLocationAtAcceptanceRef.current, driverLocation);
+            console.log(`Stationary check: Distance moved since acceptance: ${distanceMoved}m`);
+            if (distanceMoved < MOVEMENT_THRESHOLD_METERS) {
+              setIsStationaryReminderVisible(true);
+            } else {
+              clearStationaryLogic();
+            }
+          }
+          stationaryReminderTimerRef.current = null;
+        }, STATIONARY_REMINDER_TIMEOUT_MS);
+      } else if (driverLocationAtAcceptanceRef.current && driverLocation) {
+        const distanceMoved = getDistanceBetweenPointsInMeters(driverLocationAtAcceptanceRef.current, driverLocation);
+        if (distanceMoved >= MOVEMENT_THRESHOLD_METERS) {
+          console.log("Driver moved significantly. Clearing stationary reminder.");
+          clearStationaryLogic();
+        }
+      }
+    } else {
+      clearStationaryLogic();
+    }
+    return () => {
+      clearStationaryLogic();
+    };
+  }, [activeRide, driverLocation]);
 
   useEffect(() => {
     if (endOfRideReminderTimerRef.current) {
       clearTimeout(endOfRideReminderTimerRef.current);
     }
     if (activeRide?.status === 'in_progress') {
-      setShowEndOfRideReminder(false); 
+      setShowEndOfRideReminder(false);
       endOfRideReminderTimerRef.current = setTimeout(() => {
         setShowEndOfRideReminder(true);
-      }, 8000); 
+      }, 8000);
     } else {
-      setShowEndOfRideReminder(false); 
+      setShowEndOfRideReminder(false);
     }
     return () => {
       if (endOfRideReminderTimerRef.current) {
@@ -493,234 +768,702 @@ export default function MyActiveRidePage() {
     };
   }, [activeRide?.status]);
 
-
-  const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
-    setRideToEditDetails(ride);
-    editDetailsForm.reset({
-        pickupDoorOrFlat: ride.pickupLocation?.doorOrFlat || "", pickupLocation: ride.pickupLocation?.address || "",
-        dropoffDoorOrFlat: ride.dropoffLocation?.doorOrFlat || "", dropoffLocation: ride.dropoffLocation?.address || "",
-        stops: ride.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || ""})) || [],
-        desiredPickupDate: ride.scheduledPickupAt ? parseISO(ride.scheduledPickupAt) : undefined,
-        desiredPickupTime: ride.scheduledPickupAt ? format(parseISO(ride.scheduledPickupAt), "HH:mm") : "",
-    });
-    setDialogPickupInputValue(ride.pickupLocation?.address || ""); setDialogPickupCoords(ride.pickupLocation ? { lat: ride.pickupLocation.latitude, lng: ride.pickupLocation.longitude } : null);
-    setDialogDropoffInputValue(ride.dropoffLocation?.address || ""); setDialogDropoffCoords(ride.dropoffLocation ? { lat: ride.dropoffLocation.latitude, lng: ride.dropoffLocation.longitude } : null);
-    const initialStopData: DialogAutocompleteData[] = (ride.stops || []).map((stop, index) => ({ fieldId: `dialog-stop-${index}-${Date.now()}`, inputValue: stop.address, coords: { lat: stop.latitude, lng: stop.longitude }, suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, }));
-    setDialogStopAutocompleteData(initialStopData); setIsEditDetailsDialogOpen(true);
-  };
-
-  const fetchAddressSuggestions = useCallback(
-    (
-      inputValue: string,
-      setSuggestionsFunc: (suggestions: google.maps.places.AutocompletePrediction[]) => void,
-      setIsFetchingFunc: (isFetching: boolean) => void
-    ) => {
-      if (!isMapSdkLoaded || !autocompleteServiceRef.current || inputValue.length < 2) {
-        setSuggestionsFunc([]);
-        setIsFetchingFunc(false);
-        return;
-      }
-      setIsFetchingFunc(true);
-      console.log(`[EditDialog] Fetching predictions for (from fetchAddressSuggestions): "${inputValue}"`);
-      autocompleteServiceRef.current.getPlacePredictions(
-        {
-          input: inputValue,
-          sessionToken: autocompleteSessionTokenRef.current,
-          componentRestrictions: { country: 'gb' },
-        },
-        (predictions, status) => {
-          setIsFetchingFunc(false);
-          console.log(`[EditDialog] getPlacePredictions for "${inputValue}": Status - ${status}`, predictions);
-          setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
-        }
-      );
-    },
-    [isMapSdkLoaded] 
-  );
-
-  const handleEditAddressInputChangeFactory = useCallback((
-    formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
-  ) => (
-    inputValue: string,
-    formOnChange: (value: string) => void,
-  ) => {
-    formOnChange(inputValue); 
-    setDialogFareEstimate(null);
-    
-    let setSuggestionsFunc: (s: google.maps.places.AutocompletePrediction[]) => void;
-    let setIsFetchingSuggFunc: (f: boolean) => void;
-    let setShowSuggFunc: (s: boolean) => void;
-    let setCoordsFunc: (c: google.maps.LatLngLiteral | null) => void;
-    let setInputValFunc: (v: string) => void;
-
-    if (typeof formFieldNameOrStopIndex === 'number') {
-        setInputValFunc = (val) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val } : item));
-        setCoordsFunc = (coords) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords: coords } : item));
-        setShowSuggFunc = (show) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show } : item));
-        setIsFetchingSuggFunc = (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch } : item));
-        setSuggestionsFunc = (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
-    } else if (formFieldNameOrStopIndex === 'pickupLocation') {
-        setInputValFunc = setDialogPickupInputValue; setCoordsFunc = setDialogPickupCoords; setShowSuggFunc = setShowDialogPickupSuggestions; setIsFetchingSuggFunc = setIsFetchingDialogPickupSuggestions; setSuggestionsFunc = setDialogPickupSuggestions;
-    } else {
-        setInputValFunc = setDialogDropoffInputValue; setCoordsFunc = setDialogDropoffCoords; setShowSuggFunc = setShowDialogDropoffSuggestions; setIsFetchingSuggFunc = setIsFetchingDialogDropoffSuggestions; setSuggestionsFunc = setDialogDropoffSuggestions;
+  useEffect(() => {
+    if (!activeRide || !driverLocation || !isMapSdkLoaded || !directionsServiceRef.current) {
+      setCurrentRoutePolyline(null);
+      setDriverMarkerHeading(null);
+      return;
     }
-    
-    setInputValFunc(inputValue);
-    setCoordsFunc(null);
-    setShowSuggFunc(inputValue.length >=2);
 
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    if (inputValue.length < 2) { setIsFetchingSuggFunc(false); setSuggestionsFunc([]); return; }
-    
-    setIsFetchingSuggFunc(true); 
-    setSuggestionsFunc([]);
-    console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
-    debounceTimeoutRef.current = setTimeout(() => {
-      fetchAddressSuggestions(inputValue, setSuggestionsFunc, setIsFetchingSuggFunc);
-    }, 300);
-  }, [isMapSdkLoaded, fetchAddressSuggestions]);
-
-
- const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
-    const addressText = suggestion?.description; 
-    if (!isMapSdkLoaded || !placesServiceRef.current || !autocompleteSessionTokenRef.current || !addressText || !suggestion.place_id) {
-        console.warn(`[EditDialog] Places service, token, address, or place_id NOT READY for suggestion click. isMapSdkLoaded: ${isMapSdkLoaded}`);
-        if (addressText) formOnChange(addressText); 
-        return;
+    const currentLeg = journeyPoints[localCurrentLegIndex];
+    if (!currentLeg || !currentLeg.latitude || !currentLeg.longitude) {
+      setCurrentRoutePolyline(null);
+      setDriverMarkerHeading(null);
+      return;
     }
-    
-    const setIsFetchingDetailsFunc = (isFetching: boolean) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(isFetching);
-        else setIsFetchingDialogDropoffDetails(isFetching);
-    };
-    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null, finalAddress: string) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddress, showSuggestions: false } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupCoords(coords); setDialogPickupInputValue(finalAddress); setShowDialogPickupSuggestions(false); }
-        else { setDialogDropoffCoords(coords); setDialogDropoffInputValue(finalAddress); setShowDialogDropoffSuggestions(false); }
-    };
 
-    setIsFetchingDetailsFunc(true);
-    placesServiceRef.current.getDetails(
-        { placeId: suggestion.place_id, fields: ['geometry.location', 'formatted_address', 'address_components'], sessionToken: autocompleteSessionTokenRef.current }, 
-        (place, status) => {
-            setIsFetchingDetailsFunc(false);
-            const finalAddressToSet = place?.formatted_address || addressText;
-            formOnChange(finalAddressToSet); 
+    const origin = driverLocation;
+    const destination = { lat: currentLeg.latitude, lng: currentLeg.longitude };
 
-            if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-                setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
-                toast({ title: "Location Updated", description: `${finalAddressToSet} selected.`});
-            } else { 
-                setCoordsFunc(null, finalAddressToSet); 
-                toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"});
-            }
-            if (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.places) {
-                 autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken(); 
-            } else {
-                console.warn("[EditDialog] Google Places API not fully available to refresh session token.");
-            }
-        }
-    );
-  }, [isMapSdkLoaded, toast]);
+    let routeColor = "#808080"; // Default gray
+    if (localCurrentLegIndex === 0) routeColor = "#008000"; // Green to Pickup
+    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; // Red to final Dropoff
+    else routeColor = "#FFD700"; // Yellow to intermediate Stop
 
+    directionsServiceRef.current.route(
+      { origin, destination, travelMode: google.maps.TravelMode.DRIVING },
+      (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result && result.routes && result.routes.length > 0) {
+          const overviewPath = result.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
+          setCurrentRoutePolyline({ path: overviewPath, color: routeColor });
 
-  const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
-    if (typeof fieldNameOrIndex === 'number') {
-      const stop = dialogStopAutocompleteData[fieldNameOrIndex];
-      if (stop?.inputValue.length >= 2) { 
-        setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
-        if (!stop.suggestions?.length && !stop.isFetchingSuggestions && isMapSdkLoaded) { 
-            fetchAddressSuggestions(stop.inputValue, 
-                (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, suggestions: sugg} : item)),
-                (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, isFetchingSuggestions: fetch} : item))
+          if (window.google && window.google.maps && window.google.maps.geometry && window.google.maps.geometry.spherical) {
+            const heading = window.google.maps.geometry.spherical.computeHeading(
+              new window.google.maps.LatLng(origin.lat, origin.lng),
+              new window.google.maps.LatLng(destination.lat, destination.lng)
             );
+            setDriverMarkerHeading(heading);
+          } else {
+            setDriverMarkerHeading(null);
+          }
+        } else {
+          setCurrentRoutePolyline(null);
+          setDriverMarkerHeading(null);
+          console.warn("Directions request failed due to " + status);
         }
       }
-    } else if (fieldNameOrIndex === 'pickupLocation') {
-      if (dialogPickupInputValue.length >= 2 && isMapSdkLoaded) {
-        setShowDialogPickupSuggestions(true);
-        if (!dialogPickupSuggestions?.length && !isFetchingDialogPickupSuggestions) {
-            fetchAddressSuggestions(dialogPickupInputValue, setDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions);
+    );
+  }, [activeRide, localCurrentLegIndex, driverLocation, isMapSdkLoaded, journeyPoints]);
+
+
+  const handleSimulateOffer = () => {
+    const randomPickupIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+    let randomDropoffIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+    while (randomDropoffIndex === randomPickupIndex) {
+      randomDropoffIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+    }
+    const pickup = mockHuddersfieldLocations[randomPickupIndex];
+    const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
+
+    const isPriority = Math.random() < 0.4; 
+    let currentPriorityFeeAmount = 0;
+    if (isPriority) {
+      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); 
+    }
+
+    const mockOffer: RideOffer = {
+      id: `mock-offer-${Date.now()}`,
+      pickupLocation: pickup.address,
+      pickupCoords: pickup.coords,
+      dropoffLocation: dropoff.address,
+      dropoffCoords: dropoff.coords,
+      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)), 
+      isPriorityPickup: isPriority,
+      priorityFeeAmount: currentPriorityFeeAmount,
+      passengerCount: Math.floor(Math.random() * 3) + 1,
+      passengerId: `pass-mock-${Date.now().toString().slice(-4)}`,
+      passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
+      notes: Math.random() < 0.3 ? "Has some luggage." : undefined,
+      requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
+      distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)), 
+      paymentMethod: Math.random() < 0.6 ? 'card' : (Math.random() < 0.8 ? 'cash' : 'account'),
+      dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
+      accountJobPin: Math.random() < 0.1 ? Math.floor(1000 + Math.random() * 9000).toString() : undefined,
+    };
+    console.log("Simulating offer:", mockOffer);
+    setCurrentOfferDetails(mockOffer);
+    setIsOfferModalOpen(true);
+  };
+
+
+  const handleAcceptOffer = async (rideId: string) => {
+    console.log(`Attempting to accept offer: ${rideId}`);
+    setIsPollingEnabled(false);
+    if (rideRefreshIntervalIdRef.current) {
+      clearInterval(rideRefreshIntervalIdRef.current);
+      rideRefreshIntervalIdRef.current = null;
+    }
+    setConsecutiveMissedOffers(0);
+
+    setIsOfferModalOpen(false);
+    const offerToAccept = currentOfferDetails;
+    setCurrentOfferDetails(null);
+
+    if (!offerToAccept || !driverUser) {
+      toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
+      return;
+    }
+
+    const currentActionRideId = offerToAccept.id;
+    console.log(`Setting actionLoading for ${currentActionRideId} to true`);
+    setActionLoading(prev => ({ ...prev, [currentActionRideId]: true }));
+    try {
+      const updatePayload: any = {
+        driverId: driverUser.id,
+        driverName: driverUser.name || "Driver",
+        status: 'driver_assigned',
+        vehicleType: driverUser.vehicleCategory || 'Car',
+        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
+        offerDetails: { ...offerToAccept },
+        isPriorityPickup: offerToAccept.isPriorityPickup,
+        priorityFeeAmount: offerToAccept.priorityFeeAmount,
+        dispatchMethod: offerToAccept.dispatchMethod,
+        driverCurrentLocation: driverLocation,
+        accountJobPin: offerToAccept.accountJobPin,
+      };
+      console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
+
+      const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload),
+      });
+      console.log(`Accept offer response status for ${currentActionRideId}: ${response.status}`);
+
+      let updatedBookingDataFromServer;
+      if (response.ok) {
+        updatedBookingDataFromServer = await response.json();
+        if (!updatedBookingDataFromServer || !updatedBookingDataFromServer.booking) {
+            console.error(`Accept offer for ${currentActionRideId}: Server OK but booking data missing.`);
+            throw new Error("Server returned success but booking data was missing in response.");
         }
-      }
-    } else if (fieldNameOrIndex === 'dropoffLocation') {
-      if (dialogDropoffInputValue.length >= 2 && isMapSdkLoaded) {
-        setShowDialogDropoffSuggestions(true);
-        if (!dialogDropoffSuggestions?.length && !isFetchingDialogDropoffSuggestions) {
-            fetchAddressSuggestions(dialogDropoffInputValue, setDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions);
+        console.log(`Accept offer for ${currentActionRideId}: Server returned booking data:`, updatedBookingDataFromServer.booking);
+      } else {
+        const clonedResponse = response.clone();
+        let errorDetailsText = `Server responded with status: ${response.status}.`;
+        try {
+            const errorDataJson = await response.json();
+            errorDetailsText = errorDataJson.message || errorDataJson.details || JSON.stringify(errorDataJson);
+        } catch (jsonParseError) {
+            try {
+                const rawResponseText = await clonedResponse.text();
+                console.error("handleAcceptOffer - Server returned non-JSON or unparsable JSON. Raw text:", rawResponseText);
+                errorDetailsText += ` Non-JSON response. Server said: ${rawResponseText.substring(0, 200)}${rawResponseText.length > 200 ? '...' : ''}`;
+            } catch (textReadError) {
+                errorDetailsText += " Additionally, failed to read response body as text.";
+            }
         }
+        console.error(`Accept offer for ${currentActionRideId} - Server error:`, errorDetailsText);
+        toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
+        setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
+        console.log(`Reset actionLoading for ${currentActionRideId} to false after server error.`);
+        return;
       }
+
+      const serverBooking = updatedBookingDataFromServer.booking;
+      const newActiveRideFromServer: ActiveRide = {
+        id: serverBooking.id,
+        passengerId: serverBooking.passengerId,
+        passengerName: serverBooking.passengerName,
+        passengerAvatar: serverBooking.passengerAvatar,
+        passengerPhone: serverBooking.passengerPhone,
+        pickupLocation: serverBooking.pickupLocation,
+        dropoffLocation: serverBooking.dropoffLocation,
+        stops: serverBooking.stops,
+        fareEstimate: serverBooking.fareEstimate,
+        isPriorityPickup: serverBooking.isPriorityPickup,
+        priorityFeeAmount: serverBooking.priorityFeeAmount,
+        passengerCount: serverBooking.passengers,
+        status: serverBooking.status,
+        driverId: serverBooking.driverId,
+        driverVehicleDetails: serverBooking.driverVehicleDetails,
+        notes: serverBooking.driverNotes || serverBooking.notes,
+        paymentMethod: serverBooking.paymentMethod,
+        requiredOperatorId: serverBooking.requiredOperatorId,
+        vehicleType: serverBooking.vehicleType,
+        dispatchMethod: serverBooking.dispatchMethod,
+        bookingTimestamp: serverBooking.bookingTimestamp,
+        scheduledPickupAt: serverBooking.scheduledPickupAt,
+        notifiedPassengerArrivalTimestamp: serverBooking.notifiedPassengerArrivalTimestamp,
+        passengerAcknowledgedArrivalTimestamp: serverBooking.passengerAcknowledgedArrivalTimestamp,
+        rideStartedAt: serverBooking.rideStartedAt,
+        completedAt: serverBooking.completedAt,
+        driverCurrentLocation: serverBooking.driverCurrentLocation || driverLocation,
+        driverEtaMinutes: serverBooking.driverEtaMinutes,
+        waitAndReturn: serverBooking.waitAndReturn,
+        estimatedAdditionalWaitTimeMinutes: serverBooking.estimatedAdditionalWaitTimeMinutes,
+        accountJobPin: serverBooking.accountJobPin,
+        distanceMiles: offerToAccept.distanceMiles,
+      };
+      console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
+      setActiveRide(newActiveRideFromServer);
+      setLocalCurrentLegIndex(0);
+      setRideRequests([]);
+
+      let toastDesc = `En Route to Pickup for ${newActiveRideFromServer.passengerName}. Payment: ${newActiveRideFromServer.paymentMethod === 'card' ? 'Card' : newActiveRideFromServer.paymentMethod === 'account' ? 'Account' : 'Cash'}.`;
+      if (newActiveRideFromServer.isPriorityPickup && newActiveRideFromServer.priorityFeeAmount) {
+        toastDesc += ` Priority: +£${newActiveRideFromServer.priorityFeeAmount.toFixed(2)}.`;
+      }
+      if (newActiveRideFromServer.dispatchMethod) {
+        toastDesc += ` Dispatched: ${newActiveRideFromServer.dispatchMethod.replace(/_/g, ' ')}.`;
+      }
+      toast({title: "Ride Accepted!", description: toastDesc});
+
+    } catch(error: any) {
+      console.error(`Error in handleAcceptOffer process for ${currentActionRideId} (outer catch):`, error);
+
+      let detailedMessage = "An unknown error occurred during ride acceptance.";
+      if (error instanceof Error) {
+          detailedMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && (error as any).message) {
+          detailedMessage = (error as any).message;
+      } else if (typeof error === 'string') {
+          detailedMessage = error;
+      }
+
+      toast({ title: "Acceptance Failed", description: detailedMessage, variant: "destructive" });
+    } finally {
+      console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
+      setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
     }
   };
-  const handleEditBlurFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
-    setTimeout(() => { 
-        if (typeof fieldNameOrIndex === 'number') setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: false} : item)); 
-        else if (fieldNameOrIndex === 'pickupLocation') setShowDialogPickupSuggestions(false); 
-        else setShowDialogDropoffSuggestions(false); 
-    }, 500); 
+
+
+  const handleDeclineOffer = (rideId: string) => {
+    const offerThatWasDeclined = currentOfferDetails;
+    setIsOfferModalOpen(false);
+    setCurrentOfferDetails(null);
+
+    const newMissedCount = consecutiveMissedOffers + 1;
+    setConsecutiveMissedOffers(newMissedCount);
+
+    if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
+        setIsDriverOnline(false);
+        toast({
+            title: "Automatically Set Offline",
+            description: `You've missed ${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive offers and have been set to Offline. You can go online again manually.`,
+            variant: "default",
+            duration: 8000,
+        });
+        setConsecutiveMissedOffers(0);
+    } else {
+        const passengerName = offerThatWasDeclined?.passengerName || 'the passenger';
+        toast({
+            title: "Ride Offer Declined",
+            description: `You declined the offer for ${passengerName}. (${newMissedCount}/${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive before auto-offline).`
+        });
+    }
   };
 
-  const onEditDetailsSubmit = async (values: EditDetailsFormValues) => {
-    if (!rideToEditDetails || !user || !dialogPickupCoords || !dialogDropoffCoords) { toast({ title: "Error", description: "Missing ride data or user session.", variant: "destructive" }); return; }
-    const validStopsData = [];
-    for (let i = 0; i < (values.stops?.length || 0); i++) { const stopValue = values.stops?.[i]; const stopCoordsData = dialogStopAutocompleteData[i]; if (stopValue?.location && stopValue.location.trim() !== "" && !stopCoordsData?.coords) { toast({ title: `Stop ${i + 1} Incomplete`, description: `Please ensure Stop ${i + 1} has coordinates by selecting from suggestions.`, variant: "destructive" }); return; } if (stopValue?.location && stopValue.location.trim() !== "" && stopCoordsData?.coords) { validStopsData.push({ address: stopValue.location, latitude: stopCoordsData.coords.lat, longitude: stopCoordsData.coords.lng, doorOrFlat: stopValue.doorOrFlat }); } }
-    setIsUpdatingDetails(true); let scheduledAtISO: string | null = null;
-    if (values.desiredPickupDate && values.desiredPickupTime) { const [hours, minutes] = values.desiredPickupTime.split(':').map(Number); const combinedDateTime = new Date(values.desiredPickupDate); combinedDateTime.setHours(hours, minutes, 0, 0); scheduledAtISO = combinedDateTime.toISOString(); }
-    
-    const payload: any = {  
-        bookingId: rideToEditDetails.id, 
-        passengerId: user.id, 
-        pickupLocation: { address: values.pickupLocation, latitude: dialogPickupCoords.lat, longitude: dialogPickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat }, 
-        dropoffLocation: { address: values.dropoffLocation, latitude: dialogDropoffCoords.lat, longitude: dialogDropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat }, 
-        stops: validStopsData, 
-        scheduledPickupAt: scheduledAtISO, 
-        fareEstimate: dialogFareEstimate !== null ? dialogFareEstimate : undefined,
-    };
+ const handleRideAction = async (rideId: string, actionType: 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active' | 'accept_wait_and_return' | 'decline_wait_and_return' | 'report_no_show' | 'proceed_to_next_leg') => {
+    if (!driverUser || !activeRide || activeRide.id !== rideId) {
+        console.error(`handleRideAction: Pre-condition failed. driverUser: ${!!driverUser}, activeRide: ${!!activeRide}, activeRide.id vs rideId: ${activeRide?.id} vs ${rideId}`);
+        toast({ title: "Error", description: "No active ride context or ID mismatch.", variant: "destructive"});
+        return;
+    }
+    console.log(`handleRideAction: rideId=${rideId}, actionType=${actionType}. Current activeRide status: ${activeRide.status}, localCurrentLegIndex: ${localCurrentLegIndex}`);
+
+    if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && !activeRide.accountJobPin) {
+        toast({title: "Account PIN Error", description: "This account job is missing its verification PIN. Cannot start ride. Please contact support.", variant: "destructive"});
+        return;
+    }
+    if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup' && activeRide.accountJobPin) {
+        if (!isAccountJobPinDialogOpen) {
+          setIsAccountJobPinDialogOpen(true);
+          return;
+        }
+    }
+
+    let chargeForPreviousStop = 0;
+    const currentStopArrayIndexForChargeCalc = localCurrentLegIndex - 1;
+    if ((actionType === 'proceed_to_next_leg' || actionType === 'complete_ride') &&
+        activeStopDetails &&
+        activeStopDetails.stopDataIndex === currentStopArrayIndexForChargeCalc &&
+        currentStopTimerDisplay &&
+        currentStopTimerDisplay.stopDataIndex === currentStopArrayIndexForChargeCalc
+    ) {
+        chargeForPreviousStop = currentStopTimerDisplay.charge;
+        setCompletedStopWaitCharges(prev => ({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop }));
+        setAccumulatedStopWaitingCharges(prev => Object.values({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop}).reduce((sum, val) => sum + (val || 0), 0));
+    }
 
 
-    try {
-        const response = await fetch(`/api/bookings/update-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)});
-        if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to update booking.'); }
-        const updatedRideDataFromServer = await response.json();
-        
-        setActiveRide(prev => prev ? { 
-            ...prev,  
-            pickupLocation: updatedRideDataFromServer.pickupLocation, 
-            dropoffLocation: updatedRideDataFromServer.dropoffLocation, 
-            stops: updatedRideDataFromServer.stops, 
-            scheduledPickupAt: updatedRideDataFromServer.scheduledPickupAt,
-            fareEstimate: updatedRideDataFromServer.fareEstimate !== undefined ? updatedRideDataFromServer.fareEstimate : prev.fareEstimate,
-        } : null );
+    setActionLoading(prev => ({ ...prev, [rideId]: true }));
+    console.log(`actionLoading for ${rideId} SET TO TRUE`);
 
-        toast({ title: "Booking Updated", description: "Your ride details have been successfully changed." }); setIsEditDetailsDialogOpen(false);
-    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error."; toast({ title: "Update Failed", description: message, variant: "destructive" });
-    } finally { setIsUpdatingDetails(false); }
-  };
+    let toastMessage = ""; let toastTitle = "";
+    let payload: any = { action: actionType };
 
-  const handleAcknowledgeArrival = async (rideId: string) => {
-    if (!user || !activeRide) return;
+    if (['notify_arrival', 'start_ride', 'proceed_to_next_leg'].includes(actionType) && driverLocation) {
+      payload.driverCurrentLocation = driverLocation;
+    }
+
+    const updateDataFromPayload = payload;
+
+    switch(actionType) {
+        case 'notify_arrival':
+            toastTitle = "Passenger Notified"; toastMessage = `Passenger ${activeRide.passengerName} has been notified of your arrival.`;
+            payload.notifiedPassengerArrivalTimestamp = true;
+            break;
+        case 'start_ride':
+            toastTitle = "Ride Started"; toastMessage = `Ride with ${activeRide.passengerName} is now in progress.`;
+            if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
+            setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null);
+            setAckWindowSecondsLeft(null);
+            payload.rideStartedAt = true;
+            payload.updatedLegDetails = { newLegIndex: 1, currentLegEntryTimestamp: true };
+            setActiveStopDetails(null);
+            break;
+        case 'proceed_to_next_leg':
+            const newLegIdxForProceed = localCurrentLegIndex + 1;
+            const currentStopArrayIndexForCharge = localCurrentLegIndex - 1;
+
+            const targetPoint = journeyPoints[newLegIdxForProceed];
+            const targetType = newLegIdxForProceed === journeyPoints.length - 1 ? "final dropoff" : `stop ${newLegIdxForProceed}`;
+            toastTitle = `Proceeding to ${targetType}`;
+            toastMessage = `Navigating to ${targetPoint?.address || 'next location'}.`;
+
+            payload.updatedLegDetails = {
+                newLegIndex: newLegIdxForProceed,
+                currentLegEntryTimestamp: true,
+            };
+
+            if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndexForCharge && currentStopTimerDisplay && currentStopTimerDisplay.stopDataIndex === currentStopArrayIndexForCharge) {
+                chargeForPreviousStop = currentStopTimerDisplay.charge;
+                payload.updatedLegDetails.previousStopIndex = currentStopArrayIndexForCharge;
+                payload.updatedLegDetails.waitingChargeForPreviousStop = chargeForPreviousStop;
+            }
+
+            setActiveStopDetails(null);
+
+            if (updateDataFromPayload.driverCurrentLocation) {
+              payload.driverCurrentLocation = updateDataFromPayload.driverCurrentLocation;
+            }
+            break;
+        case 'complete_ride':
+            const baseFare = activeRide.fareEstimate || 0;
+            const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
+            let wrCharge = 0;
+            if(activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
+                wrCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
+            }
+            const finalFare = baseFare + priorityFee + currentWaitingCharge + accumulatedStopWaitingCharges + chargeForPreviousStop + wrCharge;
+
+            toastTitle = "Ride Completed";
+            if (activeRide.paymentMethod === "account" && activeRide.accountJobPin) {
+                 toastMessage = `Ride with ${activeRide.passengerName} completed. Account holder will be notified. PIN used: ${activeRide.accountJobPin}. Final Fare: £${finalFare.toFixed(2)}.`;
+            } else {
+                 toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, all waiting): £${finalFare.toFixed(2)}.`;
+            }
+
+            if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
+            payload.finalFare = finalFare;
+            payload.completedAt = true;
+            setActiveStopDetails(null);
+
+            break;
+        case 'cancel_active':
+            toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
+            if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
+            setActiveStopDetails(null);
+            setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges({});
+            setAckWindowSecondsLeft(null);
+            setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
+            payload.status = 'cancelled_by_driver';
+            payload.cancellationType = 'driver_cancelled_active';
+            break;
+        case 'report_no_show':
+            toastTitle = "No Show Reported";
+            toastMessage = `Passenger ${activeRide.passengerName} reported as no-show. Ride cancelled.`;
+            if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
+            setActiveStopDetails(null);
+            setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges({});
+            setAckWindowSecondsLeft(null);
+            setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0);
+            payload.status = 'cancelled_no_show';
+            payload.cancellationType = 'passenger_no_show';
+            payload.noShowFeeApplicable = true;
+            payload.cancelledAt = Timestamp.now();
+
+            break;
+        case 'accept_wait_and_return':
+            toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`;
+            payload.waitAndReturn = true;
+            payload.status = 'in_progress_wait_and_return';
+            break;
+        case 'decline_wait_and_return':
+            toastTitle = "Wait & Return Declined"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been declined. Ride continues as normal.`;
+            payload.status = 'in_progress';
+            payload.waitAndReturn = false;
+            payload.estimatedAdditionalWaitTimeMinutes = null;
+            break;
+    }
+
     try {
       const response = await fetch(`/api/operator/bookings/${rideId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'acknowledge_arrival' }),
+        body: JSON.stringify(payload),
       });
+      console.log(`handleRideAction (${actionType}): API response status for ${rideId}: ${response.status}`);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to acknowledge arrival.");
+        let errorMessageFromServer = `Action failed with status: ${response.status}`;
+        const errorDetailsText = await response.text();
+        try {
+          const errorDataJson = JSON.parse(errorDetailsText);
+          errorMessageFromServer = errorDataJson.message || errorDataJson.details || JSON.stringify(errorDataJson);
+        } catch (jsonParseError) {
+          console.error("Server returned non-JSON error response. Body:", errorDetailsText.substring(0, 500));
+          if (errorDetailsText.toLowerCase().includes("<!doctype html")) {
+            errorMessageFromServer = `Server returned an HTML error page (Status: ${response.status}). Check server logs for more details.`;
+          } else {
+            errorMessageFromServer = `Server error (Status: ${response.status}): ${errorDetailsText.substring(0, 100)}${errorDetailsText.length > 100 ? '...' : ''}`;
+          }
+        }
+        throw new Error(errorMessageFromServer);
       }
-      const updatedBooking = await response.json();
-      setActiveRide(prev => prev ? { ...prev, passengerAcknowledgedArrivalTimestamp: updatedBooking.booking.passengerAcknowledgedArrivalTimestamp, status: 'arrived_at_pickup' } : null);
-      toast({title: "Arrival Acknowledged!", description: "Your driver has been notified you are aware they have arrived."});
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error.";
-      toast({ title: "Acknowledgement Failed", description: message, variant: "destructive" });
+
+      const updatedBookingFromServer = await response.json();
+      console.log(`handleRideAction (${actionType}): API success for ${rideId}. Server data:`, updatedBookingFromServer.booking);
+
+      setActiveRide(prev => {
+        if (!prev || prev.id !== rideId) {
+             console.warn(`handleRideAction (${actionType}): setActiveRide callback - prev.id (${prev?.id}) !== rideId (${rideId}). This shouldn't happen if activeRide is the source of truth.`);
+             return prev;
+        }
+        const serverData = updatedBookingFromServer.booking;
+        const newClientState: ActiveRide = {
+          ...prev,
+          status: serverData.status || prev.status,
+          notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
+          passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
+          rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
+          completedAt: serverData.completedAt || prev.completedAt,
+          fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
+          waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
+          estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
+          isPriorityPickup: serverData.isPriorityPickup ?? prev.isPriorityPickup,
+          priorityFeeAmount: serverData.priorityFeeAmount ?? prev.priorityFeeAmount,
+          passengerId: serverData.passengerId || prev.passengerId,
+          passengerName: serverData.passengerName || prev.passengerName,
+          passengerAvatar: serverData.passengerAvatar || prev.passengerAvatar,
+          passengerPhone: serverData.passengerPhone || prev.passengerPhone,
+          pickupLocation: serverData.pickupLocation || prev.pickupLocation,
+          dropoffLocation: serverData.dropoffLocation || prev.dropoffLocation,
+          stops: serverData.stops || prev.stops,
+          vehicleType: serverData.vehicleType || prev.vehicleType,
+          paymentMethod: serverData.paymentMethod || prev.paymentMethod,
+          notes: serverData.notes || prev.notes,
+          requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
+          dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
+          driverCurrentLocation: serverData.driverCurrentLocation,
+          accountJobPin: serverData.accountJobPin || prev.accountJobPin,
+          distanceMiles: serverData.distanceMiles || prev.distanceMiles,
+          cancellationFeeApplicable: serverData.cancellationFeeApplicable,
+          noShowFeeApplicable: serverData.noShowFeeApplicable,
+          cancellationType: serverData.cancellationType,
+          driverCurrentLegIndex: serverData.driverCurrentLegIndex !== undefined ? serverData.driverCurrentLegIndex : prev.driverCurrentLegIndex,
+          currentLegEntryTimestamp: serverData.currentLegEntryTimestamp || prev.currentLegEntryTimestamp,
+          completedStopWaitCharges: serverData.completedStopWaitCharges || prev.completedStopWaitCharges || {},
+        };
+        if (newClientState.driverCurrentLocation === undefined) {
+           newClientState.driverCurrentLocation = driverLocation;
+        }
+        console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
+        if (actionType === 'start_ride' || actionType === 'proceed_to_next_leg') {
+          setLocalCurrentLegIndex(newClientState.driverCurrentLegIndex || 0);
+        }
+        return newClientState;
+      });
+
+      toast({ title: toastTitle, description: toastMessage });
+      if (actionType === 'cancel_active' || actionType === 'complete_ride' || actionType === 'report_no_show') {
+        console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Polling might resume if driver is online.`);
+      }
+
+
+    } catch(err: any) {
+      const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
+      console.error(`handleRideAction (${actionType}) for ${rideId}: Error caught:`, message);
+      toast({ title: "Action Failed", description: message, variant: "destructive" });
+      fetchActiveRide();
+    } finally {
+      console.log(`Resetting actionLoading for ${rideId} to false after action ${actionType}`);
+      setActionLoading(prev => ({ ...prev, [rideId]: false }));
+    }
+  };
+
+  const verifyAndStartAccountJobRide = async () => {
+    if (!activeRide || !activeRide.accountJobPin) {
+      toast({ title: "Error", description: "Account job details or PIN missing.", variant: "destructive" });
+      setIsAccountJobPinDialogOpen(false);
+      return;
+    }
+    setIsVerifyingAccountJobPin(true);
+    if (enteredAccountJobPin === activeRide.accountJobPin) {
+      toast({ title: "Job PIN Verified!", description: "Starting account job..." });
+      setIsAccountJobPinDialogOpen(false);
+      setEnteredAccountJobPin("");
+      await handleRideAction(activeRide.id, 'start_ride');
+    } else {
+      toast({ title: "Incorrect Job PIN", description: "The 4-digit PIN entered is incorrect. Please ask the passenger again.", variant: "destructive" });
+    }
+    setIsVerifyingAccountJobPin(false);
+  };
+
+  const handleStartRideWithManualPinOverride = async () => {
+    if (!activeRide || !driverUser) return;
+    setIsAccountJobPinDialogOpen(false);
+    setEnteredAccountJobPin("");
+    toast({ title: "Manual Override", description: "Starting account job without PIN verification. Operator will be notified for review.", variant: "default", duration: 7000 });
+    console.warn(`Ride ${activeRide.id} for passenger ${activeRide.passengerName} (Account Job) started with manual PIN override by driver ${driverUser.id} (${driverUser.name}). Account PIN was: ${activeRide.accountJobPin || 'Not found in state'}.`);
+    await handleRideAction(activeRide.id, 'start_ride');
+  };
+
+
+  const mapDisplayElements = useMemo(() => {
+    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
+
+    const currentLegIdxToUse = activeRide?.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
+    const currentStatus = activeRide?.status?.toLowerCase();
+
+    const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
+        ? driverLocation
+        : activeRide?.driverCurrentLocation;
+
+    if (currentLocToDisplay) {
+        markers.push({
+            position: currentLocToDisplay,
+            title: "Your Current Location",
+            iconUrl: driverCarIconDataUrl,
+            iconScaledSize: {width: 30, height: 45}
+        });
+    }
+
+    if (activeRide) {
+        const isActiveRideStateForStopsAndDropoff = currentStatus && !['completed', 'cancelled_by_driver', 'cancelled_no_show', 'cancelled_by_operator'].includes(currentStatus);
+
+        if (activeRide.pickupLocation) {
+          markers.push({
+            position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
+            title: `Pickup: ${activeRide.pickupLocation.address}`,
+            label: { text: "P", color: "white", fontWeight: "bold"}
+          });
+
+          if (currentLegIdxToUse === 0 && (currentStatus === 'driver_assigned' || currentStatus === 'arrived_at_pickup')) {
+            labels.push({
+              position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
+              content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+              type: 'pickup'
+            });
+          }
+        }
+
+        activeRide.stops?.forEach((stop, index) => {
+          const stopLegIndex = index + 1;
+          if(stop.latitude && stop.longitude && isActiveRideStateForStopsAndDropoff) {
+            markers.push({
+              position: {lat: stop.latitude, lng: stop.longitude},
+              title: `Stop ${index+1}: ${stop.address}`,
+              label: { text: `S${index+1}`, color: "white", fontWeight: "bold"}
+            });
+            if (currentLegIdxToUse === stopLegIndex) {
+                 labels.push({
+                    position: { lat: stop.latitude, lng: stop.longitude },
+                    content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+                    type: 'stop'
+                });
+            } else if (currentLegIdxToUse < stopLegIndex) {
+                 labels.push({
+                    position: { lat: stop.latitude, lng: stop.longitude },
+                    content: formatAddressForMapLabel(stop.address, `Next Stop ${index+1}`),
+                    type: 'stop',
+                    variant: 'compact'
+                });
+            }
+          }
+        });
+
+        if (activeRide.dropoffLocation && isActiveRideStateForStopsAndDropoff) {
+          const dropoffLegIndex = (activeRide.stops?.length || 0) + 1;
+          markers.push({
+            position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
+            title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+            label: { text: "D", color: "white", fontWeight: "bold"}
+          });
+          if (currentLegIdxToUse === dropoffLegIndex) {
+            labels.push({
+              position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+              content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+              type: 'dropoff'
+            });
+          } else if (currentLegIdxToUse < dropoffLegIndex ) {
+             labels.push({
+                position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+                content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+                type: 'dropoff',
+                variant: 'compact'
+            });
+          }
+        }
+    }
+    return { markers: markers, labels };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRide, driverLocation, isDriverOnline, journeyPoints, localCurrentLegIndex]);
+
+  const memoizedMapCenter = useMemo(() => {
+    if (activeRide) {
+        const currentLegIdxToUse = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
+        const currentTargetPoint = journeyPoints[currentLegIdxToUse];
+        if (currentTargetPoint) {
+            return {lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude};
+        }
+    }
+    return driverLocation;
+  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex]);
+
+
+  const handleCancelSwitchChange = (checked: boolean) => {
+    console.log("handleCancelSwitchChange: Switch toggled to", checked);
+    setIsCancelSwitchOn(checked);
+    if (checked) {
+        console.log("handleCancelSwitchChange: Showing cancel confirmation dialog.");
+        setShowCancelConfirmationDialog(true);
+    } else {
+        console.log("handleCancelSwitchChange: Hiding cancel confirmation dialog (switch off).");
+        setShowCancelConfirmationDialog(false);
+    }
+  };
+
+
+  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
+    if (!ride || !['driver_assigned'].includes(ride.status.toLowerCase())) return null;
+    if (ride.status.toLowerCase() === 'arrived_at_pickup') return null;
+
+    return (
+        <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
+        <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="font-bold text-destructive text-sm">
+            <span>Initiate Cancellation</span>
+        </Label>
+        <Switch
+            id={`cancel-ride-switch-${ride.id}`}
+            checked={isCancelSwitchOn}
+            onCheckedChange={handleCancelSwitchChange}
+            disabled={actionIsLoadingProp}
+            className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0"
+        />
+        </div>
+    );
+  };
+
+
+  const handleConfirmEmergency = () => {
+    toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified. Stay safe.", variant: "destructive", duration: 10000 });
+    setIsSosDialogOpen(false);
+  };
+
+  const handleQuickSOSAlert = (alertType: string) => {
+    toast({
+      title: "QUICK SOS ALERT SENT!",
+      description: `Your operator has been notified: ${alertType}. Stay safe.`,
+      variant: "destructive",
+      duration: 10000
+    });
+    setIsSosDialogOpen(false);
+  };
+
+  const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
+    setIsDriverOnline(newOnlineStatus);
+    if (newOnlineStatus) {
+        setConsecutiveMissedOffers(0);
+        if (geolocationError) {
+            setGeolocationError(null);
+        }
+        setIsPollingEnabled(true);
+    } else {
+        setRideRequests([]);
+        setIsPollingEnabled(false);
+        if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+        }
     }
   };
 
   const handleRequestWaitAndReturn = async () => {
-    if (!activeRide || !user) return;
+    if (!activeRide || !driverUser) return;
     const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
       toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
@@ -731,9 +1474,9 @@ export default function MyActiveRidePage() {
       const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'request_wait_and_return', 
-          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes 
+        body: JSON.stringify({
+          action: 'request_wait_and_return',
+          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
         }),
       });
       if (!response.ok) {
@@ -741,10 +1484,10 @@ export default function MyActiveRidePage() {
         throw new Error(errorData.message || "Failed to request Wait & Return.");
       }
       const updatedBooking = await response.json();
-      setActiveRide(updatedBooking.booking); 
-      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the driver for confirmation." });
+      setActiveRide(updatedBooking.booking);
+      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
       setIsWRRequestDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : "Unknown error.";
       toast({ title: "Request Failed", description: message, variant: "destructive" });
     } finally {
@@ -752,723 +1495,339 @@ export default function MyActiveRidePage() {
     }
   };
 
-  const handleConfirmCancel = async () => {
-    if (!rideIdToCancel || !user) return;
-    const currentRideId = rideIdToCancel;
-    setActionLoading(prev => ({ ...prev, [currentRideId]: true }));
+  const handleReportHazard = async (hazardType: string) => {
+    if (!driverLocation) {
+      toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" });
+      return;
+    }
+    
+    const payload = {
+      hazardType: hazardType,
+      location: driverLocation,
+      reportedByDriverId: driverUser?.id || "unknown_driver",
+      reportedAt: new Date().toISOString(),
+      status: "active", 
+    };
+    console.log("Map Hazard Report Payload:", payload);
+
     try {
-      const response = await fetch('/api/bookings/cancel', {
+      const response = await fetch('/api/driver/map-hazards/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: currentRideId, passengerId: user.id }),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to cancel ride.');
+        throw new Error(errorData.message || "Failed to submit hazard report to server.");
       }
-      toast({ title: "Ride Cancelled", description: `Your ride ${currentRideId} has been cancelled.` });
-      setCancellationSuccess(true); 
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
-      toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
-      setCancellationSuccess(false);
-    } finally {
-       setActionLoading(prev => ({ ...prev, [currentRideId]: false }));
-       setShowCancelConfirmationDialog(false);
+      toast({
+        title: "Hazard Reported",
+        description: `${hazardType} reported at your current location. Other drivers will be notified.`,
+      });
+    } catch (error) {
+      console.error("Error reporting hazard:", error);
+      toast({
+        title: "Hazard Report Failed",
+        description: error instanceof Error ? error.message : "Could not send hazard report.",
+        variant: "destructive",
+      });
     }
+    setIsHazardReportDialogOpen(false); 
   };
 
-  const getStatusMessage = (ride: ActiveRide | null) => {
-    if (!ride || !ride.status) return "Loading status...";
-    switch (ride.status.toLowerCase()) {
-        case 'pending_assignment': return "Finding you a driver...";
-        case 'driver_assigned': return `Driver ${ride.driver || 'N/A'} is en route. ETA: ${ride.driverEtaMinutes ?? 'calculating...'} min.`;
-        case 'arrived_at_pickup': return `Driver ${ride.driver || 'N/A'} has arrived at your pickup location.`;
-        case 'in_progress': return "Your ride is in progress. Enjoy!";
-        case 'pending_driver_wait_and_return_approval': return `Wait & Return requested for an additional ${ride.estimatedAdditionalWaitTimeMinutes || 0} mins. Awaiting driver confirmation.`;
-        case 'in_progress_wait_and_return': return `Ride in progress (Wait & Return). Driver will wait ~${ride.estimatedAdditionalWaitTimeMinutes || 0} mins at dropoff.`;
-        default: return `Status: ${ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+  const getActiveRideDispatchInfo = (
+    ride: ActiveRide | null,
+    currentUser: User | null
+  ): DispatchDisplayInfo | null => {
+    if (!ride || !currentUser) return null;
+
+    const isPlatformRide = ride.requiredOperatorId === PLATFORM_OPERATOR_CODE;
+    const isOwnOperatorRide = currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode && ride.requiredOperatorId !== PLATFORM_OPERATOR_CODE;
+
+    const isManualDispatch = ride.dispatchMethod === 'manual_operator';
+    const isPriorityOverride = ride.dispatchMethod === 'priority_override';
+
+    if (isPlatformRide) {
+      return isManualDispatch
+        ? { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
+        : { text: "Dispatched By App: AUTO MODE", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
     }
+    if (isOwnOperatorRide) {
+      return isManualDispatch
+        ? { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
+        : { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
+    }
+
+    if (isManualDispatch) {
+      const dispatcher = ride.requiredOperatorId ? `Operator ${ride.requiredOperatorId}` : "Platform Admin";
+      return { text: `Manually Dispatched by ${dispatcher}`, icon: Briefcase, bgColorClassName: "bg-blue-600" };
+    }
+    if (isPriorityOverride) {
+      return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
+    }
+    return { text: "Dispatched By App (Auto)", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
   };
-
-  const getStatusBadgeVariant = (status: string | undefined) => {
-    if (!status) return 'secondary';
-    switch (status.toLowerCase()) {
-        case 'pending_assignment': return 'secondary';
-        case 'driver_assigned': return 'default';
-        case 'arrived_at_pickup': return 'outline';
-        case 'in_progress': return 'default';
-        case 'pending_driver_wait_and_return_approval': return 'secondary';
-        case 'in_progress_wait_and_return': return 'default';
-        default: return 'secondary';
-    }
-  };
-
-  const getStatusBadgeClass = (status: string | undefined) => {
-    if (!status) return '';
-    switch (status.toLowerCase()) {
-        case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
-        case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
-        case 'arrived_at_pickup': return 'border-blue-500 text-blue-500 hover:bg-blue-500/10';
-        case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
-        case 'pending_driver_wait_and_return_approval': return 'bg-purple-400/80 text-purple-900 hover:bg-purple-400/70';
-        case 'in_progress_wait_and_return': return 'bg-teal-500 text-white hover:bg-teal-600';
-        default: return '';
-    }
-  };
-
-  const journeyPoints = useMemo(() => {
-    if (!activeRide) return [];
-    const points = [activeRide.pickupLocation];
-    if (activeRide.stops) points.push(...activeRide.stops);
-    points.push(activeRide.dropoffLocation);
-    return points.map(p => ({ address: p.address, coords: { lat: p.latitude, lng: p.longitude }, doorOrFlat: p.doorOrFlat }));
-  }, [activeRide]);
-
-  useEffect(() => {
-    if (
-      isMapSdkLoaded &&
-      directionsServiceRef.current &&
-      activeRide &&
-      activeRide.driverCurrentLocation &&
-      journeyPoints.length > 0 &&
-      localCurrentLegIndex < journeyPoints.length
-    ) {
-      const origin = activeRide.driverCurrentLocation;
-      const destination = journeyPoints[localCurrentLegIndex].coords;
-      let routeColor = "#888888"; // Default grey
-
-      if (localCurrentLegIndex === 0) { // To Pickup
-        routeColor = "#00FF00"; // Green
-      } else if (localCurrentLegIndex === journeyPoints.length - 1) { // To final Dropoff
-        routeColor = "#FF0000"; // Red
-      } else { // To an intermediate Stop
-        routeColor = "#FFFF00"; // Yellow
-      }
-      
-      directionsServiceRef.current.route(
-        {
-          origin: new window.google.maps.LatLng(origin.lat, origin.lng),
-          destination: new window.google.maps.LatLng(destination.lat, destination.lng),
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK && result?.routes && result.routes.length > 0) {
-            const path = result.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
-            setCurrentRoutePolyline({ path, color: routeColor });
-
-            if (path.length > 1 && window.google.maps.geometry && window.google.maps.geometry.spherical) {
-                const heading = window.google.maps.geometry.spherical.computeHeading(path[0], path[1]);
-                setDriverMarkerHeading(heading);
-            } else {
-                 setDriverMarkerHeading(null);
-            }
-
-          } else {
-            setCurrentRoutePolyline(null);
-            setDriverMarkerHeading(null);
-            console.warn(`Directions request failed due to ${status}`);
-          }
-        }
-      );
-    } else {
-      setCurrentRoutePolyline(null);
-      setDriverMarkerHeading(null);
-    }
-  }, [activeRide, localCurrentLegIndex, journeyPoints, isMapSdkLoaded, activeRide?.driverCurrentLocation]);
+  const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
 
 
-  const mapElements = useMemo(() => {
-    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
-    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-
-    if (!activeRide) return { markers, labels };
-    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
-
-
-    if (activeRide.driverCurrentLocation) {
-        markers.push({ 
-            position: activeRide.driverCurrentLocation, 
-            title: "Your Driver", 
-            iconUrl: driverCarIconDataUrl,
-            iconScaledSize: { width: 30, height: 45 }
-        });
-        if (driverCurrentStreetName) {
-            let labelContent = driverCurrentStreetName;
-            if (activeRide.driverEtaMinutes !== undefined && activeRide.driverEtaMinutes !== null && activeRide.status === 'driver_assigned') {
-                labelContent += `\nETA: ${activeRide.driverEtaMinutes} min${activeRide.driverEtaMinutes !== 1 ? 's' : ''}`;
-            }
-            labels.push({
-                position: activeRide.driverCurrentLocation,
-                content: labelContent,
-                type: 'driver'
-            });
-        }
-    }
-
-    if (activeRide.pickupLocation) {
-      markers.push({
-        position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
-        title: `Pickup: ${activeRide.pickupLocation.address}`,
-        label: { text: "P", color: "white", fontWeight: "bold"}
-      });
-      labels.push({
-        position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-        content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
-        type: 'pickup'
-      });
-    }
-    if (activeRide.dropoffLocation && isActiveRideState) {
-      markers.push({
-        position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
-        title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-        label: { text: "D", color: "white", fontWeight: "bold" }
-      });
-       labels.push({
-        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-        type: 'dropoff'
-      });
-    }
-    activeRide.stops?.forEach((stop, index) => {
-      if(stop.latitude && stop.longitude && isActiveRideState) { 
-        markers.push({
-          position: {lat: stop.latitude, lng: stop.longitude},
-          title: `Stop ${index+1}: ${stop.address}`,
-          label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
-        });
-        labels.push({
-            position: { lat: stop.latitude, lng: stop.longitude },
-            content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
-            type: 'stop'
-        });
-      }
-    });
-    return { markers, labels };
-  }, [activeRide, driverCurrentStreetName]);
-
-  const mapCenter = useMemo(() => {
-    if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
-    if (activeRide?.status === 'driver_assigned' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
-    if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
-    if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    return driverLocation || huddersfieldCenterGoogle;
-  }, [activeRide, driverLocation]);
-
-  useEffect(() => {
-    if (!isEditDetailsDialogOpen || !rideToEditDetails) {
-      setDialogFareEstimate(null);
-      return;
-    }
-
-    if (dialogPickupCoords && dialogDropoffCoords) {
-      let oneWayDistanceMiles = 0;
-      let currentPoint = dialogPickupCoords;
-
-      const validStopsForFare = dialogStopAutocompleteData.filter((stopData, index) => {
-        const formStopValue = editDetailsForm.getValues(`stops.${index}.location`);
-        return stopData.coords && formStopValue && formStopValue.trim() !== "";
-      });
-
-      for (const stopData of validStopsForFare) {
-        if (stopData.coords) {
-          oneWayDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
-          currentPoint = stopData.coords;
-        }
-      }
-      oneWayDistanceMiles += getDistanceInMiles(currentPoint, dialogDropoffCoords);
-      
-      const oneWayDurationMinutes = (oneWayDistanceMiles / AVERAGE_SPEED_MPH) * 60;
-      
-      let calculatedFare = 0;
-      if (oneWayDistanceMiles > 0) {
-        const timeFareOneWay = oneWayDurationMinutes * PER_MINUTE_RATE;
-        const distanceBasedFareOneWay = (oneWayDistanceMiles * PER_MILE_RATE) + FIRST_MILE_SURCHARGE;
-        const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
-        calculatedFare = BASE_FARE + timeFareOneWay + distanceBasedFareOneWay + stopSurchargeAmount + BOOKING_FEE;
-
-        let vehicleMultiplier = 1.0;
-        if (rideToEditDetails.vehicleType === "estate") vehicleMultiplier = 1.2;
-        else if (rideToEditDetails.vehicleType === "minibus_6" || rideToEditDetails.vehicleType === "minibus_6_pet_friendly") vehicleMultiplier = 1.5;
-        else if (rideToEditDetails.vehicleType === "minibus_8" || rideToEditDetails.vehicleType === "minibus_8_pet_friendly") vehicleMultiplier = 1.6;
-        else if (rideToEditDetails.vehicleType === "disable_wheelchair_access") vehicleMultiplier = 2.0;
-        
-        const passengerCount = Number(rideToEditDetails.passengers) || 1;
-        const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
-        
-        calculatedFare = calculatedFare * vehicleMultiplier * passengerAdjustment;
-        
-        if (rideToEditDetails.vehicleType === "pet_friendly_car" || rideToEditDetails.vehicleType === "minibus_6_pet_friendly" || rideToEditDetails.vehicleType === "minibus_8_pet_friendly") {
-            calculatedFare += PET_FRIENDLY_SURCHARGE;
-        }
-        calculatedFare = Math.max(calculatedFare, MINIMUM_FARE);
-      }
-      const newFareEstimate = calculatedFare;
-      console.log("[EditDialog FareCalc] Recalculated dialog fare:", newFareEstimate);
-      setDialogFareEstimate(newFareEstimate > 0 ? parseFloat(newFareEstimate.toFixed(2)) : null);
-    } else {
-      setDialogFareEstimate(null);
-    }
-  }, [isEditDetailsDialogOpen, dialogPickupCoords, dialogDropoffCoords, dialogStopAutocompleteData, rideToEditDetails, editDetailsForm]);
-
-
-  if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
-
-  const renderAutocompleteSuggestions = ( suggestions: google.maps.places.AutocompletePrediction[], isFetchingSugg: boolean, isFetchingDet: boolean, inputValue: string, onSuggClick: (suggestion: google.maps.places.AutocompletePrediction) => void, fieldKey: string ) => ( <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60"> <div className="space-y-1 p-1"> {isFetchingSugg && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</div>} {isFetchingDet && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</div>} {!isFetchingSugg && !isFetchingDet && suggestions.length === 0 && inputValue.length >= 2 && <div className="p-2 text-sm text-muted-foreground">No suggestions.</div>} {!isFetchingSugg && !isFetchingDet && suggestions.map((s) => { console.log(`[RenderSuggestions DEBUG for ${fieldKey}] Rendering suggestion: ${s.description}`); return( <div key={`${fieldKey}-${s.place_id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm" onMouseDown={() => onSuggClick(s)}>{s.description}</div> );})} </div> </ScrollArea> );
-  const vehicleTypeDisplay = activeRide?.vehicleType ? activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ')  : 'Vehicle N/A';
-  const statusDisplay = activeRide?.status ? activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Status N/A';
-  const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
-  const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
-  
-  let fareDisplay = `£${(activeRide?.fareEstimate ?? 0).toFixed(2)}`;
-  if (activeRide?.status === 'in_progress_wait_and_return' || activeRide?.waitAndReturn) {
-    const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * WAITING_CHARGE_PER_MINUTE_PASSENGER;
-    const waitAndReturnBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
-    fareDisplay = `£${(waitAndReturnBaseFare + additionalWaitCharge).toFixed(2)} (W&R)`;
+  if (isLoading && !activeRide) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
-
-  const paymentMethodDisplay = 
-    activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)' 
-    : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
-    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
-    : 'Payment N/A';
-
-  const isEditingDisabled = activeRide?.status !== 'pending_assignment';
-  const showDriverAssignedStatus = activeRide && ['driver_assigned'].includes(activeRide.status.toLowerCase());
+  if (error && !activeRide && !isLoading) {
+    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
+        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
+        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
+        <p className="text-sm text-muted-foreground mb-4">{error}</p>
+        <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
+    </div>;
+  }
   
+  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
+
   const CurrentNavigationLegBar = () => {
-    if (!activeRide || !journeyPoints || journeyPoints.length === 0 || localCurrentLegIndex >= journeyPoints.length) {
-      return ( <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] p-2 bg-black/70 text-white rounded-lg shadow-xl text-xs md:text-sm text-center backdrop-blur-sm"> Preparing navigation... </div> );
+    if (!activeRide || !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
+      return null;
     }
     const currentLeg = journeyPoints[localCurrentLegIndex];
-    const legTypeDisplay = 
-      localCurrentLegIndex === 0 ? "Pickup" :
-      localCurrentLegIndex === journeyPoints.length - 1 ? "Final Dropoff" :
-      `Stop ${localCurrentLegIndex}`;
-    const nextAddressShort = currentLeg.address.split(',')[0];
+    if (!currentLeg) return null;
+
+    let bgColorClass = "bg-gray-100 dark:bg-gray-700";
+    let textColorClass = "text-gray-800 dark:text-gray-200";
+    let legTypeLabel = "";
+
+    if (localCurrentLegIndex === 0) { 
+      bgColorClass = "bg-green-100 dark:bg-green-900/50";
+      textColorClass = "text-green-700 dark:text-green-300";
+      legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
+    } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
+      bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
+      textColorClass = "text-yellow-700 dark:text-yellow-300";
+      legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
+    } else { 
+      bgColorClass = "bg-red-100 dark:bg-red-800/50";
+      textColorClass = "text-red-700 dark:text-red-300";
+      legTypeLabel = "TO DROPOFF";
+    }
+    
+    const addressParts = currentLeg.address.split(',');
+    const primaryAddressLine = addressParts[0]?.trim();
+    const secondaryAddressLine = addressParts.slice(1).join(',').trim();
+
 
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] p-2 md:p-2.5 bg-black/75 text-white rounded-lg shadow-xl flex items-center gap-2 md:gap-3 backdrop-blur-sm max-w-[calc(100%-2rem)]">
-        <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 shrink-0"
-            title="Open Navigation in Google Maps"
-            onClick={() => {
-              if (currentLeg.coords) {
-                window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLeg.coords.lat},${currentLeg.coords.lng}&travelmode=driving`, '_blank');
-              } else {
-                toast({ title: "Navigation Error", description: "Destination coordinates not available for this leg.", variant: "destructive"});
-              }
-            }}
-          >
-            <Navigation className="h-4 w-4" />
-          </Button>
+      <div className={cn(
+        "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
+        bgColorClass,
+        "border-t-2 border-black/20 dark:border-white/20" 
+      )}>
         <div className="flex-1 min-w-0">
-          <p className="text-[0.6rem] md:text-xs font-semibold uppercase tracking-wider text-blue-300">NEXT: {legTypeDisplay}</p>
-          <p className="text-xs md:text-sm font-bold truncate" title={currentLeg.address}>{nextAddressShort}</p>
+          <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
+          <p className={cn("font-bold text-base md:text-lg truncate", textColorClass)}>
+            {primaryAddressLine}
+          </p>
+          {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
         </div>
         <div className="flex items-start gap-1.5 shrink-0">
-           <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700" title="View Full Journey Details" onClick={() => setIsJourneyDetailsModalOpen(true)}>
-            <Info className="h-4 w-4" />
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            onClick={() => setIsJourneyDetailsModalOpen(true)}
+            title="View Full Journey Details"
+          >
+            <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+          </Button>
+          <Button 
+            variant="default" 
+            size="icon" 
+            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => toast({ title: "Navigation (Mock)", description: `Would navigate to ${currentLeg.address}`})}
+            title={`Navigate to ${legTypeLabel}`}
+          >
+            <Navigation className="h-4 w-4" />
           </Button>
         </div>
       </div>
     );
   };
 
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2">
-        <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live.</CardDescription> </CardHeader> </Card>
-        {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride">Book a New Ride</Link> </Button> </CardContent> </Card> )}
-        {activeRide && (
-          <>
-            <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
-              <GoogleMapDisplay 
-                center={mapCenter} 
-                zoom={14} 
-                markers={mapElements.markers} 
-                customMapLabels={mapElements.labels}
-                className="h-full w-full" 
-                disableDefaultUI={true} 
-                fitBoundsToMarkers={true}
-                onSdkLoaded={setIsMapSdkLoaded} 
-                mapHeading={0} 
-                mapRotateControl={false}
-                polylines={currentRoutePolyline ? [{ ...currentRoutePolyline, weight: 4, opacity: 0.7 }] : []}
-                driverIconRotation={driverMarkerHeading ?? undefined}
-              />
-              <CurrentNavigationLegBar />
-            </div>
 
-            {showEndOfRideReminder && activeRide.status === 'in_progress' && (
-              <Alert variant="default" className="bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700">
-                <CheckCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                <ShadAlertTitle className="font-semibold text-green-700 dark:text-green-300">Enjoying Your Ride?</ShadAlertTitle>
-                <ShadAlertDescriptionForAlert className="text-sm text-green-600 dark:text-green-400">
-                  Ride nearing destination! Please remember to rate your experience and appreciate your driver after completion. Have a great day!
-                </ShadAlertDescriptionForAlert>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowEndOfRideReminder(false)}
-                  className="absolute top-2 right-2 p-1 h-auto text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-                  >
-                  <XCircle className="w-4 h-4"/>
-                </Button>
-              </Alert>
-            )}
-
-            <Card className="shadow-md">
-              <CardHeader className="flex flex-row justify-between items-start gap-2">
-                  <div> <CardTitle className="text-xl flex items-center gap-2"> <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay} </CardTitle> <CardDescription className="text-xs">{activeRide.scheduledPickupAt ? `Scheduled: ${format(parseISO(activeRide.scheduledPickupAt), "MMM do, yyyy 'at' p")}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}</CardDescription> </div>
-                  <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("text-xs sm:text-sm", getStatusBadgeClass(activeRide.status))}> {statusDisplay} </Badge>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                  <p className="text-base text-muted-foreground">{getStatusMessage(activeRide)}</p>
-                  
-                  {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
-                    <div className="my-2 p-2.5 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center shadow-sm">
-                      <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                        One Time PIN: <strong className="text-lg font-bold tracking-wider text-purple-800 dark:text-purple-200">{activeRide.accountJobPin}</strong>
-                      </span>
-                    </div>
-                  )}
-
-                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
-                    <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
-                      <Info className="h-5 w-5 text-current" />
-                      <ShadAlertTitle className="font-semibold text-current">Driver Has Arrived!</ShadAlertTitle>
-                      <ShadAlertDescriptionForAlert className="text-current">
-                        Please acknowledge within <span className="font-bold">{formatTimerPassenger(ackWindowSecondsLeft)}</span> to start your 3 minutes free waiting.
-                      </ShadAlertDescriptionForAlert>
-                    </Alert>
-                  )}
-
-                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft === 0 && (
-                    <Alert variant="default" className="bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
-                      <Timer className="h-5 w-5 text-current" />
-                      <ShadAlertTitle className="font-semibold text-current">Acknowledgment Window Expired</ShadAlertTitle>
-                      <ShadAlertDescriptionForAlert className="text-current">
-                       Your 3 mins free waiting time ({freeWaitingSecondsLeft !== null ? formatTimerPassenger(freeWaitingSecondsLeft) : 'N/A'}) has started.
-                        Waiting charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.
-                      </ShadAlertDescriptionForAlert>
-                    </Alert>
-                  )}
-
-                  {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && (
-                    <Alert variant="default" className="bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300">
-                      <CheckCheck className="h-5 w-5 text-current" />
-                      <ShadAlertTitle className="font-semibold text-current">Arrival Acknowledged - Free Waiting</ShadAlertTitle>
-                      <ShadAlertDescriptionForAlert className="text-current">
-                        {freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
-                          <span>Free waiting time: {formatTimerPassenger(freeWaitingSecondsLeft)}. Charges (£{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min) apply after.</span>
-                        )}
-                        {isBeyondFreeWaiting && extraWaitingSeconds !== null && (
-                          <span>Extra waiting: {formatTimerPassenger(extraWaitingSeconds)}. Current Charge: £{currentWaitingCharge.toFixed(2)}</span>
-                        )}
-                        {!isBeyondFreeWaiting && freeWaitingSecondsLeft === 0 && <span>Free waiting time expired. Charges (£0.20/min) may apply.</span>}
-                      </ShadAlertDescriptionForAlert>
-                    </Alert>
-                  )}
-                  
-                  {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/driver/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
-                  <Separator />
-                  <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div> 
-
-      {activeRide && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase()) && (
-        <footer className="p-3 border-t bg-card shadow-md sticky bottom-0 z-20">
-          {activeRide.status === 'driver_assigned' && (
-            <div className="grid grid-cols-2 gap-2">
-                <div className={cn( "flex flex-col items-center justify-center p-2 border rounded-md", isCancelSwitchOn ? "bg-destructive/10 border-destructive" : "bg-muted/30 hover:bg-muted/50" )}>
-                    <Label htmlFor="cancel-switch" className={cn( "font-bold text-xs text-center", isCancelSwitchOn ? "text-destructive" : "text-muted-foreground" )}>
-                        Initiate Cancellation
-                    </Label>
-                    <Switch
-                        id="cancel-switch"
-                        checked={isCancelSwitchOn}
-                        onCheckedChange={(checked) => {
-                            setIsCancelSwitchOn(checked);
-                            if (checked && activeRide) { 
-                                setRideIdToCancel(activeRide.id);
-                                setShowCancelConfirmationDialog(true);
-                            } else {
-                                if (showCancelConfirmationDialog && rideIdToCancel === activeRide?.id) {
-                                    setShowCancelConfirmationDialog(false);
-                                }
-                                setRideIdToCancel(null); 
-                            }
-                        }}
-                        className={cn( "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted mt-1", actionLoading[activeRide?.id || ''] && "opacity-50 pointer-events-none" )}
-                        disabled={actionLoading[activeRide?.id || '']}
-                        aria-label="Initiate ride cancellation"
-                    />
-                </div>
-                <Button
-                    variant="default"
-                    className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
-                    onClick={() => {
-                        if (activeRide) {
-                            fetch(`/api/operator/bookings/${activeRide.id}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ action: 'notify_arrival', driverCurrentLocation: user?.currentLocation }),
-                            })
-                            .then(res => res.json())
-                            .then(data => {
-                                if(data.booking) setActiveRide(data.booking);
-                                toast({title: "Driver Notified", description: "Driver has been informed you are ready/at pickup."});
-                            })
-                            .catch(err => toast({title: "Error Notifying Driver", description: err.message, variant: "destructive"}));
-                        }
-                    }}
-                    disabled={actionLoading[activeRide.id]}
-                >
-                    {actionLoading[activeRide.id] === true ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BellRing className="mr-2 h-4 w-4" />}
-                    Notify Arrival
-                </Button>
-            </div>
-          )}
-
-          {activeRide.status === 'arrived_at_pickup' && (
-            <div className="grid grid-cols-2 gap-2">
-                <Button 
-                    variant="default" 
-                    className="bg-green-600 hover:bg-green-700 text-white font-bold"
-                    onClick={() => {
-                        if(activeRide) {
-                            fetch(`/api/operator/bookings/${activeRide.id}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ action: 'start_ride', updatedLegDetails: { newLegIndex: 1, currentLegEntryTimestamp: true }, driverCurrentLocation: user?.currentLocation }),
-                            })
-                            .then(res => res.json())
-                            .then(data => { if(data.booking) setActiveRide(data.booking); toast({title: "Ride Started!", description: "Your journey is now in progress."})})
-                            .catch(err => toast({title: "Error Starting Ride", description: err.message, variant: "destructive"}));
-                        }
-                    }}
-                    disabled={actionLoading[activeRide.id]}
-                >
-                     <Play className="mr-2 h-4 w-4" /> Start Ride
-                </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                         <Button variant="destructive" className="font-bold" disabled={actionLoading[activeRide.id]}>
-                            <UserXIcon className="mr-2 h-4 w-4" /> Report No Show
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Report Passenger No-Show?</AlertDialogTitle><AlertDialogDescription>This will cancel the ride and may apply a no-show fee to the passenger. Only use if passenger has not appeared after a reasonable wait.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Back</AlertDialogCancel>
-                            <AlertDialogAction className="bg-destructive hover:bg-destructive/80" onClick={() => {
-                                 if(activeRide) {
-                                    fetch(`/api/operator/bookings/${activeRide.id}`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ action: 'report_no_show' }),
-                                    })
-                                    .then(res => res.json())
-                                    .then(data => { if(data.booking) { setActiveRide(data.booking); } toast({title: "No-Show Reported", description: "Ride cancelled as no-show."})})
-                                    .catch(err => toast({title: "Error Reporting No-Show", description: err.message, variant: "destructive"}));
-                                }
-                            }}>Confirm No-Show</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
-          )}
-          
-          {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && localCurrentLegIndex < journeyPoints.length -1 && (
-             <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" 
-                    className="font-bold border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
-                    onClick={() => {
-                        if(activeRide) {
-                            const currentLeg = journeyPoints[localCurrentLegIndex];
-                            const nextLegIndex = localCurrentLegIndex + 1;
-                            const previousStopIndex = localCurrentLegIndex > 0 ? localCurrentLegIndex -1 : undefined; 
-                            let waitingChargeForPreviousStop: number | undefined = undefined;
-                            
-                            if (previousStopIndex !== undefined && currentLeg.coords && activeRide.currentLegEntryTimestamp) {
-                               const arrivalAtStop = parseTimestampToDatePassenger(activeRide.currentLegEntryTimestamp);
-                               const departureFromStop = new Date();
-                               if (arrivalAtStop) {
-                                 const minutesWaitedAtStop = differenceInMinutes(departureFromStop, arrivalAtStop);
-                                 const chargeableWaitMinutes = Math.max(0, minutesWaitedAtStop - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR); 
-                                 waitingChargeForPreviousStop = chargeableWaitMinutes * WAITING_CHARGE_PER_MINUTE_PASSENGER;
-                               }
-                            }
-
-                            fetch(`/api/operator/bookings/${activeRide.id}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                    action: 'proceed_to_next_leg', 
-                                    updatedLegDetails: { 
-                                      newLegIndex: nextLegIndex, 
-                                      currentLegEntryTimestamp: true,
-                                      previousStopIndex: previousStopIndex,
-                                      waitingChargeForPreviousStop: waitingChargeForPreviousStop
-                                    },
-                                    driverCurrentLocation: user?.currentLocation
-                                }),
-                            })
-                            .then(res => res.json())
-                            .then(data => { if(data.booking) setActiveRide(data.booking); toast({title: "Navigating to Next Stop", description: `Now heading to ${journeyPoints[nextLegIndex]?.address || 'next destination'}.`})})
-                            .catch(err => toast({title: "Error Proceeding", description: err.message, variant: "destructive"}));
-                        }
-                    }}
-                    disabled={actionLoading[activeRide.id]}
-                >
-                  <Navigation className="mr-2 h-4 w-4" /> 
-                  { localCurrentLegIndex === 0 ? "Arrived at Pickup / Proceed" : `Arrived at Stop ${localCurrentLegIndex} / Proceed` }
-                </Button>
-                {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
+  if (!activeRide) {
+    const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
+    return (
+      <div className="flex flex-col h-full space-y-2 p-2 md:p-4">
+        {isSpeedLimitFeatureEnabled &&
+          <SpeedLimitDisplay
+            currentSpeed={currentMockSpeed}
+            speedLimit={currentMockLimit}
+            isEnabled={isSpeedLimitFeatureEnabled}
+          />
+        }
+        <div className={cn(mapContainerClasses, "relative")}> 
+            <GoogleMapDisplay
+              mapHeading={0} 
+              mapRotateControl={false}
+              polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
+              driverIconRotation={driverMarkerHeading ?? undefined}
+              center={driverLocation}
+              zoom={15}
+              markers={mapDisplayElements.markers}
+              customMapLabels={mapDisplayElements.labels}
+              className="w-full h-full"
+              disableDefaultUI={true}
+              onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
+            />
+            
+            <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+                <AlertDialogTrigger asChild>
                     <Button
-                        variant="outline"
-                        className="w-full border-accent text-accent hover:bg-accent/10"
-                        onClick={() => setIsWRRequestDialogOpen(true)}
-                        disabled={isRequestingWR || actionLoading[activeRide.id] || activeRide.status.startsWith('pending_driver_wait_and_return')}
+                    variant="default"
+                    size="icon"
+                    className={cn(
+                        "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                        "h-8 w-8 md:h-9 md:w-9", 
+                         isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
+                    )}
+                    aria-label="Report Road Hazard"
+                    title="Report Road Hazard"
+                    onClick={() => setIsHazardReportDialogOpen(true)}
                     >
-                        <RefreshCw className="mr-2 h-4 w-4" /> Request W&R
+                    <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
                     </Button>
-                )}
-             </div>
-          )}
-          {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && localCurrentLegIndex >= journeyPoints.length -1 && (
-             <Button 
-                variant="default" 
-                className="bg-green-600 hover:bg-green-700 text-white font-bold w-full"
-                onClick={() => {
-                    if(activeRide) {
-                        fetch(`/api/operator/bookings/${activeRide.id}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'complete_ride', finalFare: activeRide.fareEstimate, driverCurrentLocation: user?.currentLocation }),
-                        })
-                        .then(res => res.json())
-                        .then(data => { if(data.booking) setActiveRide(data.booking); toast({title: "Ride Completed!", description: "Well done! Ready for the next one."})})
-                        .catch(err => toast({title: "Error Completing Ride", description: err.message, variant: "destructive"}));
-                    }
-                }}
-                disabled={actionLoading[activeRide.id]}
-             >
-                <CheckCircle className="mr-2 h-4 w-4" /> Complete Ride
-             </Button>
-          )}
-
-          {(activeRide.status === 'completed' || activeRide.status.toLowerCase().startsWith('cancelled')) && (
-            <Button 
-              variant="outline"
-              className="w-full"
-              onClick={() => { setActiveRide(null); fetchActiveRide(); }}
-            >
-              <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Done / Find New Ride
-            </Button>
-          )}
-        </footer>
-      )}
-
-      <AlertDialog
-        open={showCancelConfirmationDialog}
-        onOpenChange={(isOpen) => {
-          setShowCancelConfirmationDialog(isOpen);
-          if (!isOpen) {
-            setRideIdToCancel(null);
-            setIsCancelSwitchOn(false); 
-            if (cancellationSuccess) {
-              setActiveRide(null);
-              setCancellationSuccess(false);
+                </AlertDialogTrigger>
+                 <AlertDialogContent className="sm:max-w-md">
+                    <AlertDialogHeader>
+                    <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>Select the type of hazard or observation you want to report at your current location.</ShadAlertDialogDescriptionForDialog>
+                    </AlertDialogHeader>
+                    <div className="py-4 grid grid-cols-2 gap-3">
+                    {hazardTypes.map((hazard) => (
+                        <Button
+                        key={hazard.id}
+                        variant="outline"
+                        className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
+                        onClick={() => handleReportHazard(hazard.label)}
+                        >
+                        <hazard.icon className="w-6 h-6 mb-1" />
+                        {hazard.label}
+                        </Button>
+                    ))}
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel asChild>
+                        <Button type="button" variant="outline">Cancel</Button>
+                      </AlertDialogCancel>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "font-bold text-lg", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
+        {geolocationError && isDriverOnline && (
+            <Alert variant="destructive" className="mb-2 text-xs">
+                <AlertTriangle className="h-4 w-4" />
+                <ShadAlertTitle className="font-bold">Location Error</ShadAlertTitle>
+                <ShadAlertDescription>{geolocationError}</ShadAlertDescription>
+            </Alert>
+        )}
+        {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </> ) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
+        <div className="pt-1">
+            <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/>
+            <Label htmlFor="speed-limit-mock-toggle" className="font-bold text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label>
+        </div>
+        {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => {
+            if (!activeRide) {
+              handleSimulateOffer();
+            } else {
+              toast({ title: "Action Not Allowed", description: "Please complete your current ride before simulating a new offer.", variant: "default" });
             }
-          }
-        }}
-      >
-        <AlertDialogContent>
+          }} className="mt-2 text-xs h-8 px-3 py-1 font-bold" disabled={!!activeRide}> Simulate Incoming Ride Offer (Test) </Button> )} </CardContent> </Card> <RideOfferModal isOpen={isOfferModalOpen} onClose={() => { setIsOfferModalOpen(false); setCurrentOfferDetails(null); }} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
+        <AlertDialog
+          open={isStationaryReminderVisible}
+          onOpenChange={setIsStationaryReminderVisible}
+        >
+          <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will cancel your ride request (ID: {rideIdToCancel || 'N/A'}). This action cannot be undone.
-              </AlertDialogDescription>
+              <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2">
+                <Navigation className="w-5 h-5 text-primary" /> Time to Go!
+              </ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog>
+                Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
+              </ShadAlertDialogDescriptionForDialog>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
+                Okay, I&apos;m Going!
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <ShadAlertDialogTitleForDialog><span className="font-bold">Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel
-                  disabled={actionLoading[rideIdToCancel || '']}
+                    onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
                 >
                   Keep Ride
                 </AlertDialogCancel>
                 <AlertDialogAction
-                    onClick={handleConfirmCancel}
-                    disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
-                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
+                  disabled={!activeRide || (!!actionLoading[activeRide?.id ?? ''])}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
-                  <span className="inline-flex items-center justify-center w-full">
-                    {actionLoading[rideIdToCancel || ''] ? (
-                        <><Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />Cancelling...</>
+                  <span className="font-bold flex items-center justify-center">
+                  {activeRide && (!!actionLoading[activeRide.id]) ? (
+                       <React.Fragment>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </React.Fragment>
                     ) : (
-                        <><ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />Confirm Cancel</>
+                       <React.Fragment>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </React.Fragment>
                     )}
                   </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset(); setDialogFareEstimate(null);}}}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
-          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescriptionDialog>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescriptionDialog> </DialogHeader>
-          <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
-          <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
-                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { fieldId: `default-stop-${index}`, inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false };
-                        console.log(`[EditDialog Stop ${index}] Rendering. showSuggestions: ${currentStopData.showSuggestions}, inputValue: "${currentStopData.inputValue}", suggestions count: ${currentStopData.suggestions.length}`);
-                        return (<FormItem><FormLabel className="text-xs">Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
-                  <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-                  <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffSuggestions, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
-                  <div className="grid grid-cols-2 gap-4"> <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => ( <FormItem><FormLabel>Pickup Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} /> <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => ( <FormItem><FormLabel>Pickup Time</FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem> )} /> </div>
-                  {!editDetailsForm.watch('desiredPickupDate') && <p className="text-xs text-muted-foreground text-center">Leave date/time blank for ASAP booking.</p>}
-                  
-                  {dialogFareEstimate !== null && (
-                    <div className="mt-2 p-2 border rounded-md bg-muted/20 text-center">
-                      <p className="text-sm text-muted-foreground">New Est. Fare (Route Only): <span className="font-semibold text-primary">£{dialogFareEstimate.toFixed(2)}</span></p>
-                      <p className="text-xs text-muted-foreground">(Other factors like priority/surge from original booking may still apply)</p>
-                    </div>
-                  )}
-
-                </form> </Form> </div> </ScrollArea>
-          <DialogFooter className="p-6 pt-4 border-t"> <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingDetails}>Cancel</Button></DialogClose>
-            <Button type="submit" form="edit-details-form-actual" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isUpdatingDetails || !dialogPickupCoords || !dialogDropoffCoords}>
-              {isUpdatingDetails ? (
-                <React.Fragment>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </React.Fragment>
-              ) : (
-                <React.Fragment>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Save Changes
-                </React.Fragment>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </AlertDialogContent>
+        </AlertDialog>
+         <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <ShadAlertDialogTitleForDialog className="font-bold text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>
+                        Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
+                    </ShadAlertDialogDescriptionForDialog>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span className="font-bold">Back</span></AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={() => {
+                            if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
+                            setIsNoShowConfirmDialogOpen(false);
+                        }}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                       <span className="font-bold">Confirm No-Show</span>
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
        <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
-          <ShadDialogDescriptionDialog>
-            Estimate additional waiting time at current drop-off. 10 mins free, then £{WAITING_CHARGE_PER_MINUTE_PASSENGER.toFixed(2)}/min. Driver must approve.
-          </ShadDialogDescriptionDialog>
+          <DialogHeader>
+            <DialogTitle className="font-bold flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
+            <ShadDialogDescriptionDialog>
+              Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.
+            </ShadDialogDescriptionDialog>
+          </DialogHeader>
           <div className="py-4 space-y-2">
-            <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
+            <Label htmlFor="wr-wait-time-input" className="font-bold">Additional Wait Time (minutes)</Label>
             <Input
               id="wr-wait-time-input"
               type="number"
@@ -1483,7 +1842,7 @@ export default function MyActiveRidePage() {
             <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleRequestWaitAndReturn} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+            <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
               {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Request
             </Button>
@@ -1491,40 +1850,739 @@ export default function MyActiveRidePage() {
         </DialogContent>
       </Dialog>
 
-       {/* Full Journey Details Dialog */}
-       <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
-          <DialogHeader className="p-6 pb-0"> 
-            <ShadDialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</ShadDialogTitle> 
-            <ShadDialogDescriptionDialog> Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}). </ShadDialogDescriptionDialog> 
+    <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle className="font-bold flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
+          <ShadDialogDescriptionDialog>
+            Ask the passenger for their 4-digit Job PIN to start this account ride.
+          </ShadDialogDescriptionDialog>
+        </DialogHeader>
+        <div className="py-4 space-y-2">
+          <Label htmlFor="account-job-pin-input" className="font-bold">Enter 4-Digit Job PIN</Label>
+          <Input
+            id="account-job-pin-input"
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={enteredAccountJobPin}
+            onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+            placeholder="••••"
+            className="text-center text-xl tracking-[0.3em]"
+            disabled={isVerifyingAccountJobPin}
+          />
+        </div>
+        <DialogFooter className="grid grid-cols-1 gap-2">
+          <div className="flex justify-between">
+              <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
+              Cancel
+              </Button>
+              <Button type="button" onClick={verifyAndStartAccountJobRide} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
+              {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Verify & Start Ride
+              </Button>
+          </div>
+          <Button type="button" variant="link" size="sm" className="font-bold text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
+            Problem with PIN? Start ride manually.
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
+  );
+  }
+
+  const {
+    status,
+    passengerName,
+    passengerPhone,
+    pickupLocation,
+    dropoffLocation,
+    stops,
+    fareEstimate,
+    passengerCount,
+    notes,
+    paymentMethod,
+    isPriorityPickup,
+    priorityFeeAmount,
+    waitAndReturn,
+    estimatedAdditionalWaitTimeMinutes,
+    accountJobPin,
+    distanceMiles
+  } = activeRide;
+
+  const currentStatusNormalized = activeRide?.status?.toLowerCase();
+  const isChatDisabled = currentStatusNormalized?.includes('completed') ||
+    currentStatusNormalized?.includes('cancelled_by_driver') ||
+    currentStatusNormalized?.includes('cancelled_no_show') ||
+    currentStatusNormalized?.includes('cancelled_by_operator');
+
+
+  const showDriverAssignedStatus = status === 'driver_assigned';
+  const showArrivedAtPickupStatus = status === 'arrived_at_pickup';
+  const showInProgressStatus = status.toLowerCase() === 'in_progress';
+  const showPendingWRApprovalStatus = status === 'pending_driver_wait_and_return_approval';
+  const showInProgressWRStatus = status === 'in_progress_wait_and_return';
+  const showCompletedStatus = status === 'completed';
+  const showCancelledByDriverStatus = status === 'cancelled_by_driver';
+  const showCancelledNoShowStatus = status === 'cancelled_no_show';
+
+  const isRideInProgressOrFurther =
+      status.toLowerCase().includes('in_progress') ||
+      status.toLowerCase().includes('completed') ||
+      status.toLowerCase().includes('cancelled');
+
+
+  const totalFare = (fareEstimate || 0) + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0);
+  let displayedFare = `£${totalFare.toFixed(2)}`;
+  if (activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) {
+    const wrWaitCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
+    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
+    displayedFare = `£${(wrBaseFare + wrWaitCharge + (priorityFeeAmount || 0) + currentWaitingCharge + accumulatedStopWaitingCharges + (currentStopTimerDisplay?.charge || 0)).toFixed(2)} (W&R)`;
+  }
+
+  const paymentMethodDisplay =
+      activeRide?.paymentMethod === 'card' ? 'Card'
+      : activeRide?.paymentMethod === 'cash' ? 'Cash'
+      : activeRide?.paymentMethod === 'account' ? 'Account'
+      : 'Payment N/A';
+
+  const isEditingDisabled = activeRide?.status !== 'pending_assignment';
+
+  const mainButtonText = () => {
+    const currentLegIdx = localCurrentLegIndex;
+    if (status === 'arrived_at_pickup') return "Start Ride";
+    if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
+      const nextLegIsDropoff = currentLegIdx + 1 === journeyPoints.length - 1;
+      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
+          return `Depart Stop ${currentLegIdx} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx +1}`}`;
+      } else {
+          return `Arrived at Stop ${currentLegIdx} / Start Timer`;
+      }
+    }
+    if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
+      return "Complete Ride";
+    }
+    return "Status Action";
+  };
+
+  const mainButtonAction = () => {
+    const currentLegIdx = localCurrentLegIndex;
+    if (status === 'arrived_at_pickup') {
+
+      handleRideAction(activeRide.id, 'start_ride');
+    }
+    else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
+        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
+            handleRideAction(activeRide.id, 'proceed_to_next_leg');
+        } else {
+            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
+        }
+    }
+    else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) { handleRideAction(activeRide.id, 'complete_ride'); }
+  };
+
+  const mainActionBtnText = mainButtonText();
+  const mainActionBtnAction = mainButtonAction;
+
+  return (
+    <div className="flex flex-col h-full p-2 md:p-4">
+      {isSpeedLimitFeatureEnabled &&
+        <SpeedLimitDisplay
+          currentSpeed={currentMockSpeed}
+          speedLimit={currentMockLimit}
+          isEnabled={isSpeedLimitFeatureEnabled}
+        />
+      }
+      {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
+      <div className={cn(
+        "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
+        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[400px]" 
+      )}>
+          <GoogleMapDisplay
+            center={memoizedMapCenter}
+            zoom={15}
+            fitBoundsToMarkers={true}
+            markers={mapDisplayElements.markers}
+            customMapLabels={mapDisplayElements.labels}
+            className="w-full h-full"
+            disableDefaultUI={true}
+            onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
+            mapHeading={0} 
+            mapRotateControl={false}
+            polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
+            driverIconRotation={driverMarkerHeading ?? undefined}
+          />
+          {isSosButtonVisible && (
+            <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
+                  aria-label="SOS Emergency Alert"
+                  title="SOS Emergency Alert"
+                  onClick={() => setIsSosDialogOpen(true)}
+                >
+                  <AlertTriangle className="h-4 w-4 md:h-5 md:h-5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="sm:max-w-md">
+                <AlertDialogHeader>
+                  <ShadAlertDialogTitleForDialog className="font-bold text-2xl flex items-center gap-2">
+                    <AlertTriangle className="w-7 h-7 text-destructive" /> Confirm Emergency Alert
+                  </ShadAlertDialogTitleForDialog>
+                  <ShadAlertDialogDescriptionForDialog className="text-base py-2">
+                    Select a quick alert or send a general emergency notification.
+                    Your operator will be notified immediately.
+                    <strong className="block mt-1">Use this for genuine emergencies only.</strong>
+                  </ShadAlertDialogDescriptionForDialog>
+                </AlertDialogHeader>
+                <div className="grid grid-cols-2 gap-2 my-3">
+                    <Button onClick={() => handleQuickSOSAlert("Emergency")} className="font-bold bg-red-500 hover:bg-red-600 text-white border border-black" size="sm">Emergency</Button>
+                    <Button onClick={() => handleQuickSOSAlert("Car Broken Down")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Car Broken Down</Button>
+                    <Button onClick={() => handleQuickSOSAlert("Customer Aggressive")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Customer Aggressive</Button>
+                    <Button onClick={() => handleQuickSOSAlert("Call Me Back")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm">Call Me Back</Button>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmEmergency}
+                    className="bg-destructive hover:bg-destructive/90 font-bold"
+                  >
+                    Send General Alert Now
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+           <AlertDialog open={isHazardReportDialogOpen} onOpenChange={setIsHazardReportDialogOpen}>
+              <AlertDialogTrigger asChild>
+                  <Button
+                  variant="default"
+                  size="icon"
+                  className={cn(
+                    "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
+                    "h-8 w-8 md:h-9 md:w-9", 
+                     isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
+                  )}
+                  aria-label="Report Road Hazard"
+                  title="Report Road Hazard"
+                  onClick={() => setIsHazardReportDialogOpen(true)}
+                  >
+                  <TrafficCone className="h-4 w-4 md:h-5 md:h-5" />
+                  </Button>
+              </AlertDialogTrigger>
+               <AlertDialogContent className="sm:max-w-md">
+                <AlertDialogHeader>
+                  <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/>Add a map report</ShadAlertDialogTitleForDialog>
+                  <ShadAlertDialogDescriptionForDialog>Select the type of hazard or observation you want to report at your current location.</ShadAlertDialogDescriptionForDialog>
+                </AlertDialogHeader>
+                <div className="py-4 grid grid-cols-2 gap-3">
+                  {hazardTypes.map((hazard) => (
+                    <Button
+                      key={hazard.id}
+                      variant="outline"
+                      className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
+                      onClick={() => handleReportHazard(hazard.label)}
+                    >
+                      <hazard.icon className="w-6 h-6 mb-1" />
+                      {hazard.label}
+                    </Button>
+                  ))}
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                  </AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+          </AlertDialog>
+          <CurrentNavigationLegBar />
+      </div>
+      )}
+      <Card className={cn(
+        "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card flex flex-col overflow-hidden",
+        (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus)
+          ? "mt-0 rounded-b-xl"
+          : "flex-1"
+      )}>
+        <ScrollArea className={cn( (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) ? "" : "flex-1" )}>
+          <CardContent className="p-2 space-y-1.5">
+          {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md shadow"> En Route to Pickup </Badge> </div> )}
+          {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="outline" className="font-bold text-xs w-fit mx-auto border-blue-500 text-blue-500 py-1 px-3 rounded-md shadow"> Arrived At Pickup </Badge> </div> )}
+          {showInProgressStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-green-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress </Badge> </div> )}
+          {showPendingWRApprovalStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-purple-500 text-white py-1 px-3 rounded-md shadow"> W&R Request Pending </Badge> </div> )}
+          {showInProgressWRStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-teal-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress (W&R) </Badge> </div> )}
+          {showCompletedStatus && ( <div className="flex justify-center my-3"> <Badge variant="default" className="font-bold text-base w-fit mx-auto bg-primary text-primary-foreground py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <CheckCircleIcon className="w-5 h-5" /> Ride Completed </Badge> </div> )}
+          {showCancelledByDriverStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <XCircle className="w-5 h-5" /> Ride Cancelled By You </Badge> </div> )}
+          {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
+
+          <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
+            <Avatar className="h-7 w-7 md:h-8 md:h-8">
+                <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
+                <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p>
+              {passengerPhone && (
+                <p className="font-bold text-xs text-muted-foreground flex items-center gap-0.5">
+                  <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone}
+                </p>
+              )}
+            </div>
+            {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
+              <div className="flex items-center gap-1">
+                {passengerPhone && !isChatDisabled && (
+                   <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8">
+                    <a href={`tel:${passengerPhone}`} aria-label="Call passenger">
+                      <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
+                    </a>
+                  </Button>
+                )}
+                {isChatDisabled ? (
+                  <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8" disabled>
+                    <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
+                  </Button>
+                ) : (
+                  <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8">
+                    <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></Link>
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
+              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="font-bold text-sm flex items-center justify-center gap-1">
+                  <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
+                </p>
+              </div>
+          )}
+
+          {isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
+              <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
+                  <Crown className="h-3.5 w-3.5" />
+                  <ShadAlertTitle className="font-bold text-xs">Priority Booking</ShadAlertTitle>
+                  <ShadAlertDescription className="font-bold text-[10px]">
+                      Passenger offered +£{(priorityFeeAmount || 0).toFixed(2)}.
+                  </ShadAlertDescription>
+              </Alert>
+          )}
+          {showArrivedAtPickupStatus && (
+            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
+              <Timer className="h-4 w-4 text-current" />
+              <ShadAlertTitle className="font-bold text-current text-xs">Passenger Waiting Status</ShadAlertTitle>
+              <ShadAlertDescription className="font-bold text-current text-[10px]">
+                {ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && (
+                  `Waiting for passenger acknowledgment: ${formatTimer(ackWindowSecondsLeft)} left.`
+                )}
+                {ackWindowSecondsLeft === 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && (
+                  `Passenger did not ack. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`
+                )}
+                {activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
+                  `Passenger acknowledged. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`
+                )}
+                {extraWaitingSeconds !== null && extraWaitingSeconds >= 0 && freeWaitingSecondsLeft === 0 && (
+                  `Extra waiting: ${formatTimer(extraWaitingSeconds)}. Charge: £${currentWaitingCharge.toFixed(2)}`
+                )}
+              </ShadAlertDescription>
+            </Alert>
+          )}
+         {currentStopTimerDisplay &&
+            activeRide.driverCurrentLegIndex &&
+            activeRide.driverCurrentLegIndex > 0 &&
+            activeRide.driverCurrentLegIndex < journeyPoints.length -1 &&
+            currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
+            (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
+          (
+            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
+              <Timer className="h-4 w-4 text-current" />
+              <ShadAlertTitle className="font-bold text-current text-xs">
+                Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}
+              </ShadAlertTitle>
+              <ShadAlertDescription className="font-bold text-current text-[10px]">
+                {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
+                  `Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`
+                )}
+                {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (
+                  `Extra waiting: ${formatTimer(currentStopTimerDisplay.extraSeconds)}. Current Charge: £${currentStopTimerDisplay.charge.toFixed(2)}`
+                )}
+              </ShadAlertDescription>
+            </Alert>
+          )}
+          {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
+               <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5">
+                  <RefreshCw className="h-4 w-4 text-current animate-spin" />
+                  <ShadAlertTitle className="font-bold text-current text-xs">Wait & Return Request</ShadAlertTitle>
+                  <ShadAlertDescription className="font-bold text-current text-[10px]">
+                      Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.
+                      <br />
+                      New estimated total fare (if accepted): £{(( (fareEstimate || 0) + (priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.
+                      <div className="flex gap-1 mt-1">
+                          <Button size="sm" className="font-bold bg-green-600 hover:bg-green-700 text-white h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Accept W&R</Button>
+                          <Button size="sm" variant="destructive" className="font-bold h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Decline W&R</Button>
+                      </div>
+                  </ShadAlertDescription>
+              </Alert>
+          )}
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-sm">
+                <div className={cn("col-span-2 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1")}>
+                  <p className="font-bold flex items-center gap-1.5 text-base">
+                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
+                    Fare: {displayedFare}
+                  </p>
+                </div>
+                <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Passengers: {activeRide.passengerCount}</p>
+                {activeRide.distanceMiles != null && (
+                  <p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
+                )}
+                {paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+                 {(showCompletedStatus || showCancelledNoShowStatus) && (
+                  <>
+                    <Separator className="col-span-2 my-1 bg-green-300 dark:bg-green-700/50" />
+                    {journeyPoints.map((point, index) => {
+                      const isPickup = index === 0;
+                      const isDropoff = index === journeyPoints.length - 1;
+                      let legType = "";
+                      if (isPickup) { legType = "Pickup"; }
+                      else if (isDropoff) { legType = "Dropoff"; }
+                      else { legType = `Stop ${index}`; }
+                      return (
+                        <div key={`completed-leg-summary-${index}`} className="col-span-2 flex items-start gap-1.5">
+                          <MapPin className={cn("font-bold w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
+                          <div className="font-bold text-xs">
+                            <span className="font-bold">{legType}:</span> {point.address}
+                            {point.doorOrFlat && <span className="text-muted-foreground"> ({point.doorOrFlat})</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+          </div>
+          {notes && !isRideInProgressOrFurther && (
+              <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
+                  <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
+                  <strong>Notes:</strong> {notes}
+                  </p>
+              </div>
+          )}
+          {(showCompletedStatus || showCancelledNoShowStatus) && (
+            <div className="mt-2 pt-2 border-t text-center">
+              <p className="font-bold text-xs mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
+              <div className="flex justify-center space-x-0.5 mb-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn(
+                      "w-6 h-6 cursor-pointer",
+                      i < driverRatingForPassenger ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"
+                    )}
+                    onClick={() => setDriverRatingForPassenger(i + 1)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          {(showCancelledByDriverStatus || showCancelledNoShowStatus) && ( <div className="mt-2 pt-2 border-t text-center"> <p className="font-bold text-xs text-muted-foreground">This ride was cancelled. You can now look for new offers.</p> </div> )}
+          </CardContent>
+        </ScrollArea>
+
+        {!(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
+          <div className="p-2 border-t grid gap-1.5 shrink-0">
+            {showDriverAssignedStatus && ( <> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="font-bold w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Driver Assigned) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to pickup."})}}> <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival </Button> </div> <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} /> </> )}
+            {showArrivedAtPickupStatus && ( <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-2 gap-1.5"> <Button variant="outline" className="font-bold w-full text-sm py-2 h-auto" onClick={() => {console.log("Navigate (Arrived) clicked for ride:", activeRide.id); toast({title: "Navigation (Mock)", description: "Would open maps to dropoff."})}} > <Navigation className="mr-1.5 h-4 w-4"/> Navigate </Button> <Button className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
+            <Button
+                variant="destructive"
+                className="font-bold w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800"
+                onClick={() => {
+                    setRideToReportNoShow(activeRide);
+                    setIsNoShowConfirmDialogOpen(true);
+                }}
+                disabled={!!actionLoading[activeRide.id]}
+              >
+                {actionLoading[activeRide.id] && activeRide.status === 'cancelled_no_show' ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <UserXIcon className="mr-1.5 h-4 w-4"/>}
+                Report No Show
+            </Button>
+            </div> )}
+            {(showInProgressStatus || showInProgressWRStatus) && (
+              <div className="grid grid-cols-1 gap-1.5">
+                <Button
+                  className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
+                  onClick={mainActionBtnAction}
+                  disabled={!!actionLoading[activeRide.id]}
+                >
+                  {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Navigation className="mr-1.5 h-4 w-4" />}
+                  {mainActionBtnText}
+                </Button>
+                {showInProgressStatus && !activeRide.waitAndReturn && (
+                  <Button
+                    variant="outline"
+                    className="font-bold w-full text-sm py-2 h-auto border-accent text-accent hover:bg-accent/10"
+                    onClick={() => setIsWRRequestDialogOpen(true)}
+                    disabled={isRequestingWR || !!actionLoading[activeRide.id]}
+                  >
+                    <RefreshCw className="mr-1.5 h-4 w-4" /> Request Wait & Return
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+         {(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
+              <div className="p-2 border-t grid gap-1.5 shrink-0">
+                 {showCompletedStatus && (
+                  <div className="mb-1 text-center">
+                    <Separator className="my-1.5"/>
+                    <p className="font-bold text-xs text-muted-foreground">You completed the ride for:</p>
+                    <p className="font-bold text-base">{activeRide.passengerName}</p>
+                     {journeyPoints.map((point, index) => {
+                      const isPickup = index === 0;
+                      const isDropoff = index === journeyPoints.length - 1;
+                      let legType = "";
+                      if (isPickup) { legType = "Pickup"; }
+                      else if (isDropoff) { legType = "Dropoff"; }
+                      else { legType = `Stop ${index}`; }
+                      return (
+                        <div key={`completed-leg-summary-${index}`} className="flex items-start gap-1.5 text-xs justify-center">
+                          <MapPin className={cn("font-bold w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
+                          <span className="font-bold">{legType}:</span> {point.address}
+                          {point.doorOrFlat && <span className="text-muted-foreground"> ({point.doorOrFlat})</span>}
+                        </div>
+                      );
+                    })}
+                    <Separator className="mt-1.5 mb-0.5"/>
+                  </div>
+                )}
+                <Button
+                    className="font-bold w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto"
+                    onClick={() => {
+                        console.log("Done button clicked. Current status:", activeRide.status, "Rating given:", driverRatingForPassenger);
+                        if(showCompletedStatus && driverRatingForPassenger > 0 && activeRide.passengerName) {
+                            console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`);
+                            toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`});
+                        }
+                        setDriverRatingForPassenger(0);
+                        setCurrentWaitingCharge(0);
+                        setAccumulatedStopWaitingCharges(0);
+                        setCompletedStopWaitCharges({});
+                        setCurrentStopTimerDisplay(null);
+                        setActiveStopDetails(null);
+                        setIsCancelSwitchOn(false);
+                        setActiveRide(null);
+                        setIsPollingEnabled(true);
+                    }}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
+                >
+                    {(activeRide && !!actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Check className="mr-1.5 h-4 w-4" />} Done
+                </Button>
+              </div>
+           )}
+        </Card>
+        <AlertDialog
+          open={isStationaryReminderVisible}
+          onOpenChange={setIsStationaryReminderVisible}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2">
+                <Navigation className="w-5 h-5 text-primary" /> Time to Go!
+              </ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog>
+                Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.
+              </ShadAlertDialogDescriptionForDialog>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
+                Okay, I&apos;m Going!
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { console.log("Cancel Dialog Main onOpenChange, isOpen:", isOpen); setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { console.log("Cancel Dialog Main closing, resetting isCancelSwitchOn from true to false."); setIsCancelSwitchOn(false); }}}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <ShadAlertDialogTitleForDialog><span className="font-bold">Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog>
+              <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel
+                    onClick={() => { console.log("Cancel Dialog: 'Keep Ride' clicked."); setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}}
+                    disabled={activeRide ? !!actionLoading[activeRide.id] : false}
+                >
+                  Keep Ride
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { if (activeRide) { console.log("Cancel Dialog: 'Confirm Cancel' clicked for ride:", activeRide.id); handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }}
+                  disabled={!activeRide || (!!actionLoading[activeRide?.id ?? ''])}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
+                  <span className="font-bold flex items-center justify-center">
+                  {activeRide && (!!actionLoading[activeRide.id]) ? (
+                       <React.Fragment>
+                         <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                         <span>Cancelling...</span>
+                       </React.Fragment>
+                    ) : (
+                       <React.Fragment>
+                         <ShieldX className="mr-2 h-4 w-4" />
+                         <span>Confirm Cancel</span>
+                      </React.Fragment>
+                    )}
+                  </span>
+                </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+         <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <ShadAlertDialogTitleForDialog className="font-bold text-destructive">Confirm Passenger No-Show</ShadAlertDialogTitleForDialog>
+                    <ShadAlertDialogDescriptionForDialog>
+                        Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.
+                    </ShadAlertDialogDescriptionForDialog>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span className="font-bold">Back</span></AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={() => {
+                            if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
+                            setIsNoShowConfirmDialogOpen(false);
+                        }}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                       <span className="font-bold">Confirm No-Show</span>
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+       <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-bold flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</DialogTitle>
+            <ShadDialogDescriptionDialog>
+              Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.
+            </ShadDialogDescriptionDialog>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="wr-wait-time-input" className="font-bold">Additional Wait Time (minutes)</Label>
+            <Input
+              id="wr-wait-time-input"
+              type="number"
+              min="0"
+              value={wrRequestDialogMinutes}
+              onChange={(e) => setWrRequestDialogMinutes(e.target.value)}
+              placeholder="e.g., 15"
+              disabled={isRequestingWR}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+              {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+    <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
+      <DialogContent className="sm:max-w-xs">
+        <DialogHeader>
+          <DialogTitle className="font-bold flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" />Account Job PIN Required</DialogTitle>
+          <ShadDialogDescriptionDialog>
+            Ask the passenger for their 4-digit Job PIN to start this account ride.
+          </ShadDialogDescriptionDialog>
+        </DialogHeader>
+        <div className="py-4 space-y-2">
+          <Label htmlFor="account-job-pin-input" className="font-bold">Enter 4-Digit Job PIN</Label>
+          <Input
+            id="account-job-pin-input"
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={enteredAccountJobPin}
+            onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+            placeholder="••••"
+            className="text-center text-xl tracking-[0.3em]"
+            disabled={isVerifyingAccountJobPin}
+          />
+        </div>
+        <DialogFooter className="grid grid-cols-1 gap-2">
+          <div className="flex justify-between">
+              <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
+              Cancel
+              </Button>
+              <Button type="button" onClick={verifyAndStartAccountJobRide} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
+              {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Verify & Start Ride
+              </Button>
+          </div>
+          <Button type="button" variant="link" size="sm" className="font-bold text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
+            Problem with PIN? Start ride manually.
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+     <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
+            <ShadDialogDescriptionDialog>
+              Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}).
+            </ShadDialogDescriptionDialog>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] p-1 -mx-1">
             <div className="p-4 space-y-3">
               {activeRide && journeyPoints.map((point, index) => {
                 const isCurrentLeg = index === localCurrentLegIndex;
-                const legTypeDisplay = 
-                    index === 0 ? "Pickup" :
-                    index === journeyPoints.length - 1 ? "Dropoff" :
-                    `Stop ${index}`;
+                const isPastLeg = index < localCurrentLegIndex;
+                let legType = "";
+                let Icon = MapPin;
+                let iconColor = "text-muted-foreground";
+
+                if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
+                else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
+                else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
+
                 return (
-                  <div key={`modal-leg-${index}`} className={cn( "p-2.5 rounded-md border", isCurrentLeg && "ring-2 ring-primary shadow-md")}>
-                    <p className={cn("font-bold flex items-center gap-2", 
-                      index === 0 && (isCurrentLeg ? "text-green-500" : "text-muted-foreground line-through"),
-                      index > 0 && index < journeyPoints.length - 1 && (isCurrentLeg ? "text-blue-500" : "text-muted-foreground line-through"),
-                      index === journeyPoints.length -1 && (isCurrentLeg ? "text-orange-500" : "text-muted-foreground line-through")
-                    )}> <MapPin className="w-4 h-4 shrink-0" /> {legTypeDisplay} </p>
-                    <p className={cn("font-bold text-sm text-foreground pl-6", !isCurrentLeg && "text-muted-foreground line-through")}> {point.address} </p>
-                    {point.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", !isCurrentLeg && "line-through")}> (Unit/Flat: {point.doorOrFlat}) </p> )}
+                  <div 
+                    key={`modal-leg-${index}`} 
+                    className={cn(
+                      "p-2.5 rounded-md border",
+                      isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card",
+                      isCurrentLeg && "ring-2 ring-primary shadow-md"
+                    )}
+                  >
+                    <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {legType}
+                    </p>
+                    <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                      {point.address}
+                    </p>
+                    {point.doorOrFlat && (
+                      <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                        (Unit/Flat: {point.doorOrFlat})
+                      </p>
+                    )}
                   </div>
                 );
               })}
               {!activeRide && <p>No active ride details to display.</p>}
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 pt-4 border-t"> <DialogClose asChild> <Button type="button" variant="outline">Close</Button> </DialogClose> </DialogFooter>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+  </div>
+);
 }
-    
