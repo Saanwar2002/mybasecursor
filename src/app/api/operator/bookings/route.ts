@@ -46,7 +46,7 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
     const numericPart = operatorCode.substring(2);
     if (/^\d{3,}$/.test(numericPart)) {
-      return numericPart;
+      return numericPart.slice(0, 3); // Return first 3 digits of the numeric part
     }
   }
   return PLATFORM_OPERATOR_ID_PREFIX;
@@ -134,10 +134,11 @@ export async function GET(request: NextRequest) {
 
       let displayBookingId = data.displayBookingId;
       const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
-      if (!displayBookingId) {
+      
+      if (!displayBookingId || (displayBookingId.includes('/') && displayBookingId.split('/')[1].length > 10 && !/^\d+$/.test(displayBookingId.split('/')[1]))) {
         const prefix = getOperatorPrefix(rideOriginatingOperatorId);
-        // Fallback for older data without numeric suffix, use Firestore ID part
-        displayBookingId = `${prefix}/${doc.id}`; 
+        const shortSuffix = doc.id.substring(0, 6).toUpperCase();
+        displayBookingId = `${prefix}/${shortSuffix}`;
       }
 
       return {
@@ -178,7 +179,7 @@ export async function GET(request: NextRequest) {
         // Job 1 (Simple)
         mockBookingsForTesting.push({
             id: `mock_simple_${Date.now()}`,
-            displayBookingId: `001/${generateNumericSuffix()}`,
+            displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP001",
             passengerName: "Test Passenger Simple",
             pickupLocation: { address: "10 Downing Street, London", latitude: 51.503364, longitude: -0.127625 },
@@ -192,7 +193,7 @@ export async function GET(request: NextRequest) {
         // Job 2 (One Stop)
         mockBookingsForTesting.push({
             id: `mock_onestop_${Date.now()}`,
-            displayBookingId: `002/${generateNumericSuffix()}`,
+            displayBookingId: `${getOperatorPrefix("OP002")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP002",
             passengerName: "Test Passenger OneStop",
             pickupLocation: { address: "Tower of London, London", latitude: 51.508112, longitude: -0.075949 },
@@ -207,7 +208,7 @@ export async function GET(request: NextRequest) {
         // Job 3 (Priority)
         mockBookingsForTesting.push({
             id: `mock_priority_${Date.now()}`,
-            displayBookingId: `001/${generateNumericSuffix()}`,
+            displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP001",
             passengerName: "Test Passenger Priority",
             pickupLocation: { address: "The Shard, London", latitude: 51.504511, longitude: -0.086500 },
@@ -223,7 +224,7 @@ export async function GET(request: NextRequest) {
         // Job 4 (Wait & Return)
         mockBookingsForTesting.push({
             id: `mock_waitreturn_${Date.now()}`,
-            displayBookingId: `001/${generateNumericSuffix()}`,
+            displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP001",
             passengerName: "Test Passenger W&R",
             pickupLocation: { address: "Harrods, London", latitude: 51.501055, longitude: -0.163226 },

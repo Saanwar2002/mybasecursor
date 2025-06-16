@@ -102,11 +102,11 @@ function generateFourDigitPin(): string {
 const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001"; // Helper
 const PLATFORM_OPERATOR_ID_PREFIX = "001"; // Helper
 
-function getOperatorPrefix(operatorCode?: string | null): string { // Helper
+function getOperatorPrefix(operatorCode?: string | null): string { 
   if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
     const numericPart = operatorCode.substring(2);
     if (/^\d{3,}$/.test(numericPart)) {
-      return numericPart;
+      return numericPart.slice(0, 3); // Return first 3 digits of the numeric part
     }
   }
   return PLATFORM_OPERATOR_ID_PREFIX;
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest, context: PostContext) {
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Successfully parsed offerDetails for mock offer. Proceeding to create booking. Parsed offer:`, JSON.stringify(offer, null, 2));
       
       const originatingOperatorId = offer.requiredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
-      const displayBookingIdPrefix = getOperatorPrefix(originatingOperatorId);
+      
 
 
       const newBookingData: any = {
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           : null,
         bookingTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        originatingOperatorId: originatingOperatorId, // Added
+        originatingOperatorId: originatingOperatorId, 
         driverCurrentLegIndex: 0,
         currentLegEntryTimestamp: null,
         completedStopWaitCharges: {},
@@ -216,7 +216,13 @@ export async function POST(request: NextRequest, context: PostContext) {
       try {
         const docRef = await addDoc(collection(db, 'bookings'), newBookingData);
         const newFirestoreId = docRef.id;
-        const finalDisplayBookingId = `${displayBookingIdPrefix}/${newFirestoreId}`;
+        
+        const displayBookingIdPrefix = getOperatorPrefix(originatingOperatorId);
+        const timestampPart = Date.now().toString().slice(-4);
+        const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        const numericSuffix = `${timestampPart}${randomPart}`;
+        const finalDisplayBookingId = `${displayBookingIdPrefix}/${numericSuffix}`;
+
 
         // Update the new booking with its displayBookingId
         await updateDoc(doc(db, 'bookings', newFirestoreId), {
@@ -460,9 +466,11 @@ export async function GET(request: NextRequest, context: GetContext) {
 
     let displayBookingId = data.displayBookingId;
     const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
-    if (!displayBookingId) {
+    
+    if (!displayBookingId || (displayBookingId.includes('/') && displayBookingId.split('/')[1].length > 10 && !/^\d+$/.test(displayBookingId.split('/')[1]))) {
       const prefix = getOperatorPrefix(rideOriginatingOperatorId);
-      displayBookingId = `${prefix}/${bookingSnap.id}`;
+      const shortSuffix = bookingSnap.id.substring(0, 6).toUpperCase();
+      displayBookingId = `${prefix}/${shortSuffix}`;
     }
 
      const responseData = {

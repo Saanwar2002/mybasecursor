@@ -24,8 +24,8 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 
 interface ActiveDriverRide {
   id: string;
-  displayBookingId?: string; // Added
-  originatingOperatorId?: string; // Added
+  displayBookingId?: string; 
+  originatingOperatorId?: string; 
   passengerId: string;
   passengerName: string;
   passengerAvatar?: string;
@@ -59,9 +59,9 @@ interface ActiveDriverRide {
   dispatchMethod?: RideOffer['dispatchMethod'];
   accountJobPin?: string;
   distanceMiles?: number;
-  driverCurrentLegIndex?: number; // Added
-  currentLegEntryTimestamp?: { _seconds: number; _nanoseconds: number } | null; // Added
-  completedStopWaitCharges?: Record<number, number>; // Added
+  driverCurrentLegIndex?: number; 
+  currentLegEntryTimestamp?: { _seconds: number; _nanoseconds: number } | null; 
+  completedStopWaitCharges?: Record<number, number>; 
 }
 
 const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
@@ -71,7 +71,7 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
     const numericPart = operatorCode.substring(2);
     if (/^\d{3,}$/.test(numericPart)) {
-      return numericPart;
+      return numericPart.slice(0, 3); // Return first 3 digits of the numeric part
     }
   }
   return PLATFORM_OPERATOR_ID_PREFIX;
@@ -120,10 +120,12 @@ export async function GET(request: NextRequest) {
     let displayBookingId = data.displayBookingId;
     const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
 
-    if (!displayBookingId) {
+    if (!displayBookingId || (displayBookingId.includes('/') && displayBookingId.split('/')[1].length > 10 && !/^\d+$/.test(displayBookingId.split('/')[1]))) {
       const prefix = getOperatorPrefix(rideOriginatingOperatorId);
-      displayBookingId = `${prefix}/${doc.id}`;
+      const shortSuffix = doc.id.substring(0, 6).toUpperCase();
+      displayBookingId = `${prefix}/${shortSuffix}`;
     }
+
 
     const activeRide: ActiveDriverRide = {
       id: doc.id,
@@ -162,9 +164,9 @@ export async function GET(request: NextRequest) {
       dispatchMethod: data.dispatchMethod,
       accountJobPin: data.accountJobPin,
       distanceMiles: data.offerDetails?.distanceMiles,
-      driverCurrentLegIndex: data.driverCurrentLegIndex, // Added
-      currentLegEntryTimestamp: serializeTimestamp(data.currentLegEntryTimestamp as Timestamp | undefined), // Added
-      completedStopWaitCharges: data.completedStopWaitCharges, // Added
+      driverCurrentLegIndex: data.driverCurrentLegIndex, 
+      currentLegEntryTimestamp: serializeTimestamp(data.currentLegEntryTimestamp as Timestamp | undefined), 
+      completedStopWaitCharges: data.completedStopWaitCharges, 
     };
 
     return NextResponse.json(activeRide, { status: 200 });
