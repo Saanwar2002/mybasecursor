@@ -881,7 +881,9 @@ export default function AvailableRidesPage() {
     const mockOriginatingOperatorId = offer.requiredOperatorId || PLATFORM_OPERATOR_CODE;
     const mockDisplayPrefix = getOperatorPrefix(mockOriginatingOperatorId);
     
-    const numericSuffix = `${Date.now().toString().slice(-4)}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`;
+    const timestampPartForSuffix = Date.now().toString().slice(-4);
+    const randomPartForSuffix = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    const numericSuffix = `${timestampPartForSuffix}${randomPartForSuffix}`;
     const mockDisplayBookingId = `${mockDisplayPrefix}/${numericSuffix}`;
 
 
@@ -2341,7 +2343,7 @@ export default function AvailableRidesPage() {
          
           {(showCompletedStatus || showCancelledNoShowStatus) && (
             <div className="mt-2 pt-2 border-t text-center">
-              <p className="text-xs text-muted-foreground mt-1">Job ID: {activeRide.displayBookingId || activeRide.id}</p> {/* Added Job ID here */}
+              <p className="text-xs text-muted-foreground mt-1">Job ID: {activeRide.displayBookingId || activeRide.id}</p>
               <p className="font-bold text-xs mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
               <div className="flex justify-center space-x-0.5 mb-1">
                 {[...Array(5)].map((_, i) => (
@@ -2667,4 +2669,5 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
+
 
