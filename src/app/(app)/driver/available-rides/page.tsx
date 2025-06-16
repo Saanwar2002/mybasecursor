@@ -284,13 +284,13 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
 ];
 
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // 3 minutes
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
-const STATIONARY_REMINDER_TIMEOUT_MS = 60000;
+const STATIONARY_REMINDER_TIMEOUT_MS = 60000; // 1 minute
 const MOVEMENT_THRESHOLD_METERS = 50;
-const STOP_FREE_WAITING_TIME_SECONDS = 3 * 60;
-const STOP_WAITING_CHARGE_PER_MINUTE = 0.20;
+const STOP_FREE_WAITING_TIME_SECONDS = 3 * 60; // 3 minutes free per stop
+const STOP_WAITING_CHARGE_PER_MINUTE = 0.20; // £0.20 per minute waiting charge at stops
 
 
 export default function AvailableRidesPage() {
@@ -374,8 +374,8 @@ export default function AvailableRidesPage() {
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
+  const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true); 
   const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
-  const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true); // Default to minimized
 
 
   const journeyPoints = useMemo(() => {
@@ -530,6 +530,32 @@ export default function AvailableRidesPage() {
     if (!shouldFitMapBounds && currentRoutePolyline) return undefined;
     return 16;
   }, [shouldFitMapBounds, currentRoutePolyline]);
+
+  const getStatusBadgeVariant = (status: string | undefined) => {
+    if (!status) return 'secondary';
+    switch (status.toLowerCase()) {
+        case 'pending_assignment': return 'secondary';
+        case 'driver_assigned': return 'default';
+        case 'arrived_at_pickup': return 'outline';
+        case 'in_progress': return 'default';
+        case 'pending_driver_wait_and_return_approval': return 'secondary';
+        case 'in_progress_wait_and_return': return 'default';
+        default: return 'secondary';
+    }
+  };
+
+  const getStatusBadgeClass = (status: string | undefined) => {
+    if (!status) return '';
+    switch (status.toLowerCase()) {
+        case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
+        case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
+        case 'arrived_at_pickup': return 'border-blue-500 text-blue-500 hover:bg-blue-500/10';
+        case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
+        case 'pending_driver_wait_and_return_approval': return 'bg-purple-400/80 text-purple-900 hover:bg-purple-400/70';
+        case 'in_progress_wait_and_return': return 'bg-teal-500 text-white hover:bg-teal-600';
+        default: return '';
+    }
+  };
 
 
   useEffect(() => {
@@ -1912,16 +1938,20 @@ export default function AvailableRidesPage() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* "JOB DETAIL" Peek Button - Visible when panel is MINIMIZED and ride is active */}
+            {/* Floating "JOB DETAIL" button when panel is minimized */}
             {isRideDetailsPanelMinimized && activeRide && !isTerminalState(activeRide.status) && (
                 <Button
                     onClick={() => setIsRideDetailsPanelMinimized(false)}
-                    className="absolute bottom-16 right-4 z-30 bg-slate-700 text-slate-200 hover:bg-slate-600 shadow-lg h-auto py-1.5 px-3 text-xs rounded-md flex items-center gap-1"
+                    className={cn(
+                        "absolute right-4 z-30 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl rounded-lg",
+                        "py-1.5 px-3 h-auto text-xs font-semibold flex items-center gap-1.5",
+                        "bottom-16"
+                    )}
+                    style={{ transform: 'translateZ(0)' }}
                     aria-label="Show Job Details"
-                    style={{ transform: 'translateZ(0)' }} // Promotes to its own layer for better rendering over map
                 >
                     JOB DETAIL
-                    <ChevronUp className="ml-0.5 h-3.5 w-3.5" />
+                    <ChevronUp className="h-3.5 w-3.5" />
                 </Button>
             )}
         </div>
