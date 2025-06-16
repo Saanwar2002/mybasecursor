@@ -506,24 +506,9 @@ export default function AvailableRidesPage() {
 
       setError(null);
 
-      setActiveRide(currentClientRide => {
-        if (data === null && currentClientRide?.status === 'completed') {
-          console.log("fetchActiveRide: API reports no active ride, but client has a 'completed' ride. Retaining client state for rating.");
-          return currentClientRide;
-        }
-        if (JSON.stringify(data) !== JSON.stringify(currentClientRide)) {
-            console.log("fetchActiveRide: API data differs from client, updating client state.");
-            if (currentClientRide?.id !== data?.id || (currentClientRide && !data)) {
-              setLocalCurrentLegIndex(0);
-              setCompletedStopWaitCharges({});
-              setAccumulatedStopWaitingCharges(0);
-              setActiveStopDetails(null);
-            }
-            return data;
-        }
-        console.log("fetchActiveRide: API data matches client state, no update needed.");
-        return currentClientRide;
-      });
+      // Removed the problematic condition that retained 'completed' rides
+      setActiveRide(data);
+
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
 
@@ -549,7 +534,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, activeRide, localCurrentLegIndex]);
+  }, [driverUser?.id, localCurrentLegIndex]); // Removed `activeRide` from dependency array
 
 
   useEffect(() => {
@@ -1049,7 +1034,7 @@ export default function AvailableRidesPage() {
     setConsecutiveMissedOffers(newMissedCount);
 
     if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
-        setIsDriverOnline(false); // This will trigger the useEffect to stop polling
+        setIsDriverOnline(false); 
         toast({
             title: "Automatically Set Offline",
             description: `You've missed ${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive offers and have been set to Offline. You can go online again manually.`,
@@ -1063,7 +1048,6 @@ export default function AvailableRidesPage() {
             title: "Ride Offer Declined",
             description: `You declined the offer for ${passengerName}. (${newMissedCount}/${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive before auto-offline).`
         });
-        // If driver is still online and no active ride, re-enable polling
         if (isDriverOnline && !activeRide) {
             setIsPollingEnabled(true);
         }
@@ -1389,24 +1373,31 @@ export default function AvailableRidesPage() {
         }
     }
     
-    if (activeRide.pickupLocation && (currentStatusLower === 'driver_assigned' || (currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0))) {
+    const isEnRouteToPickup = currentStatusLower === 'driver_assigned';
+    const isAtPickup = currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0;
+    const isRideInProgress = currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return';
+
+    if (activeRide.pickupLocation && (isEnRouteToPickup || isAtPickup || (isRideInProgress && localCurrentLegIndex > 0 ))) {
+      if (isEnRouteToPickup || isAtPickup) { // Always show pickup marker if en_route or at_pickup
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
             title: `Pickup: ${activeRide.pickupLocation.address}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
         });
+      }
+      if (isEnRouteToPickup || isAtPickup) { // Show pickup label if en_route or at_pickup
         labels.push({
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
             content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
             type: 'pickup',
-            variant: (currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0) ? 'default' : 'compact'
+            variant: isAtPickup ? 'default' : 'compact'
         });
+      }
     }
     
-    const showNavigationLegs = currentStatusLower && ['arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return', 'pending_driver_wait_and_return_approval'].includes(currentStatusLower);
+    if (isRideInProgress || (isAtPickup && journeyPoints.length > 1) ) {
+        const dropoffLegIndex = journeyPoints.length -1;
 
-    if (showNavigationLegs) {
-        const dropoffLegIndex = (activeRide.stops?.length || 0) + 1;
         activeRide.stops?.forEach((stop, index) => {
             const stopLegIndex = index + 1; 
             if(stop.latitude && stop.longitude) {
@@ -1437,9 +1428,23 @@ export default function AvailableRidesPage() {
                     position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
                     content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
                     type: 'dropoff',
-                    variant: (currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0) || (localCurrentLegIndex === dropoffLegIndex) ? 'default' : 'compact'
+                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2) || (localCurrentLegIndex === dropoffLegIndex) ? 'default' : 'compact'
                 });
             }
+        }
+    } else if (isAtPickup && journeyPoints.length > 1) { // Special case for "arrived_at_pickup" to show dropoff too
+         if (activeRide.dropoffLocation) {
+            markers.push({
+                position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
+                title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+                label: { text: "D", color: "white", fontWeight: "bold"}
+            });
+            labels.push({
+                position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+                content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+                type: 'dropoff',
+                variant: 'default' 
+            });
         }
     }
     return { markers, labels };
@@ -1708,8 +1713,7 @@ export default function AvailableRidesPage() {
     }
     return "Status Action";
   };
-  const mainActionBtnText = mainButtonText();
-
+  
   const mainButtonAction = () => {
     if (!activeRide) return; 
     const currentLegIdx = localCurrentLegIndex;
@@ -1727,19 +1731,32 @@ export default function AvailableRidesPage() {
         handleRideAction(activeRide.id, 'complete_ride');
     }
   };
-  const mainActionBtnActionFn = mainButtonAction;
 
 
   const showCompletedStatus = activeRide?.status === 'completed';
   const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
   const showCancelledNoShowStatus = activeRide?.status === 'cancelled_no_show';
 
+  // Conditional rendering flags based on activeRide status
+  const showDriverAssignedStatus = activeRide?.status === 'driver_assigned';
+  const showArrivedAtPickupStatus = activeRide?.status === 'arrived_at_pickup';
+  const showInProgressStatus = activeRide?.status === 'in_progress';
+  const showPendingWRApprovalStatus = activeRide?.status === 'pending_driver_wait_and_return_approval';
+  const showInProgressWRStatus = activeRide?.status === 'in_progress_wait_and_return';
+
+  const { passengerName, fareEstimate, priorityFeeAmount, isPriorityPickup, paymentMethod, notes, status } = activeRide || {};
+  const { isChatDisabled } = useMemo(() => ({
+    isChatDisabled: !(activeRide?.status === 'driver_assigned' || activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'in_progress' || activeRide?.status === 'in_progress_wait_and_return')
+  }), [activeRide?.status]);
+
+  const passengerPhone = activeRide?.passengerPhone;
+
   let displayedFare = "£0.00";
-  let paymentMethodDisplay = "N/A";
-  let hasPriority = false;
-  let priorityAmount = 0;
-  let basePlusWRFare = 0;
   let numericGrandTotal = 0;
+  let hasPriority = false;
+  let currentPriorityAmount = 0;
+  let basePlusWRFare = 0;
+  let paymentMethodDisplay = "N/A";
 
   if (activeRide) {
     let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
@@ -1748,8 +1765,8 @@ export default function AvailableRidesPage() {
       const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
       baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
     }
-    const totalIncludingPriorityForDisplay = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
-    displayedFare = `£${totalIncludingPriorityForDisplay.toFixed(2)}`;
+    numericGrandTotal = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
+    displayedFare = `£${numericGrandTotal.toFixed(2)}`;
     
     paymentMethodDisplay = 
       activeRide.paymentMethod === 'card' ? 'Card' 
@@ -1757,10 +1774,9 @@ export default function AvailableRidesPage() {
       : activeRide.paymentMethod === 'account' ? 'Account'
       : 'Payment N/A';
 
-    numericGrandTotal = totalIncludingPriorityForDisplay;
-    hasPriority = activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0;
-    priorityAmount = hasPriority ? activeRide.priorityFeeAmount! : 0;
-    basePlusWRFare = numericGrandTotal - priorityAmount;
+    hasPriority = !!(activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0);
+    currentPriorityAmount = hasPriority ? activeRide.priorityFeeAmount! : 0;
+    basePlusWRFare = numericGrandTotal - currentPriorityAmount;
   }
 
 
@@ -1773,7 +1789,7 @@ export default function AvailableRidesPage() {
           isEnabled={isSpeedLimitFeatureEnabled}
         />
       }
-      {(!activeRide || (!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus)) && (
+      {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
       <div className={cn(
         "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
         activeRide ? "h-[calc(45%-0.5rem)]" : "h-[calc(100%-10rem)]" 
@@ -1889,11 +1905,11 @@ export default function AvailableRidesPage() {
         )}>
           <ScrollArea className={cn( (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) ? "" : "flex-1" )}>
             <CardContent className="p-2 space-y-1.5">
-            {activeRide.status === 'driver_assigned' && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md shadow"> En Route to Pickup </Badge> </div> )}
-            {activeRide.status === 'arrived_at_pickup' && ( <div className="flex justify-center mb-1.5"> <Badge variant="outline" className="font-bold text-xs w-fit mx-auto border-blue-500 text-blue-500 py-1 px-3 rounded-md shadow"> Arrived At Pickup </Badge> </div> )}
-            {activeRide.status === 'in_progress' && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-green-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress </Badge> </div> )}
-            {activeRide.status === 'pending_driver_wait_and_return_approval' && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-purple-500 text-white py-1 px-3 rounded-md shadow"> W&R Request Pending </Badge> </div> )}
-            {activeRide.status === 'in_progress_wait_and_return' && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-teal-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress (W&R) </Badge> </div> )}
+            {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md shadow"> En Route to Pickup </Badge> </div> )}
+            {showArrivedAtPickupStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="outline" className="font-bold text-xs w-fit mx-auto border-blue-500 text-blue-500 py-1 px-3 rounded-md shadow"> Arrived At Pickup </Badge> </div> )}
+            {showInProgressStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-green-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress </Badge> </div> )}
+            {showPendingWRApprovalStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-purple-500 text-white py-1 px-3 rounded-md shadow"> W&R Request Pending </Badge> </div> )}
+            {showInProgressWRStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-teal-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress (W&R) </Badge> </div> )}
             {showCompletedStatus && ( <div className="flex justify-center my-3"> <Badge variant="default" className="font-bold text-base w-fit mx-auto bg-primary text-primary-foreground py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <CheckCircleIcon className="w-5 h-5" /> Ride Completed </Badge> </div> )}
             {showCancelledByDriverStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <XCircle className="w-5 h-5" /> Ride Cancelled By You </Badge> </div> )}
             {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
@@ -1905,17 +1921,17 @@ export default function AvailableRidesPage() {
               </Avatar>
               <div className="flex-1">
                 <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p>
-                {activeRide.passengerPhone && (
+                {passengerPhone && (
                   <p className="font-bold text-xs text-muted-foreground flex items-center gap-0.5">
-                    <PhoneCall className="w-2.5 h-2.5"/> {activeRide.passengerPhone}
+                    <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone}
                   </p>
                 )}
               </div>
               {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
                 <div className="flex items-center gap-1">
-                  {activeRide.passengerPhone && !isChatDisabled && (
+                  {passengerPhone && !isChatDisabled && (
                      <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
-                      <a href={`tel:${activeRide.passengerPhone}`} aria-label="Call passenger">
+                      <a href={`tel:${passengerPhone}`} aria-label="Call passenger">
                         <PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" />
                       </a>
                     </Button>
@@ -1932,24 +1948,24 @@ export default function AvailableRidesPage() {
                 </div>
               )}
             </div>
-            {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+            {notes && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
                 <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
                     <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
-                      <strong>Notes:</strong> {activeRide.notes}
+                      <strong>Notes:</strong> {notes}
                     </p>
                 </div>
             )}
             
-            {activeRide.isPriorityPickup && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+            {hasPriority && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
                 <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                     <Crown className="h-3.5 w-3.5" />
                     <ShadAlertTitle className="font-bold text-xs">Priority Booking</ShadAlertTitle>
                     <ShadAlertDescription className="font-bold text-[10px]">
-                        Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.
+                        Passenger offered +£{(priorityAmount || 0).toFixed(2)}.
                     </ShadAlertDescription>
                 </Alert>
             )}
-            {activeRide.status === 'arrived_at_pickup' && (
+            {showArrivedAtPickupStatus && (
               <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
                 <Timer className="h-4 w-4 text-current" />
                 <ShadAlertTitle className="font-bold text-current text-xs">Passenger Waiting Status</ShadAlertTitle>
@@ -1991,14 +2007,14 @@ export default function AvailableRidesPage() {
                 </ShadAlertDescription>
               </Alert>
             )}
-            {activeRide.status === 'pending_driver_wait_and_return_approval' && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
+            {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
                  <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5">
                     <RefreshCw className="h-4 w-4 text-current animate-spin" />
                     <ShadAlertTitle className="font-bold text-current text-xs">Wait & Return Request</ShadAlertTitle>
                     <ShadAlertDescription className="font-bold text-current text-[10px]">
                         Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.
                         <br />
-                        New estimated total fare (if accepted): £{(( (activeRide.fareEstimate || 0) + (activeRide.priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.
+                        New estimated total fare (if accepted): £{(( (fareEstimate || 0) + (priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.
                         <div className="flex gap-1 mt-1">
                             <Button size="sm" className="font-bold bg-green-600 hover:bg-green-700 text-white h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Accept W&R</Button>
                             <Button size="sm" variant="destructive" className="font-bold h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}>Decline W&R</Button>
@@ -2017,7 +2033,7 @@ export default function AvailableRidesPage() {
                   {activeRide.distanceMiles != null && (
                     <p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</p>
                   )}
-                  {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
+                  {paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} Payment: {paymentMethodDisplay} </p> )}
                    {(showCompletedStatus || showCancelledNoShowStatus) && (
                     <>
                       <Separator className="col-span-2 my-1 bg-green-300 dark:bg-green-700/50" />
@@ -2045,7 +2061,7 @@ export default function AvailableRidesPage() {
             {(showCompletedStatus || showCancelledNoShowStatus) && (
               <div className="mt-2 pt-2 border-t text-center">
                 <p className="text-xs text-muted-foreground mt-1">Job ID: {activeRide.displayBookingId || activeRide.id}</p>
-                <p className="font-bold text-xs mb-0.5">Rate {activeRide.passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
+                <p className="font-bold text-xs mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
                 <div className="flex justify-center space-x-0.5 mb-1">
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -2066,7 +2082,7 @@ export default function AvailableRidesPage() {
   
           {!(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
             <div className="p-2 border-t grid gap-1.5 shrink-0">
-              {activeRide.status === 'driver_assigned' && (
+              {showDriverAssignedStatus && (
                 <>
                   <div className="grid grid-cols-1 gap-1.5"> 
                     <Button className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}>
@@ -2076,7 +2092,7 @@ export default function AvailableRidesPage() {
                   <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} />
                 </>
               )}
-              {activeRide.status === 'arrived_at_pickup' && (
+              {showArrivedAtPickupStatus && (
                 <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-1 gap-1.5"> <Button className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
               <Button
                   variant="destructive"
@@ -2091,17 +2107,17 @@ export default function AvailableRidesPage() {
                   Report No Show
               </Button>
               </div> )}
-              {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && (
+              {(showInProgressStatus || showInProgressWRStatus) && (
                 <div className="grid grid-cols-1 gap-1.5">
                   <Button
                     className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
-                    onClick={mainActionBtnActionFn}
+                    onClick={mainButtonAction}
                     disabled={!!actionLoading[activeRide.id]}
                   >
                     {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Navigation className="mr-1.5 h-4 w-4" />}
-                    {mainActionBtnText}
+                    {mainButtonText()}
                   </Button>
-                  {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
+                  {showInProgressStatus && !activeRide.waitAndReturn && (
                     <Button
                       variant="outline"
                       className="font-bold w-full text-sm py-2 h-auto border-accent text-accent hover:bg-accent/10"
