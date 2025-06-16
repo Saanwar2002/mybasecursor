@@ -135,9 +135,11 @@ const blueDotSvg = `
 `;
 const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
 
+// Define constants for driver waiting/acknowledgment timers
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
-const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // 3 minutes
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20; // £0.20 per minute after free time
+
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 const STATIONARY_REMINDER_TIMEOUT_MS = 60000;
 const MOVEMENT_THRESHOLD_METERS = 50;
@@ -292,7 +294,7 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
     { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
 ];
 
-const getStatusBadgeVariantLocal = (status: string | undefined): "default" | "secondary" | "destructive" | "outline" => {
+const getStatusBadgeVariant = (status: string | undefined): "default" | "secondary" | "destructive" | "outline" => {
   if (!status) return 'secondary';
   switch (status.toLowerCase()) {
       case 'pending_assignment': return 'secondary';
@@ -309,7 +311,7 @@ const getStatusBadgeVariantLocal = (status: string | undefined): "default" | "se
   }
 };
 
-const getStatusBadgeClassLocal = (status: string | undefined): string => {
+const getStatusBadgeClass = (status: string | undefined): string => {
   if (!status) return '';
   switch (status.toLowerCase()) {
       case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
@@ -410,7 +412,6 @@ export default function AvailableRidesPage() {
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
   
-  const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
   const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
 
 
@@ -1951,38 +1952,19 @@ export default function AvailableRidesPage() {
         </AlertDialog>
       </div>
       
-      {activeRide && isRideDetailsPanelMinimized && !isTerminalState(activeRide.status) && (
-        <Button
-          onClick={() => setIsRideDetailsPanelMinimized(false)}
-          className="fixed bottom-16 right-4 z-30 bg-primary hover:bg-primary/80 text-primary-foreground rounded-full shadow-lg h-10 px-4 flex items-center gap-1.5 text-sm"
-          aria-label="Show Job Details"
-        >
-          <span>JOB DETAIL</span>
-          <ChevronUp className="h-4 w-4" />
-        </Button>
-      )}
-
-      {activeRide && (
-        <div
-          className={cn(
-            "absolute bottom-0 left-0 right-0 z-20 bg-card border-t-2 border-primary shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out flex flex-col",
-            "max-h-[70svh]", 
-            isRideDetailsPanelMinimized && activeRide.status !== 'completed' && activeRide.status !== 'cancelled_by_driver' && activeRide.status !== 'cancelled_no_show' && activeRide.status !== 'cancelled_by_operator' ? "translate-y-full" : "translate-y-0"
+      <Card className="shrink-0 shadow-xl bg-card border-t">
+        <CardContent className="p-3 space-y-2">
+          {!activeRide && !isLoading && (
+            <div className="flex-1 flex flex-col items-center justify-center p-3 space-y-1 text-center">
+              {geolocationError && isDriverOnline && ( <Alert variant="destructive" className="mb-2 text-xs"> <AlertTriangle className="h-4 w-4" /> <ShadAlertTitle className="font-bold"><span>Location Error</span></ShadAlertTitle> <ShadAlertDescription><span>{geolocationError}</span></ShadAlertDescription> </Alert> )}
+              {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground">Actively searching for ride offers...</p> </>) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) }
+              <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
+              <div className="pt-1"> <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/> <Label htmlFor="speed-limit-mock-toggle" className="font-bold text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label> </div>
+              {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => { if (!activeRide) { handleSimulateOffer(); } else { toast({ title: "Action Not Allowed", description: "Please complete your current ride before simulating a new offer.", variant: "default" }); } }} className="mt-2 text-xs h-8 px-3 py-1 font-bold" disabled={!!activeRide}> <span>Simulate Incoming Ride Offer (Test)</span> </Button> )}
+            </div>
           )}
-        >
-          <div 
-            className="p-2 border-b cursor-pointer bg-muted/50 hover:bg-muted" 
-            onClick={() => setIsRideDetailsPanelMinimized(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsRideDetailsPanelMinimized(true); }}
-            aria-label="Minimize ride details"
-          >
-            <div className="w-10 h-1.5 bg-gray-400 rounded-full mx-auto"></div>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="p-3 space-y-2">
+          {activeRide && (
+             <div className="space-y-2">
               {activeRide.status === 'completed' ? (
                 <>
                   <div className="text-center p-3 border-b">
@@ -2006,7 +1988,7 @@ export default function AvailableRidesPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex justify-center mb-1.5"> <Badge variant={getStatusBadgeVariantLocal(activeRide.status)} className={cn("font-bold text-xs w-fit mx-auto py-1 px-3 rounded-md shadow", getStatusBadgeClassLocal(activeRide.status))}> {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} </Badge> </div>
+                  <div className="flex justify-center mb-1.5"> <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("font-bold text-xs w-fit mx-auto py-1 px-3 rounded-md shadow", getStatusBadgeClass(activeRide.status))}> {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} </Badge> </div>
                   <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border"> <Avatar className="h-7 w-7 md:h-8 md:h-8"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar> <div className="flex-1"> <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p> {passengerPhone && ( <p className="font-bold text-xs text-muted-foreground flex items-center gap-0.5"> <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone} </p> )} </div> {(!isTerminalState(activeRide.status)) && ( <div className="flex items-center gap-1"> {passengerPhone && !isChatDisabled && ( <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8"> <a href={`tel:${passengerPhone}`} aria-label="Call passenger"><span><PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" /></span></a> </Button> )} {isChatDisabled ? ( <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled> <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" /> </Button> ) : ( <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8"> <Link href="/driver/chat"><span><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></span></Link> </Button> )} </div> )} </div>
                   {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && activeRide.status !== 'in_progress' && activeRide.status !== 'in_progress_wait_and_return' && ( <div className="my-1.5 p-2 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center shadow-sm"> <span className="text-xs text-purple-700 dark:text-purple-300 font-medium"> Account Job PIN: <strong className="text-sm font-bold tracking-wider text-purple-800 dark:text-purple-200">{activeRide.accountJobPin}</strong> </span> </div> )}
                   {activeRide.notes && ( <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400"> <p className="text-xs md:text-sm text-yellow-900 dark:text-yellow-200 font-bold whitespace-pre-wrap"> <strong>Notes:</strong> {activeRide.notes} </p> </div> )}
@@ -2023,47 +2005,30 @@ export default function AvailableRidesPage() {
                   <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide?.id ?? '']} />
                 </>
               )}
-            </div>
-          </ScrollArea>
-          {(activeRide.status === 'completed' || activeRide.status.startsWith('cancelled')) && (
-            <div className="p-2 border-t shrink-0">
-              <Button
-                className="font-bold w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto"
-                onClick={() => {
-                  if (currentPassengerRatingInput > 0 && activeRide.passengerName) {
-                    toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${currentPassengerRatingInput} stars.`});
-                  }
-                  setCurrentPassengerRatingInput(0);
-                  setCurrentWaitingCharge(0);
-                  setAccumulatedStopWaitingCharges(0);
-                  setCompletedStopWaitCharges({});
-                  setCurrentStopTimerDisplay(null);
-                  setActiveStopDetails(null);
-                  setIsCancelSwitchOn(false);
-                  setActiveRide(null);
-                  setIsRideDetailsPanelMinimized(true); 
-                  setIsPollingEnabled(true);
-                }}
-                disabled={!!actionLoading[activeRide.id] || (activeRide.status === 'completed' && isLoadingAdminTasks)}
-              >
-                <span>
-                  {(!!actionLoading[activeRide.id] || (activeRide.status === 'completed' && isLoadingAdminTasks)) ? <><Loader2 className="animate-spin mr-1.5 h-4 w-4" /><span>Processing...</span></> : <><Check className="mr-1.5 h-4 w-4" /><span>Done</span></>}
-                </span>
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <Card className="shrink-0 shadow-xl bg-card border-t">
-        <CardContent className="p-3 space-y-2">
-          {!activeRide && !isLoading && (
-            <div className="flex-1 flex flex-col items-center justify-center p-3 space-y-1 text-center">
-              {geolocationError && isDriverOnline && ( <Alert variant="destructive" className="mb-2 text-xs"> <AlertTriangle className="h-4 w-4" /> <ShadAlertTitle className="font-bold"><span>Location Error</span></ShadAlertTitle> <ShadAlertDescription><span>{geolocationError}</span></ShadAlertDescription> </Alert> )}
-              {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground">Actively searching for ride offers...</p> </>) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) }
-              <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > {isDriverOnline ? "Online" : "Offline"} </Label> </div>
-              <div className="pt-1"> <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/> <Label htmlFor="speed-limit-mock-toggle" className="font-bold text-xs ml-2 text-muted-foreground">Show Speed Limit Mock UI</Label> </div>
-              {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => { if (!activeRide) { handleSimulateOffer(); } else { toast({ title: "Action Not Allowed", description: "Please complete your current ride before simulating a new offer.", variant: "default" }); } }} className="mt-2 text-xs h-8 px-3 py-1 font-bold" disabled={!!activeRide}> <span>Simulate Incoming Ride Offer (Test)</span> </Button> )}
+              {(activeRide.status === 'completed' || activeRide.status.startsWith('cancelled')) && (
+                <Button
+                  className="font-bold w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto mt-2"
+                  onClick={() => {
+                    if (currentPassengerRatingInput > 0 && activeRide.passengerName) {
+                      toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${currentPassengerRatingInput} stars.`});
+                    }
+                    setCurrentPassengerRatingInput(0);
+                    setCurrentWaitingCharge(0);
+                    setAccumulatedStopWaitingCharges(0);
+                    setCompletedStopWaitCharges({});
+                    setCurrentStopTimerDisplay(null);
+                    setActiveStopDetails(null);
+                    setIsCancelSwitchOn(false);
+                    setActiveRide(null);
+                    setIsPollingEnabled(true);
+                  }}
+                  disabled={!!actionLoading[activeRide.id] || (activeRide.status === 'completed' && isLoadingAdminTasks)}
+                >
+                  <span>
+                    {(!!actionLoading[activeRide.id] || (activeRide.status === 'completed' && isLoadingAdminTasks)) ? (<><Loader2 className="animate-spin mr-1.5 h-4 w-4" /><span>Processing...</span></>) : (<><Check className="mr-1.5 h-4 w-4" /><span>Done</span></>)}
+                  </span>
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -2079,4 +2044,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
