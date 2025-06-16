@@ -23,10 +23,10 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription as ShadAlertDialogDescriptionForDialog, 
+  AlertDialogDescription as ShadAlertDialogDescriptionForDialog,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitleForDialog, 
+  AlertDialogTitle as ShadAlertDialogTitleForDialog,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
@@ -34,7 +34,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription as ShadDialogDescriptionDialog, 
+  DialogDescription as ShadDialogDescriptionDialog,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -189,7 +189,7 @@ interface HazardType {
   id: string;
   label: string;
   icon: LucideIcon;
-  className: string; 
+  className: string;
 }
 
 const hazardTypes: HazardType[] = [
@@ -233,16 +233,16 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1]; 
+    area = parts[1];
     if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area"; 
+    street = "Area";
   }
-  
+
   if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', '); 
+      area = parts.slice(1).join(', ');
   }
 
   let locationLine = area;
@@ -251,12 +251,12 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   }
 
   if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = ""; 
+      street = "";
   }
-  if (street && !locationLine) { 
+  if (street && !locationLine) {
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) { 
+  if (!street && locationLine) {
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -282,10 +282,10 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
     { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
 ];
 
-const FREE_WAITING_TIME_SECONDS_PASSENGER = 3 * 60;
-const WAITING_CHARGE_PER_MINUTE_PASSENGER = 0.20;
-const ACKNOWLEDGMENT_WINDOW_SECONDS = 30;
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10; 
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // Renamed from _PASSENGER
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20; // Renamed from _PASSENGER
+const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30; // Added this constant
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10; // Added _DRIVER suffix
 const STATIONARY_REMINDER_TIMEOUT_MS = 60000;
 const MOVEMENT_THRESHOLD_METERS = 50;
 const STOP_FREE_WAITING_TIME_SECONDS = 3 * 60;
@@ -365,18 +365,17 @@ export default function AvailableRidesPage() {
   const [currentMockSpeed, setCurrentMockSpeed] = useState(20);
   const [currentMockLimit, setCurrentMockLimit] = useState(30);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null); 
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
   const [currentRoutePolyline, setCurrentRoutePolyline] = useState<{ path: google.maps.LatLngLiteral[]; color: string; } | null>(null);
   const [driverMarkerHeading, setDriverMarkerHeading] = useState<number | null>(null);
   const [driverCurrentStreetName, setDriverCurrentStreetName] = useState<string | null>(null);
 
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
-  
+
   const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(false);
 
-  // Moved useMemo hooks to the top
   const journeyPoints = useMemo(() => {
     if (!activeRide) return [];
     const points: LocationPoint[] = [activeRide.pickupLocation];
@@ -386,16 +385,16 @@ export default function AvailableRidesPage() {
   }, [activeRide]);
 
   const isChatDisabled = useMemo(() => {
-    return !(activeRide?.status === 'driver_assigned' || 
-             activeRide?.status === 'arrived_at_pickup' || 
-             activeRide?.status === 'in_progress' || 
+    return !(activeRide?.status === 'driver_assigned' ||
+             activeRide?.status === 'arrived_at_pickup' ||
+             activeRide?.status === 'in_progress' ||
              activeRide?.status === 'in_progress_wait_and_return')
   }, [activeRide?.status]);
 
   const mapDisplayElements = useMemo(() => {
     const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
-    
+
     if (!activeRide) {
        if (isDriverOnline && driverLocation) {
         markers.push({
@@ -413,7 +412,7 @@ export default function AvailableRidesPage() {
             });
         }
       }
-      return { markers, labels }; 
+      return { markers, labels };
     }
 
     const currentStatusLower = activeRide.status.toLowerCase();
@@ -443,13 +442,13 @@ export default function AvailableRidesPage() {
             });
         }
     }
-    
+
     const isEnRouteToPickup = currentStatusLower === 'driver_assigned';
     const isAtPickup = currentStatusLower === 'arrived_at_pickup';
     const isRideInProgress = currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return';
 
     if (activeRide.pickupLocation && (isEnRouteToPickup || isAtPickup || (isRideInProgress && currentLegIdx > 0 ))) {
-      if (isEnRouteToPickup || isAtPickup) { 
+      if (isEnRouteToPickup || isAtPickup) {
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
             title: `Pickup: ${activeRide.pickupLocation.address}`,
@@ -465,14 +464,14 @@ export default function AvailableRidesPage() {
         });
       }
     }
-    
+
     if (isRideInProgress || isAtPickup) {
         const dropoffLegIndex = journeyPoints.length -1;
 
         activeRide.stops?.forEach((stop, index) => {
-            const stopLegIndex = index + 1; 
+            const stopLegIndex = index + 1;
             if(stop.latitude && stop.longitude) {
-                if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) { 
+                if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) {
                     markers.push({
                         position: {lat: stop.latitude, lng: stop.longitude},
                         title: `Stop ${index + 1}: ${stop.address}`,
@@ -509,24 +508,25 @@ export default function AvailableRidesPage() {
     return { markers, labels };
   }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
 
+  const mapZoomToUse = useMemo(() => {
+    if (shouldFitMapBounds) return undefined; // Let fitBounds control zoom
+    if (!shouldFitMapBounds && currentRoutePolyline) return undefined; // Let map retain zoom from fitBounds
+    return 16; // Default zoom for idle driver
+  }, [shouldFitMapBounds, currentRoutePolyline]);
+
   const memoizedMapCenter = useMemo(() => {
     if (shouldFitMapBounds && activeRide) {
-      const currentTargetPoint = journeyPoints[localCurrentLegIndex];
-      if (currentTargetPoint) {
-        return { lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude };
-      }
+        const currentTargetPoint = journeyPoints[localCurrentLegIndex];
+        if (currentTargetPoint) {
+            return { lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude };
+        }
     }
     if (!shouldFitMapBounds && currentRoutePolyline) {
-        return undefined; 
+        return undefined; // Allow map to retain its current center
     }
+    // Default: if no active ride, or if not fitting bounds and no route, center on driver
     return driverLocation || (activeRide?.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
   }, [activeRide?.pickupLocation, driverLocation, journeyPoints, localCurrentLegIndex, shouldFitMapBounds, currentRoutePolyline]);
-
-  const mapZoomToUse = useMemo(() => {
-    if (shouldFitMapBounds) return undefined;
-    if (!shouldFitMapBounds && currentRoutePolyline) return undefined;
-    return 16; 
-  }, [shouldFitMapBounds, currentRoutePolyline]);
 
 
   useEffect(() => {
@@ -534,7 +534,7 @@ export default function AvailableRidesPage() {
       setShouldFitMapBounds(true);
       const timer = setTimeout(() => {
         setShouldFitMapBounds(false);
-      }, 1500); 
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, [activeRide?.id, activeRide?.driverCurrentLegIndex]);
@@ -592,7 +592,7 @@ export default function AvailableRidesPage() {
           }
           setGeolocationError(message);
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 } 
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
       );
     } else {
       if (watchIdRef.current !== null) {
@@ -631,7 +631,7 @@ export default function AvailableRidesPage() {
       console.log("fetchActiveRide - Data received from API:", data);
 
       setError(null);
-      
+
       setActiveRide(data);
 
 
@@ -660,7 +660,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, localCurrentLegIndex, activeRide]); 
+  }, [driverUser?.id, localCurrentLegIndex, activeRide]);
 
 
   useEffect(() => {
@@ -688,13 +688,13 @@ export default function AvailableRidesPage() {
     if (!isSpeedLimitFeatureEnabled) return;
     const speedInterval = setInterval(() => {
       setCurrentMockSpeed(prev => {
-        const change = Math.floor(Math.random() * 7) - 3; 
+        const change = Math.floor(Math.random() * 7) - 3;
         let newSpeed = prev + change;
         if (newSpeed < 0) newSpeed = 0;
         if (newSpeed > 70) newSpeed = 70;
         return newSpeed;
       });
-      if (Math.random() < 0.1) { 
+      if (Math.random() < 0.1) {
         const limits = [20, 30, 40, 50, 60, 70];
         setCurrentMockLimit(limits[Math.floor(Math.random() * limits.length)]);
       }
@@ -979,12 +979,12 @@ export default function AvailableRidesPage() {
     if (stagedOfferDetails) {
       setCurrentOfferDetails(stagedOfferDetails);
       setIsOfferModalOpen(true);
-      setStagedOfferDetails(null); 
+      setStagedOfferDetails(null);
     }
   }, [stagedOfferDetails]);
 
   const handleSimulateOffer = () => {
-    setIsPollingEnabled(false); 
+    setIsPollingEnabled(false);
     const randomPickupIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
     let randomDropoffIndex = Math.floor(Math.random() * mockHuddersfieldLocations.length);
     while (randomDropoffIndex === randomPickupIndex) {
@@ -993,12 +993,12 @@ export default function AvailableRidesPage() {
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
 
-    const isPriority = Math.random() < 0.4; 
+    const isPriority = Math.random() < 0.4;
     let currentPriorityFeeAmount = 0;
     if (isPriority) {
-      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); 
+      currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2));
     }
-    
+
     const paymentType = Math.random();
     let paymentMethodChoice: 'card' | 'cash' | 'account';
     let jobPinForOffer: string | undefined = undefined;
@@ -1009,15 +1009,15 @@ export default function AvailableRidesPage() {
       paymentMethodChoice = 'cash';
     } else {
       paymentMethodChoice = 'account';
-      jobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString(); 
+      jobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString();
     }
 
-    const offer: Omit<RideOffer, 'id' | 'displayBookingId' | 'originatingOperatorId'> = { 
+    const offer: Omit<RideOffer, 'id' | 'displayBookingId' | 'originatingOperatorId'> = {
       pickupLocation: pickup.address,
       pickupCoords: pickup.coords,
       dropoffLocation: dropoff.address,
       dropoffCoords: dropoff.coords,
-      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)), 
+      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)),
       isPriorityPickup: isPriority,
       priorityFeeAmount: currentPriorityFeeAmount,
       passengerCount: Math.floor(Math.random() * 3) + 1,
@@ -1025,7 +1025,7 @@ export default function AvailableRidesPage() {
       passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
       notes: Math.random() < 0.3 ? "Has some luggage." : undefined,
       requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
-      distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)), 
+      distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)),
       paymentMethod: paymentMethodChoice,
       dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
       accountJobPin: jobPinForOffer,
@@ -1034,7 +1034,7 @@ export default function AvailableRidesPage() {
     const mockFirestoreId = `mock-offer-${Date.now()}`;
     const mockOriginatingOperatorId = offer.requiredOperatorId || PLATFORM_OPERATOR_CODE;
     const mockDisplayPrefix = getOperatorPrefix(mockOriginatingOperatorId);
-    
+
     const timestampPartForSuffix = Date.now().toString().slice(-4);
     const randomPartForSuffix = Math.floor(Math.random() * 100).toString().padStart(2, '0');
     const numericSuffix = `${timestampPartForSuffix}${randomPartForSuffix}`;
@@ -1061,7 +1061,7 @@ export default function AvailableRidesPage() {
     }
     setConsecutiveMissedOffers(0);
 
-    const offerToAccept = currentOfferDetails; 
+    const offerToAccept = currentOfferDetails;
 
     if (!offerToAccept || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
@@ -1121,7 +1121,7 @@ export default function AvailableRidesPage() {
         toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
         setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
         console.log(`Reset actionLoading for ${currentActionRideId} to false after server error.`);
-        setIsOfferModalOpen(false); 
+        setIsOfferModalOpen(false);
         setCurrentOfferDetails(null);
         setIsPollingEnabled(true);
         return;
@@ -1168,7 +1168,7 @@ export default function AvailableRidesPage() {
       setActiveRide(newActiveRideFromServer);
       setLocalCurrentLegIndex(0);
       setRideRequests([]);
-      setIsOfferModalOpen(false); 
+      setIsOfferModalOpen(false);
       setCurrentOfferDetails(null);
 
 
@@ -1194,7 +1194,7 @@ export default function AvailableRidesPage() {
       }
 
       toast({ title: "Acceptance Failed", description: detailedMessage, variant: "destructive" });
-      setIsOfferModalOpen(false); 
+      setIsOfferModalOpen(false);
       setCurrentOfferDetails(null);
       setIsPollingEnabled(true);
     } finally {
@@ -1206,14 +1206,14 @@ export default function AvailableRidesPage() {
 
   const handleDeclineOffer = (rideId: string) => {
     const offerThatWasDeclined = currentOfferDetails;
-    setIsOfferModalOpen(false); 
-    setCurrentOfferDetails(null); 
+    setIsOfferModalOpen(false);
+    setCurrentOfferDetails(null);
 
     const newMissedCount = consecutiveMissedOffers + 1;
     setConsecutiveMissedOffers(newMissedCount);
 
     if (newMissedCount >= MAX_CONSECUTIVE_MISSED_OFFERS) {
-        setIsDriverOnline(false); 
+        setIsDriverOnline(false);
         toast({
             title: "Automatically Set Offline",
             description: `You've missed ${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive offers and have been set to Offline. You can go online again manually.`,
@@ -1227,7 +1227,7 @@ export default function AvailableRidesPage() {
             title: "Ride Offer Declined",
             description: `You declined the offer for ${passengerName}. (${newMissedCount}/${MAX_CONSECUTIVE_MISSED_OFFERS} consecutive before auto-offline).`
         });
-        if (isDriverOnline && !activeRide) { 
+        if (isDriverOnline && !activeRide) {
             setIsPollingEnabled(true);
         }
     }
@@ -1244,7 +1244,7 @@ export default function AvailableRidesPage() {
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup') {
         if (!activeRide.accountJobPin) {
             toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
-            return; 
+            return;
         }
         if (!isAccountJobPinDialogOpen) {
           setIsAccountJobPinDialogOpen(true);
@@ -1513,9 +1513,9 @@ export default function AvailableRidesPage() {
     }
     return "Status Action";
   };
-  
+
   const mainButtonAction = () => {
-    if (!activeRide) return; 
+    if (!activeRide) return;
     const currentLegIdx = localCurrentLegIndex;
     if (activeRide.status === 'arrived_at_pickup') {
       handleRideAction(activeRide.id, 'start_ride');
@@ -1543,7 +1543,7 @@ export default function AvailableRidesPage() {
         <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
     </div>;
   }
-  
+
   const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
   const CurrentNavigationLegBar = () => {
@@ -1557,20 +1557,20 @@ export default function AvailableRidesPage() {
     let textColorClass = "text-gray-800 dark:text-gray-200";
     let legTypeLabel = "";
 
-    if (localCurrentLegIndex === 0) { 
+    if (localCurrentLegIndex === 0) {
       bgColorClass = "bg-green-100 dark:bg-green-900/50";
       textColorClass = "text-green-700 dark:text-green-300";
       legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
-    } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
+    } else if (localCurrentLegIndex < journeyPoints.length - 1) {
       bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
       textColorClass = "text-yellow-700 dark:text-yellow-300";
       legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
-    } else { 
+    } else {
       bgColorClass = "bg-red-100 dark:bg-red-800/50";
       textColorClass = "text-red-700 dark:text-red-300";
       legTypeLabel = "TO DROPOFF";
     }
-    
+
     const addressParts = currentLeg.address.split(',');
     const primaryAddressLine = addressParts[0]?.trim();
     const secondaryAddressLine = addressParts.slice(1).join(',').trim();
@@ -1590,18 +1590,18 @@ export default function AvailableRidesPage() {
           {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
         </div>
         <div className="flex items-start gap-1.5 shrink-0">
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
             <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
           </Button>
-          <Button 
-            variant="default" 
-            size="icon" 
+          <Button
+            variant="default"
+            size="icon"
             className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => {
                 if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
@@ -1725,13 +1725,13 @@ export default function AvailableRidesPage() {
       toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" });
       return;
     }
-    
+
     const payload = {
       hazardType: hazardType,
       location: driverLocation,
       reportedByDriverId: driverUser?.id || "unknown_driver",
       reportedAt: new Date().toISOString(),
-      status: "active", 
+      status: "active",
     };
     console.log("Map Hazard Report Payload:", payload);
 
@@ -1757,7 +1757,7 @@ export default function AvailableRidesPage() {
         variant: "destructive",
       });
     }
-    setIsHazardReportDialogOpen(false); 
+    setIsHazardReportDialogOpen(false);
   };
 
   const mainActionBtnText = mainButtonText();
@@ -1781,24 +1781,24 @@ export default function AvailableRidesPage() {
   let currentPriorityAmount = 0;
   let basePlusWRFare = 0;
   let paymentMethodDisplay = "N/A";
-  
+
   if (activeRide) {
     let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
     if (activeRide.waitAndReturn) {
-      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
+      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
       const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
       baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
     }
-  
+
     numericGrandTotal = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
     displayedFare = `£${numericGrandTotal.toFixed(2)}`;
-    
-    paymentMethodDisplay = 
-      activeRide.paymentMethod === 'card' ? 'Card' 
-      : activeRide.paymentMethod === 'cash' ? 'Cash' 
+
+    paymentMethodDisplay =
+      activeRide.paymentMethod === 'card' ? 'Card'
+      : activeRide.paymentMethod === 'cash' ? 'Cash'
       : activeRide.paymentMethod === 'account' ? 'Account'
       : 'Payment N/A';
-  
+
     hasPriority = !!(activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0);
     currentPriorityAmount = hasPriority ? activeRide.priorityFeeAmount! : 0;
     basePlusWRFare = numericGrandTotal - currentPriorityAmount;
@@ -1806,7 +1806,7 @@ export default function AvailableRidesPage() {
 
 
   return (
-      <div className="flex flex-col h-full p-2 md:p-4 relative"> {/* Added relative for absolute panel */}
+      <div className="flex flex-col h-full p-2 md:p-4 relative">
         {isSpeedLimitFeatureEnabled &&
           <SpeedLimitDisplay
             currentSpeed={currentMockSpeed}
@@ -1815,18 +1815,18 @@ export default function AvailableRidesPage() {
           />
         }
         <div className={cn(
-          "relative w-full rounded-lg overflow-hidden shadow-lg border flex-1", // Map container takes available space
-          mapDisplayElements.markers.length > 0 && activeRide ? "mb-0" : "" // No margin if panel is active
+          "relative w-full rounded-lg overflow-hidden shadow-lg border flex-1",
+          mapDisplayElements.markers.length > 0 && activeRide ? "mb-0" : ""
         )}>
             <GoogleMapDisplay
               center={memoizedMapCenter}
-              zoom={mapZoomToUse} 
+              zoom={mapZoomToUse}
               mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}
               fitBoundsToMarkers={shouldFitMapBounds}
               markers={mapDisplayElements.markers}
               customMapLabels={mapDisplayElements.labels}
-              className="absolute inset-0 w-full h-full" // Map fills its container
+              className="absolute inset-0 w-full h-full"
               disableDefaultUI={true}
               onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
               polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
@@ -1884,8 +1884,8 @@ export default function AvailableRidesPage() {
                     size="icon"
                     className={cn(
                       "absolute right-2 z-[1001] rounded-full shadow-lg bg-yellow-500 hover:bg-yellow-600 text-black border border-black/50",
-                      "h-8 w-8 md:h-9 md:w-9", 
-                       isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3" 
+                      "h-8 w-8 md:h-9 md:w-9",
+                       isSosButtonVisible ? "top-12 md:top-[3.0rem]" : "top-3"
                     )}
                     aria-label="Report Road Hazard"
                     title="Report Road Hazard"
@@ -1920,14 +1920,14 @@ export default function AvailableRidesPage() {
                 </AlertDialogContent>
             </AlertDialog>
         </div>
-        
+
         {/* Active Ride Details Sliding Panel */}
         {activeRide && !showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus && (
-          <div 
+          <div
             className={cn(
               "absolute bottom-0 left-0 right-0 bg-card/90 backdrop-blur-sm border-t rounded-t-xl shadow-[0_-8px_16px_-4px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out z-20",
               "max-h-[70svh] md:max-h-[65svh] flex flex-col",
-              "m-0 md:m-0", 
+              "m-0 md:m-0",
               isRideDetailsPanelMinimized ? "translate-y-[calc(100%-var(--peek-height,60px))]" : "translate-y-0"
             )}
             style={{ '--peek-height': '60px' } as React.CSSProperties}
@@ -1957,7 +1957,7 @@ export default function AvailableRidesPage() {
                   {showInProgressStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-green-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress </Badge> </div> )}
                   {showPendingWRApprovalStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-purple-500 text-white py-1 px-3 rounded-md shadow"> W&R Request Pending </Badge> </div> )}
                   {showInProgressWRStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className="font-bold text-xs w-fit mx-auto bg-teal-600 text-white py-1 px-3 rounded-md shadow"> Ride In Progress (W&R) </Badge> </div> )}
-      
+
                   <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
                     <Avatar className="h-7 w-7 md:h-8 md:h-8">
                       <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
@@ -2004,7 +2004,7 @@ export default function AvailableRidesPage() {
               <div className="p-2 border-t grid gap-1.5 shrink-0">
                 {showDriverAssignedStatus && (
                   <>
-                    <div className="grid grid-cols-1 gap-1.5"> 
+                    <div className="grid grid-cols-1 gap-1.5">
                       <Button className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Notify Arrival clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'notify_arrival')}} disabled={!!actionLoading[activeRide.id]}>
                         {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Notify Arrival
                       </Button>
@@ -2058,14 +2058,14 @@ export default function AvailableRidesPage() {
         {(!activeRide || showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
           <Card className={cn(
             "shrink-0 shadow-xl bg-card flex flex-col overflow-hidden",
-             "mt-2 max-h-48" 
+             "mt-2 max-h-48"
             )}>
             <ScrollArea className="flex-1">
               <CardContent className="p-2 space-y-1.5">
               {showCompletedStatus && ( <div className="flex justify-center my-3"> <Badge variant="default" className="font-bold text-base w-fit mx-auto bg-primary text-primary-foreground py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <CheckCircleIcon className="w-5 h-5" /> Ride Completed </Badge> </div> )}
               {showCancelledByDriverStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <XCircle className="w-5 h-5" /> Ride Cancelled By You </Badge> </div> )}
               {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
-    
+
               {activeRide && (showCompletedStatus || showCancelledNoShowStatus || showCancelledByDriverStatus) && (
                 <>
                 <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border"> <Avatar className="h-7 w-7 md:h-8 md:h-8"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar> <div className="flex-1"> <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p> {passengerPhone && ( <p className="font-bold text-xs text-muted-foreground flex items-center gap-0.5"> <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone} </p> )} </div> </div>
@@ -2133,7 +2133,7 @@ export default function AvailableRidesPage() {
         isOpen={isOfferModalOpen}
         onClose={() => {
             setIsOfferModalOpen(false);
-            setCurrentOfferDetails(null); 
+            setCurrentOfferDetails(null);
         }}
         onAccept={handleAcceptOffer}
         onDecline={handleDeclineOffer}
@@ -2167,7 +2167,7 @@ export default function AvailableRidesPage() {
                       className="w-full sm:w-auto mt-2"
                       onClick={() => {
                           if (activeRide) {
-                              setRideIdToCancel(activeRide.id);
+                              // setRideIdToCancel(activeRide.id); // This state seems unused for this dialog
                               setCancellationSuccess(false);
                               setShowCancelConfirmationDialog(true);
                           }
@@ -2265,7 +2265,7 @@ export default function AvailableRidesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-  
+
       <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
@@ -2320,14 +2320,14 @@ export default function AvailableRidesPage() {
                   let legType = "";
                   let Icon = MapPin;
                   let iconColor = "text-muted-foreground";
-  
+
                   if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
                   else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
                   else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
-  
+
                   return (
-                    <div 
-                      key={`modal-leg-${index}`} 
+                    <div
+                      key={`modal-leg-${index}`}
                       className={cn(
                         "p-2.5 rounded-md border",
                         isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card",
