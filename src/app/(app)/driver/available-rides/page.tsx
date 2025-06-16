@@ -293,6 +293,8 @@ export default function MyActiveRidePage() {
   const [currentRoutePolyline, setCurrentRoutePolyline] = useState<{ path: google.maps.LatLngLiteral[]; color: string; } | null>(null);
   const [driverMarkerHeading, setDriverMarkerHeading] = useState<number | null>(null);
 
+  const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
+
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
     resolver: zodResolver(editDetailsFormSchema),
@@ -366,7 +368,7 @@ export default function MyActiveRidePage() {
     if (!user) return;
     setError(null);
     try {
-      const response = await fetch(`/api/bookings/my-active-ride?passengerId=${user.id}`);
+      const response = await fetch(`/api/driver/active-ride?driverId=${user.id}`);
       if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`})); throw new Error(errorData.details || errorData.message); }
       const data: ActiveRide | null = await response.json();
       setActiveRide(data);
@@ -1033,6 +1035,7 @@ export default function MyActiveRidePage() {
     : 'Payment N/A';
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
+  const showDriverAssignedStatus = activeRide && ['driver_assigned'].includes(activeRide.status.toLowerCase());
   
   const CurrentNavigationLegBar = () => {
     if (!activeRide || !journeyPoints || journeyPoints.length === 0 || localCurrentLegIndex >= journeyPoints.length) {
@@ -1055,21 +1058,7 @@ export default function MyActiveRidePage() {
            <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700" title="View Full Journey Details" onClick={() => setIsJourneyDetailsModalOpen(true)}>
             <Info className="h-4 w-4" />
           </Button>
-           <Button 
-            variant="outline" 
-            size="icon" 
-            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
-            title="Open Navigation in Google Maps"
-            onClick={() => {
-                if (currentLeg?.coords) {
-                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLeg.coords.lat},${currentLeg.coords.lng}`, '_blank');
-                } else {
-                    toast({title: "Navigation Error", description: "Destination coordinates not available.", variant: "destructive"});
-                }
-            }}
-           >
-            <Navigation className="h-4 w-4" />
-          </Button>
+           {/* Navigation button removed as per user request in prior turns, keeping it off the bar */}
         </div>
       </div>
     );
@@ -1171,7 +1160,7 @@ export default function MyActiveRidePage() {
                     </Alert>
                   )}
                   
-                  {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
+                  {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/driver/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
                   <Separator />
                   <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
               </CardContent>
@@ -1182,79 +1171,202 @@ export default function MyActiveRidePage() {
 
       {activeRide && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase()) && (
         <footer className="p-3 border-t bg-card shadow-md sticky bottom-0 z-20">
-          {activeRide.status === 'pending_assignment' && (
+          {activeRide.status === 'driver_assigned' && (
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full" disabled={isUpdatingDetails || isEditingDisabled}>
-                <Edit className="mr-2 h-4 w-4" /> Edit Details
-              </Button>
-              <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen) { setRideIdToCancel(null); if (cancellationSuccess) { setActiveRide(null); setCancellationSuccess(false); } } }}>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    onClick={() => { setRideIdToCancel(activeRide.id); setCancellationSuccess(false); setShowCancelConfirmationDialog(true); }}
-                    disabled={!!actionLoading[activeRide.id]}
-                  >
-                    <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
-                  </Button>
-                </AlertDialogTrigger>
-                 <AlertDialogContent>
-                  <AlertDialogHeader> <AlertDialogTitle>Are you sure?</AlertDialogTitle> <AlertDialogDescription> This will cancel your ride request (ID: {rideIdToCancel || 'N/A'}). This action cannot be undone. </AlertDialogDescription> </AlertDialogHeader>
-                  <AlertDialogFooter> <AlertDialogCancel disabled={actionLoading[rideIdToCancel || '']}> Keep Ride </AlertDialogCancel> 
-                    <AlertDialogAction
-                        onClick={handleConfirmCancel}
-                        disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
-                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                    >
-                      {actionLoading[rideIdToCancel || ''] ? (
-                        <React.Fragment>
-                            <Loader2 key="loader-cancel" className="animate-spin h-4 w-4 mr-2" />
-                            <span>Cancelling...</span>
-                        </React.Fragment>
-                      ) : (
-                        <React.Fragment>
-                            <ShieldX key="icon-cancel" className="h-4 w-4 mr-2" />
-                            <span>Confirm Cancel</span>
-                        </React.Fragment>
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                <div className={cn(
+                    "flex flex-col items-center justify-center p-2 border rounded-md",
+                    isCancelSwitchOn ? "bg-destructive/10 border-destructive" : "bg-muted/30 hover:bg-muted/50"
+                )}>
+                    <Label htmlFor="cancel-switch" className={cn(
+                        "font-bold text-xs text-center",
+                        isCancelSwitchOn ? "text-destructive" : "text-muted-foreground"
+                    )}>
+                        Initiate Cancellation
+                    </Label>
+                    <Switch
+                        id="cancel-switch"
+                        checked={isCancelSwitchOn}
+                        onCheckedChange={(checked) => {
+                            setIsCancelSwitchOn(checked);
+                            if (checked) {
+                                setRideIdToCancel(activeRide.id);
+                                setShowCancelConfirmationDialog(true);
+                            } else {
+                                setShowCancelConfirmationDialog(false); 
+                            }
+                        }}
+                        className={cn(
+                            "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted mt-1",
+                             actionLoading[activeRide.id] && "opacity-50 pointer-events-none"
+                        )}
+                        disabled={actionLoading[activeRide.id]}
+                        aria-label="Initiate ride cancellation"
+                    />
+                </div>
+                <Button
+                    variant="default"
+                    className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
+                    onClick={() => {
+                        // Call API to notify driver of arrival
+                        if (activeRide) {
+                            fetch(`/api/operator/bookings/${activeRide.id}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'notify_arrival', driverCurrentLocation: user?.currentLocation }),
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if(data.booking) setActiveRide(data.booking);
+                                toast({title: "Driver Notified", description: "Driver has been informed you are ready/at pickup."});
+                            })
+                            .catch(err => toast({title: "Error Notifying Driver", description: err.message, variant: "destructive"}));
+                        }
+                    }}
+                    disabled={actionLoading[activeRide.id]}
+                >
+                    {actionLoading[activeRide.id] === true ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BellRing className="mr-2 h-4 w-4" />}
+                    Notify Arrival
+                </Button>
             </div>
           )}
-           {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && (
-            <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => handleAcknowledgeArrival(activeRide.id)}>
-              <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival
-            </Button>
+
+          {activeRide.status === 'arrived_at_pickup' && (
+            <div className="grid grid-cols-2 gap-2">
+                <Button 
+                    variant="default" 
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                    onClick={() => {
+                        if(activeRide) {
+                            fetch(`/api/operator/bookings/${activeRide.id}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'start_ride', updatedLegDetails: { newLegIndex: 1, currentLegEntryTimestamp: true }, driverCurrentLocation: user?.currentLocation }),
+                            })
+                            .then(res => res.json())
+                            .then(data => { if(data.booking) setActiveRide(data.booking); toast({title: "Ride Started!", description: "Your journey is now in progress."})})
+                            .catch(err => toast({title: "Error Starting Ride", description: err.message, variant: "destructive"}));
+                        }
+                    }}
+                    disabled={actionLoading[activeRide.id]}
+                >
+                     <Play className="mr-2 h-4 w-4" /> Start Ride
+                </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                         <Button variant="destructive" className="font-bold" disabled={actionLoading[activeRide.id]}>
+                            <UserXIcon className="mr-2 h-4 w-4" /> Report No Show
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>Report Passenger No-Show?</AlertDialogTitle><AlertDialogDescription>This will cancel the ride and may apply a no-show fee to the passenger. Only use if passenger has not appeared after a reasonable wait.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogAction className="bg-destructive hover:bg-destructive/80" onClick={() => {
+                                 if(activeRide) {
+                                    fetch(`/api/operator/bookings/${activeRide.id}`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ action: 'report_no_show' }),
+                                    })
+                                    .then(res => res.json())
+                                    .then(data => { if(data.booking) { setActiveRide(data.booking); } toast({title: "No-Show Reported", description: "Ride cancelled as no-show."})})
+                                    .catch(err => toast({title: "Error Reporting No-Show", description: err.message, variant: "destructive"}));
+                                }
+                            }}>Confirm No-Show</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
           )}
-          {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
-            <Button
+          
+          {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && localCurrentLegIndex < journeyPoints.length -1 && (
+             <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" 
+                    className="font-bold border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                    onClick={() => {
+                        if(activeRide) {
+                            const currentLeg = journeyPoints[localCurrentLegIndex];
+                            const nextLegIndex = localCurrentLegIndex + 1;
+                            const previousStopIndex = localCurrentLegIndex > 0 ? localCurrentLegIndex -1 : undefined; // -1 because stops are 0-indexed in booking.stops array, and leg 0 is pickup
+                            let waitingChargeForPreviousStop: number | undefined = undefined;
+                            
+                            // Calculate waiting charge if applicable
+                            if (previousStopIndex !== undefined && currentLeg.coords && activeRide.currentLegEntryTimestamp) {
+                               const arrivalAtStop = parseTimestampToDatePassenger(activeRide.currentLegEntryTimestamp);
+                               const departureFromStop = new Date();
+                               if (arrivalAtStop) {
+                                 const minutesWaitedAtStop = differenceInMinutes(departureFromStop, arrivalAtStop);
+                                 const chargeableWaitMinutes = Math.max(0, minutesWaitedAtStop - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR); // Assume W&R free time for stops too
+                                 waitingChargeForPreviousStop = chargeableWaitMinutes * WAITING_CHARGE_PER_MINUTE_PASSENGER;
+                               }
+                            }
+
+                            fetch(`/api/operator/bookings/${activeRide.id}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                    action: 'proceed_to_next_leg', 
+                                    updatedLegDetails: { 
+                                      newLegIndex: nextLegIndex, 
+                                      currentLegEntryTimestamp: true,
+                                      previousStopIndex: previousStopIndex,
+                                      waitingChargeForPreviousStop: waitingChargeForPreviousStop
+                                    },
+                                    driverCurrentLocation: user?.currentLocation
+                                }),
+                            })
+                            .then(res => res.json())
+                            .then(data => { if(data.booking) setActiveRide(data.booking); toast({title: "Navigating to Next Stop", description: `Now heading to ${journeyPoints[nextLegIndex]?.address || 'next destination'}.`})})
+                            .catch(err => toast({title: "Error Proceeding", description: err.message, variant: "destructive"}));
+                        }
+                    }}
+                    disabled={actionLoading[activeRide.id]}
+                >
+                  <Navigation className="mr-2 h-4 w-4" /> 
+                  { localCurrentLegIndex === 0 ? "Arrived at Pickup / Proceed" : `Arrived at Stop ${localCurrentLegIndex} / Proceed` }
+                </Button>
+                {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
+                    <Button
+                        variant="outline"
+                        className="w-full border-accent text-accent hover:bg-accent/10"
+                        onClick={() => setIsWRRequestDialogOpen(true)}
+                        disabled={isRequestingWR || actionLoading[activeRide.id] || activeRide.status.startsWith('pending_driver_wait_and_return')}
+                    >
+                        <RefreshCw className="mr-2 h-4 w-4" /> Request W&R
+                    </Button>
+                )}
+             </div>
+          )}
+          {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && localCurrentLegIndex >= journeyPoints.length -1 && (
+             <Button 
+                variant="default" 
+                className="bg-green-600 hover:bg-green-700 text-white font-bold w-full"
+                onClick={() => {
+                    if(activeRide) {
+                        fetch(`/api/operator/bookings/${activeRide.id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'complete_ride', finalFare: activeRide.fareEstimate, driverCurrentLocation: user?.currentLocation }), // Assuming current fare is final unless changed
+                        })
+                        .then(res => res.json())
+                        .then(data => { if(data.booking) setActiveRide(data.booking); toast({title: "Ride Completed!", description: "Well done! Ready for the next one."})})
+                        .catch(err => toast({title: "Error Completing Ride", description: err.message, variant: "destructive"}));
+                    }
+                }}
+                disabled={actionLoading[activeRide.id]}
+             >
+                <CheckCircle className="mr-2 h-4 w-4" /> Complete Ride
+             </Button>
+          )}
+
+          {(activeRide.status === 'completed' || activeRide.status.toLowerCase().startsWith('cancelled')) && (
+            <Button 
               variant="outline"
-              className="w-full border-accent text-accent hover:bg-accent/10"
-              onClick={() => setIsWRRequestDialogOpen(true)}
-              disabled={isRequestingWR || activeRide.status.startsWith('pending_driver_wait_and_return')}
+              className="w-full"
+              onClick={() => { setActiveRide(null); fetchActiveRide(); }}
             >
-              <RefreshCw className="mr-2 h-4 w-4" /> Request Wait & Return
+              <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Done / Find New Ride
             </Button>
-          )}
-          {activeRide.status === 'pending_driver_wait_and_return_approval' && (
-            <Alert variant="default" className="bg-purple-50 border-purple-300 text-purple-700">
-                <Timer className="h-5 w-5" />
-                <ShadAlertTitle className="font-semibold">Wait & Return Requested</ShadAlertTitle>
-                <ShadAlertDescriptionForAlert>
-                  Approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins wait. Awaiting driver confirmation.
-                </ShadAlertDescriptionForAlert>
-            </Alert>
-          )}
-          {activeRide.status === 'in_progress_wait_and_return' && (
-              <Alert variant="default" className="bg-teal-50 border-teal-300 text-teal-700">
-                <CheckCheck className="h-5 w-5" />
-                <ShadAlertTitle className="font-semibold">Wait & Return Active!</ShadAlertTitle>
-                <ShadAlertDescriptionForAlert>
-                  Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {fareDisplay}.
-                </ShadAlertDescriptionForAlert>
-            </Alert>
           )}
         </footer>
       )}
@@ -1367,3 +1479,4 @@ export default function MyActiveRidePage() {
   );
 }
 
+    
