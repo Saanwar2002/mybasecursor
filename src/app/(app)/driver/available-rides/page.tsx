@@ -1336,7 +1336,7 @@ export default function AvailableRidesPage() {
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
     const currentStatusLower = activeRide?.status?.toLowerCase();
-    const currentLegIdx = activeRide?.driverCurrentLegIndex;
+    const currentLegIdx = localCurrentLegIndex;
 
     const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
         ? driverLocation
@@ -1364,9 +1364,8 @@ export default function AvailableRidesPage() {
     }
     
     if (!activeRide) return { markers, labels };
-
-    // Only show pickup marker/label if driver is assigned or arrived at pickup. Hide once ride is in_progress.
-    if (activeRide.pickupLocation && (currentStatusLower === 'driver_assigned' || currentStatusLower === 'arrived_at_pickup')) {
+    
+    if (activeRide.pickupLocation && currentStatusLower === 'driver_assigned') {
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
             title: `Pickup: ${activeRide.pickupLocation.address}`,
@@ -1376,56 +1375,44 @@ export default function AvailableRidesPage() {
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
             content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
             type: 'pickup',
-            variant: (currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex > 0) ? 'compact' : 'default'
+            variant: 'default'
         });
     }
     
-    // Show stops and dropoff based on current leg index
-    if (currentStatusLower !== 'driver_assigned' && currentStatusLower !== 'pending_assignment') {
+    if (currentStatusLower && ['arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return', 'pending_driver_wait_and_return_approval'].includes(currentStatusLower)) {
         activeRide.stops?.forEach((stop, index) => {
-            const stopLegIndex = index + 1; // 0 is pickup, so stop 0 is leg 1
+            const stopLegIndex = index + 1;
             if(stop.latitude && stop.longitude) {
-                // Add marker for the current stop or any future stops
                 if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) {
                     markers.push({
                         position: {lat: stop.latitude, lng: stop.longitude},
                         title: `Stop ${index+1}: ${stop.address}`,
                         label: { text: `S${index+1}`, color: "white", fontWeight: "bold"}
                     });
-                }
-                 // Add label based on current leg, always for current, compact for others
-                if (currentStatusLower === 'arrived_at_pickup' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return' || currentStatusLower === 'pending_driver_wait_and_return_approval') {
-                   if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) {
-                        labels.push({
-                            position: { lat: stop.latitude, lng: stop.longitude },
-                            content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
-                            type: 'stop',
-                            variant: (localCurrentLegIndex === stopLegIndex && currentStatusLower !== 'arrived_at_pickup') ? 'default' : 'compact'
-                        });
-                    }
+                    labels.push({
+                        position: { lat: stop.latitude, lng: stop.longitude },
+                        content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+                        type: 'stop',
+                        variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact'
+                    });
                 }
             }
         });
 
         if (activeRide.dropoffLocation) {
             const dropoffLegIndex = (activeRide.stops?.length || 0) + 1;
-            // Add marker if it's the current or a future leg
             if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
                 markers.push({
                     position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
                     title: `Dropoff: ${activeRide.dropoffLocation.address}`,
                     label: { text: "D", color: "white", fontWeight: "bold"}
                 });
-            }
-            if (currentStatusLower === 'arrived_at_pickup' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return' || currentStatusLower === 'pending_driver_wait_and_return_approval') {
-                if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
-                    labels.push({
-                        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-                        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-                        type: 'dropoff',
-                        variant: (localCurrentLegIndex === dropoffLegIndex && currentStatusLower !== 'arrived_at_pickup') ? 'default' : 'compact'
-                    });
-                }
+                labels.push({
+                    position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+                    content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+                    type: 'dropoff',
+                    variant: (localCurrentLegIndex === dropoffLegIndex) ? 'default' : 'compact'
+                });
             }
         }
     }
@@ -2086,14 +2073,14 @@ export default function AvailableRidesPage() {
           <GoogleMapDisplay
             center={memoizedMapCenter}
             zoom={15}
+            mapHeading={0}
+            mapRotateControl={false}
             fitBoundsToMarkers={true}
             markers={mapDisplayElements.markers}
             customMapLabels={mapDisplayElements.labels}
             className="w-full h-full"
             disableDefaultUI={true}
             onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}
-            mapHeading={0} 
-            mapRotateControl={false}
             polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
             driverIconRotation={driverMarkerHeading ?? undefined}
           />
