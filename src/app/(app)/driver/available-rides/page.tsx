@@ -1049,9 +1049,7 @@ export default function AvailableRidesPage() {
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup') {
         if (!activeRide.accountJobPin) {
             toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
-            // Optionally, still open the dialog to allow manual override if that's a feature
-            // setIsAccountJobPinDialogOpen(true); 
-            return; // Prevent automatic start if PIN is absolutely required and missing
+            return; 
         }
         if (!isAccountJobPinDialogOpen) {
           setIsAccountJobPinDialogOpen(true);
@@ -1582,7 +1580,7 @@ export default function AvailableRidesPage() {
     }
     return { text: "Dispatched By App (Auto)", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
   };
-  const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser);
+  // const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser); // DISPATCH INFO IS REMOVED FROM DISPLAY HERE
 
 
   if (isLoading && !activeRide) {
@@ -2229,16 +2227,18 @@ export default function AvailableRidesPage() {
               </div>
             )}
           </div>
-          
-          {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="text-sm flex items-center justify-center gap-1">
-                  <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
-                </p>
+           {/* MOVED NOTES HERE and updated condition */}
+          {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+              <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
+                  <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
+                  <strong>Notes:</strong> {activeRide.notes}
+                  </p>
               </div>
           )}
+          
+          {/* REMOVED DISPATCH INFO BOX from here */}
 
-          {isPriorityPickup && !dispatchInfo?.text.toLowerCase().includes("priority") && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
+          {isPriorityPickup && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
               <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                   <Crown className="h-3.5 w-3.5" />
                   <ShadAlertTitle className="font-bold text-xs">Priority Booking</ShadAlertTitle>
@@ -2339,13 +2339,7 @@ export default function AvailableRidesPage() {
                   </>
                 )}
           </div>
-          {notes && !isRideInProgressOrFurther && (
-              <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-                  <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
-                  <strong>Notes:</strong> {notes}
-                  </p>
-              </div>
-          )}
+         
           {(showCompletedStatus || showCancelledNoShowStatus) && (
             <div className="mt-2 pt-2 border-t text-center">
               <p className="font-bold text-xs mb-0.5">Rate {passengerName || "Passenger"} (for {activeRide.requiredOperatorId || "N/A"}):</p>
@@ -2380,35 +2374,20 @@ export default function AvailableRidesPage() {
               </>
             )}
             {showArrivedAtPickupStatus && (
-              <div className="grid grid-cols-1 gap-1.5">
-                <Button 
-                  className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" 
-                  onClick={() => {
-                    if (activeRide.paymentMethod === 'account' && !activeRide.accountJobPin) {
-                        toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
-                        return; 
-                    }
-                    console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status, "Account Job Pin:", activeRide.accountJobPin); 
-                    handleRideAction(activeRide.id, 'start_ride');
-                  }} 
-                  disabled={!!actionLoading[activeRide.id]}
-                >
-                  {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride
-                </Button>
-                <Button
-                    variant="destructive"
-                    className="font-bold w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800"
-                    onClick={() => {
-                        setRideToReportNoShow(activeRide);
-                        setIsNoShowConfirmDialogOpen(true);
-                    }}
-                    disabled={!!actionLoading[activeRide.id]}
-                  >
-                    {actionLoading[activeRide.id] && activeRide.status === 'cancelled_no_show' ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <UserXIcon className="mr-1.5 h-4 w-4"/>}
-                    Report No Show
-                </Button>
-              </div>
-            )}
+              <div className="grid grid-cols-1 gap-1.5"> <div className="grid grid-cols-1 gap-1.5"> <Button className="font-bold w-full bg-green-600 hover:bg-green-700 text-sm text-white py-2 h-auto" onClick={() => {console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); handleRideAction(activeRide.id, 'start_ride')}} disabled={!!actionLoading[activeRide.id]}> {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-4 w-4" />}Start Ride </Button> </div>
+            <Button
+                variant="destructive"
+                className="font-bold w-full text-sm py-2 h-auto bg-red-700 hover:bg-red-800"
+                onClick={() => {
+                    setRideToReportNoShow(activeRide);
+                    setIsNoShowConfirmDialogOpen(true);
+                }}
+                disabled={!!actionLoading[activeRide.id]}
+              >
+                {actionLoading[activeRide.id] && activeRide.status === 'cancelled_no_show' ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <UserXIcon className="mr-1.5 h-4 w-4"/>}
+                Report No Show
+            </Button>
+            </div> )}
             {(showInProgressStatus || showInProgressWRStatus) && (
               <div className="grid grid-cols-1 gap-1.5">
                 <Button
