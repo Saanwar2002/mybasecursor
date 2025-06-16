@@ -90,6 +90,8 @@ interface ActiveRide {
   driverEtaMinutes?: number;
   waitAndReturn?: boolean; 
   estimatedAdditionalWaitTimeMinutes?: number; 
+  isPriorityPickup?: boolean; // Added from passenger active ride interface
+  priorityFeeAmount?: number; // Added from passenger active ride interface
 }
 
 const formatDate = (timestamp?: SerializedTimestamp | string | null, isoString?: string | null): string => {
@@ -953,12 +955,25 @@ export default function MyActiveRidePage() {
   const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
   const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
   
-  let fareDisplay = `£${(activeRide?.fareEstimate ?? 0).toFixed(2)}`;
-  if (activeRide?.status === 'in_progress_wait_and_return' || activeRide?.waitAndReturn) {
-    const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * WAITING_CHARGE_PER_MINUTE_PASSENGER;
-    const waitAndReturnBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
-    fareDisplay = `£${(waitAndReturnBaseFare + additionalWaitCharge).toFixed(2)} (W&R)`;
+
+  let finalFareDisplay = "£0.00";
+  let fareSuffix = "";
+  if (activeRide) {
+    let calculatedDisplayFare = activeRide.fareEstimate || 0;
+    
+    if (activeRide.status === 'in_progress_wait_and_return' || activeRide.waitAndReturn) {
+      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * WAITING_CHARGE_PER_MINUTE_PASSENGER;
+      const waitAndReturnBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+      calculatedDisplayFare = waitAndReturnBaseFare + additionalWaitCharge;
+      fareSuffix = " (W&R)";
+    }
+
+    if (activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0) {
+      calculatedDisplayFare += activeRide.priorityFeeAmount;
+    }
+    finalFareDisplay = `£${calculatedDisplayFare.toFixed(2)}${fareSuffix}`;
   }
+
 
   const paymentMethodDisplay = 
     activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)' 
@@ -1060,7 +1075,7 @@ export default function MyActiveRidePage() {
                 
                 {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
                 <Separator />
-                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {fareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
+                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> {finalFareDisplay}{activeRide.isSurgeApplied && <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>}</div> <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
                  {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && (
                    <Button
@@ -1086,7 +1101,7 @@ export default function MyActiveRidePage() {
                         <CheckCheck className="h-5 w-5" />
                         <ShadAlertTitle className="font-semibold">Wait & Return Active!</ShadAlertTitle>
                         <ShadAlertDescriptionForAlert>
-                          Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {fareDisplay}.
+                          Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {finalFareDisplay}.
                         </ShadAlertDescriptionForAlert>
                     </Alert>
                  )}
