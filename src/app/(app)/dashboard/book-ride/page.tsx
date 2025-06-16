@@ -206,6 +206,17 @@ const passengerLocationIconSvg = `
 `;
 const passengerLocationIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(passengerLocationIconSvg)}` : '';
 
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
+  <!-- Pin Needle (Black) -->
+  <path d="M15 45 L10 30 H20 Z" fill="black"/>
+  <!-- Blue Circle with Thick Black Border -->
+  <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
+  <!-- White Car Silhouette -->
+  <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
+  <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
+</svg>`;
+const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
+
 
 export default function BookRidePage() {
   const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
@@ -217,6 +228,7 @@ export default function BookRidePage() {
   const { user } = useAuth();
   const router = useRouter();
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
+  const [mockAvailableDriverMarkers, setMockAvailableDriverMarkers] = useState<MapMarker[]>([]); // New state for driver markers
 
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
@@ -518,6 +530,25 @@ export default function BookRidePage() {
         setIsMapSdkLoaded(false);
     });
   }, [toast]);
+
+  useEffect(() => {
+    // Generate mock available driver markers
+    const generatedMarkers: MapMarker[] = [];
+    const numMarkers = Math.floor(Math.random() * 3) + 3; // 3 to 5 markers
+    for (let i = 0; i < numMarkers; i++) {
+      generatedMarkers.push({
+        position: {
+          lat: huddersfieldCenter.lat + (Math.random() - 0.5) * 0.025, // Slightly wider spread
+          lng: huddersfieldCenter.lng + (Math.random() - 0.5) * 0.035,
+        },
+        title: `Available Taxi ${i + 1}`,
+        iconUrl: driverCarIconDataUrl,
+        iconScaledSize: { width: 30, height: 45 },
+      });
+    }
+    setMockAvailableDriverMarkers(generatedMarkers);
+  }, []);
+
 
   const handleManualGpsRequest = async () => {
     if (!isMapSdkLoaded || !navigator.geolocation || !geocoderRef.current) {
@@ -1043,7 +1074,7 @@ export default function BookRidePage() {
 
 
  useEffect(() => {
-    const newMarkers: MapMarker[] = [];
+    const newMarkers: MapMarker[] = [...mockAvailableDriverMarkers]; // Start with available driver markers
     if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
       newMarkers.push({
         position: suggestedGpsPickup.coords,
@@ -1079,7 +1110,7 @@ export default function BookRidePage() {
       }
     }
     setMapMarkers(newMarkers);
-  }, [showGpsSuggestionAlert, suggestedGpsPickup, pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
+  }, [showGpsSuggestionAlert, suggestedGpsPickup, pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops, mockAvailableDriverMarkers]);
 
 
   async function handleBookRide(values: BookingFormValues) {
@@ -1223,7 +1254,7 @@ export default function BookRidePage() {
       setEstimatedDurationMinutes(null);
       setIsSurgeActive(false);
       setCurrentSurgeMultiplier(1);
-      setMapMarkers([]);
+      // setMapMarkers([]); // Keep mock driver markers
       setPickupSuggestions([]);
       setDropoffSuggestions([]);
       setGeolocationFetchStatus('idle');
@@ -2706,6 +2737,7 @@ const handleProceedToConfirmation = async () => {
 
 
     
+
 
 
 

@@ -4,11 +4,11 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2, CheckCircle2, Smile, DollarSign as DollarSignIcon, Building } from 'lucide-react'; // Added Building
+import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2, CheckCircle2, Smile, DollarSign as DollarSignIcon, Building } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react'; // Added useMemo
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,11 +30,32 @@ const MOCK_OPERATORS = [
 
 type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
+// Define the driver car icon SVG and Data URL (copied from driver's available-rides page)
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
+  <!-- Pin Needle (Black) -->
+  <path d="M15 45 L10 30 H20 Z" fill="black"/>
+  <!-- Blue Circle with Thick Black Border -->
+  <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
+  <!-- White Car Silhouette -->
+  <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
+  <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
+</svg>`;
+
+const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
+
+interface MapMarker {
+  position: google.maps.LatLngLiteral;
+  title?: string;
+  iconUrl?: string;
+  iconScaledSize?: { width: number; height: number };
+}
+
 export default function PassengerDashboardPage() {
   const { user } = useAuth();
   const [bookingPreference, setBookingPreference] = useState<'app_chooses' | 'specific_operator'>('app_chooses');
   const [selectedOperator, setSelectedOperator] = useState<string>('');
   const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
+  const [mockDriverMarkers, setMockDriverMarkers] = useState<MapMarker[]>([]);
 
   const bookRideHref = bookingPreference === 'specific_operator' && selectedOperator
     ? `/dashboard/book-ride?operator_preference=${encodeURIComponent(selectedOperator)}`
@@ -47,8 +68,25 @@ export default function PassengerDashboardPage() {
       currentIndex = (currentIndex + 1) % busynessLevels.length;
       setMapBusynessLevel(busynessLevels[currentIndex]);
     }, 4000); 
+    return () => clearInterval(intervalId);
+  }, []);
 
-    return () => clearInterval(intervalId); 
+  useEffect(() => {
+    // Generate mock driver markers
+    const generatedMarkers: MapMarker[] = [];
+    const numMarkers = Math.floor(Math.random() * 3) + 3; // 3 to 5 markers
+    for (let i = 0; i < numMarkers; i++) {
+      generatedMarkers.push({
+        position: {
+          lat: huddersfieldCenter.lat + (Math.random() - 0.5) * 0.02, // Small offset
+          lng: huddersfieldCenter.lng + (Math.random() - 0.5) * 0.03, // Small offset
+        },
+        title: `Available Taxi ${i + 1}`,
+        iconUrl: driverCarIconDataUrl,
+        iconScaledSize: { width: 30, height: 45 },
+      });
+    }
+    setMockDriverMarkers(generatedMarkers);
   }, []);
 
   const mapContainerClasses = cn(
@@ -133,6 +171,7 @@ export default function PassengerDashboardPage() {
             <GoogleMapDisplay
               center={huddersfieldCenter}
               zoom={13}
+              markers={mockDriverMarkers}
               className="w-full h-full"
               disableDefaultUI={true}
             />
