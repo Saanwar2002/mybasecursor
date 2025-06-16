@@ -223,7 +223,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   if (street && !locationLine) { 
      return `${type}:\n${street}`;
   }
-  if (!street && !locationLine) { 
+  if (!street && locationLine) { 
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -858,7 +858,7 @@ export default function AvailableRidesPage() {
       jobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString(); 
     }
 
-    const offer: Omit<RideOffer, 'id' | 'displayBookingId' | 'originatingOperatorId'> = { // Base offer without IDs
+    const offer: Omit<RideOffer, 'id' | 'displayBookingId' | 'originatingOperatorId'> = { 
       pickupLocation: pickup.address,
       pickupCoords: pickup.coords,
       dropoffLocation: dropoff.address,
@@ -881,8 +881,9 @@ export default function AvailableRidesPage() {
     const mockOriginatingOperatorId = offer.requiredOperatorId || PLATFORM_OPERATOR_CODE;
     const mockDisplayPrefix = getOperatorPrefix(mockOriginatingOperatorId);
     
-    const now = Date.now();
-    const numericSuffix = now.toString().slice(-7) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const timestampPart = Date.now().toString().slice(-4); // Last 4 digits of timestamp
+    const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0'); // 2 random digits
+    const numericSuffix = `${timestampPart}${randomPart}`; // 6-digit numeric suffix
     const mockDisplayBookingId = `${mockDisplayPrefix}/${numericSuffix}`;
 
     const mockOfferWithDisplayId: RideOffer = {
@@ -2074,7 +2075,7 @@ export default function AvailableRidesPage() {
       {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
       <div className={cn(
         "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
-        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[calc(100%-10rem)]" // Adjust height when no active ride vs active
+        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[calc(100%-10rem)]" 
       )}>
           <GoogleMapDisplay
             center={memoizedMapCenter}
@@ -2111,7 +2112,7 @@ export default function AvailableRidesPage() {
                   </ShadAlertDialogTitleForDialog>
                   <ShadAlertDialogDescriptionForDialog className="text-base py-2">
                     Select a quick alert or send a general emergency notification.
-                    Your operator will be notified immediately.
+                    Your operator has been notified immediately.
                     <strong className="block mt-1">Use this for genuine emergencies only.</strong>
                   </ShadAlertDialogDescriptionForDialog>
                 </AlertDialogHeader>
@@ -2666,4 +2667,3 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-

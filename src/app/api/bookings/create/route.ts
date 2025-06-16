@@ -47,7 +47,7 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
     const numericPart = operatorCode.substring(2);
     if (/^\d{3,}$/.test(numericPart)) {
-      return numericPart.slice(0, 3); // Ensure it's exactly 3 digits
+      return numericPart.slice(0, 3); 
     }
   }
   return PLATFORM_OPERATOR_ID_PREFIX;
@@ -149,20 +149,21 @@ export async function POST(request: NextRequest) {
     const docRef = await addDoc(collection(db, 'bookings'), newBookingForFirestore);
     const firestoreDocId = docRef.id;
 
-    // Generate numeric suffix for displayBookingId
-    const now = Date.now();
-    const numericSuffix = now.toString().slice(-7) + Math.floor(Math.random() * 1000).toString().padStart(3, '0'); // 10-digit numeric string
+    // Generate numeric suffix for displayBookingId (shorter version)
+    const timestampPart = Date.now().toString().slice(-4); // Last 4 digits of timestamp
+    const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0'); // 2 random digits
+    const numericSuffix = `${timestampPart}${randomPart}`; // 6-digit numeric suffix
     
     const displayBookingId = `${displayBookingIdPrefix}/${numericSuffix}`;
 
     await updateDoc(doc(db, 'bookings', firestoreDocId), {
-      displayBookingId: displayBookingId
-      // originatingOperatorId is already part of newBookingForFirestore if it was set
+      displayBookingId: displayBookingId,
+      originatingOperatorId: originatingOperatorId, 
     });
 
     const responseData = { 
         ...newBookingForFirestore, 
-        bookingTimestamp: new Date().toISOString(), // For immediate response
+        bookingTimestamp: new Date().toISOString(), 
         displayBookingId: displayBookingId,
         originatingOperatorId: originatingOperatorId,
     };
