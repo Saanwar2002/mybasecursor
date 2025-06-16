@@ -1366,8 +1366,7 @@ export default function AvailableRidesPage() {
         }
     }
     
-    const showPickupMarkerAndLabel = currentStatusLower === 'driver_assigned' || currentStatusLower === 'arrived_at_pickup';
-    if (activeRide.pickupLocation && showPickupMarkerAndLabel) {
+    if (activeRide.pickupLocation && (currentStatusLower === 'driver_assigned' || currentStatusLower === 'arrived_at_pickup')) {
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
             title: `Pickup: ${activeRide.pickupLocation.address}`,
@@ -1377,7 +1376,7 @@ export default function AvailableRidesPage() {
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
             content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
             type: 'pickup',
-            variant: currentStatusLower === 'arrived_at_pickup' ? 'default' : 'compact'
+            variant: (currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0) ? 'default' : 'compact'
         });
     }
     
@@ -1415,7 +1414,7 @@ export default function AvailableRidesPage() {
                     position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
                     content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
                     type: 'dropoff',
-                    variant: (currentStatusLower === 'arrived_at_pickup' || localCurrentLegIndex === dropoffLegIndex) ? 'default' : 'compact'
+                    variant: (currentStatusLower === 'arrived_at_pickup' && localCurrentLegIndex === 0) || (localCurrentLegIndex === dropoffLegIndex) ? 'default' : 'compact'
                 });
             }
         }
@@ -1668,18 +1667,8 @@ export default function AvailableRidesPage() {
     );
   };
 
-
-  // Guarded access for variables used before the main `if (activeRide)` block in JSX
-  const currentActiveRideStatus = activeRide?.status;
-  const showCompletedStatus = currentActiveRideStatus === 'completed';
-  const showCancelledByDriverStatus = currentActiveRideStatus === 'cancelled_by_driver';
-  const showCancelledNoShowStatus = currentActiveRideStatus === 'cancelled_no_show';
-
-  // Define mainActionBtnText and mainActionBtnAction within the component scope,
-  // ensuring they handle the case where activeRide (and thus its properties) might be null if called inappropriately.
-  // However, their invocation in the JSX IS guarded by `if (activeRide)`.
   const mainButtonText = () => {
-    if (!activeRide) return "Status Action"; // Should not happen if called correctly
+    if (!activeRide) return "Status Action";
     const currentLegIdx = localCurrentLegIndex;
     if (activeRide.status === 'arrived_at_pickup') return "Start Ride";
     if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
@@ -1693,11 +1682,11 @@ export default function AvailableRidesPage() {
     if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
       return "Complete Ride";
     }
-    return "Status Action"; // Default
+    return "Status Action";
   };
 
-  const mainButtonAction = () => {
-    if (!activeRide) return; // Should not happen if called correctly
+  const mainActionBtnAction = () => {
+    if (!activeRide) return; 
     const currentLegIdx = localCurrentLegIndex;
     if (activeRide.status === 'arrived_at_pickup') {
       handleRideAction(activeRide.id, 'start_ride');
@@ -1713,10 +1702,12 @@ export default function AvailableRidesPage() {
         handleRideAction(activeRide.id, 'complete_ride');
     }
   };
-  
-  const mainActionBtnText = activeRide ? mainButtonText() : "Status Action";
-  // mainActionBtnAction is the function itself, to be passed to onClick
 
+  // Guarded access for variables used before the main `if (activeRide)` block in JSX
+  const currentActiveRideStatus = activeRide?.status;
+  const showCompletedStatus = currentActiveRideStatus === 'completed';
+  const showCancelledByDriverStatus = currentActiveRideStatus === 'cancelled_by_driver';
+  const showCancelledNoShowStatus = currentActiveRideStatus === 'cancelled_no_show';
 
   if (!activeRide) {
     const mapContainerClasses = cn( "relative h-[calc(100%-10rem)] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
@@ -2019,73 +2010,46 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-
-
+  
   // This is the main return block for the component when `activeRide` is not null
-  const {
-    status,
-    passengerName,
-    passengerPhone,
-    pickupLocation,
-    dropoffLocation,
-    stops,
-    fareEstimate,
-    passengerCount,
-    notes,
-    paymentMethod,
-    isPriorityPickup,
-    priorityFeeAmount,
-    waitAndReturn,
-    estimatedAdditionalWaitTimeMinutes,
-    accountJobPin,
-    distanceMiles
-  } = activeRide; // Destructure here, it's safe because activeRide is not null
-
-  const currentStatusNormalized = status?.toLowerCase();
-  const isChatDisabled = currentStatusNormalized?.includes('completed') ||
-    currentStatusNormalized?.includes('cancelled_by_driver') ||
-    currentStatusNormalized?.includes('cancelled_no_show') ||
-    currentStatusNormalized?.includes('cancelled_by_operator');
-
-
-  const showDriverAssignedStatus = status === 'driver_assigned';
-  const showArrivedAtPickupStatus = status === 'arrived_at_pickup';
-  const showInProgressStatus = status.toLowerCase() === 'in_progress';
-  const showPendingWRApprovalStatus = status === 'pending_driver_wait_and_return_approval';
-  const showInProgressWRStatus = status === 'in_progress_wait_and_return';
-  // const showCompletedStatus = status === 'completed'; // Already defined above
-  // const showCancelledByDriverStatus = status === 'cancelled_by_driver'; // Already defined above
-  // const showCancelledNoShowStatus = status === 'cancelled_no_show'; // Already defined above
+  const showDriverAssignedStatus = activeRide.status === 'driver_assigned';
+  const showArrivedAtPickupStatus = activeRide.status === 'arrived_at_pickup';
+  const showInProgressStatus = activeRide.status.toLowerCase() === 'in_progress';
+  const showPendingWRApprovalStatus = activeRide.status === 'pending_driver_wait_and_return_approval';
+  const showInProgressWRStatus = activeRide.status === 'in_progress_wait_and_return';
 
   const isRideInProgressOrFurther =
-      status.toLowerCase().includes('in_progress') ||
-      status.toLowerCase().includes('completed') ||
-      status.toLowerCase().includes('cancelled');
+      activeRide.status.toLowerCase().includes('in_progress') ||
+      activeRide.status.toLowerCase().includes('completed') ||
+      activeRide.status.toLowerCase().includes('cancelled');
 
+  // Calculate displayedFare and related variables here, inside the `if (activeRide)` block
+  let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
 
-  let baseFareWithWRSurcharge = fareEstimate || 0;
-  let finalFareDisplay = "";
-  let finalFareSuffix = "";
-
-  if (waitAndReturn) {
-    const wrBaseFare = (fareEstimate || 0) * 1.70;
-    const additionalWaitCharge = Math.max(0, (estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
-    baseFareWithWRSurcharge = wrBaseFare + additionalWaitCharge;
-    finalFareSuffix = " (Base + W&R)";
+  if (activeRide.waitAndReturn) {
+    const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+    const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
+    baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
   }
 
-  const totalIncludingPriority = baseFareWithWRSurcharge + (isPriorityPickup && priorityFeeAmount ? priorityFeeAmount : 0);
-  finalFareDisplay = `£${totalIncludingPriority.toFixed(2)}`;
+  const totalIncludingPriorityForDisplay = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
+  const displayedFare = `£${totalIncludingPriorityForDisplay.toFixed(2)}`;
 
+  const numericGrandTotal = totalIncludingPriorityForDisplay;
+  const hasPriority = activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0;
+  const priorityAmount = hasPriority && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
+  const basePlusWRFare = numericGrandTotal - priorityAmount;
 
   const paymentMethodDisplay = 
-    paymentMethod === 'card' ? 'Card' 
-    : paymentMethod === 'cash' ? 'Cash' 
-    : paymentMethod === 'account' ? 'Account'
+    activeRide.paymentMethod === 'card' ? 'Card' 
+    : activeRide.paymentMethod === 'cash' ? 'Cash' 
+    : activeRide.paymentMethod === 'account' ? 'Account'
     : 'Payment N/A';
 
-  const isEditingDisabled = status !== 'pending_assignment';
-  
+  const isEditingDisabled = activeRide.status !== 'pending_assignment';
+  const isChatDisabled = showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus || activeRide.status.toLowerCase().includes('cancelled_by_operator');
+
+
   return (
     <div className="flex flex-col h-full p-2 md:p-4">
       {isSpeedLimitFeatureEnabled &&
@@ -2219,7 +2183,6 @@ export default function AvailableRidesPage() {
           {showCancelledByDriverStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <XCircle className="w-5 h-5" /> Ride Cancelled By You </Badge> </div> )}
           {showCancelledNoShowStatus && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <UserXIcon className="w-5 h-5" /> Passenger No-Show </Badge> </div> )}
   
-          {activeRide && <>
             <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
               <Avatar className="h-7 w-7 md:h-8 md:h-8">
                   <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
@@ -2383,11 +2346,10 @@ export default function AvailableRidesPage() {
               </div>
             )}
             {(showCancelledByDriverStatus || showCancelledNoShowStatus) && ( <div className="mt-2 pt-2 border-t text-center"> <p className="font-bold text-xs text-muted-foreground">This ride was cancelled. You can now look for new offers.</p> </div> )}
-            </>}
             </CardContent>
           </ScrollArea>
   
-          {activeRide && !(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
+          {!(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
             <div className="p-2 border-t grid gap-1.5 shrink-0">
               {showDriverAssignedStatus && (
                 <>
@@ -2418,11 +2380,11 @@ export default function AvailableRidesPage() {
                 <div className="grid grid-cols-1 gap-1.5">
                   <Button
                     className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
-                    onClick={mainButtonAction}
+                    onClick={mainActionBtnAction}
                     disabled={!!actionLoading[activeRide.id]}
                   >
                     {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Navigation className="mr-1.5 h-4 w-4" />}
-                    {mainActionBtnText}
+                    {mainButtonText()}
                   </Button>
                   {showInProgressStatus && !activeRide.waitAndReturn && (
                     <Button
@@ -2438,7 +2400,7 @@ export default function AvailableRidesPage() {
               )}
             </div>
           )}
-           {activeRide && (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
+           {(showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) && (
                 <div className="p-2 border-t grid gap-1.5 shrink-0">
                    {showCompletedStatus && (
                     <div className="mb-1 text-center">
@@ -2693,3 +2655,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
