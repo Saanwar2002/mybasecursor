@@ -158,17 +158,25 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
     
     const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
     let street = parts[0] || "Location Details"; 
-    let area = parts[1] || ""; 
+    let area = ""; 
 
-    if (parts.length > 2 && area.length <=3) { 
-        area = parts[2];
-    } else if (parts.length === 1 && outwardPostcode && street === outwardPostcode) { 
-        street = "Area"; 
+    if (parts.length > 1) {
+      area = parts[1];
+      if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
+          street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
+      }
+    } else if (parts.length === 0 && outwardPostcode) {
+      street = "Area";
+    }
+
+
+    if (!area && parts.length > 2) {
+        area = parts.slice(1).join(', ');
     }
 
     let locationLine = area;
     if (outwardPostcode) {
-        locationLine = area ? `${area} ${outwardPostcode}` : outwardPostcode;
+        locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
     }
     
     if (street === "Location Details" && locationLine.trim()) street = "";
@@ -201,6 +209,24 @@ function getDistanceInMiles(coords1: google.maps.LatLngLiteral | null, coords2: 
   const d = R * c; 
   return d * 0.621371; 
 }
+
+const editDetailsFormSchema = z.object({
+  pickupDoorOrFlat: z.string().max(50).optional(),
+  pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
+  dropoffDoorOrFlat: z.string().max(50).optional(),
+  dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
+  stops: z.array(z.object({
+      doorOrFlat: z.string().max(50).optional(),
+      location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
+  })).optional(),
+  desiredPickupDate: z.date().optional(),
+  desiredPickupTime: z.string().optional(),
+}).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
+  message: "If scheduling, both date and time must be provided. For ASAP, leave both empty.", path: ["desiredPickupTime"],
+});
+
+type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
+type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
 
 
 export default function MyActiveRidePage() {
@@ -238,6 +264,7 @@ export default function MyActiveRidePage() {
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
 
   const driverLocation = useMemo(() => activeRide?.driverCurrentLocation || huddersfieldCenterGoogle, [activeRide?.driverCurrentLocation]);
 
@@ -263,6 +290,12 @@ export default function MyActiveRidePage() {
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
+  const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false); 
+  const localCurrentLegIndex = activeRide?.driverCurrentLegIndex ?? 0;
+  
+  const [currentRoutePolyline, setCurrentRoutePolyline] = useState<{ path: google.maps.LatLngLiteral[]; color: string; } | null>(null);
+  const [driverMarkerHeading, setDriverMarkerHeading] = useState<number | null>(null);
+
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
     resolver: zodResolver(editDetailsFormSchema),
@@ -286,6 +319,9 @@ export default function MyActiveRidePage() {
       }
       if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
+      }
+      if (!directionsServiceRef.current && window.google.maps.DirectionsService) {
+        directionsServiceRef.current = new window.google.maps.DirectionsService();
       }
     }
   }, [isMapSdkLoaded]);
@@ -781,6 +817,67 @@ export default function MyActiveRidePage() {
     }
   };
 
+  const journeyPoints = useMemo(() => {
+    if (!activeRide) return [];
+    const points = [activeRide.pickupLocation];
+    if (activeRide.stops) points.push(...activeRide.stops);
+    points.push(activeRide.dropoffLocation);
+    return points.map(p => ({ address: p.address, coords: { lat: p.latitude, lng: p.longitude } }));
+  }, [activeRide]);
+
+  useEffect(() => {
+    if (
+      isMapSdkLoaded &&
+      directionsServiceRef.current &&
+      activeRide &&
+      activeRide.driverCurrentLocation &&
+      journeyPoints.length > 0 &&
+      localCurrentLegIndex < journeyPoints.length
+    ) {
+      const origin = activeRide.driverCurrentLocation;
+      const destination = journeyPoints[localCurrentLegIndex].coords;
+      let routeColor = "#888888"; // Default grey
+
+      if (localCurrentLegIndex === 0) { // To Pickup
+        routeColor = "#00FF00"; // Green
+      } else if (localCurrentLegIndex === journeyPoints.length - 1) { // To final Dropoff
+        routeColor = "#FF0000"; // Red
+      } else { // To an intermediate Stop
+        routeColor = "#FFFF00"; // Yellow
+      }
+      
+      directionsServiceRef.current.route(
+        {
+          origin: new google.maps.LatLng(origin.lat, origin.lng),
+          destination: new google.maps.LatLng(destination.lat, destination.lng),
+          travelMode: google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === google.maps.DirectionsStatus.OK && result?.routes && result.routes.length > 0) {
+            const path = result.routes[0].overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
+            setCurrentRoutePolyline({ path, color: routeColor });
+
+            if (path.length > 1) {
+                const heading = google.maps.geometry.spherical.computeHeading(path[0], path[1]);
+                setDriverMarkerHeading(heading);
+            } else {
+                 setDriverMarkerHeading(null);
+            }
+
+          } else {
+            setCurrentRoutePolyline(null);
+            setDriverMarkerHeading(null);
+            console.warn(`Directions request failed due to ${status}`);
+          }
+        }
+      );
+    } else {
+      setCurrentRoutePolyline(null);
+      setDriverMarkerHeading(null);
+    }
+  }, [activeRide, localCurrentLegIndex, journeyPoints, isMapSdkLoaded, activeRide?.driverCurrentLocation]);
+
+
   const mapElements = useMemo(() => {
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
@@ -939,6 +1036,47 @@ export default function MyActiveRidePage() {
     : 'Payment N/A';
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
+  
+  const CurrentNavigationLegBar = () => {
+    if (!activeRide || !journeyPoints || journeyPoints.length === 0 || localCurrentLegIndex >= journeyPoints.length) {
+      return ( <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] p-2 bg-black/70 text-white rounded-lg shadow-xl text-xs md:text-sm text-center backdrop-blur-sm"> Preparing navigation... </div> );
+    }
+    const currentLeg = journeyPoints[localCurrentLegIndex];
+    const legType = 
+      localCurrentLegIndex === 0 ? "Pickup" :
+      localCurrentLegIndex === journeyPoints.length - 1 ? "Final Dropoff" :
+      `Stop ${localCurrentLegIndex}`;
+    const nextAddressShort = currentLeg.address.split(',')[0];
+
+    return (
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[1000] p-2 md:p-2.5 bg-black/75 text-white rounded-lg shadow-xl flex items-center gap-2 md:gap-3 backdrop-blur-sm max-w-[calc(100%-2rem)]">
+        <div className="flex-1 min-w-0">
+          <p className="text-[0.6rem] md:text-xs font-semibold uppercase tracking-wider text-blue-300">NEXT: {legType}</p>
+          <p className="text-xs md:text-sm font-bold truncate" title={currentLeg.address}>{nextAddressShort}</p>
+        </div>
+        <div className="flex items-start gap-1.5 shrink-0">
+           <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700" title="View Full Journey Details" onClick={() => setIsJourneyDetailsModalOpen(true)}>
+            <Info className="h-4 w-4" />
+          </Button>
+           <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            title="Open Navigation in Google Maps"
+            onClick={() => {
+                if (currentLeg?.coords) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLeg.coords.lat},${currentLeg.coords.lng}`, '_blank');
+                } else {
+                    toast({title: "Navigation Error", description: "Destination coordinates not available.", variant: "destructive"});
+                }
+            }}
+           >
+            <Navigation className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full"> {/* Main page container */}
@@ -956,8 +1094,13 @@ export default function MyActiveRidePage() {
                 className="h-full w-full" 
                 disableDefaultUI={true} 
                 fitBoundsToMarkers={true}
-                onSdkLoaded={setIsMapSdkLoaded} 
+                onSdkLoaded={setIsMapSdkLoaded}
+                mapHeading={0} 
+                mapRotateControl={false}
+                polylines={currentRoutePolyline ? [{ ...currentRoutePolyline, weight: 4, opacity: 0.7 }] : []}
+                driverIconRotation={driverMarkerHeading ?? undefined}
               />
+              <CurrentNavigationLegBar />
             </div>
 
             {showEndOfRideReminder && activeRide.status === 'in_progress' && (
@@ -980,7 +1123,7 @@ export default function MyActiveRidePage() {
 
             <Card className="shadow-md">
               <CardHeader className="flex flex-row justify-between items-start gap-2">
-                  <div> <CardTitle className="text-xl flex items-center gap-2"> <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay} </CardTitle> <CardDescription className="text-xs">{activeRide.scheduledPickupAt ? `Scheduled: ${formatDate(null, activeRide.scheduledPickupAt)}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}</CardDescription> </div>
+                  <div> <CardTitle className="text-xl flex items-center gap-2"> <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay} </CardTitle> <CardDescription className="text-xs">{activeRide.scheduledPickupAt ? `Scheduled: ${format(parseISO(activeRide.scheduledPickupAt), "MMM do, yyyy 'at' p")}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}</CardDescription> </div>
                   <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("text-xs sm:text-sm", getStatusBadgeClass(activeRide.status))}> {statusDisplay} </Badge>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1061,7 +1204,7 @@ export default function MyActiveRidePage() {
                 </AlertDialogTrigger>
                  <AlertDialogContent>
                   <AlertDialogHeader> <AlertDialogTitle>Are you sure?</AlertDialogTitle> <AlertDialogDescription> This will cancel your ride request (ID: {rideIdToCancel || 'N/A'}). This action cannot be undone. </AlertDialogDescription> </AlertDialogHeader>
-                  <AlertDialogFooter> <AlertDialogCancel disabled={actionLoading[rideIdToCancel || '']}> Keep Ride </AlertDialogCancel> <AlertDialogAction onClick={handleConfirmCancel} disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"> {actionLoading[rideIdToCancel || ''] ? ( <div className="flex items-center"><Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />Cancelling...</div> ) : ( <div className="flex items-center"><ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />Confirm Cancel</div> )} </AlertDialogAction> </AlertDialogFooter>
+                  <AlertDialogFooter> <AlertDialogCancel disabled={actionLoading[rideIdToCancel || '']}> Keep Ride </AlertDialogCancel> <AlertDialogAction onClick={handleConfirmCancel} disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"> <div className="flex items-center">{actionLoading[rideIdToCancel || ''] ? ( <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" /> ) : ( <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" /> )} {actionLoading[rideIdToCancel || ''] ? 'Cancelling...' : 'Confirm Cancel'} </div> </AlertDialogAction> </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
@@ -1177,35 +1320,25 @@ export default function MyActiveRidePage() {
        <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
           <DialogHeader className="p-6 pb-0"> 
-            <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle> 
+            <ShadDialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</ShadDialogTitle> 
             <ShadDialogDescriptionDialog> Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}). </ShadDialogDescriptionDialog> 
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] p-1 -mx-1">
             <div className="p-4 space-y-3">
-              {activeRide && activeRide.pickupLocation && (
-                <div className={cn( "p-2.5 rounded-md border", localCurrentLegIndex === 0 && "ring-2 ring-primary shadow-md")}>
-                  <p className={cn("font-bold flex items-center gap-2 text-green-500", localCurrentLegIndex !==0 && "text-muted-foreground line-through")}> <MapPin className="w-4 h-4 shrink-0" /> Pickup </p>
-                  <p className={cn("font-bold text-sm text-foreground pl-6", localCurrentLegIndex !==0 && "text-muted-foreground line-through")}> {activeRide.pickupLocation.address} </p>
-                  {activeRide.pickupLocation.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", localCurrentLegIndex !==0 && "line-through")}> (Unit/Flat: {activeRide.pickupLocation.doorOrFlat}) </p> )}
-                </div>
-              )}
-              {activeRide && activeRide.stops && activeRide.stops.map((point, index) => {
-                const legIndex = index + 1;
+              {activeRide && journeyPoints.map((point, index) => {
+                const isCurrentLeg = index === localCurrentLegIndex;
                 return (
-                  <div key={`modal-leg-${index}`} className={cn( "p-2.5 rounded-md border", localCurrentLegIndex === legIndex && "ring-2 ring-primary shadow-md")}>
-                    <p className={cn("font-bold flex items-center gap-2 text-blue-500", localCurrentLegIndex !== legIndex && "text-muted-foreground line-through")}> <MapPin className="w-4 h-4 shrink-0" /> Stop {index + 1} </p>
-                    <p className={cn("font-bold text-sm text-foreground pl-6", localCurrentLegIndex !== legIndex && "text-muted-foreground line-through")}> {point.address} </p>
-                    {point.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", localCurrentLegIndex !== legIndex && "line-through")}> (Unit/Flat: {point.doorOrFlat}) </p> )}
+                  <div key={`modal-leg-${index}`} className={cn( "p-2.5 rounded-md border", isCurrentLeg && "ring-2 ring-primary shadow-md")}>
+                    <p className={cn("font-bold flex items-center gap-2", 
+                      index === 0 && (isCurrentLeg ? "text-green-500" : "text-muted-foreground line-through"),
+                      index > 0 && index < journeyPoints.length - 1 && (isCurrentLeg ? "text-blue-500" : "text-muted-foreground line-through"),
+                      index === journeyPoints.length -1 && (isCurrentLeg ? "text-orange-500" : "text-muted-foreground line-through")
+                    )}> <MapPin className="w-4 h-4 shrink-0" /> {index === 0 ? "Pickup" : index === journeyPoints.length - 1 ? "Dropoff" : `Stop ${index}`} </p>
+                    <p className={cn("font-bold text-sm text-foreground pl-6", !isCurrentLeg && "text-muted-foreground line-through")}> {point.address} </p>
+                    {point.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", !isCurrentLeg && "line-through")}> (Unit/Flat: {point.doorOrFlat}) </p> )}
                   </div>
                 );
               })}
-              {activeRide && activeRide.dropoffLocation && (
-                 <div className={cn( "p-2.5 rounded-md border", localCurrentLegIndex === ((activeRide.stops?.length || 0) + 1) && "ring-2 ring-primary shadow-md")}>
-                  <p className={cn("font-bold flex items-center gap-2 text-orange-500", localCurrentLegIndex !== ((activeRide.stops?.length || 0) + 1) && "text-muted-foreground line-through")}> <MapPin className="w-4 h-4 shrink-0" /> Dropoff </p>
-                  <p className={cn("font-bold text-sm text-foreground pl-6", localCurrentLegIndex !== ((activeRide.stops?.length || 0) + 1) && "text-muted-foreground line-through")}> {activeRide.dropoffLocation.address} </p>
-                  {activeRide.dropoffLocation.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", localCurrentLegIndex !== ((activeRide.stops?.length || 0) + 1) && "line-through")}> (Unit/Flat: {activeRide.dropoffLocation.doorOrFlat}) </p> )}
-                </div>
-              )}
               {!activeRide && <p>No active ride details to display.</p>}
             </div>
           </ScrollArea>
@@ -1215,6 +1348,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
-
     
