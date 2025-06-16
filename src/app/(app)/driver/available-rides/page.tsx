@@ -136,7 +136,7 @@ const blueDotSvg = `
 const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
 
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; 
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 const STATIONARY_REMINDER_TIMEOUT_MS = 60000;
@@ -292,7 +292,7 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
     { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
 ];
 
-const getStatusBadgeVariant = (status: string | undefined): "default" | "secondary" | "destructive" | "outline" => {
+const getStatusBadgeVariantLocal = (status: string | undefined): "default" | "secondary" | "destructive" | "outline" => {
   if (!status) return 'secondary';
   switch (status.toLowerCase()) {
       case 'pending_assignment': return 'secondary';
@@ -309,7 +309,7 @@ const getStatusBadgeVariant = (status: string | undefined): "default" | "seconda
   }
 };
 
-const getStatusBadgeClass = (status: string | undefined): string => {
+const getStatusBadgeClassLocal = (status: string | undefined): string => {
   if (!status) return '';
   switch (status.toLowerCase()) {
       case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
@@ -409,9 +409,9 @@ export default function AvailableRidesPage() {
 
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
+  
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
-
-  const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
+  const [isLoadingAdminTasks, setIsLoadingAdminTasks] = useState(false);
 
 
   const journeyPoints = useMemo(() => {
@@ -547,6 +547,9 @@ export default function AvailableRidesPage() {
   }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
 
 
+  const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
+
+
   const memoizedMapCenter = useMemo(() => {
     if (shouldFitMapBounds && activeRide) {
       const currentTargetPoint = journeyPoints[localCurrentLegIndex];
@@ -561,9 +564,9 @@ export default function AvailableRidesPage() {
   }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, shouldFitMapBounds, currentRoutePolyline]);
 
   const mapZoomToUse = useMemo(() => {
-    if (shouldFitMapBounds) return undefined; 
-    if (!shouldFitMapBounds && currentRoutePolyline) return undefined; 
-    return 16; 
+    if (shouldFitMapBounds) return undefined;
+    if (!shouldFitMapBounds && currentRoutePolyline) return undefined;
+    return 16;
   }, [shouldFitMapBounds, currentRoutePolyline]);
 
 
@@ -662,7 +665,7 @@ export default function AvailableRidesPage() {
       const response = await fetch(`/api/driver/active-ride?driverId=${driverUser.id}`);
       console.log("fetchActiveRide response status:", response.status);
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}` }));
+        const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`}));
         throw new Error(errorData.details || errorData.message || `HTTP error ${response.status}`);
       }
       const data: ActiveRide | null = await response.json();
@@ -1622,7 +1625,7 @@ export default function AvailableRidesPage() {
       <div className={cn(
         "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
         bgColorClass,
-        "border-t-2 border-black/20 dark:border-white/20 z-10" // Ensure it's above map but below panel
+        "border-t-2 border-black/20 dark:border-white/20 z-10" 
       )}>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
@@ -1888,10 +1891,9 @@ export default function AvailableRidesPage() {
                 </ShadAlertDialogDescriptionForDialog>
               </AlertDialogHeader>
               <div className="grid grid-cols-2 gap-2 my-3">
-                  <Button onClick={() => handleQuickSOSAlert("Emergency")} className="font-bold bg-red-500 hover:bg-red-600 text-white border border-black" size="sm"><span>Emergency</span></Button>
-                  <Button onClick={() => handleQuickSOSAlert("Car Broken Down")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm"><span>Car Broken Down</span></Button>
-                  <Button onClick={() => handleQuickSOSAlert("Customer Aggressive")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm"><span>Customer Aggressive</span></Button>
-                  <Button onClick={() => handleQuickSOSAlert("Call Me Back")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm"><span>Call Me Back</span></Button>
+                  {hazardTypes.filter(h => ['Emergency', 'Car Broken Down', 'Customer Aggressive', 'Call Me Back'].includes(h.label)).map(hazard => (
+                      <Button key={hazard.id} onClick={() => handleQuickSOSAlert(hazard.label)} className={cn("font-bold", hazard.className)} size="sm"><span>{hazard.label}</span></Button>
+                  ))}
               </div>
               <AlertDialogFooter>
                 <AlertDialogCancel><span>Cancel</span></AlertDialogCancel>
@@ -1949,28 +1951,25 @@ export default function AvailableRidesPage() {
         </AlertDialog>
       </div>
       
-      {/* Floating Action Button for "JOB DETAIL" - only when minimized and activeRide exists */}
-      {activeRide && isRideDetailsPanelMinimized && (
+      {activeRide && isRideDetailsPanelMinimized && !isTerminalState(activeRide.status) && (
         <Button
           onClick={() => setIsRideDetailsPanelMinimized(false)}
-          className="fixed bottom-20 right-4 z-30 bg-primary hover:bg-primary/80 text-primary-foreground rounded-full shadow-lg h-12 px-4 flex items-center gap-2"
+          className="fixed bottom-16 right-4 z-30 bg-primary hover:bg-primary/80 text-primary-foreground rounded-full shadow-lg h-10 px-4 flex items-center gap-1.5 text-sm"
           aria-label="Show Job Details"
         >
-          <span className="font-semibold">JOB DETAIL</span>
-          <ChevronUp className="h-5 w-5" />
+          <span>JOB DETAIL</span>
+          <ChevronUp className="h-4 w-4" />
         </Button>
       )}
 
-      {/* Sliding Panel for Ride Details */}
       {activeRide && (
         <div
           className={cn(
             "absolute bottom-0 left-0 right-0 z-20 bg-card border-t-2 border-primary shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out flex flex-col",
-            "max-h-[70svh]", // Max height to not cover full screen
-            isRideDetailsPanelMinimized ? "translate-y-full" : "translate-y-0"
+            "max-h-[70svh]", 
+            isRideDetailsPanelMinimized && activeRide.status !== 'completed' && activeRide.status !== 'cancelled_by_driver' && activeRide.status !== 'cancelled_no_show' && activeRide.status !== 'cancelled_by_operator' ? "translate-y-full" : "translate-y-0"
           )}
         >
-          {/* Panel Header with Minimize Button */}
           <div 
             className="p-2 border-b cursor-pointer bg-muted/50 hover:bg-muted" 
             onClick={() => setIsRideDetailsPanelMinimized(true)}
@@ -2007,23 +2006,18 @@ export default function AvailableRidesPage() {
                 </div>
               ) : (
                 <>
-                  {/* Status Badge */}
-                  <div className="flex justify-center mb-1.5"> <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("font-bold text-xs w-fit mx-auto py-1 px-3 rounded-md shadow", getStatusBadgeClass(activeRide.status))}> {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} </Badge> </div>
-
-                  {/* Passenger Info */}
-                  <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border"> <Avatar className="h-7 w-7 md:h-8 md:h-8"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar> <div className="flex-1"> <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p> {passengerPhone && ( <p className="font-bold text-xs text-muted-foreground flex items-center gap-0.5"> <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone} </p> )} </div> {(!isTerminalState(activeRide.status)) && ( <div className="flex items-center gap-1"> {passengerPhone && !isChatDisabled && ( <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8"> <a href={`tel:${passengerPhone}`} aria-label="Call passenger"><span><PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" /></span></a> </Button> )} {isChatDisabled ? ( <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled> <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" /> </Button> ) : ( <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8"> <Link href="/driver/chat"><span><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></span></Link> </Button> )} </div> )} </div>
-                  
+                  <div className="flex justify-center mb-1.5"> <Badge variant={getStatusBadgeVariantLocal(activeRide.status)} className={cn("font-bold text-xs w-fit mx-auto py-1 px-3 rounded-md shadow", getStatusBadgeClassLocal(activeRide.status))}> {activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} </Badge> </div>
+                  <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border"> <Avatar className="h-7 w-7 md:h-8 md:h-8"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar> <div className="flex-1"> <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p> {passengerPhone && ( <p className="font-bold text-xs text-muted-foreground flex items-center gap-0.5"> <PhoneCall className="w-2.5 h-2.5"/> {passengerPhone} </p> )} </div> {(!isTerminalState(activeRide.status)) && ( <div className="flex items-center gap-1"> {passengerPhone && !isChatDisabled && ( <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8"> <a href={`tel:${passengerPhone}`} aria-label="Call passenger"><span><PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" /></span></a> </Button> )} {isChatDisabled ? ( <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled> <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" /> </Button> ) : ( <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8"> <Link href="/driver/chat"><span><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></span></Link> </Button> )} </div> )} </div>
                   {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && activeRide.status !== 'in_progress' && activeRide.status !== 'in_progress_wait_and_return' && ( <div className="my-1.5 p-2 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center shadow-sm"> <span className="text-xs text-purple-700 dark:text-purple-300 font-medium"> Account Job PIN: <strong className="text-sm font-bold tracking-wider text-purple-800 dark:text-purple-200">{activeRide.accountJobPin}</strong> </span> </div> )}
                   {activeRide.notes && ( <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400"> <p className="text-xs md:text-sm text-yellow-900 dark:text-yellow-200 font-bold whitespace-pre-wrap"> <strong>Notes:</strong> {activeRide.notes} </p> </div> )}
                   {activeRide.status === 'arrived_at_pickup' && ( <div className="p-2 border rounded-md bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700"> {ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && ( <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold">Awaiting passenger acknowledgment ({formatTimer(ackWindowSecondsLeft)} left)...</p> )} {(ackWindowSecondsLeft === null || ackWindowSecondsLeft === 0) && freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && ( <p className="text-xs text-green-600 dark:text-green-400 font-semibold">Free waiting time: {formatTimer(freeWaitingSecondsLeft)} remaining.</p> )} {extraWaitingSeconds !== null && extraWaitingSeconds > 0 && ( <p className="text-xs text-orange-600 dark:text-orange-400 font-semibold"> Extra waiting: {formatTimer(extraWaitingSeconds)}. Current Charge: £{currentWaitingCharge.toFixed(2)} </p> )} </div> )}
                   {currentStopTimerDisplay && ( <div className="p-2 border rounded-md bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700"> <p className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold"> At Stop {currentStopTimerDisplay.stopDataIndex + 1}: {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && ` Free wait: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)}.`} {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds > 0 && ` Extra wait: ${formatTimer(currentStopTimerDisplay.extraSeconds)}. Charge: £${currentStopTimerDisplay.charge.toFixed(2)}.`} </p> </div> )}
                   <div className="grid grid-cols-2 gap-1.5 text-xs mt-1.5"> <div className="flex items-center gap-1 text-muted-foreground"><DollarSign className="w-3 h-3 shrink-0"/>Fare (Est.): <span className="font-bold text-foreground">{displayedFare}</span></div> <div className="flex items-center gap-1 text-muted-foreground"><Users className="w-3 h-3 shrink-0"/>Pax: <span className="font-bold text-foreground">{activeRide.passengerCount}</span></div> <div className="flex items-center gap-1 text-muted-foreground"><Car className="w-3 h-3 shrink-0"/>Type: <span className="font-bold text-foreground capitalize">{activeRide.vehicleType}</span></div> <div className="flex items-center gap-1 text-muted-foreground"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-3 h-3"/> : activeRide.paymentMethod === 'cash' ? <Coins className="w-3 h-3"/> : <Briefcase className="w-3 h-3"/>} Pay: <span className="font-bold text-foreground capitalize">{activeRide.paymentMethod}</span> </div> </div>
-                  
-                  {activeRide.status === 'arrived_at_pickup' && ( <div className="grid grid-cols-2 gap-2 mt-1.5"> <AlertDialog> <AlertDialogTrigger asChild> <Button variant="destructive" size="sm" className="h-8 text-xs py-1" disabled={!!actionLoading[activeRide.id]}> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserXIcon className="h-4 w-4" />} <span>No Show</span> </Button> </AlertDialogTrigger> <AlertDialogContent><AlertDialogHeader><ShadAlertDialogTitleForDialog><span>Confirm Passenger No-Show?</span></ShadAlertDialogTitleForDialog><ShadAlertDialogDescriptionForDialog><span>This will cancel the ride and may incur a fee for the passenger.</span></ShadAlertDialogDescriptionForDialog></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel><span>Back</span></AlertDialogCancel><AlertDialogAction onClick={() => handleRideAction(activeRide.id, 'report_no_show')} className="bg-destructive hover:bg-destructive/90"><span className="font-bold">Confirm No Show</span></AlertDialogAction></AlertDialogFooter></AlertDialogContent> </AlertDialog> <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs py-1" onClick={mainActionBtnAction} disabled={!!actionLoading[activeRide.id]}> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <Play className="h-4 w-4"/>} <span>{mainActionBtnText}</span> </Button> </div> )}
-                  {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && ( <Button size="sm" className="w-full mt-1.5 bg-green-600 hover:bg-green-700 text-white h-8 text-xs py-1" onClick={mainActionBtnAction} disabled={!!actionLoading[activeRide.id]}> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <Play className="h-4 w-4"/>} <span>{mainActionBtnText}</span> </Button> )}
-                  {activeRide.status === 'driver_assigned' && !isStationaryReminderVisible && ( <Button size="sm" className="w-full mt-1.5 bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs py-1" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={!!actionLoading[activeRide.id]}> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <BellRing className="h-4 w-4"/>} <span>Notify Arrival</span> </Button> )}
+                  {activeRide.status === 'arrived_at_pickup' && ( <div className="grid grid-cols-2 gap-2 mt-1.5"> <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}> <AlertDialogTrigger asChild> <Button variant="destructive" size="sm" className="h-8 text-xs py-1" disabled={!!actionLoading[activeRide.id]} onClick={() => setRideToReportNoShow(activeRide)}> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserXIcon className="h-4 w-4" />} <span>No Show</span> </Button> </AlertDialogTrigger> <AlertDialogContent><AlertDialogHeader><ShadAlertDialogTitleForDialog><span>Confirm Passenger No-Show?</span></ShadAlertDialogTitleForDialog><ShadAlertDialogDescriptionForDialog><span>This will cancel the ride and may incur a fee for the passenger.</span></ShadAlertDialogDescriptionForDialog></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel><span>Back</span></AlertDialogCancel><AlertDialogAction onClick={() => { if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show'); setIsNoShowConfirmDialogOpen(false); }} className="bg-destructive hover:bg-destructive/90"><span className="font-bold">Confirm No Show</span></AlertDialogAction></AlertDialogFooter></AlertDialogContent> </AlertDialog> <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs py-1" onClick={mainActionBtnAction} disabled={!!actionLoading[activeRide.id]}><span> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <Play className="h-4 w-4"/>} <span>{mainActionBtnText}</span></span></Button> </div> )}
+                  {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && ( <Button size="sm" className="w-full mt-1.5 bg-green-600 hover:bg-green-700 text-white h-8 text-xs py-1" onClick={mainActionBtnAction} disabled={!!actionLoading[activeRide.id]}><span> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <Play className="h-4 w-4"/>} <span>{mainActionBtnText}</span></span> </Button> )}
+                  {activeRide.status === 'driver_assigned' && !isStationaryReminderVisible && ( <Button size="sm" className="w-full mt-1.5 bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs py-1" onClick={() => handleRideAction(activeRide.id, 'notify_arrival')} disabled={!!actionLoading[activeRide.id]}><span> {!!actionLoading[activeRide.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <BellRing className="h-4 w-4"/>} <span>Notify Arrival</span></span></Button> )}
                   {isStationaryReminderVisible && ( <Alert variant="default" className="my-1.5 p-2 bg-orange-100 border-orange-400 text-orange-700 dark:bg-orange-800/30 dark:border-orange-600 dark:text-orange-300 text-xs"> <Navigation className="h-4 w-4"/> <ShadAlertTitle className="font-bold"><span>Stationary Reminder</span></ShadAlertTitle> <ShadAlertDescription><span>Please proceed to pickup. If you are waiting, you can dismiss this.</span></ShadAlertDescription> <Button variant="outline" size="xs" className="mt-1 h-6 px-2 text-xs border-orange-500 text-orange-600 hover:bg-orange-100" onClick={() => setIsStationaryReminderVisible(false)}><span>Dismiss</span></Button> </Alert> )}
-                  {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && ( <Button variant="outline" className="w-full mt-1.5 border-accent text-accent hover:bg-accent/10 h-8 text-xs py-1" onClick={() => setIsWRRequestDialogOpen(true)} disabled={isRequestingWR || activeRide.status.startsWith('pending_driver_wait_and_return')}> <RefreshCw className="mr-1 h-3.5 w-3.5" /> <span>Request W&R</span> </Button> )}
+                  {activeRide.status === 'in_progress' && !activeRide.waitAndReturn && ( <Button variant="outline" className="w-full mt-1.5 border-accent text-accent hover:bg-accent/10 h-8 text-xs py-1" onClick={() => setIsWRRequestDialogOpen(true)} disabled={isRequestingWR || activeRide.status.startsWith('pending_driver_wait_and_return')}><span> <RefreshCw className="mr-1 h-3.5 w-3.5" /> <span>Request W&R</span> </span></Button> )}
                   {activeRide.status === 'pending_driver_wait_and_return_approval' && ( <Alert variant="default" className="bg-purple-50 border-purple-300 text-purple-700 mt-2"> <Timer className="h-5 w-5" /> <ShadAlertTitle className="font-semibold">Wait & Return Requested</ShadAlertTitle> <ShadAlertDescription> Your request for wait & return (approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins wait) is awaiting passenger confirmation. </ShadAlertDescription> </Alert> )}
                   {activeRide.status === 'in_progress_wait_and_return' && ( <Alert variant="default" className="bg-teal-50 border-teal-300 text-teal-700 mt-2"> <CheckCheck className="h-5 w-5" /> <ShadAlertTitle className="font-semibold">Wait & Return Active!</ShadAlertTitle> <ShadAlertDescription> Driver will wait approx. {activeRide.estimatedAdditionalWaitTimeMinutes} mins. New fare: {displayedFare}. </ShadAlertDescription> </Alert> )}
                   <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide?.id ?? '']} />
@@ -2031,8 +2025,7 @@ export default function AvailableRidesPage() {
               )}
             </div>
           </ScrollArea>
-          {/* Footer for the panel, only shows "Done" button when ride is completed */}
-          {activeRide.status === 'completed' && (
+          {(activeRide.status === 'completed' || activeRide.status.startsWith('cancelled')) && (
             <div className="p-2 border-t shrink-0">
               <Button
                 className="font-bold w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto"
@@ -2048,20 +2041,20 @@ export default function AvailableRidesPage() {
                   setActiveStopDetails(null);
                   setIsCancelSwitchOn(false);
                   setActiveRide(null);
-                  setIsRideDetailsPanelMinimized(true); // Minimize panel after done
+                  setIsRideDetailsPanelMinimized(true); 
                   setIsPollingEnabled(true);
                 }}
-                disabled={!!actionLoading[activeRide.id]}
+                disabled={!!actionLoading[activeRide.id] || (activeRide.status === 'completed' && isLoadingAdminTasks)}
               >
-                {(!!actionLoading[activeRide.id]) ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Check className="mr-1.5 h-4 w-4" />}
-                <span>Done</span>
+                <span>
+                  {(!!actionLoading[activeRide.id] || (activeRide.status === 'completed' && isLoadingAdminTasks)) ? <><Loader2 className="animate-spin mr-1.5 h-4 w-4" /><span>Processing...</span></> : <><Check className="mr-1.5 h-4 w-4" /><span>Done</span></>}
+                </span>
               </Button>
             </div>
           )}
         </div>
       )}
 
-      {/* Static Bottom Card for Online/Offline Toggle and Simulate Offer Button */}
       <Card className="shrink-0 shadow-xl bg-card border-t">
         <CardContent className="p-3 space-y-2">
           {!activeRide && !isLoading && (
@@ -2078,11 +2071,12 @@ export default function AvailableRidesPage() {
 
       <RideOfferModal isOpen={isOfferModalOpen} onClose={() => {setIsOfferModalOpen(false); setCurrentOfferDetails(null);}} onAccept={handleAcceptOffer} onDecline={handleDeclineOffer} rideDetails={currentOfferDetails} />
       <AlertDialog open={isStationaryReminderVisible} onOpenChange={setIsStationaryReminderVisible}> <AlertDialogContent> <AlertDialogHeader> <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"> <Navigation className="w-5 h-5 text-primary" /> <span>Time to Go!</span> </ShadAlertDialogTitleForDialog> <ShadAlertDialogDescriptionForDialog> <span>Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.</span> </ShadAlertDialogDescriptionForDialog> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}> <span>Okay, I&apos;m Going!</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
-      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); } }}> <AlertDialogContent> <AlertDialogHeader> <ShadAlertDialogTitleForDialog><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog> <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? !!actionLoading[activeRide.id] : false} ><span>Keep Ride</span></AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={!activeRide || (!!actionLoading[activeRide?.id ?? ''])} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"> <div className="flex items-center justify-center"> {activeRide && (!!actionLoading[activeRide.id]) ? ( <React.Fragment> <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" /> <span>Cancelling...</span> </React.Fragment> ) : ( <React.Fragment> <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" /> <span>Confirm Cancel</span> </React.Fragment> )} </div> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
+      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen && activeRide && isCancelSwitchOn) { setIsCancelSwitchOn(false); } }}> <AlertDialogContent> <AlertDialogHeader> <ShadAlertDialogTitleForDialog><span>Are you sure you want to cancel this ride?</span></ShadAlertDialogTitleForDialog> <ShadAlertDialogDescriptionForDialog><span>This action cannot be undone. The passenger will be notified.</span></ShadAlertDialogDescriptionForDialog> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => { setIsCancelSwitchOn(false); setShowCancelConfirmationDialog(false);}} disabled={activeRide ? !!actionLoading[activeRide.id] : false} ><span>Keep Ride</span></AlertDialogCancel> <AlertDialogAction onClick={() => { if (activeRide) { handleRideAction(activeRide.id, 'cancel_active'); } setShowCancelConfirmationDialog(false); }} disabled={!activeRide || (!!actionLoading[activeRide?.id ?? ''])} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"> <span> {activeRide && (!!actionLoading[activeRide.id]) ? ( <><Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" /> <span>Cancelling...</span></> ) : ( <><ShieldX key="icon-cancel" className="mr-2 h-4 w-4" /> <span>Confirm Cancel</span></> )} </span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
       <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}> <AlertDialogContent> <AlertDialogHeader> <ShadAlertDialogTitleForDialog className="font-bold text-destructive"><span>Confirm Passenger No-Show</span></ShadAlertDialogTitleForDialog> <ShadAlertDialogDescriptionForDialog> <span>Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger&apos;s account.</span> </ShadAlertDialogDescriptionForDialog> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel onClick={() => setIsNoShowConfirmDialogOpen(false)}><span>Back</span></AlertDialogCancel> <AlertDialogAction onClick={() => { if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show'); setIsNoShowConfirmDialogOpen(false); }} className="bg-destructive hover:bg-destructive/90"> <span className="font-bold">Confirm No-Show</span> </AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
-      <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}> <DialogContent className="sm:max-w-sm"> <DialogHeader> <DialogTitle className="font-bold text-xl flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> <span>Request Wait & Return</span></DialogTitle> <ShadDialogDescriptionDialog> <span>Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.</span> </ShadDialogDescriptionDialog> </DialogHeader> <div className="py-4 space-y-2"> <Label htmlFor="wr-wait-time-input" className="font-bold">Additional Wait Time (minutes)</Label> <Input id="wr-wait-time-input" type="number" min="0" value={wrRequestDialogMinutes} onChange={(e) => setWrRequestDialogMinutes(e.target.value)} placeholder="e.g., 15" disabled={isRequestingWR} /> </div> <DialogFooter> <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}> <span>Cancel</span> </Button> <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}> {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} <span>Request</span> </Button> </DialogFooter> </DialogContent> </Dialog>
+      <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}> <DialogContent className="sm:max-w-sm"> <DialogHeader> <DialogTitle className="font-bold text-xl flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> <span>Request Wait & Return</span></DialogTitle> <ShadDialogDescriptionDialog> <span>Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.</span> </ShadDialogDescriptionDialog> </DialogHeader> <div className="py-4 space-y-2"> <Label htmlFor="wr-wait-time-input" className="font-bold">Additional Wait Time (minutes)</Label> <Input id="wr-wait-time-input" type="number" min="0" value={wrRequestDialogMinutes} onChange={(e) => setWrRequestDialogMinutes(e.target.value)} placeholder="e.g., 15" disabled={isRequestingWR} /> </div> <DialogFooter> <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}> <span>Cancel</span> </Button> <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}> <span> {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} <span>Request</span> </span> </Button> </DialogFooter> </DialogContent> </Dialog>
       <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}> <DialogContent className="sm:max-w-xs"> <DialogHeader> <DialogTitle className="font-bold flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" /><span>Account Job PIN Required</span></DialogTitle> <ShadDialogDescriptionDialog> <span>Ask the passenger for their 4-digit Job PIN to start this account ride.</span> </ShadDialogDescriptionDialog> </DialogHeader> <div className="py-4 space-y-2"> <Label htmlFor="account-job-pin-input" className="font-bold">Enter 4-Digit Job PIN</Label> <Input id="account-job-pin-input" type="password" inputMode="numeric" maxLength={4} value={enteredAccountJobPin} onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} placeholder="••••" className="text-center text-xl tracking-[0.3em]" disabled={isVerifyingAccountJobPin} /> </div> <DialogFooter className="grid grid-cols-1 gap-2"> <div className="flex justify-between"> <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}> <span>Cancel</span> </Button> <Button type="button" onClick={verifyAndStartAccountJobRide} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}> <span className="flex items-center justify-center">{isVerifyingAccountJobPin ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /><span>Verifying...</span></>) : (<span>Verify & Start Ride</span>)}</span> </Button> </div> <Button type="button" variant="link" size="sm" className="font-bold text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}> <span>Problem with PIN? Start ride manually.</span> </Button> </DialogFooter> </DialogContent> </Dialog>
       <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}> <DialogContent className="sm:max-w-lg"> <DialogHeader> <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> <span>Full Journey Details</span></DialogTitle> <ShadDialogDescriptionDialog> <span>Overview of all legs for the current ride (ID: {activeRide?.displayBookingId || activeRide?.id || 'N/A'}).</span> </ShadDialogDescriptionDialog> </DialogHeader> <ScrollArea className="max-h-[60vh] p-1 -mx-1"> <div className="p-4 space-y-3"> {activeRide && journeyPoints.map((point, index) => { const isCurrentLeg = index === localCurrentLegIndex; const isPastLeg = index < localCurrentLegIndex; let legType = ""; let Icon = MapPin; let iconColor = "text-muted-foreground"; if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; } else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; } else { legType = `Stop ${index}`; iconColor = "text-blue-500"; } return ( <div key={`modal-leg-${index}`} className={cn( "p-2.5 rounded-md border", isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card", isCurrentLeg && "ring-2 ring-primary shadow-md" )} > <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}> <Icon className="w-4 h-4 shrink-0" /> <span>{legType}</span> </p> <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}> {point.address} </p> {point.doorOrFlat && ( <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}> (Unit/Flat: {point.doorOrFlat}) </p> )} </div> ); })} {!activeRide && <p>No active ride details to display.</p>} </div> </ScrollArea> <DialogFooter> <DialogClose asChild> <Button type="button" variant="secondary" className="font-bold"><span>Close</span></Button> </DialogClose> </DialogFooter> </DialogContent> </Dialog>
     </div>
   );
 }
+
