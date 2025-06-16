@@ -10,7 +10,7 @@ import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
-import { Badge } from "@/components/ui/badge";
+import { Badge } from '@/components/ui/badge';
 import { Separator } from "@/components/ui/separator";
 import Image from 'next/image';
 import {
@@ -91,7 +91,6 @@ interface ActiveRide {
   status: string;
   passengerCount: number;
   passengerRating?: number;
-  driverRatingForPassenger?: number | null;
   notes?: string;
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
@@ -313,7 +312,7 @@ export default function MyActiveRidePage() {
         placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
       }
       if (!autocompleteSessionTokenRef.current && window.google.maps.places) {
-        autocompleteSessionTokenRef.current = new window.google.maps.AutocompleteSessionToken();
+        autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
       }
       if (!geocoderRef.current && window.google.maps.Geocoder) {
         geocoderRef.current = new window.google.maps.Geocoder();
@@ -1077,7 +1076,7 @@ export default function MyActiveRidePage() {
   };
 
   return (
-    <div className="flex flex-col h-full"> {/* Main page container */}
+    <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2">
         <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live.</CardDescription> </CardHeader> </Card>
         {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride">Book a New Ride</Link> </Button> </CardContent> </Card> )}
@@ -1208,15 +1207,15 @@ export default function MyActiveRidePage() {
                         className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                     >
                       {actionLoading[rideIdToCancel || ''] ? (
-                        <span className="flex items-center justify-center">
+                        <React.Fragment>
                             <Loader2 key="loader-cancel" className="animate-spin h-4 w-4 mr-2" />
-                            Cancelling...
-                        </span>
+                            <span>Cancelling...</span>
+                        </React.Fragment>
                       ) : (
-                        <span className="flex items-center justify-center">
+                        <React.Fragment>
                             <ShieldX key="icon-cancel" className="h-4 w-4 mr-2" />
-                            Confirm Cancel
-                        </span>
+                            <span>Confirm Cancel</span>
+                        </React.Fragment>
                       )}
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -1367,3 +1366,4 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
+
