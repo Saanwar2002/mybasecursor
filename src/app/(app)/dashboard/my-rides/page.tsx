@@ -2,7 +2,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Renamed DialogDescription
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
@@ -68,7 +68,7 @@ interface Ride {
   isSurgeApplied?: boolean;
   notifiedPassengerArrivalTimestamp?: JsonTimestamp | null;
   passengerAcknowledgedArrivalTimestamp?: JsonTimestamp | null;
-  rideStartedAt?: JsonTimestamp | null; // Corrected from string to JsonTimestamp
+  rideStartedAt?: JsonTimestamp | null; 
   paymentMethod?: "card" | "cash";
 }
 
@@ -154,7 +154,7 @@ export default function MyRidesPage() {
     const loader = new Loader({ 
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, 
       version: "weekly", 
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"] // Standardized libraries
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"] 
     });
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
@@ -187,7 +187,6 @@ export default function MyRidesPage() {
   const submitRating = async () => {
     if (!selectedRideForRating || !user) return;
     
-    // Mock: Update local state and show toast
     setAllFetchedRides(prevRides => 
       prevRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r)
     );
@@ -201,8 +200,6 @@ export default function MyRidesPage() {
 
     setSelectedRideForRating(null);
     setCurrentRating(0);
-    // In a real app, you would send this to your backend:
-    // await api.submitRating(selectedRideForRating.id, user.id, currentRating, tipAmount);
   };
 
 
@@ -261,7 +258,11 @@ export default function MyRidesPage() {
           <Card key={ride.id} className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
-                <div><CardTitle className="text-xl flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> {ride.vehicleType?.charAt(0).toUpperCase() + ride.vehicleType?.slice(1).replace(/_/g, ' ') || 'Vehicle'}</CardTitle><CardDescription className="flex items-center gap-1 text-sm"><CalendarIconLucide className="w-4 h-4" /> Booked: {formatDate(ride.bookingTimestamp)}</CardDescription></div>
+                <div>
+                    <CardTitle className="text-xl flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> {ride.vehicleType?.charAt(0).toUpperCase() + ride.vehicleType?.slice(1).replace(/_/g, ' ') || 'Vehicle'}</CardTitle>
+                    <CardDescription className="flex items-center gap-1 text-sm"><CalendarIconLucide className="w-4 h-4" /> Booked: {formatDate(ride.bookingTimestamp)}</CardDescription>
+                    <CardDescription className="text-xs mt-1">ID: {ride.displayBookingId || ride.id}</CardDescription> {/* Added displayBookingId here */}
+                </div>
                 <Badge variant={
                     ride.status === 'completed' ? 'default' :
                     ride.status === 'cancelled' || ride.status === 'cancelled_by_driver' ? 'destructive' :
@@ -275,7 +276,6 @@ export default function MyRidesPage() {
                   {ride.status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}
                 </Badge>
               </div>
-              {ride.displayBookingId && <CardDescription className="text-xs mt-1">ID: {ride.displayBookingId}</CardDescription>}
             </CardHeader>
             <CardContent className="space-y-3">
               {ride.driver && (<div className="flex items-center gap-2"><Image src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver.charAt(0)}`} alt={ride.driver} width={40} height={40} className="rounded-full" data-ai-hint="driver avatar" /><div><p className="font-medium">{ride.driver}</p><p className="text-xs text-muted-foreground">Driver</p></div></div>)}
@@ -353,4 +353,5 @@ export default function MyRidesPage() {
 }
 
     
+
 
