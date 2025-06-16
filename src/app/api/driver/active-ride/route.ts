@@ -24,6 +24,8 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds
 
 interface ActiveDriverRide {
   id: string;
+  displayBookingId?: string; // Added
+  originatingOperatorId?: string; // Added
   passengerId: string;
   passengerName: string;
   passengerAvatar?: string;
@@ -55,8 +57,24 @@ interface ActiveDriverRide {
   estimatedAdditionalWaitTimeMinutes?: number;
   requiredOperatorId?: string;
   dispatchMethod?: RideOffer['dispatchMethod'];
-  accountJobPin?: string; // Added for one-time job PIN
-  distanceMiles?: number; 
+  accountJobPin?: string;
+  distanceMiles?: number;
+  driverCurrentLegIndex?: number; // Added
+  currentLegEntryTimestamp?: { _seconds: number; _nanoseconds: number } | null; // Added
+  completedStopWaitCharges?: Record<number, number>; // Added
+}
+
+const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
+const PLATFORM_OPERATOR_ID_PREFIX = "001";
+
+function getOperatorPrefix(operatorCode?: string | null): string {
+  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
+    const numericPart = operatorCode.substring(2);
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart;
+    }
+  }
+  return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
 export async function GET(request: NextRequest) {
@@ -75,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     const bookingsRef = collection(db, 'bookings');
     const activeDriverStatuses = [
-      'driver_assigned', 
+      'driver_assigned',
       'arrived_at_pickup',
       'in_progress',
       'pending_driver_wait_and_return_approval',
@@ -99,8 +117,18 @@ export async function GET(request: NextRequest) {
     const doc = querySnapshot.docs[0];
     const data = doc.data();
 
+    let displayBookingId = data.displayBookingId;
+    const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
+
+    if (!displayBookingId) {
+      const prefix = getOperatorPrefix(rideOriginatingOperatorId);
+      displayBookingId = `${prefix}/${doc.id}`;
+    }
+
     const activeRide: ActiveDriverRide = {
       id: doc.id,
+      displayBookingId: displayBookingId,
+      originatingOperatorId: rideOriginatingOperatorId,
       passengerId: data.passengerId,
       passengerName: data.passengerName || 'N/A',
       passengerAvatar: data.passengerAvatar,
@@ -132,8 +160,11 @@ export async function GET(request: NextRequest) {
       estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
       requiredOperatorId: data.requiredOperatorId,
       dispatchMethod: data.dispatchMethod,
-      accountJobPin: data.accountJobPin, // Ensure this is fetched
-      distanceMiles: data.offerDetails?.distanceMiles, 
+      accountJobPin: data.accountJobPin,
+      distanceMiles: data.offerDetails?.distanceMiles,
+      driverCurrentLegIndex: data.driverCurrentLegIndex, // Added
+      currentLegEntryTimestamp: serializeTimestamp(data.currentLegEntryTimestamp as Timestamp | undefined), // Added
+      completedStopWaitCharges: data.completedStopWaitCharges, // Added
     };
 
     return NextResponse.json(activeRide, { status: 200 });
@@ -154,7 +185,7 @@ export async function GET(request: NextRequest) {
         errorMessage = `Firebase error (${firebaseError.code}): ${error.message}`;
       }
     }
-    
+
     if (!(error instanceof Error)) {
         try {
             console.error("Full non-Error object received in /api/driver/active-ride catch block:", JSON.stringify(error, null, 2));

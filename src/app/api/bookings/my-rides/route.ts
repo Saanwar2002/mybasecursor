@@ -6,6 +6,8 @@ import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/
 
 interface Booking {
   id: string;
+  displayBookingId?: string; // Added
+  originatingOperatorId?: string; // Added
   passengerId: string;
   passengerName: string;
   pickupLocation: { address: string; latitude: number; longitude: number };
@@ -30,6 +32,19 @@ function serializeTimestamp(timestamp: Timestamp): { _seconds: number; _nanoseco
   };
 }
 
+const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
+const PLATFORM_OPERATOR_ID_PREFIX = "001";
+
+function getOperatorPrefix(operatorCode?: string | null): string {
+  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
+    const numericPart = operatorCode.substring(2);
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart;
+    }
+  }
+  return PLATFORM_OPERATOR_ID_PREFIX;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -38,11 +53,9 @@ export async function GET(request: NextRequest) {
     if (!passengerId) {
       return NextResponse.json({ message: 'passengerId query parameter is required.' }, { status: 400 });
     }
-    
+
     console.log(`API /my-rides: Received request for passengerId: ${passengerId}`);
 
-    // Moved the core logic into its own try-catch to maintain specific error messages if needed
-    // while the outer try-catch handles more general errors.
     try {
       const bookingsRef = collection(db, 'bookings');
       const q = query(
@@ -53,8 +66,8 @@ export async function GET(request: NextRequest) {
 
       const querySnapshot = await getDocs(q);
       console.log(`API /my-rides: Found ${querySnapshot.size} bookings for passengerId: ${passengerId}`);
-      
-      const rides: any[] = []; 
+
+      const rides: any[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         console.log(`API /my-rides: Processing doc ${doc.id}, raw bookingTimestamp from Firestore:`, data.bookingTimestamp);
@@ -67,13 +80,22 @@ export async function GET(request: NextRequest) {
           processedTimestamp = new Timestamp(data.bookingTimestamp.seconds, data.bookingTimestamp.nanoseconds);
         } else {
           console.warn(`API /my-rides: doc ${doc.id} has missing or malformed bookingTimestamp. Using current time as fallback. Value was:`, data.bookingTimestamp);
-          processedTimestamp = Timestamp.now(); 
+          processedTimestamp = Timestamp.now();
         }
-        
+
+        let displayBookingId = data.displayBookingId;
+        const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
+        if (!displayBookingId) {
+          const prefix = getOperatorPrefix(rideOriginatingOperatorId);
+          displayBookingId = `${prefix}/${doc.id}`;
+        }
+
         rides.push({
           id: doc.id,
           ...data,
-          bookingTimestamp: serializeTimestamp(processedTimestamp), 
+          displayBookingId: displayBookingId,
+          originatingOperatorId: rideOriginatingOperatorId,
+          bookingTimestamp: serializeTimestamp(processedTimestamp),
         });
       });
 
@@ -86,7 +108,7 @@ export async function GET(request: NextRequest) {
 
       if (dbError instanceof Error) {
           errorMessage = dbError.message;
-          const firebaseError = dbError as any; 
+          const firebaseError = dbError as any;
           if (firebaseError.code === 'failed-precondition' || (firebaseError.message && firebaseError.message.toLowerCase().includes('index'))) {
                errorDetails = `The query requires an index. You can create it here: ${firebaseError.message.substring(firebaseError.message.indexOf('https://'))} Firestore query failed. This often indicates a missing composite index. Please check the server-side logs (terminal running 'npm run dev') for a Firestore error message, which may include a URL to create the required index. Firestore error code: ${firebaseError.code || 'N/A'}.`;
           } else {
@@ -96,14 +118,13 @@ export async function GET(request: NextRequest) {
           errorMessage = dbError;
           errorDetails = dbError;
       }
-      
+
       return NextResponse.json({
         message: 'Failed to retrieve your rides. Please check server logs for more details, especially regarding Firestore indexes.',
         details: `${errorMessage} ${errorDetails}`.trim()
       }, { status: 500 });
     }
   } catch (error) {
-    // This is the top-level catch for any other unexpected errors
     console.error('Critical error in /api/bookings/my-rides GET handler:', error);
     let genericErrorMessage = 'An unexpected server error occurred.';
     if (error instanceof Error) {

@@ -39,6 +39,19 @@ const querySchema = z.object({
   passengerName: z.string().optional(),
 });
 
+const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
+const PLATFORM_OPERATOR_ID_PREFIX = "001";
+
+function getOperatorPrefix(operatorCode?: string | null): string {
+  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
+    const numericPart = operatorCode.substring(2);
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart;
+    }
+  }
+  return PLATFORM_OPERATOR_ID_PREFIX;
+}
+
 export async function GET(request: NextRequest) {
   // TODO: Implement authentication/authorization for operator role
 
@@ -116,8 +129,18 @@ export async function GET(request: NextRequest) {
 
     const bookings = querySnapshot.docs.map((doc) => {
       const data = doc.data();
+
+      let displayBookingId = data.displayBookingId;
+      const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
+      if (!displayBookingId) {
+        const prefix = getOperatorPrefix(rideOriginatingOperatorId);
+        displayBookingId = `${prefix}/${doc.id}`;
+      }
+
       return {
         id: doc.id,
+        displayBookingId: displayBookingId,
+        originatingOperatorId: rideOriginatingOperatorId,
         passengerId: data.passengerId,
         passengerName: data.passengerName,
         driverId: data.driverId,

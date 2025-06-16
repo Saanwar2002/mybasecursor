@@ -19,20 +19,22 @@ interface SerializedTimestamp {
 // Define the explicit structure for the API response
 interface ActiveRideForPassengerResponse {
   id: string;
+  displayBookingId?: string; // Added
+  originatingOperatorId?: string; // Added
   passengerName: string;
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops?: LocationPoint[];
   vehicleType: string;
-  passengers: number; 
-  driverId?: string; 
+  passengers: number;
+  driverId?: string;
   fareEstimate: number;
   status: string;
   driver?: string;
   driverAvatar?: string;
   driverVehicleDetails?: string;
-  isPriorityPickup?: boolean; // Ensured this is part of the interface
-  priorityFeeAmount?: number; // Ensured this is part of the interface
+  isPriorityPickup?: boolean;
+  priorityFeeAmount?: number;
   isSurgeApplied?: boolean;
   paymentMethod?: "card" | "cash" | "account";
   bookingTimestamp?: SerializedTimestamp | null;
@@ -40,11 +42,11 @@ interface ActiveRideForPassengerResponse {
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
-  driverCurrentLocation?: { lat: number; lng: number }; 
+  driverCurrentLocation?: { lat: number; lng: number };
   driverEtaMinutes?: number;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
-  accountJobPin?: string; 
+  accountJobPin?: string;
 }
 
 
@@ -65,6 +67,19 @@ function serializeTimestamp(timestamp: Timestamp | undefined | null): Serialized
   return null;
 }
 
+const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
+const PLATFORM_OPERATOR_ID_PREFIX = "001";
+
+function getOperatorPrefix(operatorCode?: string | null): string {
+  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
+    const numericPart = operatorCode.substring(2);
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart;
+    }
+  }
+  return PLATFORM_OPERATOR_ID_PREFIX;
+}
+
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -78,7 +93,7 @@ export async function GET(request: NextRequest) {
     const bookingsRef = collection(db, 'bookings');
     const activeStatuses = [
       'pending_assignment',
-      'driver_assigned', 
+      'driver_assigned',
       'arrived_at_pickup',
       'in_progress',
       'pending_driver_wait_and_return_approval',
@@ -116,23 +131,33 @@ export async function GET(request: NextRequest) {
         return null;
     };
 
+    let displayBookingId = data.displayBookingId;
+    const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
+
+    if (!displayBookingId) {
+      const prefix = getOperatorPrefix(rideOriginatingOperatorId);
+      displayBookingId = `${prefix}/${doc.id}`;
+    }
+
 
     const responseRide: ActiveRideForPassengerResponse = {
       id: doc.id,
+      displayBookingId: displayBookingId, // Added
+      originatingOperatorId: rideOriginatingOperatorId, // Added
       passengerName: data.passengerName,
       pickupLocation: data.pickupLocation,
       dropoffLocation: data.dropoffLocation,
       stops: data.stops,
       vehicleType: data.vehicleType,
-      passengers: data.passengers || 1, 
-      driverId: data.driverId, 
+      passengers: data.passengers || 1,
+      driverId: data.driverId,
       fareEstimate: data.fareEstimate,
       status: data.status,
-      driver: data.driverName, 
+      driver: data.driverName,
       driverAvatar: data.driverAvatar,
       driverVehicleDetails: data.driverVehicleDetails,
-      isPriorityPickup: data.isPriorityPickup || false, // Default to false
-      priorityFeeAmount: data.priorityFeeAmount || 0,   // Default to 0
+      isPriorityPickup: data.isPriorityPickup || false,
+      priorityFeeAmount: data.priorityFeeAmount || 0,
       isSurgeApplied: data.isSurgeApplied,
       paymentMethod: data.paymentMethod,
       bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
@@ -140,11 +165,11 @@ export async function GET(request: NextRequest) {
       notifiedPassengerArrivalTimestamp: processTimestampField(data.notifiedPassengerArrivalTimestampActual || data.notifiedPassengerArrivalTimestamp),
       passengerAcknowledgedArrivalTimestamp: processTimestampField(data.passengerAcknowledgedArrivalTimestampActual || data.passengerAcknowledgedArrivalTimestamp),
       rideStartedAt: processTimestampField(data.rideStartedAtActual || data.rideStartedAt),
-      driverCurrentLocation: data.driverCurrentLocation, 
+      driverCurrentLocation: data.driverCurrentLocation,
       driverEtaMinutes: data.driverEtaMinutes,
       waitAndReturn: data.waitAndReturn,
       estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
-      accountJobPin: data.accountJobPin, 
+      accountJobPin: data.accountJobPin,
     };
 
     return NextResponse.json(responseRide, { status: 200 });

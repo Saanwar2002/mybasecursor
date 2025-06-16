@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField, GeoPoint } from 'firebase/firestore'; // Added GeoPoint
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField, GeoPoint } from 'firebase/firestore';
 import { z } from 'zod';
 
 // Helper to serialize Timestamp for the response
@@ -31,15 +31,14 @@ const locationPointSchema = z.object({
 });
 
 const offerDetailsSchema = z.object({
-  id: z.string(), // mock offer ID
+  id: z.string(), 
   pickupLocation: z.string(),
   pickupCoords: z.object({ lat: z.number(), lng: z.number() }),
   dropoffLocation: z.string(),
   dropoffCoords: z.object({ lat: z.number(), lng: z.number() }),
-  stops: z.array(z.object({ // Structure of stops within an offer
+  stops: z.array(z.object({ 
     address: z.string(),
     coords: z.object({ lat: z.number(), lng: z.number() }),
-    // doorOrFlat could be added here if offers can specify it for stops
   })).optional(),
   fareEstimate: z.number(),
   passengerCount: z.number(),
@@ -80,12 +79,11 @@ const bookingUpdateSchema = z.object({
   noShowFeeApplicable: z.boolean().optional(),
   cancellationFeeApplicable: z.boolean().optional(),
   cancellationType: z.string().optional(),
-  // Added updatedLegDetails to Zod schema for server-side validation/awareness
   updatedLegDetails: z.object({
     newLegIndex: z.number().int().min(0),
-    currentLegEntryTimestamp: z.boolean().optional(), // True if client wants server to set it
-    previousStopIndex: z.number().int().min(0).optional(), // For proceeding from a stop
-    waitingChargeForPreviousStop: z.number().min(0).optional(), // For proceeding from a stop
+    currentLegEntryTimestamp: z.boolean().optional(),
+    previousStopIndex: z.number().int().min(0).optional(),
+    waitingChargeForPreviousStop: z.number().min(0).optional(),
   }).optional(),
 });
 
@@ -97,10 +95,23 @@ interface PostContext {
   };
 }
 
-// Function to generate a random 4-digit PIN
 function generateFourDigitPin(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
+
+const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001"; // Helper
+const PLATFORM_OPERATOR_ID_PREFIX = "001"; // Helper
+
+function getOperatorPrefix(operatorCode?: string | null): string { // Helper
+  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
+    const numericPart = operatorCode.substring(2);
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart;
+    }
+  }
+  return PLATFORM_OPERATOR_ID_PREFIX;
+}
+
 
 export async function POST(request: NextRequest, context: PostContext) {
   let bookingIdForHandler: string = "UNKNOWN_BOOKING_ID_CONTEXT_ERROR";
@@ -133,7 +144,7 @@ export async function POST(request: NextRequest, context: PostContext) {
     }
 
     const updateDataFromPayload = parsedPayload.data;
-    
+
     if (bookingIdForHandler.startsWith('mock-offer-')) {
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as mock offer acceptance. Validating offerDetails from raw payload.`);
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Raw payload.offerDetails:`, JSON.stringify(payload.offerDetails, null, 2));
@@ -146,28 +157,29 @@ export async function POST(request: NextRequest, context: PostContext) {
 
       const offer = offerDetailsParseResult.data;
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Successfully parsed offerDetails for mock offer. Proceeding to create booking. Parsed offer:`, JSON.stringify(offer, null, 2));
+      
+      const originatingOperatorId = offer.requiredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
+      const displayBookingIdPrefix = getOperatorPrefix(originatingOperatorId);
+
 
       const newBookingData: any = {
-        // Fields directly from offer
         passengerId: offer.passengerId,
         passengerName: offer.passengerName || 'Passenger',
         passengerPhone: offer.passengerPhone || null,
-        pickupLocation: { 
-            address: offer.pickupLocation, 
-            latitude: offer.pickupCoords.lat, 
-            longitude: offer.pickupCoords.lng 
+        pickupLocation: {
+            address: offer.pickupLocation,
+            latitude: offer.pickupCoords.lat,
+            longitude: offer.pickupCoords.lng
         },
-        dropoffLocation: { 
-            address: offer.dropoffLocation, 
-            latitude: offer.dropoffCoords.lat, 
-            longitude: offer.dropoffCoords.lng 
+        dropoffLocation: {
+            address: offer.dropoffLocation,
+            latitude: offer.dropoffCoords.lat,
+            longitude: offer.dropoffCoords.lng
         },
-        // Correctly map stops from offer structure to booking structure
         stops: offer.stops ? offer.stops.map(s => ({
           address: s.address,
           latitude: s.coords.lat,
           longitude: s.coords.lng,
-          // doorOrFlat: s.doorOrFlat, // Uncomment if RideOffer stops can have doorOrFlat
         })) : [],
         fareEstimate: offer.fareEstimate,
         passengers: offer.passengerCount,
@@ -179,31 +191,40 @@ export async function POST(request: NextRequest, context: PostContext) {
         dispatchMethod: offer.dispatchMethod ?? 'auto_system',
         accountJobPin: offer.accountJobPin ?? null,
         distanceMiles: offer.distanceMiles ?? null,
-        
-        // Fields from updateDataFromPayload (driver info & status)
         driverId: updateDataFromPayload.driverId ?? null,
         driverName: updateDataFromPayload.driverName ?? null,
         status: updateDataFromPayload.status ?? 'driver_assigned',
-        vehicleType: updateDataFromPayload.vehicleType ?? null, 
+        vehicleType: updateDataFromPayload.vehicleType ?? null,
         driverVehicleDetails: updateDataFromPayload.driverVehicleDetails ?? null,
         driverCurrentLocation: updateDataFromPayload.driverCurrentLocation
           ? new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng)
           : null,
-
-        // Firestore Timestamps
         bookingTimestamp: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        driverCurrentLegIndex: 0, // Initial leg is pickup
+        originatingOperatorId: originatingOperatorId, // Added
+        driverCurrentLegIndex: 0,
         currentLegEntryTimestamp: null,
         completedStopWaitCharges: {},
       };
       
+      if(newBookingData.paymentMethod === 'account' && !newBookingData.accountJobPin) {
+        newBookingData.accountJobPin = generateFourDigitPin();
+      }
+
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Data to be written to Firestore (addDoc):`, JSON.stringify(newBookingData, null, 2));
 
       try {
         const docRef = await addDoc(collection(db, 'bookings'), newBookingData);
-        console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: New booking created with ID: ${docRef.id} from mock offer.`);
-        
+        const newFirestoreId = docRef.id;
+        const finalDisplayBookingId = `${displayBookingIdPrefix}/${newFirestoreId}`;
+
+        // Update the new booking with its displayBookingId
+        await updateDoc(doc(db, 'bookings', newFirestoreId), {
+          displayBookingId: finalDisplayBookingId
+        });
+
+        console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: New booking created with ID: ${newFirestoreId}, Display ID: ${finalDisplayBookingId} from mock offer.`);
+
         const newBookingSnap = await getDoc(docRef);
         const newBookingSavedData = newBookingSnap.data();
         const responseData = {
@@ -227,14 +248,13 @@ export async function POST(request: NextRequest, context: PostContext) {
         if (addDocError.stack) {
             console.error("addDocError STACK:", addDocError.stack);
         }
-        return NextResponse.json({ 
-            message: 'Failed to create new booking in database.', 
-            details: details, 
-            code: addDocError.code || 'FIRESTORE_ADD_DOC_ERROR_UNKNOWN' 
+        return NextResponse.json({
+            message: 'Failed to create new booking in database.',
+            details: details,
+            code: addDocError.code || 'FIRESTORE_ADD_DOC_ERROR_UNKNOWN'
         }, { status: 500 });
       }
     } else {
-      // This is an update to an existing booking
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Handling as update to existing booking.`);
       const bookingRef = doc(db, 'bookings', bookingIdForHandler);
       const bookingSnap = await getDoc(bookingRef);
@@ -246,7 +266,7 @@ export async function POST(request: NextRequest, context: PostContext) {
 
       const updatePayloadFirestore: any = { ...updateDataFromPayload };
       delete updatePayloadFirestore.action;
-      delete updatePayloadFirestore.offerDetails; 
+      delete updatePayloadFirestore.offerDetails;
 
       const existingBookingDbData = bookingSnap.data();
 
@@ -273,8 +293,7 @@ export async function POST(request: NextRequest, context: PostContext) {
               updatePayloadFirestore.driverCurrentLegIndex = updateDataFromPayload.updatedLegDetails.newLegIndex;
               console.log(`API: Set driverCurrentLegIndex to ${updatePayloadFirestore.driverCurrentLegIndex} for 'start_ride'`);
           } else {
-              // Fallback if not provided, though client should send it
-              updatePayloadFirestore.driverCurrentLegIndex = 1; 
+              updatePayloadFirestore.driverCurrentLegIndex = 1;
               console.warn(`API: 'start_ride' - updatedLegDetails.newLegIndex not provided by client for ${bookingIdForHandler}. Defaulting driverCurrentLegIndex to 1.`);
           }
           if (updateDataFromPayload.updatedLegDetails?.currentLegEntryTimestamp === true || !existingBookingDbData?.currentLegEntryTimestamp) {
@@ -293,7 +312,6 @@ export async function POST(request: NextRequest, context: PostContext) {
               }
               console.log(`API: Set driverCurrentLegIndex to ${updatePayloadFirestore.driverCurrentLegIndex} and currentLegEntryTimestamp for 'proceed_to_next_leg'`);
 
-              // Store waiting charge for the *previous* stop
               if (updateDataFromPayload.updatedLegDetails.previousStopIndex !== undefined && updateDataFromPayload.updatedLegDetails.waitingChargeForPreviousStop !== undefined) {
                 const chargeKey = `completedStopWaitCharges.${updateDataFromPayload.updatedLegDetails.previousStopIndex}`;
                 updatePayloadFirestore[chargeKey] = updateDataFromPayload.updatedLegDetails.waitingChargeForPreviousStop;
@@ -311,8 +329,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           if (updateDataFromPayload.finalFare !== undefined) {
               updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare;
           }
-          updatePayloadFirestore.currentLegEntryTimestamp = deleteField(); // Clear leg entry time
-          // driverCurrentLegIndex could be cleared or set to a "completed" sentinel if needed
+          updatePayloadFirestore.currentLegEntryTimestamp = deleteField();
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
           updatePayloadFirestore.cancelledAt = Timestamp.now();
@@ -339,7 +356,7 @@ export async function POST(request: NextRequest, context: PostContext) {
       } else if (updateDataFromPayload.status) {
           updatePayloadFirestore.status = updateDataFromPayload.status;
       }
-      
+
       if (updateDataFromPayload.driverCurrentLocation && !updatePayloadFirestore.driverCurrentLocation) {
         updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
       }
@@ -378,7 +395,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           rideStartedAt: serializeTimestamp(updatedData.rideStartedAtActual as Timestamp | undefined),
           completedAt: serializeTimestamp(updatedData.completedAtActual as Timestamp | undefined),
           currentLegEntryTimestamp: serializeTimestamp(updatedData.currentLegEntryTimestamp as Timestamp | undefined),
-          driverCurrentLocation: updatedData.driverCurrentLocation, // This will be the GeoPoint object or null
+          driverCurrentLocation: updatedData.driverCurrentLocation,
       };
 
       console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Update successful. Returning:`, JSON.stringify(responseData, null, 2));
@@ -440,8 +457,18 @@ export async function GET(request: NextRequest, context: GetContext) {
       return NextResponse.json({ message: 'Booking not found.' , details: `No booking found with ID ${bookingId}`}, { status: 404 });
     }
     const data = bookingSnap.data();
+
+    let displayBookingId = data.displayBookingId;
+    const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
+    if (!displayBookingId) {
+      const prefix = getOperatorPrefix(rideOriginatingOperatorId);
+      displayBookingId = `${prefix}/${bookingSnap.id}`;
+    }
+
      const responseData = {
         id: bookingSnap.id,
+        displayBookingId: displayBookingId,
+        originatingOperatorId: rideOriginatingOperatorId,
         ...data,
         bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
         scheduledPickupAt: data.scheduledPickupAt || null,
@@ -451,7 +478,7 @@ export async function GET(request: NextRequest, context: GetContext) {
         rideStartedAt: serializeTimestamp(data.rideStartedAtActual as Timestamp | undefined),
         completedAt: serializeTimestamp(data.completedAtActual as Timestamp | undefined),
         currentLegEntryTimestamp: serializeTimestamp(data.currentLegEntryTimestamp as Timestamp | undefined),
-        driverCurrentLocation: data.driverCurrentLocation, // This will be the GeoPoint object or null
+        driverCurrentLocation: data.driverCurrentLocation,
     };
     return NextResponse.json({ booking: responseData }, { status: 200 });
   } catch (error: any) {
@@ -461,4 +488,3 @@ export async function GET(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: "Server Error During GET", details: errorMessage, rawError: errorDetails }, { status: 500 });
   }
 }
-
