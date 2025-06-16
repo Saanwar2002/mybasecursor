@@ -284,7 +284,7 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
 ];
 
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // 3 minutes
 const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 const STATIONARY_REMINDER_TIMEOUT_MS = 60000;
@@ -1530,6 +1530,32 @@ export default function AvailableRidesPage() {
     }
   };
 
+  const getStatusBadgeVariant = (status: string | undefined) => {
+    if (!status) return 'secondary';
+    switch (status.toLowerCase()) {
+        case 'pending_assignment': return 'secondary';
+        case 'driver_assigned': return 'default';
+        case 'arrived_at_pickup': return 'outline';
+        case 'in_progress': return 'default';
+        case 'pending_driver_wait_and_return_approval': return 'secondary';
+        case 'in_progress_wait_and_return': return 'default';
+        default: return 'secondary';
+    }
+  };
+
+  const getStatusBadgeClass = (status: string | undefined) => {
+    if (!status) return '';
+    switch (status.toLowerCase()) {
+        case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
+        case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
+        case 'arrived_at_pickup': return 'border-blue-500 text-blue-500 hover:bg-blue-500/10';
+        case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
+        case 'pending_driver_wait_and_return_approval': return 'bg-purple-400/80 text-purple-900 hover:bg-purple-400/70';
+        case 'in_progress_wait_and_return': return 'bg-teal-500 text-white hover:bg-teal-600';
+        default: return '';
+    }
+  };
+
   const isTerminalState = (status?: string) => status && ['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show', 'cancelled_by_operator'].includes(status.toLowerCase());
 
   if (isLoading && !activeRide) {
@@ -1793,6 +1819,7 @@ export default function AvailableRidesPage() {
     currentPriorityAmount = hasPriority ? activeRide.priorityFeeAmount! : 0;
     basePlusWRFare = numericGrandTotal - currentPriorityAmount;
   }
+
   return (
     <div className="flex flex-col h-full">
       {isSpeedLimitFeatureEnabled &&
@@ -1941,7 +1968,7 @@ export default function AvailableRidesPage() {
                         <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
                       </Button>
                     ) : (
-                      <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+                      <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8">
                         <Link href="/driver/chat"><span><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></span></Link>
                       </Button>
                     )}
@@ -2080,3 +2107,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
