@@ -282,10 +282,10 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
     { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
 ];
 
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // Renamed from _PASSENGER
-const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20; // Renamed from _PASSENGER
-const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30; // Added this constant
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10; // Added _DRIVER suffix
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
+const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 const STATIONARY_REMINDER_TIMEOUT_MS = 60000;
 const MOVEMENT_THRESHOLD_METERS = 50;
 const STOP_FREE_WAITING_TIME_SECONDS = 3 * 60;
@@ -508,12 +508,6 @@ export default function AvailableRidesPage() {
     return { markers, labels };
   }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
 
-  const mapZoomToUse = useMemo(() => {
-    if (shouldFitMapBounds) return undefined; // Let fitBounds control zoom
-    if (!shouldFitMapBounds && currentRoutePolyline) return undefined; // Let map retain zoom from fitBounds
-    return 16; // Default zoom for idle driver
-  }, [shouldFitMapBounds, currentRoutePolyline]);
-
   const memoizedMapCenter = useMemo(() => {
     if (shouldFitMapBounds && activeRide) {
         const currentTargetPoint = journeyPoints[localCurrentLegIndex];
@@ -524,9 +518,14 @@ export default function AvailableRidesPage() {
     if (!shouldFitMapBounds && currentRoutePolyline) {
         return undefined; // Allow map to retain its current center
     }
-    // Default: if no active ride, or if not fitting bounds and no route, center on driver
     return driverLocation || (activeRide?.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
   }, [activeRide?.pickupLocation, driverLocation, journeyPoints, localCurrentLegIndex, shouldFitMapBounds, currentRoutePolyline]);
+
+  const mapZoomToUse = useMemo(() => {
+    if (shouldFitMapBounds) return undefined;
+    if (!shouldFitMapBounds && currentRoutePolyline) return undefined;
+    return 16;
+  }, [shouldFitMapBounds, currentRoutePolyline]);
 
 
   useEffect(() => {
@@ -1580,7 +1579,7 @@ export default function AvailableRidesPage() {
       <div className={cn(
         "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
         bgColorClass,
-        "border-t-2 border-black/20 dark:border-white/20 z-10" // Ensure it's above map but below modals/panel handle
+        "border-t-2 border-black/20 dark:border-white/20 z-10" 
       )}>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
@@ -1928,18 +1927,18 @@ export default function AvailableRidesPage() {
               "absolute bottom-0 left-0 right-0 bg-card/90 backdrop-blur-sm border-t rounded-t-xl shadow-[0_-8px_16px_-4px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out z-20",
               "max-h-[70svh] md:max-h-[65svh] flex flex-col",
               "m-0 md:m-0",
-              isRideDetailsPanelMinimized ? "translate-y-[calc(100%-var(--peek-height,60px))]" : "translate-y-0"
+              isRideDetailsPanelMinimized ? "translate-y-[calc(100%-var(--peek-height,48px))]" : "translate-y-0"
             )}
-            style={{ '--peek-height': '60px' } as React.CSSProperties}
+            style={{ '--peek-height': '48px' } as React.CSSProperties}
           >
             <button
               onClick={() => setIsRideDetailsPanelMinimized(!isRideDetailsPanelMinimized)}
-              className="py-2 w-full flex flex-col items-center cursor-pointer focus:outline-none bg-muted/30 hover:bg-muted/50 rounded-t-xl"
+              className="py-2 w-full flex flex-col items-center cursor-pointer focus:outline-none bg-slate-700 hover:bg-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-t-xl text-white"
               aria-label={isRideDetailsPanelMinimized ? "Expand ride details" : "Minimize ride details"}
             >
-              <div className="w-10 h-1.5 bg-muted-foreground/40 rounded-full mb-0.5" />
+              <div className="w-10 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full mb-0.5" />
               {isRideDetailsPanelMinimized && (
-                  <span className="text-xs text-muted-foreground mt-0.5 flex items-center">
+                  <span className="text-xs text-slate-200 mt-0.5 flex items-center">
                      {activeRide?.status ? activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'View Details'}
                      <ChevronUp className="h-3.5 w-3.5 ml-1"/>
                   </span>
