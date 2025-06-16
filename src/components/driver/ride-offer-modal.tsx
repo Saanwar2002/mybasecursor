@@ -460,10 +460,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
         <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0">
           <Button variant="destructive" onClick={handleDecline} size="sm" className="py-1 h-8">
-            Decline ({countdown}s)
+            <span>Decline ({countdown}s)</span>
           </Button>
           <Button variant="default" onClick={handleAccept} size="sm" className="bg-green-600 hover:bg-green-700 text-white py-1 h-8">
-            Accept Ride
+            <span>Accept Ride</span>
           </Button>
         </DialogFooter>
       </DialogContent>
