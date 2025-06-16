@@ -377,10 +377,6 @@ export default function AvailableRidesPage() {
     return points;
   }, [activeRide]);
 
-  const { isChatDisabled } = useMemo(() => ({
-    isChatDisabled: !(activeRide?.status === 'driver_assigned' || activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'in_progress' || activeRide?.status === 'in_progress_wait_and_return')
-  }), [activeRide?.status]);
-
   const mapDisplayElements = useMemo(() => {
     const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
@@ -605,18 +601,9 @@ export default function AvailableRidesPage() {
       console.log("fetchActiveRide - Data received from API:", data);
 
       setError(null);
-      // setActiveRide(data); // Original problematic line
-      // Corrected logic: only set activeRide if data is not null (i.e., API returned an active ride)
-      // If API returns null (no active ride), we want the client's activeRide to become null
-      // so the driver goes back to "awaiting offers" state.
+      
       if (data === null) {
-        if(activeRide && (activeRide.status === 'completed' || activeRide.status.startsWith('cancelled'))) {
-          // If the previous client state was already terminal, no need to set to null again aggressively
-          // unless we are sure the server also confirms no *new* active ride.
-          // The "Done" button is now the primary way to clear terminal rides from UI.
-        } else {
           setActiveRide(null);
-        }
       } else {
         setActiveRide(data);
       }
@@ -647,7 +634,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, localCurrentLegIndex, activeRide]); // Added activeRide
+  }, [driverUser?.id, localCurrentLegIndex]);
 
 
   useEffect(() => {
@@ -2432,7 +2419,7 @@ export default function AvailableRidesPage() {
             </ScrollArea>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">Close</Button>
+                <Button type="button" variant="secondary" className="font-bold">Close</Button>
               </DialogClose>
             </DialogFooter>
           </DialogContent>
@@ -2440,3 +2427,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
