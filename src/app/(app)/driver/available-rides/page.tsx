@@ -1642,9 +1642,8 @@ export default function AvailableRidesPage() {
             size="icon" 
             className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => {
-              const currentLegNav = journeyPoints[localCurrentLegIndex];
-              if (currentLegNav?.latitude && currentLegNav?.longitude) {
-                const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLegNav.latitude},${currentLegNav.longitude}`;
+              if (currentLeg?.latitude && currentLeg?.longitude) {
+                const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
                 window.open(mapsUrl, '_blank');
               } else {
                 toast({ title: "Navigation Error", description: "Destination coordinates are not available for the current leg.", variant: "destructive" });
