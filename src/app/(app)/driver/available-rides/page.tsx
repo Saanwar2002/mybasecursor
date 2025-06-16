@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -829,6 +830,19 @@ export default function AvailableRidesPage() {
     if (isPriority) {
       currentPriorityFeeAmount = parseFloat((Math.random() * 2.5 + 1.0).toFixed(2)); 
     }
+    
+    const paymentType = Math.random();
+    let paymentMethodChoice: 'card' | 'cash' | 'account';
+    let jobPinForOffer: string | undefined = undefined;
+
+    if (paymentType < 0.5) {
+      paymentMethodChoice = 'card';
+    } else if (paymentType < 0.85) {
+      paymentMethodChoice = 'cash';
+    } else {
+      paymentMethodChoice = 'account';
+      jobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString(); // Always generate for account
+    }
 
     const mockOffer: RideOffer = {
       id: `mock-offer-${Date.now()}`,
@@ -845,9 +859,9 @@ export default function AvailableRidesPage() {
       notes: Math.random() < 0.3 ? "Has some luggage." : undefined,
       requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
       distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)), 
-      paymentMethod: Math.random() < 0.6 ? 'card' : (Math.random() < 0.8 ? 'cash' : 'account'),
+      paymentMethod: paymentMethodChoice,
       dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
-      accountJobPin: Math.random() < 0.1 ? Math.floor(1000 + Math.random() * 9000).toString() : undefined,
+      accountJobPin: jobPinForOffer,
     };
     console.log("Simulating offer:", mockOffer);
     setCurrentOfferDetails(mockOffer);
@@ -1034,7 +1048,7 @@ export default function AvailableRidesPage() {
 
     if (actionType === 'start_ride' && activeRide.paymentMethod === 'account' && activeRide.status === 'arrived_at_pickup') {
         if (!activeRide.accountJobPin) {
-            toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride automatically. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
+            toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
             // Optionally, still open the dialog to allow manual override if that's a feature
             // setIsAccountJobPinDialogOpen(true); 
             return; // Prevent automatic start if PIN is absolutely required and missing
@@ -1632,7 +1646,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="outline" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
@@ -1641,7 +1655,7 @@ export default function AvailableRidesPage() {
           <Button 
             variant="default" 
             size="icon" 
-            className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => {
                 if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
                     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
@@ -2032,12 +2046,7 @@ export default function AvailableRidesPage() {
   const mainButtonAction = () => {
     const currentLegIdx = localCurrentLegIndex;
     if (status === 'arrived_at_pickup') {
-      if (activeRide.paymentMethod === 'account' && !activeRide.accountJobPin) {
-        toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
-        // Optionally, still open the dialog if manual override should be possible
-        // setIsAccountJobPinDialogOpen(true); 
-        return; 
-      }
+
       handleRideAction(activeRide.id, 'start_ride');
     }
     else if ((status === 'in_progress' || status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
@@ -2222,8 +2231,8 @@ export default function AvailableRidesPage() {
           </div>
           
           {dispatchInfo && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
-              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="font-bold text-sm flex items-center justify-center gap-1">
+              <div className={cn("p-1.5 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
+                <p className="text-sm flex items-center justify-center gap-1">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
@@ -2322,7 +2331,7 @@ export default function AvailableRidesPage() {
                           <MapPin className={cn("font-bold w-3.5 h-3.5 shrink-0 mt-0.5", isPickup ? "text-green-700 dark:text-green-300" : isDropoff ? "text-red-700 dark:text-red-300" : "text-blue-700 dark:text-blue-300")} />
                           <div className="font-bold text-xs">
                             <span className="font-bold">{legType}:</span> {point.address}
-                            {point.doorOrFlat && <span className="text-muted-foreground">({point.doorOrFlat})</span>}
+                            {point.doorOrFlat && <span className="text-green-800 dark:text-green-200/80"> ({point.doorOrFlat})</span>}
                           </div>
                         </div>
                       );
@@ -2377,11 +2386,9 @@ export default function AvailableRidesPage() {
                   onClick={() => {
                     if (activeRide.paymentMethod === 'account' && !activeRide.accountJobPin) {
                         toast({title: "Account PIN Missing", description: "This Account Job is missing its verification PIN. Cannot start ride. Please contact support or use manual override if available.", variant: "destructive", duration: 7000});
-                        // If you want to allow manual override even if PIN is missing, you might still open the dialog.
-                        // For now, let's prevent starting if PIN is required and truly missing from data.
                         return; 
                     }
-                    console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status); 
+                    console.log("Start Ride clicked for ride:", activeRide.id, "Current status:", activeRide.status, "Account Job Pin:", activeRide.accountJobPin); 
                     handleRideAction(activeRide.id, 'start_ride');
                   }} 
                   disabled={!!actionLoading[activeRide.id]}
