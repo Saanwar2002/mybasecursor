@@ -467,7 +467,7 @@ export default function BookRidePage() {
     const loader = new GoogleApiLoader({ 
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], // Standardized libraries
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"],
     });
 
     loader.load().then((google) => {
@@ -2474,7 +2474,7 @@ const handleProceedToConfirmation = async () => {
                                           }
                                         }}
                                         value={field.value}
-                                        className="grid grid-cols-1 gap-3"
+                                        className="grid grid-cols-1 gap-2"
                                       >
                                         <FormItem className="flex-1">
                                           <FormControl>
@@ -2482,11 +2482,11 @@ const handleProceedToConfirmation = async () => {
                                           </FormControl>
                                           <Label
                                             htmlFor="dialog-card"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
                                           >
-                                            <CreditCard className="mb-2 h-6 w-6 text-primary peer-data-[state=checked]:text-primary" />
+                                            <CreditCard className="mb-1 h-5 w-5 text-primary peer-data-[state=checked]:text-primary" />
                                             Pay by Card
-                                            <span className="text-xs text-muted-foreground mt-0.5">(pay driver directly with your card)</span>
+                                            <span className="text-xs text-muted-foreground mt-0"> (pay driver directly)</span>
                                           </Label>
                                         </FormItem>
                                         <FormItem className="flex-1">
@@ -2495,11 +2495,11 @@ const handleProceedToConfirmation = async () => {
                                           </FormControl>
                                           <Label
                                             htmlFor="dialog-cash"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
                                           >
-                                            <Coins className="mb-2 h-6 w-6 text-green-600 peer-data-[state=checked]:text-green-600" />
+                                            <Coins className="mb-1 h-5 w-5 text-green-600 peer-data-[state=checked]:text-green-600" />
                                             Pay with Cash
-                                            <span className="text-xs text-muted-foreground mt-0.5">(pay cash to driver)</span>
+                                            <span className="text-xs text-muted-foreground mt-0"> (pay cash to driver)</span>
                                           </Label>
                                         </FormItem>
                                          <FormItem className="flex-1">
@@ -2508,15 +2508,15 @@ const handleProceedToConfirmation = async () => {
                                           </FormControl>
                                           <Label
                                             htmlFor="dialog-account"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
                                           >
-                                            <Briefcase className="mb-2 h-6 w-6 text-purple-600 peer-data-[state=checked]:text-purple-600" />
+                                            <Briefcase className="mb-1 h-5 w-5 text-purple-600 peer-data-[state=checked]:text-purple-600" />
                                               Account
                                               {field.value === "account" && isAccountJobAuthPinVerified 
-                                                ? <span className="text-xs text-green-500 mt-0.5">(PIN Verified)</span>
-                                                : <span className="text-xs text-orange-500 mt-0.5">(PIN Required)</span>
+                                                ? <span className="text-xs text-green-500">(PIN Verified)</span>
+                                                : <span className="text-xs text-orange-500">(PIN Required)</span>
                                               }
-                                            <span className="text-xs text-muted-foreground mt-0.5">(Operator will bill)</span>
+                                            <span className="text-xs text-muted-foreground mt-0">(Operator will bill)</span>
                                           </Label>
                                         </FormItem>
                                       </RadioGroup>
@@ -2703,3 +2703,6 @@ const handleProceedToConfirmation = async () => {
 
 
 
+
+
+    
