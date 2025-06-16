@@ -1365,6 +1365,7 @@ export default function AvailableRidesPage() {
     
     if (!activeRide) return { markers, labels };
     
+    // Only show pickup marker/label if status is 'driver_assigned' (en route to pickup)
     if (activeRide.pickupLocation && currentStatusLower === 'driver_assigned') {
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
@@ -1375,7 +1376,7 @@ export default function AvailableRidesPage() {
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
             content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
             type: 'pickup',
-            variant: 'default'
+            variant: 'default' // Pickup always default when it's the current target
         });
     }
     
@@ -1383,6 +1384,7 @@ export default function AvailableRidesPage() {
         activeRide.stops?.forEach((stop, index) => {
             const stopLegIndex = index + 1;
             if(stop.latitude && stop.longitude) {
+                // Show stop marker if it's the current or an upcoming leg
                 if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) {
                     markers.push({
                         position: {lat: stop.latitude, lng: stop.longitude},
@@ -1401,6 +1403,7 @@ export default function AvailableRidesPage() {
 
         if (activeRide.dropoffLocation) {
             const dropoffLegIndex = (activeRide.stops?.length || 0) + 1;
+            // Show dropoff marker if it's the current or an upcoming leg
             if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
                 markers.push({
                     position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
@@ -1421,6 +1424,11 @@ export default function AvailableRidesPage() {
 
 
   const memoizedMapCenter = useMemo(() => {
+    // If driver is moving and we have a heading, center on driver.
+    if (driverLocation && driverMarkerHeading !== null && activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
+        return driverLocation;
+    }
+    // Fallback to current target or default
     if (activeRide) {
         const currentLegIdxToUse = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
         const currentTargetPoint = journeyPoints[currentLegIdxToUse];
@@ -1428,8 +1436,8 @@ export default function AvailableRidesPage() {
             return {lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude};
         }
     }
-    return driverLocation;
-  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex]);
+    return driverLocation || huddersfieldCenterGoogle; 
+  }, [activeRide, driverLocation, journeyPoints, localCurrentLegIndex, driverMarkerHeading]);
 
 
   const handleCancelSwitchChange = (checked: boolean) => {
@@ -1675,12 +1683,13 @@ export default function AvailableRidesPage() {
         }
         <div className={cn(mapContainerClasses, "relative")}> 
             <GoogleMapDisplay
-              mapHeading={0} 
+              mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}
               polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
               driverIconRotation={driverMarkerHeading ?? undefined}
-              center={driverLocation}
-              zoom={15}
+              center={memoizedMapCenter}
+              zoom={16}
+              fitBoundsToMarkers={!driverMarkerHeading}
               markers={mapDisplayElements.markers}
               customMapLabels={mapDisplayElements.labels}
               className="w-full h-full"
@@ -2072,10 +2081,10 @@ export default function AvailableRidesPage() {
       )}>
           <GoogleMapDisplay
             center={memoizedMapCenter}
-            zoom={15}
-            mapHeading={0}
+            zoom={driverMarkerHeading !== null ? 17 : 15} // Closer zoom for navigation view
+            mapHeading={driverMarkerHeading ?? 0}
             mapRotateControl={false}
-            fitBoundsToMarkers={true}
+            fitBoundsToMarkers={driverMarkerHeading === null} // Only fit bounds if not in navigation mode
             markers={mapDisplayElements.markers}
             customMapLabels={mapDisplayElements.labels}
             className="w-full h-full"
