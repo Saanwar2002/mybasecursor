@@ -15,10 +15,10 @@ import { z } from 'genkit';
 
 const ActionItemSchema = z.object({
   id: z.string().describe("A unique identifier for the action item, e.g., 'review-op-apps'."),
-  category: z.string().describe("The general category of the task, e.g., 'User Management', 'System Health', 'Support Queue', 'Performance Monitoring', 'Strategic Review'."),
+  category: z.string().describe("The general category of the task, e.g., 'User Management', 'System Health', 'Support Queue', 'Performance Monitoring', 'Strategic Review', 'Feature Development'."),
   label: z.string().describe("A concise description of the task to be done."),
   priority: z.enum(['high', 'medium', 'low']).describe("The priority of the task."),
-  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'Lightbulb', 'MessageSquarePlus', 'BarChart3') relevant to the task. If unsure, omit.")
+  iconName: z.string().optional().describe("An optional Lucide icon name (e.g., 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'Lightbulb', 'MessageSquarePlus', 'BarChart3', 'MapPin') relevant to the task. If unsure, omit.")
 });
 export type ActionItem = z.infer<typeof ActionItemSchema>;
 
@@ -62,14 +62,14 @@ const prompt = ai.definePrompt({
     - If recentFeatureFeedbackCount > 5, suggest reviewing feedback. Priority 'medium'. (iconName: 'MessageSquarePlus')
     - If platformLoadPercentage > 80, suggest monitoring system performance. Priority 'high'. (iconName: 'ServerCog')
     - If platformLoadPercentage > 60 but <=80, suggest checking performance logs. Priority 'medium'. (iconName: 'BarChart3')
-    - If all metrics are very low (e.g., 0 pending, 0 alerts, few tickets), suggest a proactive/strategic task such as "Review platform security protocols" (category: 'Strategic Review', iconName: 'ShieldCheck') or "Brainstorm new feature ideas for passenger engagement" (category: 'Feature Development', iconName: 'Lightbulb').
+    - If all metrics are very low (e.g., 0 pending, 0 alerts, few tickets), suggest one or two proactive/strategic tasks. Examples include: "Review platform security protocols" (id: 'review-security', category: 'Strategic Review', iconName: 'ShieldCheck', priority: 'medium'), "Brainstorm new feature ideas for passenger engagement" (id: 'brainstorm-features', category: 'Feature Development', iconName: 'Lightbulb', priority: 'medium'), or "Plan and Implement Real-Time Driver Location Tracking for Passenger Maps" (id: 'implement-live-driver-map', category: 'Feature Development', iconName: 'MapPin', priority: 'high').
 
     For each task, provide:
-    - id: a short, kebab-case unique identifier (e.g., 'review-ops', 'check-alerts').
+    - id: a short, kebab-case unique identifier (e.g., 'review-ops', 'check-alerts', 'implement-live-driver-map').
     - category: A brief category (e.g., "Operator Management", "System Monitoring", "Support", "Feature Development", "Strategic Planning").
-    - label: A clear, concise action item (e.g., "Review 7 pending operator applications", "Investigate 2 critical system alerts").
+    - label: A clear, concise action item (e.g., "Review 7 pending operator applications", "Investigate 2 critical system alerts", "Plan and Implement Real-Time Driver Location Tracking for Passenger Maps").
     - priority: 'high', 'medium', or 'low'.
-    - iconName: (Optional) Suggest a relevant Lucide icon name from the examples given or others like 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'MessageSquarePlus', 'BarChart3', 'Lightbulb', 'ShieldCheck'. If unsure, omit it.
+    - iconName: (Optional) Suggest a relevant Lucide icon name from the examples given or others like 'Users', 'ShieldAlert', 'ClipboardList', 'ServerCog', 'MessageSquarePlus', 'BarChart3', 'Lightbulb', 'ShieldCheck', 'MapPin'. If unsure, omit it.
 
     Generate a list of 2-4 operational tasks based on the metrics. Ensure the labels are actionable.
     Do NOT include any "Post-Launch Roadmap" items from previous instructions. Focus only on the current operational status or general strategic items if operations are quiet.
