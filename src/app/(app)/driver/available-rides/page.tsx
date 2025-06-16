@@ -372,6 +372,7 @@ export default function AvailableRidesPage() {
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
   
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
+  const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
 
 
   const journeyPoints = useMemo(() => {
@@ -1768,7 +1769,6 @@ export default function AvailableRidesPage() {
 
   const mainActionBtnText = mainButtonText();
 
-
   const showCompletedStatus = activeRide?.status === 'completed';
   const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
   const showCancelledNoShowStatus = activeRide?.status === 'cancelled_no_show';
@@ -1812,7 +1812,7 @@ export default function AvailableRidesPage() {
 
 
   return (
-      <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden"> {/* Added relative and overflow-hidden */}
+      <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
         {isSpeedLimitFeatureEnabled &&
           <SpeedLimitDisplay
             currentSpeed={currentMockSpeed}
@@ -1821,7 +1821,7 @@ export default function AvailableRidesPage() {
           />
         }
         <div className={cn(
-            "relative w-full rounded-xl overflow-hidden shadow-lg border", 
+            "relative w-full rounded-b-xl overflow-hidden shadow-lg border", 
             activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-10rem)]", 
              activeRide && !isRideTerminated(activeRide.status) ? "pb-[6rem]" : "" 
         )}>
@@ -1932,7 +1932,7 @@ export default function AvailableRidesPage() {
                 onClick={() => setIsRideDetailsPanelMinimized(false)}
                 className={cn(
                     "absolute right-4 z-20 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg px-3 py-1.5 h-auto text-xs font-semibold",
-                     "bottom-[calc(6rem+0.5rem)]"
+                     "bottom-[calc(6rem+0.5rem)]" 
                 )}
                 style={{ '--navigation-bar-height': '6rem' } as React.CSSProperties} 
             >
