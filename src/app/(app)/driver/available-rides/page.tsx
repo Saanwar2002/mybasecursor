@@ -1365,8 +1365,10 @@ export default function AvailableRidesPage() {
     
     if (!activeRide) return { markers, labels };
     
-    // Only show pickup marker/label if status is 'driver_assigned' (en route to pickup)
-    if (activeRide.pickupLocation && currentStatusLower === 'driver_assigned') {
+    const showPickupOnMap = currentStatusLower === 'driver_assigned';
+    const showNavigationLegsOnMap = currentStatusLower && ['arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return', 'pending_driver_wait_and_return_approval'].includes(currentStatusLower);
+
+    if (activeRide.pickupLocation && showPickupOnMap) {
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
             title: `Pickup: ${activeRide.pickupLocation.address}`,
@@ -1376,15 +1378,14 @@ export default function AvailableRidesPage() {
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
             content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
             type: 'pickup',
-            variant: 'default' // Pickup always default when it's the current target
+            variant: 'default'
         });
     }
     
-    if (currentStatusLower && ['arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return', 'pending_driver_wait_and_return_approval'].includes(currentStatusLower)) {
+    if (showNavigationLegsOnMap) {
         activeRide.stops?.forEach((stop, index) => {
             const stopLegIndex = index + 1;
             if(stop.latitude && stop.longitude) {
-                // Show stop marker if it's the current or an upcoming leg
                 if (currentLegIdx !== undefined && stopLegIndex >= currentLegIdx) {
                     markers.push({
                         position: {lat: stop.latitude, lng: stop.longitude},
@@ -1403,7 +1404,6 @@ export default function AvailableRidesPage() {
 
         if (activeRide.dropoffLocation) {
             const dropoffLegIndex = (activeRide.stops?.length || 0) + 1;
-            // Show dropoff marker if it's the current or an upcoming leg
             if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
                 markers.push({
                     position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
@@ -1424,11 +1424,9 @@ export default function AvailableRidesPage() {
 
 
   const memoizedMapCenter = useMemo(() => {
-    // If driver is moving and we have a heading, center on driver.
     if (driverLocation && driverMarkerHeading !== null && activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
         return driverLocation;
     }
-    // Fallback to current target or default
     if (activeRide) {
         const currentLegIdxToUse = activeRide.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
         const currentTargetPoint = journeyPoints[currentLegIdxToUse];
@@ -1683,13 +1681,13 @@ export default function AvailableRidesPage() {
         }
         <div className={cn(mapContainerClasses, "relative")}> 
             <GoogleMapDisplay
-              mapHeading={driverMarkerHeading ?? 0}
-              mapRotateControl={false}
-              polylines={currentRoutePolyline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
+              mapHeading={0} // Keep North-up when no active ride or using driverMarkerHeading for this view
+              mapRotateControl={false} // No rotation when no active ride
+              polylines={currentRoutePolyline && isDriverOnline ? [{ path: currentRoutePolyline.path, color: currentRoutePolyline.color, weight: 4, opacity: 0.7 }] : []}
               driverIconRotation={driverMarkerHeading ?? undefined}
               center={memoizedMapCenter}
               zoom={16}
-              fitBoundsToMarkers={!driverMarkerHeading}
+              fitBoundsToMarkers={!driverMarkerHeading && mapDisplayElements.markers.length > 1}
               markers={mapDisplayElements.markers}
               customMapLabels={mapDisplayElements.labels}
               className="w-full h-full"
@@ -2081,10 +2079,10 @@ export default function AvailableRidesPage() {
       )}>
           <GoogleMapDisplay
             center={memoizedMapCenter}
-            zoom={driverMarkerHeading !== null ? 17 : 15} // Closer zoom for navigation view
+            zoom={16} // Fallback zoom
             mapHeading={driverMarkerHeading ?? 0}
             mapRotateControl={false}
-            fitBoundsToMarkers={driverMarkerHeading === null} // Only fit bounds if not in navigation mode
+            fitBoundsToMarkers={!!activeRide && mapDisplayElements.markers && mapDisplayElements.markers.length >= 2}
             markers={mapDisplayElements.markers}
             customMapLabels={mapDisplayElements.labels}
             className="w-full h-full"
@@ -2670,3 +2668,4 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
+
