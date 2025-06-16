@@ -40,12 +40,8 @@ import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingI
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
+import { Loader as GoogleApiLoader } from '@googlemaps/js-api-loader';
 
-
-const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
-  ssr: false,
-  loading: () => <Skeleton className="w-full h-full rounded-md" />,
-});
 
 const driverCarIconSvg = `<svg width="30" height="45" viewBox="0 0 30 45" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 45 L10 30 H20 Z" fill="black"/><circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/><rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/><rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/></svg>`;
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -224,8 +220,8 @@ const editDetailsFormSchema = z.object({
 }).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
   message: "If scheduling, both date and time must be provided. For ASAP, leave both empty.", path: ["desiredPickupTime"],
 });
-
 type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
+
 type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
 
 
@@ -822,7 +818,7 @@ export default function MyActiveRidePage() {
     const points = [activeRide.pickupLocation];
     if (activeRide.stops) points.push(...activeRide.stops);
     points.push(activeRide.dropoffLocation);
-    return points.map(p => ({ address: p.address, coords: { lat: p.latitude, lng: p.longitude } }));
+    return points.map(p => ({ address: p.address, coords: { lat: p.latitude, lng: p.longitude }, doorOrFlat: p.doorOrFlat }));
   }, [activeRide]);
 
   useEffect(() => {
@@ -1094,7 +1090,7 @@ export default function MyActiveRidePage() {
                 className="h-full w-full" 
                 disableDefaultUI={true} 
                 fitBoundsToMarkers={true}
-                onSdkLoaded={setIsMapSdkLoaded}
+                onSdkLoaded={setIsMapSdkLoaded} 
                 mapHeading={0} 
                 mapRotateControl={false}
                 polylines={currentRoutePolyline ? [{ ...currentRoutePolyline, weight: 4, opacity: 0.7 }] : []}
@@ -1181,9 +1177,8 @@ export default function MyActiveRidePage() {
             </Card>
           </>
         )}
-      </div> {/* End scrollable content */}
+      </div> 
 
-      {/* Fixed Footer for Actions */}
       {activeRide && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_by_operator', 'cancelled_no_show'].includes(activeRide.status.toLowerCase()) && (
         <footer className="p-3 border-t bg-card shadow-md sticky bottom-0 z-20">
           {activeRide.status === 'pending_assignment' && (
@@ -1204,7 +1199,19 @@ export default function MyActiveRidePage() {
                 </AlertDialogTrigger>
                  <AlertDialogContent>
                   <AlertDialogHeader> <AlertDialogTitle>Are you sure?</AlertDialogTitle> <AlertDialogDescription> This will cancel your ride request (ID: {rideIdToCancel || 'N/A'}). This action cannot be undone. </AlertDialogDescription> </AlertDialogHeader>
-                  <AlertDialogFooter> <AlertDialogCancel disabled={actionLoading[rideIdToCancel || '']}> Keep Ride </AlertDialogCancel> <AlertDialogAction onClick={handleConfirmCancel} disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"> <div className="flex items-center">{actionLoading[rideIdToCancel || ''] ? ( <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" /> ) : ( <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" /> )} {actionLoading[rideIdToCancel || ''] ? 'Cancelling...' : 'Confirm Cancel'} </div> </AlertDialogAction> </AlertDialogFooter>
+                  <AlertDialogFooter> <AlertDialogCancel disabled={actionLoading[rideIdToCancel || '']}> Keep Ride </AlertDialogCancel> 
+                    <AlertDialogAction
+                        onClick={handleConfirmCancel}
+                        disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    >
+                        {actionLoading[rideIdToCancel || ''] ? (
+                            <> <Loader2 key="loader-cancel" className="animate-spin h-4 w-4" /> <span>Cancelling...</span> </>
+                        ) : (
+                            <> <ShieldX key="icon-cancel" className="h-4 w-4" /> <span>Confirm Cancel</span> </>
+                        )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
@@ -1348,4 +1355,3 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-    
