@@ -60,6 +60,7 @@ const editDetailsFormSchema = z.object({
 
 type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
 
+
 const driverCarIconSvg = `<svg width="30" height="45" viewBox="0 0 30 45" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 45 L10 30 H20 Z" fill="black"/><circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/><rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/><rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/></svg>`;
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
@@ -110,7 +111,7 @@ interface ActiveRide {
   estimatedAdditionalWaitTimeMinutes?: number;
   dispatchMethod?: RideOffer['dispatchMethod'];
   accountJobPin?: string;
-  distanceMiles?: number;
+  distanceMiles?: number; 
   cancellationFeeApplicable?: boolean;
   noShowFeeApplicable?: boolean;
   cancellationType?: string;
@@ -1049,7 +1050,7 @@ export default function MyActiveRidePage() {
     const nextAddressShort = currentLeg.address.split(',')[0];
 
     return (
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[1000] p-2 md:p-2.5 bg-black/75 text-white rounded-lg shadow-xl flex items-center gap-2 md:gap-3 backdrop-blur-sm max-w-[calc(100%-2rem)]">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] p-2 md:p-2.5 bg-black/75 text-white rounded-lg shadow-xl flex items-center gap-2 md:gap-3 backdrop-blur-sm max-w-[calc(100%-2rem)]">
         <div className="flex-1 min-w-0">
           <p className="text-[0.6rem] md:text-xs font-semibold uppercase tracking-wider text-blue-300">NEXT: {legTypeDisplay}</p>
           <p className="text-xs md:text-sm font-bold truncate" title={currentLeg.address}>{nextAddressShort}</p>
@@ -1058,7 +1059,6 @@ export default function MyActiveRidePage() {
            <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700" title="View Full Journey Details" onClick={() => setIsJourneyDetailsModalOpen(true)}>
             <Info className="h-4 w-4" />
           </Button>
-           {/* Navigation button removed as per user request in prior turns, keeping it off the bar */}
         </div>
       </div>
     );
@@ -1173,14 +1173,8 @@ export default function MyActiveRidePage() {
         <footer className="p-3 border-t bg-card shadow-md sticky bottom-0 z-20">
           {activeRide.status === 'driver_assigned' && (
             <div className="grid grid-cols-2 gap-2">
-                <div className={cn(
-                    "flex flex-col items-center justify-center p-2 border rounded-md",
-                    isCancelSwitchOn ? "bg-destructive/10 border-destructive" : "bg-muted/30 hover:bg-muted/50"
-                )}>
-                    <Label htmlFor="cancel-switch" className={cn(
-                        "font-bold text-xs text-center",
-                        isCancelSwitchOn ? "text-destructive" : "text-muted-foreground"
-                    )}>
+                <div className={cn( "flex flex-col items-center justify-center p-2 border rounded-md", isCancelSwitchOn ? "bg-destructive/10 border-destructive" : "bg-muted/30 hover:bg-muted/50" )}>
+                    <Label htmlFor="cancel-switch" className={cn( "font-bold text-xs text-center", isCancelSwitchOn ? "text-destructive" : "text-muted-foreground" )}>
                         Initiate Cancellation
                     </Label>
                     <Switch
@@ -1188,18 +1182,18 @@ export default function MyActiveRidePage() {
                         checked={isCancelSwitchOn}
                         onCheckedChange={(checked) => {
                             setIsCancelSwitchOn(checked);
-                            if (checked) {
+                            if (checked && activeRide) { 
                                 setRideIdToCancel(activeRide.id);
                                 setShowCancelConfirmationDialog(true);
                             } else {
-                                setShowCancelConfirmationDialog(false); 
+                                if (showCancelConfirmationDialog && rideIdToCancel === activeRide?.id) {
+                                    setShowCancelConfirmationDialog(false);
+                                }
+                                setRideIdToCancel(null); 
                             }
                         }}
-                        className={cn(
-                            "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted mt-1",
-                             actionLoading[activeRide.id] && "opacity-50 pointer-events-none"
-                        )}
-                        disabled={actionLoading[activeRide.id]}
+                        className={cn( "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted mt-1", actionLoading[activeRide?.id || ''] && "opacity-50 pointer-events-none" )}
+                        disabled={actionLoading[activeRide?.id || '']}
                         aria-label="Initiate ride cancellation"
                     />
                 </div>
@@ -1207,7 +1201,6 @@ export default function MyActiveRidePage() {
                     variant="default"
                     className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
                     onClick={() => {
-                        // Call API to notify driver of arrival
                         if (activeRide) {
                             fetch(`/api/operator/bookings/${activeRide.id}`, {
                                 method: 'POST',
@@ -1287,16 +1280,15 @@ export default function MyActiveRidePage() {
                         if(activeRide) {
                             const currentLeg = journeyPoints[localCurrentLegIndex];
                             const nextLegIndex = localCurrentLegIndex + 1;
-                            const previousStopIndex = localCurrentLegIndex > 0 ? localCurrentLegIndex -1 : undefined; // -1 because stops are 0-indexed in booking.stops array, and leg 0 is pickup
+                            const previousStopIndex = localCurrentLegIndex > 0 ? localCurrentLegIndex -1 : undefined; 
                             let waitingChargeForPreviousStop: number | undefined = undefined;
                             
-                            // Calculate waiting charge if applicable
                             if (previousStopIndex !== undefined && currentLeg.coords && activeRide.currentLegEntryTimestamp) {
                                const arrivalAtStop = parseTimestampToDatePassenger(activeRide.currentLegEntryTimestamp);
                                const departureFromStop = new Date();
                                if (arrivalAtStop) {
                                  const minutesWaitedAtStop = differenceInMinutes(departureFromStop, arrivalAtStop);
-                                 const chargeableWaitMinutes = Math.max(0, minutesWaitedAtStop - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR); // Assume W&R free time for stops too
+                                 const chargeableWaitMinutes = Math.max(0, minutesWaitedAtStop - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR); 
                                  waitingChargeForPreviousStop = chargeableWaitMinutes * WAITING_CHARGE_PER_MINUTE_PASSENGER;
                                }
                             }
@@ -1346,7 +1338,7 @@ export default function MyActiveRidePage() {
                         fetch(`/api/operator/bookings/${activeRide.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'complete_ride', finalFare: activeRide.fareEstimate, driverCurrentLocation: user?.currentLocation }), // Assuming current fare is final unless changed
+                            body: JSON.stringify({ action: 'complete_ride', finalFare: activeRide.fareEstimate, driverCurrentLocation: user?.currentLocation }),
                         })
                         .then(res => res.json())
                         .then(data => { if(data.booking) setActiveRide(data.booking); toast({title: "Ride Completed!", description: "Well done! Ready for the next one."})})
@@ -1371,7 +1363,53 @@ export default function MyActiveRidePage() {
         </footer>
       )}
 
-      {/* Dialogs remain at the end */}
+      <AlertDialog
+        open={showCancelConfirmationDialog}
+        onOpenChange={(isOpen) => {
+          setShowCancelConfirmationDialog(isOpen);
+          if (!isOpen) {
+            setRideIdToCancel(null);
+            setIsCancelSwitchOn(false); 
+            if (cancellationSuccess) {
+              setActiveRide(null);
+              setCancellationSuccess(false);
+            }
+          }
+        }}
+      >
+        <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will cancel your ride request (ID: {rideIdToCancel || 'N/A'}). This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel
+                  disabled={actionLoading[rideIdToCancel || '']}
+                >
+                  Keep Ride
+                </AlertDialogCancel>
+                <AlertDialogAction
+                    onClick={handleConfirmCancel}
+                    disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                >
+                    {actionLoading[rideIdToCancel || ''] ? (
+                        <span className="inline-flex items-center justify-center w-full">
+                            <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />
+                            Cancelling...
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center justify-center w-full">
+                            <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />
+                            Confirm Cancel
+                        </span>
+                    )}
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset(); setDialogFareEstimate(null);}}}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
           <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details</ShadDialogTitle> <ShadDialogDescriptionDialog>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescriptionDialog> </DialogHeader>
@@ -1478,5 +1516,5 @@ export default function MyActiveRidePage() {
     </div>
   );
 }
-
     
+
