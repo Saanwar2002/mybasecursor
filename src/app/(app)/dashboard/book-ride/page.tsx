@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, LockKeyhole, Briefcase } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -2410,7 +2410,7 @@ const handleProceedToConfirmation = async () => {
                         </ShadDialogDescription>
                       </DialogHeader>
                       <ScrollArea className="overflow-y-auto">
-                        <div className="p-6 space-y-4">
+                        <div className="px-6 pt-6 pb-2 space-y-3">
                           <Card className="w-full text-center shadow-md">
                             <CardHeader className="p-3">
                               <CardTitle className="text-lg font-headline flex items-center justify-center gap-2">
@@ -2454,12 +2454,12 @@ const handleProceedToConfirmation = async () => {
                                 <CreditCard className="w-5 h-5 text-primary" /> Payment Method
                               </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-2 pt-0"> {/* Reduced padding for CardContent */}
+                            <CardContent className="p-2 pt-0"> 
                               <FormField
                                 control={form.control}
                                 name="paymentMethod"
                                 render={({ field }) => (
-                                  <FormItem className="space-y-2"> {/* Reduced space-y */}
+                                  <FormItem className="space-y-2"> 
                                     <FormControl>
                                       <RadioGroup
                                         onValueChange={(value) => {
@@ -2474,7 +2474,7 @@ const handleProceedToConfirmation = async () => {
                                           }
                                         }}
                                         value={field.value}
-                                        className="grid grid-cols-1 gap-1.5" /* Reduced gap */
+                                        className="grid grid-cols-1 gap-1.5" 
                                       >
                                         <FormItem className="flex-1">
                                           <FormControl>
@@ -2482,11 +2482,11 @@ const handleProceedToConfirmation = async () => {
                                           </FormControl>
                                           <Label
                                             htmlFor="dialog-card"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
                                           >
-                                            <CreditCard className="mb-1 h-5 w-5 text-primary peer-data-[state=checked]:text-primary" /> {/* Reduced mb */}
+                                            <CreditCard className="mb-0.5 h-5 w-5 text-primary peer-data-[state=checked]:text-primary" />
                                             Pay by Card
-                                            <span className="text-xs text-muted-foreground mt-0"> (pay driver directly)</span> {/* Reduced mt */}
+                                            <span className="text-xs text-muted-foreground"> (pay driver directly)</span>
                                           </Label>
                                         </FormItem>
                                         <FormItem className="flex-1">
@@ -2495,11 +2495,11 @@ const handleProceedToConfirmation = async () => {
                                           </FormControl>
                                           <Label
                                             htmlFor="dialog-cash"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
                                           >
-                                            <Coins className="mb-1 h-5 w-5 text-green-600 peer-data-[state=checked]:text-green-600" /> {/* Reduced mb */}
+                                            <Coins className="mb-0.5 h-5 w-5 text-green-600 peer-data-[state=checked]:text-green-600" />
                                             Pay with Cash
-                                            <span className="text-xs text-muted-foreground mt-0"> (pay cash to driver)</span> {/* Reduced mt */}
+                                            <span className="text-xs text-muted-foreground"> (pay cash to driver)</span>
                                           </Label>
                                         </FormItem>
                                          <FormItem className="flex-1">
@@ -2508,15 +2508,15 @@ const handleProceedToConfirmation = async () => {
                                           </FormControl>
                                           <Label
                                             htmlFor="dialog-account"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
                                           >
-                                            <Briefcase className="mb-1 h-5 w-5 text-purple-600 peer-data-[state=checked]:text-purple-600" /> {/* Reduced mb */}
+                                            <Briefcase className="mb-0.5 h-5 w-5 text-purple-600 peer-data-[state=checked]:text-purple-600" />
                                               Account
                                               {field.value === "account" && isAccountJobAuthPinVerified 
                                                 ? <span className="text-xs text-green-500">(PIN Verified)</span>
                                                 : <span className="text-xs text-orange-500">(PIN Required)</span>
                                               }
-                                            <span className="text-xs text-muted-foreground mt-0">(Operator will bill)</span> {/* Reduced mt */}
+                                            <span className="text-xs text-muted-foreground">(Operator will bill)</span>
                                           </Label>
                                         </FormItem>
                                       </RadioGroup>
@@ -2706,3 +2706,4 @@ const handleProceedToConfirmation = async () => {
 
 
     
+
