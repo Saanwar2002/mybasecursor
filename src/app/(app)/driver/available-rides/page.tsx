@@ -174,10 +174,44 @@ function getDistanceBetweenPointsInMeters(
   return R * c;
 }
 
-interface DispatchDisplayInfo {
-  text: string;
-  icon: React.ElementType;
-  bgColorClassName: string;
+interface ActiveStopDetails {
+  stopDataIndex: number;
+  arrivalTime: Date;
+}
+
+interface CurrentStopTimerDisplay {
+  stopDataIndex: number;
+  freeSecondsLeft: number | null;
+  extraSeconds: number | null;
+  charge: number;
+}
+
+interface HazardType {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  className: string; 
+}
+
+const hazardTypes: HazardType[] = [
+  { id: 'speed_camera', label: 'Mobile Speed Cam', icon: Gauge, className: 'bg-blue-500 hover:bg-blue-600 text-white border border-black' },
+  { id: 'taxi_check', label: 'Roadside Check', icon: ShieldCheckIcon, className: 'bg-sky-500 hover:bg-sky-600 text-white border border-black' },
+  { id: 'road_closure', label: 'Road Closure', icon: MinusCircle, className: 'bg-red-500 hover:bg-red-600 text-white border border-black' },
+  { id: 'accident', label: 'Accident', icon: AlertTriangle, className: 'bg-orange-500 hover:bg-orange-600 text-white border border-black' },
+  { id: 'road_works', label: 'Road Works', icon: Construction, className: 'bg-yellow-500 hover:bg-yellow-600 text-black border border-black' },
+  { id: 'heavy_traffic', label: 'Heavy Traffic', icon: UsersIcon, className: 'bg-amber-500 hover:bg-amber-600 text-black border border-black' },
+];
+
+const PLATFORM_OPERATOR_ID_PREFIX = "001";
+
+function getOperatorPrefix(operatorCode?: string | null): string {
+  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
+    const numericPart = operatorCode.substring(2);
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart.slice(0, 3);
+    }
+  }
+  return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
 function formatAddressForMapLabel(fullAddress: string, type: string): string {
@@ -233,6 +267,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   return `${type}:\n${street}\n${locationLine}`;
 }
 
+
 const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number; lng: number } }> = [
     { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", coords: { lat: 53.6483, lng: -1.7805 } },
     { address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", coords: { lat: 53.6465, lng: -1.7833 } },
@@ -247,46 +282,6 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
     { address: "Newsome Road South, Newsome, Huddersfield HD4 6JJ", coords: { lat: 53.6310, lng: -1.7800 } },
     { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
 ];
-
-interface ActiveStopDetails {
-  stopDataIndex: number;
-  arrivalTime: Date;
-}
-
-interface CurrentStopTimerDisplay {
-  stopDataIndex: number;
-  freeSecondsLeft: number | null;
-  extraSeconds: number | null;
-  charge: number;
-}
-
-interface HazardType {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  className: string; 
-}
-
-const hazardTypes: HazardType[] = [
-  { id: 'speed_camera', label: 'Mobile Speed Cam', icon: Gauge, className: 'bg-blue-500 hover:bg-blue-600 text-white border border-black' },
-  { id: 'taxi_check', label: 'Roadside Check', icon: ShieldCheckIcon, className: 'bg-sky-500 hover:bg-sky-600 text-white border border-black' },
-  { id: 'road_closure', label: 'Road Closure', icon: MinusCircle, className: 'bg-red-500 hover:bg-red-600 text-white border border-black' },
-  { id: 'accident', label: 'Accident', icon: AlertTriangle, className: 'bg-orange-500 hover:bg-orange-600 text-white border border-black' },
-  { id: 'road_works', label: 'Road Works', icon: Construction, className: 'bg-yellow-500 hover:bg-yellow-600 text-black border border-black' },
-  { id: 'heavy_traffic', label: 'Heavy Traffic', icon: UsersIcon, className: 'bg-amber-500 hover:bg-amber-600 text-black border border-black' },
-];
-
-const PLATFORM_OPERATOR_ID_PREFIX = "001";
-
-function getOperatorPrefix(operatorCode?: string | null): string {
-  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
-    const numericPart = operatorCode.substring(2);
-    if (/^\d{3,}$/.test(numericPart)) {
-      return numericPart.slice(0, 3);
-    }
-  }
-  return PLATFORM_OPERATOR_ID_PREFIX;
-}
 
 
 export default function AvailableRidesPage() {
@@ -1340,10 +1335,7 @@ export default function AvailableRidesPage() {
   const mapDisplayElements = useMemo(() => {
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
-
-    const currentLegIdxToUse = activeRide?.driverCurrentLegIndex !== undefined ? activeRide.driverCurrentLegIndex : localCurrentLegIndex;
-    const currentStatus = activeRide?.status?.toLowerCase();
-
+    const currentStatusLower = activeRide?.status?.toLowerCase();
     const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
         ? driverLocation
         : activeRide?.driverCurrentLocation;
@@ -1355,78 +1347,76 @@ export default function AvailableRidesPage() {
             iconUrl: driverCarIconDataUrl,
             iconScaledSize: {width: 30, height: 45}
         });
+        if (driverCurrentStreetName && (currentStatusLower === 'driver_assigned' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return')) {
+            let driverLabelContent = driverCurrentStreetName;
+            if (activeRide?.driverEtaMinutes !== undefined && activeRide?.driverEtaMinutes !== null && currentStatusLower === 'driver_assigned') {
+                driverLabelContent += `\nETA: ${activeRide.driverEtaMinutes} min${activeRide.driverEtaMinutes !== 1 ? 's' : ''}`;
+            }
+            labels.push({
+                position: currentLocToDisplay,
+                content: driverLabelContent,
+                type: 'driver',
+                variant: 'compact'
+            });
+        }
     }
+    
+    if (!activeRide) return { markers, labels };
 
-    if (activeRide) {
-        const isActiveRideStateForStopsAndDropoff = currentStatus && !['completed', 'cancelled_by_driver', 'cancelled_no_show', 'cancelled_by_operator'].includes(currentStatus);
-
-        if (activeRide.pickupLocation) {
-          markers.push({
+    if (activeRide.pickupLocation) {
+        markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
             title: `Pickup: ${activeRide.pickupLocation.address}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
-          });
+        });
+        labels.push({
+            position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
+            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+            type: 'pickup',
+            variant: (currentStatusLower === 'in_progress' && localCurrentLegIndex > 0) ? 'compact' : 'default'
+        });
+    }
 
-          if (currentLegIdxToUse === 0 && (currentStatus === 'driver_assigned' || currentStatus === 'arrived_at_pickup')) {
-            labels.push({
-              position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-              content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
-              type: 'pickup'
-            });
-          }
-        }
-
+    if (currentStatusLower !== 'driver_assigned' && currentStatusLower !== 'pending_assignment') {
         activeRide.stops?.forEach((stop, index) => {
-          const stopLegIndex = index + 1;
-          if(stop.latitude && stop.longitude && isActiveRideStateForStopsAndDropoff) {
-            markers.push({
-              position: {lat: stop.latitude, lng: stop.longitude},
-              title: `Stop ${index+1}: ${stop.address}`,
-              label: { text: `S${index+1}`, color: "white", fontWeight: "bold"}
-            });
-            if (currentLegIdxToUse === stopLegIndex) {
-                 labels.push({
-                    position: { lat: stop.latitude, lng: stop.longitude },
-                    content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
-                    type: 'stop'
+            const stopLegIndex = index + 1;
+            if(stop.latitude && stop.longitude) {
+                markers.push({
+                    position: {lat: stop.latitude, lng: stop.longitude},
+                    title: `Stop ${index+1}: ${stop.address}`,
+                    label: { text: `S${index+1}`, color: "white", fontWeight: "bold"}
                 });
-            } else if (currentLegIdxToUse < stopLegIndex) {
-                 labels.push({
-                    position: { lat: stop.latitude, lng: stop.longitude },
-                    content: formatAddressForMapLabel(stop.address, `Next Stop ${index+1}`),
-                    type: 'stop',
-                    variant: 'compact'
-                });
+                if (currentStatusLower === 'arrived_at_pickup' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return' || currentStatusLower === 'pending_driver_wait_and_return_approval') {
+                    labels.push({
+                        position: { lat: stop.latitude, lng: stop.longitude },
+                        content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+                        type: 'stop',
+                        variant: (localCurrentLegIndex === stopLegIndex && currentStatusLower !== 'arrived_at_pickup') ? 'default' : 'compact'
+                    });
+                }
             }
-          }
         });
 
-        if (activeRide.dropoffLocation && isActiveRideStateForStopsAndDropoff) {
-          const dropoffLegIndex = (activeRide.stops?.length || 0) + 1;
-          markers.push({
-            position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
-            title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-            label: { text: "D", color: "white", fontWeight: "bold"}
-          });
-          if (currentLegIdxToUse === dropoffLegIndex) {
-            labels.push({
-              position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-              content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-              type: 'dropoff'
+        if (activeRide.dropoffLocation) {
+            markers.push({
+                position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
+                title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+                label: { text: "D", color: "white", fontWeight: "bold"}
             });
-          } else if (currentLegIdxToUse < dropoffLegIndex ) {
-             labels.push({
-                position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-                content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-                type: 'dropoff',
-                variant: 'compact'
-            });
-          }
+            if (currentStatusLower === 'arrived_at_pickup' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return' || currentStatusLower === 'pending_driver_wait_and_return_approval') {
+                const dropoffLegIndex = (activeRide.stops?.length || 0) + 1;
+                labels.push({
+                    position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+                    content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+                    type: 'dropoff',
+                    variant: (localCurrentLegIndex === dropoffLegIndex && currentStatusLower !== 'arrived_at_pickup') ? 'default' : 'compact'
+                });
+            }
         }
     }
-    return { markers: markers, labels };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRide, driverLocation, isDriverOnline, journeyPoints, localCurrentLegIndex]);
+    return { markers, labels };
+  }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
+
 
   const memoizedMapCenter = useMemo(() => {
     if (activeRide) {
@@ -2234,7 +2224,7 @@ export default function AvailableRidesPage() {
           {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
               <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
                   <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
-                  <strong>Notes:</strong> {activeRide.notes}
+                    <strong>Notes:</strong> {activeRide.notes}
                   </p>
               </div>
           )}
@@ -2669,5 +2659,3 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
-
-
