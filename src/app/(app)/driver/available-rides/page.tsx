@@ -284,7 +284,7 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
 ];
 
 const isRideTerminated = (status?: string): boolean => {
-  if (!status) return true; // If no status, assume terminated for safety
+  if (!status) return true; 
   const terminalStatuses = ['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show', 'cancelled_by_operator'];
   return terminalStatuses.includes(status.toLowerCase());
 };
@@ -318,8 +318,6 @@ export default function AvailableRidesPage() {
 
   const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string | null>(null);
   const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
-  const [currentPassengerRatingInput, setCurrentPassengerRatingInput] = useState<number>(0);
-
 
   const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
   const [freeWaitingSecondsLeft, setFreeWaitingSecondsLeft] = useState<number | null>(null);
@@ -373,9 +371,6 @@ export default function AvailableRidesPage() {
   const [isJourneyDetailsModalOpen, setIsJourneyDetailsModalOpen] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
   
-  const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
-
-  // New state for the sliding panel
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
 
 
@@ -531,22 +526,20 @@ export default function AvailableRidesPage() {
         return { lat: currentTargetPoint.latitude, lng: currentTargetPoint.longitude };
       }
     }
-    // If not actively fitting bounds AND a route is visible, let GoogleMapDisplay manage its center
     if (!shouldFitMapBounds && currentRoutePolyline) {
         return undefined; 
     }
-    // Default behavior if no route or not fitting: center on driver or fallback
     return driverLocation || (activeRide?.pickupLocation ? {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude } : huddersfieldCenterGoogle);
   }, [activeRide?.pickupLocation, driverLocation, journeyPoints, localCurrentLegIndex, shouldFitMapBounds, currentRoutePolyline]);
 
   const mapZoomToUse = useMemo(() => {
     if (shouldFitMapBounds) {
-      return undefined; // Let fitBoundsToMarkers handle zoom entirely
+      return undefined; 
     }
-    if (currentRoutePolyline) { // If a route is active and we are not actively fitting
-      return undefined; // Let the map keep its current zoom after fitBounds
+    if (currentRoutePolyline) { 
+      return undefined; 
     }
-    return 16; // Default zoom when no route or specifically when not fitting bounds (e.g., driver just online)
+    return 16; 
   }, [shouldFitMapBounds, currentRoutePolyline]);
 
 
@@ -1553,7 +1546,7 @@ export default function AvailableRidesPage() {
         <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
         <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
+        <Button onClick={fetchActiveRide} variant="outline"><span>Try Again</span></Button>
     </div>;
   }
   
@@ -1774,7 +1767,7 @@ export default function AvailableRidesPage() {
   };
 
   const mainActionBtnText = mainButtonText();
-  const mainActionBtnAction = mainButtonAction;
+
 
   const showCompletedStatus = activeRide?.status === 'completed';
   const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
@@ -1819,7 +1812,7 @@ export default function AvailableRidesPage() {
 
 
   return (
-      <div className="flex flex-col h-full p-2 md:p-4">
+      <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden"> {/* Added relative and overflow-hidden */}
         {isSpeedLimitFeatureEnabled &&
           <SpeedLimitDisplay
             currentSpeed={currentMockSpeed}
@@ -1828,8 +1821,9 @@ export default function AvailableRidesPage() {
           />
         }
         <div className={cn(
-            "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
-            activeRide && !isRideTerminated(activeRide.status) ? "h-[calc(45%-0.5rem)]" : "h-[calc(100%-10rem)]" 
+            "relative w-full rounded-xl overflow-hidden shadow-lg border", 
+            activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-10rem)]", 
+             activeRide && !isRideTerminated(activeRide.status) ? "pb-[6rem]" : "" 
         )}>
             <GoogleMapDisplay
               center={memoizedMapCenter}
@@ -1863,7 +1857,7 @@ export default function AvailableRidesPage() {
                 <AlertDialogContent className="sm:max-w-md">
                   <AlertDialogHeader>
                     <ShadAlertDialogTitleForDialog className="font-bold text-2xl flex items-center gap-2">
-                      <AlertTriangle className="w-7 h-7 text-destructive" /> <span>Confirm Emergency Alert</span>
+                      <AlertTriangle className="w-7 h-7 text-destructive" /><span>Confirm Emergency Alert</span>
                     </ShadAlertDialogTitleForDialog>
                     <ShadAlertDialogDescriptionForDialog className="text-base py-2">
                       <span>Select a quick alert or send a general emergency notification. Your operator has been notified immediately.</span>
@@ -1934,12 +1928,13 @@ export default function AvailableRidesPage() {
         </div>
         
         {activeRide && isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && (
-            <Button
+             <Button
                 onClick={() => setIsRideDetailsPanelMinimized(false)}
                 className={cn(
                     "absolute right-4 z-20 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg px-3 py-1.5 h-auto text-xs font-semibold",
-                    "bottom-[calc(45%+0.5rem+1rem)]" // Adjust bottom based on map area and CurrentNavLegBar
+                     "bottom-[calc(6rem+0.5rem)]"
                 )}
+                style={{ '--navigation-bar-height': '6rem' } as React.CSSProperties} 
             >
                 <span>JOB DETAIL</span> <ChevronUp className="ml-1 h-4 w-4"/>
             </Button>
@@ -1948,8 +1943,9 @@ export default function AvailableRidesPage() {
         {activeRide && !isRideDetailsPanelMinimized && (
             <Card
                 className={cn(
-                "absolute bottom-0 left-0 right-0 z-30 bg-card shadow-2xl border-t-4 border-primary rounded-t-xl flex flex-col overflow-hidden",
-                "max-h-[55vh] md:max-h-[50vh]" // Allow panel to take more height
+                "absolute bottom-0 left-0 right-0 z-30 bg-card shadow-2xl border-t-4 border-primary rounded-t-xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out",
+                isRideDetailsPanelMinimized ? "translate-y-full" : "translate-y-0",
+                "max-h-[60vh] md:max-h-[55vh]" 
                 )}
             >
                 <CardHeader className="p-3 flex-row items-center justify-between shrink-0 border-b bg-muted/30">
@@ -1975,13 +1971,13 @@ export default function AvailableRidesPage() {
                                 <p className="text-2xl font-bold text-primary">{displayedFare}</p>
                                 <p className="text-xs text-muted-foreground mt-1">Job ID: {activeRide.displayBookingId || activeRide.id}</p>
                                  <Separator className="my-3"/>
-                                <p className="font-bold text-sm mb-1">Rate {activeRide.passengerName || "Passenger"}:</p>
+                                <p className="font-bold text-sm mb-1"><span>Rate {activeRide.passengerName || "Passenger"}:</span></p>
                                 <div className="flex justify-center space-x-1 mb-3">
                                     {[...Array(5)].map((_, i) => (
                                         <Star
                                         key={i}
-                                        className={cn("w-7 h-7 cursor-pointer", i < currentPassengerRatingInput ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300")}
-                                        onClick={() => setCurrentPassengerRatingInput(i + 1)}
+                                        className={cn("w-7 h-7 cursor-pointer", i < driverRatingForPassenger ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300")}
+                                        onClick={() => setDriverRatingForPassenger(i + 1)}
                                         />
                                     ))}
                                 </div>
@@ -1991,8 +1987,8 @@ export default function AvailableRidesPage() {
                                 <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2">
                                     <XCircle className="w-5 h-5" /> <span>{activeRide.status === 'cancelled_no_show' ? "Passenger No-Show" : "Ride Cancelled By You"}</span>
                                 </Badge>
-                                <p className="mt-3 text-sm text-muted-foreground">This ride (ID: {activeRide.displayBookingId || activeRide.id}) was cancelled.</p>
-                                <p className="mt-1 text-sm text-muted-foreground">Passenger: {activeRide.passengerName}</p>
+                                <p className="mt-3 text-sm text-muted-foreground"><span>This ride (ID: {activeRide.displayBookingId || activeRide.id}) was cancelled.</span></p>
+                                <p className="mt-1 text-sm text-muted-foreground"><span>Passenger: {activeRide.passengerName}</span></p>
                             </div>
                         ) : (
                         <> {/* Active Ride Details */}
@@ -2069,7 +2065,12 @@ export default function AvailableRidesPage() {
                             )}
                             
                             <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-sm">
-                                <div className={cn("col-span-2 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1")}><p className="font-bold flex items-center gap-1.5 text-base"><DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /><span>Fare: {displayedFare}</span></p></div>
+                                <div className={cn("col-span-2 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1")}>
+                                  <p className="font-bold flex items-center gap-1.5 text-base">
+                                    <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
+                                    <span>Fare: {displayedFare}</span>
+                                  </p>
+                                </div>
                                 <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Passengers: {activeRide.passengerCount}</span></p>
                                 {activeRide.distanceMiles != null && (<p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</span></p>)}
                                 {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} <span>Payment: {paymentMethodDisplay}</span> </p> )}
@@ -2083,12 +2084,11 @@ export default function AvailableRidesPage() {
                         <Button
                             className="font-bold w-full bg-slate-600 hover:bg-slate-700 text-base text-white py-2.5 h-auto"
                             onClick={() => {
-                                console.log("Done button clicked. Current status:", activeRide?.status, "Rating given:", currentPassengerRatingInput);
-                                if(showCompletedStatus && currentPassengerRatingInput > 0 && activeRide?.passengerName) {
-                                    console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${currentPassengerRatingInput} stars.`);
-                                    toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${currentPassengerRatingInput} stars.`});
+                                console.log("Done button clicked. Current status:", activeRide?.status, "Rating given:", driverRatingForPassenger);
+                                if(showCompletedStatus && driverRatingForPassenger > 0 && activeRide?.passengerName) {
+                                    console.log(`Mock: Driver rated passenger ${activeRide.passengerName} with ${driverRatingForPassenger} stars.`);
+                                    toast({title: "Passenger Rating Submitted (Mock)", description: `You rated ${activeRide.passengerName} ${driverRatingForPassenger} stars.`});
                                 }
-                                setCurrentPassengerRatingInput(0);
                                 setDriverRatingForPassenger(0);
                                 setCurrentWaitingCharge(0); setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges({}); setCurrentStopTimerDisplay(null); setActiveStopDetails(null); setIsCancelSwitchOn(false); setActiveRide(null); setIsPollingEnabled(true); setIsRideDetailsPanelMinimized(true);
                             }}
