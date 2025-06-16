@@ -178,8 +178,9 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
+    const bounds = new window.google.maps.LatLngBounds();
+
     if (markers && markers.length > 0 && mapInstanceRef.current && window.google.maps?.Marker && window.google.maps?.LatLngBounds) {
-      const bounds = new window.google.maps.LatLngBounds();
       markers.forEach(markerData => {
         let markerOptions: google.maps.MarkerOptions = {
           position: markerData.position, map: mapInstanceRef.current,
@@ -192,24 +193,41 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
             anchor: new window.google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height),
           };
         }
-        // Icon rotation for Symbol-based icons (not directly for image URLs)
-        // if (driverIconRotation !== undefined && markerData.title === "Your Current Location" && markerOptions.icon && typeof markerOptions.icon !== 'string') {
-        //   (markerOptions.icon as google.maps.Symbol).rotation = driverIconRotation;
-        // }
         const newMarker = new window.google.maps.Marker(markerOptions);
         currentMarkersRef.current.push(newMarker);
         if (markerData.position) bounds.extend(markerData.position);
       });
+    }
+    
+    currentPolylinesRef.current.forEach(polyline => polyline.setMap(null));
+    currentPolylinesRef.current = [];
+    if (polylines && polylines.length > 0 && mapInstanceRef.current && window.google.maps.Polyline && window.google.maps.LatLng) {
+      polylines.forEach(polylineData => {
+        const newPolyline = new window.google.maps.Polyline({
+          path: polylineData.path,
+          strokeColor: polylineData.color,
+          strokeOpacity: polylineData.opacity ?? 0.8,
+          strokeWeight: polylineData.weight,
+          map: mapInstanceRef.current,
+        });
+        currentPolylinesRef.current.push(newPolyline);
+        // Extend bounds with polyline paths if fitBoundsToMarkers is true
+        if (fitBoundsToMarkers && polylineData.path && polylineData.path.length > 0) {
+            polylineData.path.forEach(point => {
+              bounds.extend(new window.google.maps.LatLng(point.lat, point.lng));
+            });
+        }
+      });
+    }
 
-      if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
-        if (markers.length === 1) {
+    if (fitBoundsToMarkers && !bounds.isEmpty() && mapInstanceRef.current) {
+        if (markers && markers.length === 1 && (!polylines || polylines.every(p => !p.path || p.path.length === 0))) {
             mapInstanceRef.current.setCenter(bounds.getCenter());
             mapInstanceRef.current.setZoom(15); 
         } else {
-            mapInstanceRef.current.fitBounds(bounds, 20); 
+            mapInstanceRef.current.fitBounds(bounds, 20); // Padding of 20
         }
-      }
-    } else if (mapInstanceRef.current && (!markers || markers.length === 0)) {
+    } else if (mapInstanceRef.current && (!markers || markers.length === 0) && (!polylines || polylines.length === 0)) {
        const currentMapCenter = mapInstanceRef.current.getCenter();
         if (currentMapCenter && (currentMapCenter.lat() !== center.lat || currentMapCenter.lng() !== center.lng)) {
           mapInstanceRef.current.setCenter(center);
@@ -231,22 +249,6 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           customLabelOverlaysRef.current.push(newLabelOverlay);
         });
       }
-    }
-    
-    // Polyline drawing logic
-    currentPolylinesRef.current.forEach(polyline => polyline.setMap(null));
-    currentPolylinesRef.current = [];
-    if (polylines && polylines.length > 0 && mapInstanceRef.current && window.google.maps.Polyline) {
-      polylines.forEach(polylineData => {
-        const newPolyline = new window.google.maps.Polyline({
-          path: polylineData.path,
-          strokeColor: polylineData.color,
-          strokeOpacity: polylineData.opacity ?? 0.8,
-          strokeWeight: polylineData.weight,
-          map: mapInstanceRef.current,
-        });
-        currentPolylinesRef.current.push(newPolyline);
-      });
     }
 
   }, [isInternalSdkLoaded, center, zoom, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling, mapHeading, mapRotateControl, polylines, driverIconRotation]);
