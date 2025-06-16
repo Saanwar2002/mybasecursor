@@ -24,13 +24,15 @@ interface ActiveRideForPassengerResponse {
   dropoffLocation: LocationPoint;
   stops?: LocationPoint[];
   vehicleType: string;
-  passengers: number; // Added
-  driverId?: string; // Added
+  passengers: number; 
+  driverId?: string; 
   fareEstimate: number;
   status: string;
   driver?: string;
   driverAvatar?: string;
   driverVehicleDetails?: string;
+  isPriorityPickup?: boolean; // Ensured this is part of the interface
+  priorityFeeAmount?: number; // Ensured this is part of the interface
   isSurgeApplied?: boolean;
   paymentMethod?: "card" | "cash" | "account";
   bookingTimestamp?: SerializedTimestamp | null;
@@ -38,11 +40,11 @@ interface ActiveRideForPassengerResponse {
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
-  driverCurrentLocation?: { lat: number; lng: number }; // Added
+  driverCurrentLocation?: { lat: number; lng: number }; 
   driverEtaMinutes?: number;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
-  accountJobPin?: string; // Ensured this is here
+  accountJobPin?: string; 
 }
 
 
@@ -122,13 +124,15 @@ export async function GET(request: NextRequest) {
       dropoffLocation: data.dropoffLocation,
       stops: data.stops,
       vehicleType: data.vehicleType,
-      passengers: data.passengers || 1, // Ensure passengers is included
-      driverId: data.driverId, // Ensure driverId is included
+      passengers: data.passengers || 1, 
+      driverId: data.driverId, 
       fareEstimate: data.fareEstimate,
       status: data.status,
       driver: data.driverName, 
       driverAvatar: data.driverAvatar,
       driverVehicleDetails: data.driverVehicleDetails,
+      isPriorityPickup: data.isPriorityPickup || false, // Default to false
+      priorityFeeAmount: data.priorityFeeAmount || 0,   // Default to 0
       isSurgeApplied: data.isSurgeApplied,
       paymentMethod: data.paymentMethod,
       bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
@@ -136,11 +140,11 @@ export async function GET(request: NextRequest) {
       notifiedPassengerArrivalTimestamp: processTimestampField(data.notifiedPassengerArrivalTimestampActual || data.notifiedPassengerArrivalTimestamp),
       passengerAcknowledgedArrivalTimestamp: processTimestampField(data.passengerAcknowledgedArrivalTimestampActual || data.passengerAcknowledgedArrivalTimestamp),
       rideStartedAt: processTimestampField(data.rideStartedAtActual || data.rideStartedAt),
-      driverCurrentLocation: data.driverCurrentLocation, // Ensure this is included
+      driverCurrentLocation: data.driverCurrentLocation, 
       driverEtaMinutes: data.driverEtaMinutes,
       waitAndReturn: data.waitAndReturn,
       estimatedAdditionalWaitTimeMinutes: data.estimatedAdditionalWaitTimeMinutes,
-      accountJobPin: data.accountJobPin, // Explicitly include accountJobPin
+      accountJobPin: data.accountJobPin, 
     };
 
     return NextResponse.json(responseRide, { status: 200 });
