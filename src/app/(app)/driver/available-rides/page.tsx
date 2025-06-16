@@ -1051,6 +1051,21 @@ export default function MyActiveRidePage() {
 
     return (
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] p-2 md:p-2.5 bg-black/75 text-white rounded-lg shadow-xl flex items-center gap-2 md:gap-3 backdrop-blur-sm max-w-[calc(100%-2rem)]">
+        <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 shrink-0"
+            title="Open Navigation in Google Maps"
+            onClick={() => {
+              if (currentLeg.coords) {
+                window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLeg.coords.lat},${currentLeg.coords.lng}&travelmode=driving`, '_blank');
+              } else {
+                toast({ title: "Navigation Error", description: "Destination coordinates not available for this leg.", variant: "destructive"});
+              }
+            }}
+          >
+            <Navigation className="h-4 w-4" />
+          </Button>
         <div className="flex-1 min-w-0">
           <p className="text-[0.6rem] md:text-xs font-semibold uppercase tracking-wider text-blue-300">NEXT: {legTypeDisplay}</p>
           <p className="text-xs md:text-sm font-bold truncate" title={currentLeg.address}>{nextAddressShort}</p>
@@ -1395,17 +1410,13 @@ export default function MyActiveRidePage() {
                     disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
+                  <span className="inline-flex items-center justify-center w-full">
                     {actionLoading[rideIdToCancel || ''] ? (
-                        <span className="inline-flex items-center justify-center w-full">
-                            <Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />
-                            Cancelling...
-                        </span>
+                        <><Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />Cancelling...</>
                     ) : (
-                        <span className="inline-flex items-center justify-center w-full">
-                            <ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />
-                            Confirm Cancel
-                        </span>
+                        <><ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />Confirm Cancel</>
                     )}
+                  </span>
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -1517,4 +1528,3 @@ export default function MyActiveRidePage() {
   );
 }
     
-
