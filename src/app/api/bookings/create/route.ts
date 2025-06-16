@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore'; // Added updateDoc and doc
+import { collection, addDoc, serverTimestamp, updateDoc, doc, Timestamp } from 'firebase/firestore'; // Added Timestamp
 
 interface LocationPoint {
   address: string;
@@ -40,17 +40,17 @@ function generateFourDigitPin(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001"; // MyBase Direct platform operator
+const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
 const PLATFORM_OPERATOR_ID_PREFIX = "001";
 
 function getOperatorPrefix(operatorCode?: string | null): string {
   if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
     const numericPart = operatorCode.substring(2);
-    if (/^\d{3,}$/.test(numericPart)) { // Ensure it's OP followed by 3+ digits
-      return numericPart;
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart.slice(0, 3); // Ensure it's exactly 3 digits
     }
   }
-  return PLATFORM_OPERATOR_ID_PREFIX; // Default to platform prefix
+  return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
 
@@ -118,8 +118,7 @@ export async function POST(request: NextRequest) {
       bookingTimestamp: serverTimestamp(),
       paymentMethod: bookingData.paymentMethod,
       waitAndReturn: bookingData.waitAndReturn || false,
-      originatingOperatorId: originatingOperatorId, // Store the originating operator
-      // displayBookingId will be added after doc creation
+      originatingOperatorId: originatingOperatorId,
     };
 
     if (bookingData.paymentMethod === "account") {
@@ -143,17 +142,22 @@ export async function POST(request: NextRequest) {
     if (bookingData.promoCode && bookingData.promoCode.trim() !== "") {
         newBookingForFirestore.promoCode = bookingData.promoCode.trim();
     }
-    if (bookingData.preferredOperatorId) { // Keep this for reference if needed
+    if (bookingData.preferredOperatorId) { 
         newBookingForFirestore.preferredOperatorId = bookingData.preferredOperatorId;
     }
 
     const docRef = await addDoc(collection(db, 'bookings'), newBookingForFirestore);
     const firestoreDocId = docRef.id;
-    const displayBookingId = `${displayBookingIdPrefix}/${firestoreDocId}`;
 
-    // Update the document with the displayBookingId
+    // Generate numeric suffix for displayBookingId
+    const now = Date.now();
+    const numericSuffix = now.toString().slice(-7) + Math.floor(Math.random() * 1000).toString().padStart(3, '0'); // 10-digit numeric string
+    
+    const displayBookingId = `${displayBookingIdPrefix}/${numericSuffix}`;
+
     await updateDoc(doc(db, 'bookings', firestoreDocId), {
       displayBookingId: displayBookingId
+      // originatingOperatorId is already part of newBookingForFirestore if it was set
     });
 
     const responseData = { 
@@ -168,8 +172,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
         message: 'Booking created successfully', 
-        bookingId: firestoreDocId, // Original Firestore ID
-        displayBookingId: displayBookingId, // Formatted ID
+        bookingId: firestoreDocId, 
+        displayBookingId: displayBookingId, 
         originatingOperatorId: originatingOperatorId,
         data: responseData 
     }, { status: 201 });

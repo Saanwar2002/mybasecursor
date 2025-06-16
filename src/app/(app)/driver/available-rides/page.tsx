@@ -80,6 +80,8 @@ interface SerializedTimestamp {
 
 interface ActiveRide {
   id: string;
+  displayBookingId?: string;
+  originatingOperatorId?: string;
   passengerId: string;
   passengerName: string;
   passengerAvatar?: string;
@@ -221,7 +223,7 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   if (street && !locationLine) { 
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) { 
+  if (!street && !locationLine) { 
      return `${type}:\n${locationLine}`;
   }
   if (!street && !locationLine) {
@@ -273,6 +275,18 @@ const hazardTypes: HazardType[] = [
   { id: 'road_works', label: 'Road Works', icon: Construction, className: 'bg-yellow-500 hover:bg-yellow-600 text-black border border-black' },
   { id: 'heavy_traffic', label: 'Heavy Traffic', icon: UsersIcon, className: 'bg-amber-500 hover:bg-amber-600 text-black border border-black' },
 ];
+
+const PLATFORM_OPERATOR_ID_PREFIX = "001";
+
+function getOperatorPrefix(operatorCode?: string | null): string {
+  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
+    const numericPart = operatorCode.substring(2);
+    if (/^\d{3,}$/.test(numericPart)) {
+      return numericPart.slice(0, 3);
+    }
+  }
+  return PLATFORM_OPERATOR_ID_PREFIX;
+}
 
 
 export default function AvailableRidesPage() {
@@ -841,11 +855,10 @@ export default function AvailableRidesPage() {
       paymentMethodChoice = 'cash';
     } else {
       paymentMethodChoice = 'account';
-      jobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString(); // Always generate for account
+      jobPinForOffer = Math.floor(1000 + Math.random() * 9000).toString(); 
     }
 
-    const mockOffer: RideOffer = {
-      id: `mock-offer-${Date.now()}`,
+    const offer: Omit<RideOffer, 'id' | 'displayBookingId' | 'originatingOperatorId'> = { // Base offer without IDs
       pickupLocation: pickup.address,
       pickupCoords: pickup.coords,
       dropoffLocation: dropoff.address,
@@ -863,8 +876,23 @@ export default function AvailableRidesPage() {
       dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
       accountJobPin: jobPinForOffer,
     };
-    console.log("Simulating offer:", mockOffer);
-    setCurrentOfferDetails(mockOffer);
+
+    const mockFirestoreId = `mock-offer-${Date.now()}`;
+    const mockOriginatingOperatorId = offer.requiredOperatorId || PLATFORM_OPERATOR_CODE;
+    const mockDisplayPrefix = getOperatorPrefix(mockOriginatingOperatorId);
+    
+    const now = Date.now();
+    const numericSuffix = now.toString().slice(-7) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const mockDisplayBookingId = `${mockDisplayPrefix}/${numericSuffix}`;
+
+    const mockOfferWithDisplayId: RideOffer = {
+      ...offer,
+      id: mockFirestoreId,
+      displayBookingId: mockDisplayBookingId,
+      originatingOperatorId: mockOriginatingOperatorId,
+    };
+    console.log("Simulating offer:", mockOfferWithDisplayId);
+    setCurrentOfferDetails(mockOfferWithDisplayId);
     setIsOfferModalOpen(true);
   };
 
@@ -946,6 +974,8 @@ export default function AvailableRidesPage() {
       const serverBooking = updatedBookingDataFromServer.booking;
       const newActiveRideFromServer: ActiveRide = {
         id: serverBooking.id,
+        displayBookingId: serverBooking.displayBookingId,
+        originatingOperatorId: serverBooking.originatingOperatorId,
         passengerId: serverBooking.passengerId,
         passengerName: serverBooking.passengerName,
         passengerAvatar: serverBooking.passengerAvatar,
@@ -1548,40 +1578,6 @@ export default function AvailableRidesPage() {
     setIsHazardReportDialogOpen(false); 
   };
 
-  const getActiveRideDispatchInfo = (
-    ride: ActiveRide | null,
-    currentUser: User | null
-  ): DispatchDisplayInfo | null => {
-    if (!ride || !currentUser) return null;
-
-    const isPlatformRide = ride.requiredOperatorId === PLATFORM_OPERATOR_CODE;
-    const isOwnOperatorRide = currentUser.operatorCode && ride.requiredOperatorId === currentUser.operatorCode && ride.requiredOperatorId !== PLATFORM_OPERATOR_CODE;
-
-    const isManualDispatch = ride.dispatchMethod === 'manual_operator';
-    const isPriorityOverride = ride.dispatchMethod === 'priority_override';
-
-    if (isPlatformRide) {
-      return isManualDispatch
-        ? { text: "Dispatched By App: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
-        : { text: "Dispatched By App: AUTO MODE", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
-    }
-    if (isOwnOperatorRide) {
-      return isManualDispatch
-        ? { text: "Dispatched By YOUR BASE: MANUAL MODE", icon: Briefcase, bgColorClassName: "bg-blue-600" }
-        : { text: "Dispatched By YOUR BASE: AUTO MODE", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
-    }
-
-    if (isManualDispatch) {
-      const dispatcher = ride.requiredOperatorId ? `Operator ${ride.requiredOperatorId}` : "Platform Admin";
-      return { text: `Manually Dispatched by ${dispatcher}`, icon: Briefcase, bgColorClassName: "bg-blue-600" };
-    }
-    if (isPriorityOverride) {
-      return { text: "Dispatched by Operator (Priority)", icon: AlertOctagon, bgColorClassName: "bg-purple-600" };
-    }
-    return { text: "Dispatched By App (Auto)", icon: CheckCircleIcon, bgColorClassName: "bg-green-600" };
-  };
-  // const dispatchInfo = getActiveRideDispatchInfo(activeRide, driverUser); // DISPATCH INFO IS REMOVED FROM DISPLAY HERE
-
 
   if (isLoading && !activeRide) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -1673,7 +1669,7 @@ export default function AvailableRidesPage() {
 
 
   if (!activeRide) {
-    const mapContainerClasses = cn( "relative h-[400px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
+    const mapContainerClasses = cn( "relative h-[calc(100%-10rem)] w-full rounded-xl overflow-hidden shadow-lg border-4 border-border");
     return (
       <div className="flex flex-col h-full space-y-2 p-2 md:p-4">
         {isSpeedLimitFeatureEnabled &&
@@ -1741,7 +1737,13 @@ export default function AvailableRidesPage() {
                 </AlertDialogContent>
             </AlertDialog>
         </div>
-        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border"> <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> <CardTitle className={cn( "font-bold text-lg", isDriverOnline ? "text-green-600" : "text-red-600")}> {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} </CardTitle> </CardHeader> <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
+        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border max-h-40"> 
+          <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> 
+            <CardTitle className={cn( "font-bold text-lg", isDriverOnline ? "text-green-600" : "text-red-600")}> 
+              {isDriverOnline ? "Online - Awaiting Offers" : "Offline"} 
+            </CardTitle> 
+          </CardHeader> 
+          <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
         {geolocationError && isDriverOnline && (
             <Alert variant="destructive" className="mb-2 text-xs">
                 <AlertTriangle className="h-4 w-4" />
@@ -1913,7 +1915,7 @@ export default function AvailableRidesPage() {
           <DialogHeader>
             <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
             <ShadDialogDescriptionDialog>
-              Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}).
+              Overview of all legs for the current ride (ID: {activeRide?.displayBookingId || activeRide?.id || 'N/A'}).
             </ShadDialogDescriptionDialog>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] p-1 -mx-1">
@@ -2072,7 +2074,7 @@ export default function AvailableRidesPage() {
       {(!showCompletedStatus && !showCancelledByDriverStatus && !showCancelledNoShowStatus) && (
       <div className={cn(
         "relative w-full rounded-b-xl overflow-hidden shadow-lg border-b",
-        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[400px]" 
+        activeRide ? "h-[calc(45%-0.5rem)]" : "h-[calc(100%-10rem)]" // Adjust height when no active ride vs active
       )}>
           <GoogleMapDisplay
             center={memoizedMapCenter}
@@ -2180,7 +2182,7 @@ export default function AvailableRidesPage() {
         "rounded-t-xl z-10 shadow-xl border-t-4 border-primary bg-card flex flex-col overflow-hidden",
         (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus)
           ? "mt-0 rounded-b-xl"
-          : "flex-1"
+          : "flex-1 max-h-[calc(55%-0.5rem)]"
       )}>
         <ScrollArea className={cn( (showCompletedStatus || showCancelledByDriverStatus || showCancelledNoShowStatus) ? "" : "flex-1" )}>
           <CardContent className="p-2 space-y-1.5">
@@ -2227,7 +2229,6 @@ export default function AvailableRidesPage() {
               </div>
             )}
           </div>
-           {/* MOVED NOTES HERE and updated condition */}
           {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
               <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
                   <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
@@ -2236,8 +2237,6 @@ export default function AvailableRidesPage() {
               </div>
           )}
           
-          {/* REMOVED DISPATCH INFO BOX from here */}
-
           {isPriorityPickup && (status === 'driver_assigned' || status === 'arrived_at_pickup') && (
               <Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1">
                   <Crown className="h-3.5 w-3.5" />
@@ -2614,7 +2613,7 @@ export default function AvailableRidesPage() {
           <DialogHeader>
             <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> Full Journey Details</DialogTitle>
             <ShadDialogDescriptionDialog>
-              Overview of all legs for the current ride (ID: {activeRide?.id || 'N/A'}).
+              Overview of all legs for the current ride (ID: {activeRide?.displayBookingId || activeRide?.id || 'N/A'}).
             </ShadDialogDescriptionDialog>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] p-1 -mx-1">
@@ -2667,3 +2666,4 @@ export default function AvailableRidesPage() {
   </div>
 );
 }
+
