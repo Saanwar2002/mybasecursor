@@ -600,15 +600,6 @@ export default function AvailableRidesPage() {
 
       if (data?.driverCurrentLegIndex !== undefined && data.driverCurrentLegIndex !== localCurrentLegIndex) {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
-
-        if (data.status === 'in_progress' || data.status === 'in_progress_wait_and_return') {
-            const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < ((data.stops?.length || 0) + 1);
-            if (newLegIsIntermediateStop) {
-                // Timer initiation for the stop is now handled by driver clicking "Arrived at Stop X"
-            } else {
-                setActiveStopDetails(null); // No longer at an intermediate stop or it's the final leg
-            }
-        }
       }
       if (data?.completedStopWaitCharges) {
         setCompletedStopWaitCharges(data.completedStopWaitCharges);
@@ -670,14 +661,13 @@ export default function AvailableRidesPage() {
       clearInterval(stopIntervalRef.current);
       stopIntervalRef.current = null;
     }
-    // setCurrentStopTimerDisplay(null); // Clear previous timer display - MOVED to else block
 
     const currentLegIdx = activeRide?.driverCurrentLegIndex;
     const isAtIntermediateStop = activeRide &&
                                  (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
                                  currentLegIdx !== undefined &&
-                                 currentLegIdx > 0 && 
-                                 currentLegIdx < journeyPoints.length -1; 
+                                 currentLegIdx > 0 &&
+                                 currentLegIdx < journeyPoints.length -1;
 
     console.log("[StopTimerEffect Debug]", {
         status: activeRide?.status,
@@ -732,6 +722,7 @@ export default function AvailableRidesPage() {
       });
 
     } else {
+      console.log("[StopTimerEffect] Condition NOT met or currentStopDetails not matching current leg. Clearing timer display.");
       setCurrentStopTimerDisplay(null);
     }
 
@@ -970,25 +961,25 @@ export default function AvailableRidesPage() {
     }
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
-    const passengerPhone = `+447712345${Math.floor(Math.random() * 900) + 100}`;
+    const passengerPhoneNumber = `+447700900${Math.floor(Math.random() * 900) + 100}`;
 
     let stopsForOffer: Array<{ address: string; coords: { lat: number; lng: number } }> = [];
-    if (Math.random() < 0.5) { 
+    const numberOfStops = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2); // 30% 0 stops, 70% for 1 or 2
+    
+    if (numberOfStops >= 1) {
         let stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
         while ([randomPickupIndex, randomDropoffIndex].includes(stop1Index)) {
             stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
         }
         stopsForOffer.push(mockHuddersfieldLocations[stop1Index]);
-
-        if (Math.random() < 0.5) { 
-            let stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
-            while ([randomPickupIndex, randomDropoffIndex, stop1Index].includes(stop2Index)) {
-                stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
-            }
-            stopsForOffer.push(mockHuddersfieldLocations[stop2Index]);
-        }
     }
-
+    if (numberOfStops === 2) {
+        let stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+        while ([randomPickupIndex, randomDropoffIndex, stopsForOffer[0] ? mockHuddersfieldLocations.findIndex(loc => loc.address === stopsForOffer[0].address) : -1].includes(stop2Index)) {
+            stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+        }
+        stopsForOffer.push(mockHuddersfieldLocations[stop2Index]);
+    }
 
     const isPriority = Math.random() < 0.4;
     let currentPriorityFeeAmount = 0;
@@ -1021,7 +1012,7 @@ export default function AvailableRidesPage() {
       passengerCount: Math.floor(Math.random() * 3) + 1,
       passengerId: `pass-mock-${Date.now().toString().slice(-4)}`,
       passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
-      passengerPhone: passengerPhone, 
+      passengerPhone: passengerPhoneNumber, 
       notes: Math.random() < 0.3 ? `Test note: ${Math.random() < 0.5 ? "Luggage." : "Call on arrival."}` : undefined,
       requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
       distanceMiles: parseFloat((Math.random() * 9 + 1 + (stopsForOffer.length * 2)).toFixed(1)),
@@ -1046,7 +1037,7 @@ export default function AvailableRidesPage() {
       displayBookingId: mockDisplayBookingId,
       originatingOperatorId: mockOriginatingOperatorId,
     };
-    console.log("[handleSimulateOffer] Generated Mock Offer:", JSON.stringify(mockOfferWithDisplayId, null, 2));
+    console.log("[handleSimulateOffer] Generated Mock Offer with phone & stops:", JSON.stringify(mockOfferWithDisplayId, null, 2));
     setStagedOfferDetails(mockOfferWithDisplayId);
   };
 
@@ -1522,12 +1513,12 @@ export default function AvailableRidesPage() {
 
     if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return')) {
         if (currentLegIdx < journeyLegCount - 1) {
-            const currentStopArrayIndex = currentLegIdx -1;
-            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) {
-                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) {
+            const currentStopArrayIndex = currentLegIdx -1; // This is the index for activeRide.stops
+            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { // current leg IS an intermediate stop
+                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) { // Timer is active for this stop
                     const nextLegIsDropoff = currentLegIdx + 1 === journeyLegCount - 1;
                     return `Depart Stop ${currentStopArrayIndex + 1} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentStopArrayIndex + 2}`}`;
-                } else {
+                } else { // Arrived at stop, timer not yet started
                     return `Arrived at Stop ${currentStopArrayIndex + 1} / Start Timer`;
                 }
             } else if (currentLegIdx === 0 && journeyLegCount > 1) { // Just started from pickup, heading to first stop or dropoff
@@ -1535,7 +1526,7 @@ export default function AvailableRidesPage() {
                  const nextStopIndexIfAny = currentLegIdx; // if journeyPoints[1] is a stop, its index in activeRide.stops would be 0
                  return `Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${nextStopIndexIfAny + 1}`}`;
             }
-        } else if (currentLegIdx === journeyLegCount - 1) {
+        } else if (currentLegIdx === journeyLegCount - 1) { // Current leg is the final dropoff
             return "Complete Ride";
         }
     }
@@ -1555,7 +1546,7 @@ export default function AvailableRidesPage() {
         if (currentLegIdx < journeyLegCount - 1) { // Not yet at final dropoff leg
             const currentStopArrayIndex = currentLegIdx - 1; // Index for activeRide.stops array
 
-            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { // This is an intermediate stop
+            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { // This is an intermediate stop leg
                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) {
                     // Timer was active for this stop, now departing
                     handleRideAction(activeRide.id, 'proceed_to_next_leg');
@@ -2057,8 +2048,24 @@ export default function AvailableRidesPage() {
               </ShadAlertTitle>
               <ShadAlertDescription className="font-bold text-current text-[10px]">
                 <span>
-                  {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (`Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`)}
-                  {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (`Extra waiting: ${formatTimer(currentStopTimerDisplay.extraSeconds)}. Current Charge: £${currentStopTimerDisplay.charge.toFixed(2)}`)}
+                  {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
+                  <>
+                    Free waiting time:{" "}
+                    <span className="bg-accent text-accent-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
+                        {formatTimer(currentStopTimerDisplay.freeSecondsLeft)}
+                    </span>{" "}
+                    remaining.
+                  </>
+                  )}
+                  {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (
+                  <>
+                    Extra waiting:{" "}
+                    <span className="bg-accent text-accent-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
+                        {formatTimer(currentStopTimerDisplay.extraSeconds)}
+                    </span>
+                    . Current Charge: £{currentStopTimerDisplay.charge.toFixed(2)}
+                  </>
+                  )}
                 </span>
               </ShadAlertDescription>
             </Alert>
@@ -2483,4 +2490,5 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
 
