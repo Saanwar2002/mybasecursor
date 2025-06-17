@@ -1589,6 +1589,42 @@ export default function AvailableRidesPage() {
               </Badge>
             </div>
           )}
+          {(activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'driver_assigned') && (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {activeRide.passengerPhone && (
+                <>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 p-0.5 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-700/50 rounded"
+                    title={`Call ${activeRide.passengerName}: ${activeRide.passengerPhone}`}
+                  >
+                    <a href={`tel:${activeRide.passengerPhone}`} aria-label={`Call ${activeRide.passengerName}`}>
+                      <PhoneCall className="w-3 h-3" />
+                    </a>
+                  </Button>
+                  <span className="text-[10px] font-medium text-muted-foreground mr-1">{activeRide.passengerPhone}</span>
+                </>
+              )}
+              {!isChatDisabled && (
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded",
+                    !activeRide.passengerPhone && "ml-0"
+                  )}
+                  title={`Chat with ${activeRide.passengerName}`}
+                >
+                  <Link href="/driver/chat" aria-label={`Chat with ${activeRide.passengerName}`}>
+                    <MessageSquare className="w-3 h-3" />
+                  </Link>
+                </Button>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
             <div className="flex items-center gap-1">
@@ -1916,10 +1952,10 @@ export default function AvailableRidesPage() {
         )}
 
         {activeRide?.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
-            <Alert variant="default" className="my-2 bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
+             <Alert variant="default" className="my-2 bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
                 <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center">
-                        <Info className="h-4 w-4 text-current mr-1.5" />
+                    <div className="flex items-center gap-1">
+                        <Info className="h-3.5 w-3.5 text-current" />
                         <span className="font-semibold text-current">Waiting Passenger Ack.</span>
                     </div>
                     <span className="font-bold text-white bg-pink-600 dark:bg-pink-700 px-1.5 py-0.5 rounded text-xs">
