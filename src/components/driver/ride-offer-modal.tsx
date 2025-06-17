@@ -315,30 +315,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs pt-1">
-              {rideDetails.passengerName && (
-                <p className="flex items-center gap-1 font-medium">
-                  <Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  Pass: <span className="font-bold">{rideDetails.passengerName || "Passenger N/A"}</span>
-                </p>
-              )}
-              <p className="flex items-center gap-1 font-medium">
-                <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span>
-              </p>
-              
-              {rideDetails.paymentMethod && (
-                <p className="col-span-2 flex items-center gap-1 font-medium">
-                    <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
-                    {rideDetails.paymentMethod === 'account' && (
-                        <Badge variant="secondary" className="ml-1 text-[10px] px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
-                           <span className="font-bold">ACCOUNT JOB</span>
-                        </Badge>
-                    )}
-                </p>
-              )}
-            </div>
-
             {rideDetails.notes && (
               <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
                 <p className="text-xs text-yellow-800 dark:text-yellow-200 whitespace-pre-wrap">
@@ -346,20 +322,47 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 </p>
               </div>
             )}
+
+            {/* New Group for Passenger, Pax, Payment - Placed at the end of ScrollArea content */}
+            <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800 border mt-2">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs">
+                {rideDetails.passengerName && (
+                  <p className="flex items-center gap-1 font-medium">
+                    <Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    Pass: <span className="font-bold">{rideDetails.passengerName || "Passenger N/A"}</span>
+                  </p>
+                )}
+                <p className="flex items-center gap-1 font-medium justify-end">
+                  <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span>
+                </p>
+                {rideDetails.paymentMethod && (
+                  <p className="col-span-2 flex items-center gap-1 font-medium pt-0.5">
+                    <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                    {rideDetails.paymentMethod === 'account' && (
+                        <Badge variant="secondary" className="ml-1 text-[10px] px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
+                           <span className="font-bold">ACCOUNT JOB</span>
+                        </Badge>
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+
           </div>
         </ScrollArea>
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
             <div className="py-1 px-3 text-sm text-center bg-amber-500 text-black border border-amber-600 rounded-md shadow font-bold">
-              {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
-                <span>
-                  (Base £{baseFare.toFixed(2)} + Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}) = £{totalFareForDriver.toFixed(2)}
-                </span>
-              ) : (
-                <span>
-                  Fare = £{totalFareForDriver.toFixed(2)}
-                </span>
-              )}
+                {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
+                    <span>
+                    (Base £{baseFare.toFixed(2)} + Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}) = £{totalFareForDriver.toFixed(2)}
+                    </span>
+                ) : (
+                    <span>
+                    Fare = £{totalFareForDriver.toFixed(2)}
+                    </span>
+                )}
             </div>
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
