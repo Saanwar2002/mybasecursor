@@ -288,10 +288,17 @@ const isRideTerminated = (status?: string): boolean => {
   return terminalStatuses.includes(status.toLowerCase());
 };
 
-const FREE_WAITING_TIME_SECONDS_PASSENGER = 3 * 60; // From track-ride page
-const WAITING_CHARGE_PER_MINUTE_PASSENGER = 0.20; // From track-ride page
-const ACKNOWLEDGMENT_WINDOW_SECONDS = 30; // From track-ride page
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10; // From track-ride page
+const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // Free waiting for driver at initial pickup
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;  // Charge per minute after free time at initial pickup
+
+const MOVEMENT_THRESHOLD_METERS = 50;
+const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+
+const STOP_FREE_WAITING_TIME_SECONDS = 2 * 60;       // Free waiting at intermediate stops, 2 mins
+const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;         // Charge per minute for intermediate stops, £0.25/min
+
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10; // Free waiting for W&R at destination
 
 
 export default function AvailableRidesPage() {
@@ -301,7 +308,7 @@ export default function AvailableRidesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { toast } = useToast();
-  const { user: driverUser } = useAuth(); // Removed unused setGlobalPolling alias
+  const { user: driverUser } = useAuth();
   const router = useRouter();
   const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -329,7 +336,7 @@ export default function AvailableRidesPage() {
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
   const waitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isPollingEnabled, setIsPollingEnabled] = useState(true); // Local state for polling
+  const [isPollingEnabled, setIsPollingEnabled] = useState(true); 
   const rideRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
   const driverLocationAtAcceptanceRef = useRef<google.maps.LatLngLiteral | null>(null);
@@ -1739,39 +1746,6 @@ export default function AvailableRidesPage() {
     }
   };
 
-  const handleRequestWaitAndReturn = async () => {
-    if (!activeRide || !driverUser) return;
-    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
-    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
-      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
-      return;
-    }
-    setIsRequestingWR(true);
-    try {
-      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'request_wait_and_return',
-          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to request Wait & Return.");
-      }
-      const updatedBooking = await response.json();
-      setActiveRide(updatedBooking.booking);
-      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
-      setIsWRRequestDialogOpen(false);
-    } catch (error: any) {
-      const message = error instanceof Error ? error.message : "Unknown error.";
-      toast({ title: "Request Failed", description: message, variant: "destructive" });
-    } finally {
-      setIsRequestingWR(false);
-    }
-  };
-
   const handleReportHazard = async (hazardType: string) => {
     if (!driverLocation) {
       toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" });
@@ -1970,7 +1944,7 @@ export default function AvailableRidesPage() {
             </AlertDialog>
             {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
         </div>
-
+         {/* Passenger Notes and Waiting Timers - MOVED HERE */}
         {activeRide?.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
             <div className="rounded-md p-2 my-2 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400 shadow">
                 <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
@@ -2019,6 +1993,7 @@ export default function AvailableRidesPage() {
             </ShadAlertDescription>
             </Alert>
         )}
+
 
         {activeRide && !isRideDetailsPanelMinimized && (
             <Card
@@ -2212,7 +2187,7 @@ export default function AvailableRidesPage() {
         )}
 
       {!activeRide && !isLoading && (
-        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border max-h-40">
+        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border max-h-40 relative">
            <div className="absolute top-3 left-3 z-10 flex items-center space-x-1 p-1 bg-background/70 backdrop-blur-sm rounded-md">
             <Switch id="speed-limit-mock-toggle-main" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI" className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 data-[state=checked]:[&>span]:translate-x-3 data-[state=unchecked]:[&>span]:translate-x-0.5" />
             <Label htmlFor="speed-limit-mock-toggle-main" className="text-xs font-medium text-muted-foreground">Speed Mock</Label>
@@ -2327,7 +2302,7 @@ export default function AvailableRidesPage() {
             <DialogHeader>
               <DialogTitle className="font-bold text-xl flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> <span>Request Wait & Return</span></DialogTitle>
               <ShadDialogDescriptionDialog>
-                <span>Estimate additional waiting time at current drop-off. 10 mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.</span>
+                <span>Estimate additional waiting time at current drop-off. {FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER} mins free, then £{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min. Passenger must approve.</span>
               </ShadDialogDescriptionDialog>
             </DialogHeader>
             <div className="py-4 space-y-2">
@@ -2450,3 +2425,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
