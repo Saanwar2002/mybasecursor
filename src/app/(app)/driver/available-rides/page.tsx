@@ -336,7 +336,7 @@ export default function AvailableRidesPage() {
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
   const waitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isPollingEnabled, setIsPollingEnabled] = useState(true); 
+  const [isPollingEnabled, setIsPollingEnabled] = useState(true);
   const rideRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
   const driverLocationAtAcceptanceRef = useRef<google.maps.LatLngLiteral | null>(null);
@@ -1260,7 +1260,7 @@ export default function AvailableRidesPage() {
     }
   };
 
- const handleRideAction = async (rideId: string, actionType: 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active' | 'accept_wait_and_return' | 'decline_wait_and_return' | 'report_no_show' | 'proceed_to_next_leg') => {
+  const handleRideAction = async (rideId: string, actionType: 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active' | 'accept_wait_and_return' | 'decline_wait_and_return' | 'report_no_show' | 'proceed_to_next_leg') => {
     if (!driverUser || !activeRide || activeRide.id !== rideId) {
         console.error(`handleRideAction: Pre-condition failed. driverUser: ${!!driverUser}, activeRide: ${!!activeRide}, activeRide.id vs rideId: ${activeRide?.id} vs ${rideId}`);
         toast({ title: "Error", description: "No active ride context or ID mismatch.", variant: "destructive"});
@@ -1346,7 +1346,7 @@ export default function AvailableRidesPage() {
             }
             break;
         case 'complete_ride':
-            setIsPollingEnabled(false); // Pause local polling
+            setIsPollingEnabled(false);
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             let wrCharge = 0;
@@ -1568,6 +1568,39 @@ export default function AvailableRidesPage() {
     }
   };
 
+  async function handleRequestWaitAndReturn() {
+    if (!activeRide || !driverUser) return;
+    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
+    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
+      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
+      return;
+    }
+    setIsRequestingWR(true);
+    try {
+      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'request_wait_and_return',
+          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to request Wait & Return.");
+      }
+      const updatedBooking = await response.json();
+      setActiveRide(updatedBooking.booking);
+      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the driver for confirmation." });
+      setIsWRRequestDialogOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error.";
+      toast({ title: "Request Failed", description: message, variant: "destructive" });
+    } finally {
+      setIsRequestingWR(false);
+    }
+  }
+
   const isMainButtonDisabled = () => {
     if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
     if (activeRide.status === 'pending_driver_wait_and_return_approval') return true;
@@ -1632,7 +1665,7 @@ export default function AvailableRidesPage() {
                 <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+                    className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
                     onClick={() => setIsJourneyDetailsModalOpen(true)}
                     title="View Full Journey Details"
                 >
@@ -1641,7 +1674,7 @@ export default function AvailableRidesPage() {
                 <Button
                     variant="default"
                     size="icon"
-                    className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={() => {
                         if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
                             const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
@@ -1661,7 +1694,7 @@ export default function AvailableRidesPage() {
                 disabled={mainButtonIsDisabledValue}
                 size="sm"
             >
-                {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-3 w-3" />}
+                {activeRide && actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-3 w-3" />}
                 {currentMainActionText}
             </Button>
             {activeRide && isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && (
@@ -2425,4 +2458,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
