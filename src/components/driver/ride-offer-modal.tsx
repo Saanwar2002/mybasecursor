@@ -185,7 +185,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onClose();
   };
 
-  const handleDecline = () => { // This function remains, but the button triggering it is removed. The X button calls onClose directly.
+  // Decline button is removed, so this function might not be directly called from UI
+  // but kept for logic (e.g. timeout auto-decline)
+  const handleDecline = () => { 
     onDecline(rideDetails.id);
     onClose();
   };
@@ -316,10 +318,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </div>
         
         {dispatchInfo && (
-            <div className={cn(
-              "py-1.5 px-3 text-center text-slate-100", // Light text for dark background
-              "bg-slate-700 dark:bg-slate-800" // Consistent dark grey background
-            )}>
+            <div className="py-1.5 px-3 text-center bg-slate-700 dark:bg-slate-800 text-slate-100">
                 <p className="text-xs font-semibold flex items-center justify-center gap-1">
                     <dispatchInfo.icon className={cn("w-3.5 h-3.5", dispatchInfo.iconColorClass)}/> 
                     <span className={dispatchInfo.textColorClass}>{dispatchInfo.text}</span>
@@ -379,22 +378,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </ScrollArea>
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
-             <div className={cn(
+            <div className={cn(
               "py-1 px-2 text-base text-center text-white border rounded-md shadow font-bold flex items-center justify-between w-full",
-              "bg-orange-600 border-orange-700" // Fixed orange background
+              "bg-orange-600 border-orange-700" 
             )}>
               <span className="flex items-center gap-1">
                 <DollarSign className="w-4 h-4 shrink-0 text-white" />
-                <span className="text-white">(Base £{baseFare.toFixed(2)}</span>
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
                   <>
+                    <span>(Base £{baseFare.toFixed(2)}</span>
                     <span className="text-white"> + </span>
                     <span className="bg-yellow-400 text-black px-1 py-0.5 rounded-sm inline-flex items-center gap-0.5 leading-none">
                       <Crown className="w-3.5 h-3.5 text-black" /> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
                     </span>
+                    <span>) = £{totalFareForDriver.toFixed(2)}</span>
                   </>
-                ) : null}
-                <span className="text-white">) = £{totalFareForDriver.toFixed(2)}</span>
+                ) : (
+                  <span>£{baseFare.toFixed(2)}</span>
+                )}
               </span>
 
               {rideDetails.distanceMiles !== undefined && (
@@ -414,6 +415,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
-    
-    
