@@ -1612,6 +1612,7 @@ export default function AvailableRidesPage() {
               >
                 Passenger: {activeRide.passengerName}
               </Badge>
+              {/* Contact Options Row */}
               <div className="flex items-center gap-1.5 mt-0.5">
                 {passengerPhone && (
                   <>
@@ -1621,9 +1622,9 @@ export default function AvailableRidesPage() {
                       </a>
                     </Button>
                     <span className="font-bold text-xs text-muted-foreground">{passengerPhone}</span>
-                    {!isChatDisabled && <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-0.5" />}
                   </>
                 )}
+                 {(!isChatDisabled && passengerPhone) && <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-0.5" />}
                 {!isChatDisabled && (
                   <Button asChild variant="ghost" size="icon" className={cn("h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded")}>
                     <Link href="/driver/chat" aria-label={`Chat with ${activeRide.passengerName}`}>
@@ -2064,8 +2065,6 @@ export default function AvailableRidesPage() {
                             </div>
                         ) : (
                         <> {}
-                            {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md shadow"> En Route to Pickup </Badge> </div> )}
-
                             <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
                                 <Avatar className="h-7 w-7 md:h-8 md:h-8">
                                     <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
