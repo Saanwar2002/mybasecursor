@@ -1,16 +1,16 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from 'react'; // Added useCallback
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, ThumbsUp, CheckCircle, Loader2, AlertTriangle, MapPin, Briefcase, Coins, CreditCard, RefreshCwIcon, Crown } from "lucide-react";
+import { Star, ThumbsUp, CheckCircle, Loader2, AlertTriangle, MapPin, Briefcase, Coins, CreditCard, RefreshCwIcon, Crown, TimerIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, UserRole, PLATFORM_OPERATOR_CODE } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; // Added Label import
 
 interface LocationPointSummary {
   address: string;
@@ -24,7 +24,7 @@ interface CompletedRideDetails {
   pickupLocation: LocationPointSummary;
   dropoffLocation: LocationPointSummary;
   stops?: Array<LocationPointSummary>;
-  fareEstimate: number;
+  fareEstimate: number; // This is likely the base or initially estimated fare
   paymentMethod?: string;
   status?: string;
   vehicleType?: string;
@@ -32,18 +32,17 @@ interface CompletedRideDetails {
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
   waitAndReturn?: boolean;
-  estimatedAdditionalWaitTimeMinutes?: number; // From original booking for W&R
-  accumulatedStopWaitingCharges?: number; // Total from all stops
-  pickupWaitingCharge?: number; // Waiting charge at initial pickup
-  // These are illustrative; the actual fare calculation might happen on backend or be passed differently
-  finalCalculatedFare?: number; 
+  estimatedAdditionalWaitTimeMinutes?: number;
+  accumulatedStopWaitingCharges?: number;
+  pickupWaitingCharge?: number;
+  finalCalculatedFare: number; // Ensures this is always a number
 }
 
 export default function RideSummaryPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { user: driverUser, setActiveRide: clearActiveRideState, setIsPollingEnabled } = useAuth(); // Get setActiveRide and setIsPollingEnabled
+  const { user: driverUser, setActiveRide: clearActiveRideState, setIsPollingEnabled } = useAuth();
 
   const rideId = params.rideId as string;
 
@@ -71,8 +70,30 @@ export default function RideSummaryPage() {
       if (!data.booking) {
         throw new Error("Ride data not found in API response.");
       }
-      // Map API response to CompletedRideDetails structure
+      
       const bookingData = data.booking;
+      
+      const baseFare = typeof bookingData.fareEstimate === 'number' ? bookingData.fareEstimate : 0;
+      const priorityFee = (bookingData.isPriorityPickup && typeof bookingData.priorityFeeAmount === 'number') ? bookingData.priorityFeeAmount : 0;
+      
+      let wrSurcharge = 0;
+      if (bookingData.waitAndReturn && typeof bookingData.estimatedAdditionalWaitTimeMinutes === 'number') {
+        // Assuming original fareEstimate was one-way and W&R base is 1.7x + waiting
+        const oneWayBase = baseFare; // This might need adjustment if fareEstimate already included W&R base
+        const wrBaseMultiplier = 1.70; // 70% surcharge
+        const waitingChargePerMinute = 0.20; // Example, should match definition if available elsewhere
+        const freeWaitMinutes = 10; // Example
+        
+        const chargeableWait = Math.max(0, bookingData.estimatedAdditionalWaitTimeMinutes - freeWaitMinutes);
+        wrSurcharge = (oneWayBase * (wrBaseMultiplier - 1)) + (chargeableWait * waitingChargePerMinute);
+      }
+
+      const pickupWaitCharge = typeof bookingData.pickupWaitingCharge === 'number' ? bookingData.pickupWaitingCharge : 0;
+      const stopWaitCharges = bookingData.completedStopWaitCharges ? Object.values(bookingData.completedStopWaitCharges).reduce((sum: number, charge: any) => sum + (typeof charge === 'number' ? charge : 0), 0) : 0;
+      
+      const calculatedFinalFare = baseFare + priorityFee + wrSurcharge + pickupWaitCharge + stopWaitCharges;
+
+
       const details: CompletedRideDetails = {
         id: bookingData.id,
         displayBookingId: bookingData.displayBookingId,
@@ -86,21 +107,25 @@ export default function RideSummaryPage() {
             doorOrFlat: bookingData.dropoffLocation?.doorOrFlat
         },
         stops: bookingData.stops?.map((s: any) => ({ address: s.address, doorOrFlat: s.doorOrFlat })) || [],
-        fareEstimate: bookingData.fareEstimate || 0,
+        fareEstimate: typeof bookingData.fareEstimate === 'number' ? bookingData.fareEstimate : 0,
         paymentMethod: bookingData.paymentMethod,
         status: bookingData.status,
         vehicleType: bookingData.vehicleType,
         driverNotes: bookingData.driverNotes,
         isPriorityPickup: bookingData.isPriorityPickup,
-        priorityFeeAmount: bookingData.priorityFeeAmount,
+        priorityFeeAmount: typeof bookingData.priorityFeeAmount === 'number' ? bookingData.priorityFeeAmount : 0,
         waitAndReturn: bookingData.waitAndReturn,
-        estimatedAdditionalWaitTimeMinutes: bookingData.estimatedAdditionalWaitTimeMinutes,
-        // For actual accumulated charges, these would typically come from the completed ride object
-        // Mocking them for now if not present, assuming they are part of fareEstimate already
-        accumulatedStopWaitingCharges: bookingData.completedStopWaitCharges ? Object.values(bookingData.completedStopWaitCharges).reduce((sum: number, charge: any) => sum + charge, 0) : 0,
-        pickupWaitingCharge: bookingData.pickupWaitingCharge || 0, // Example: This would be calculated and stored on the booking
-        finalCalculatedFare: bookingData.fareEstimate, // Assuming fareEstimate is the final one for summary
+        estimatedAdditionalWaitTimeMinutes: typeof bookingData.estimatedAdditionalWaitTimeMinutes === 'number' ? bookingData.estimatedAdditionalWaitTimeMinutes : 0,
+        accumulatedStopWaitingCharges: typeof stopWaitCharges === 'number' ? stopWaitCharges : 0,
+        pickupWaitingCharge: typeof pickupWaitCharge === 'number' ? pickupWaitCharge : 0,
+        finalCalculatedFare: typeof bookingData.fareEstimate === 'number' ? bookingData.fareEstimate : 0, // Default to fareEstimate from booking if present
       };
+      // If the booking already has a finalFare from the server, use that. Otherwise, use the client-calculated one.
+      details.finalCalculatedFare = typeof bookingData.finalCalculatedFare === 'number' 
+        ? bookingData.finalCalculatedFare 
+        : calculatedFinalFare;
+
+
       setRideDetails(details);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -114,7 +139,6 @@ export default function RideSummaryPage() {
   useEffect(() => {
     fetchRideDetails();
   }, [fetchRideDetails]);
-
 
   const handleRatingSubmit = async () => {
     if (passengerRating === 0) {
@@ -132,12 +156,11 @@ export default function RideSummaryPage() {
     });
     setIsSubmitting(false);
     
-    // Clear active ride state and re-enable polling from AuthContext
     if (typeof clearActiveRideState === 'function') {
-      clearActiveRideState(null);
+      clearActiveRideState(null); // Clear active ride from context
     }
     if (typeof setIsPollingEnabled === 'function') {
-      setIsPollingEnabled(true);
+      setIsPollingEnabled(true); // Re-enable polling on available rides page
     }
 
     router.push('/driver/available-rides'); 
@@ -178,17 +201,55 @@ export default function RideSummaryPage() {
   }
   
   const getPaymentMethodIcon = () => {
-    if (!rideDetails.paymentMethod) return Briefcase; // Default or N/A icon
+    if (!rideDetails.paymentMethod) return Briefcase;
     switch (rideDetails.paymentMethod.toLowerCase()) {
       case "card": return CreditCard;
       case "cash": return Coins;
-      case "account": return Briefcase; // Or some other icon for account
+      case "account": return Briefcase;
       default: return Briefcase;
     }
   };
   const PaymentIcon = getPaymentMethodIcon();
 
-  const finalFare = rideDetails.finalCalculatedFare || rideDetails.fareEstimate;
+  // Fare Breakdown Component
+  const FareBreakdown: React.FC<{ ride: CompletedRideDetails }> = ({ ride }) => {
+    const baseFare = ride.fareEstimate; // Assume fareEstimate is the base before addons
+    const priority = ride.isPriorityPickup && ride.priorityFeeAmount ? ride.priorityFeeAmount : 0;
+    const pickupWaiting = ride.pickupWaitingCharge || 0;
+    const stopWaiting = ride.accumulatedStopWaitingCharges || 0;
+    
+    let waitAndReturnSurcharge = 0;
+    if (ride.waitAndReturn && typeof ride.estimatedAdditionalWaitTimeMinutes === 'number') {
+      const oneWayBaseForWRSurcharge = ride.fareEstimate; // Or however your base is defined before W&R
+      const wrBaseMultiplier = 0.70; // The surcharge percentage
+      const waitingChargePerMinute = 0.20; 
+      const freeWaitMinutes = 10; 
+      
+      const chargeableWait = Math.max(0, ride.estimatedAdditionalWaitTimeMinutes - freeWaitMinutes);
+      waitAndReturnSurcharge = (oneWayBaseForWRSurcharge * wrBaseMultiplier) + (chargeableWait * waitingChargePerMinute);
+    }
+    
+    const totalFare = ride.finalCalculatedFare;
+
+    return (
+      <div className="text-center my-4 p-3 border rounded-md bg-muted/30">
+        <p className="text-3xl font-bold text-primary">£{(totalFare ?? 0).toFixed(2)}</p>
+        <p className="text-xs text-muted-foreground mb-2">Total Fare Collected</p>
+        
+        <Separator className="my-1.5" />
+        <div className="text-xs text-muted-foreground space-y-0.5 text-left">
+          {baseFare > 0 && <p>Base Journey Fare: £{baseFare.toFixed(2)}</p>}
+          {priority > 0 && <p className="text-orange-600">Priority Fee: +£{priority.toFixed(2)}</p>}
+          {pickupWaiting > 0 && <p className="text-yellow-600">Pickup Wait: +£{pickupWaiting.toFixed(2)}</p>}
+          {stopWaiting > 0 && <p className="text-yellow-600">Stop(s) Wait: +£{stopWaiting.toFixed(2)}</p>}
+          {ride.waitAndReturn && waitAndReturnSurcharge > 0 && (
+            <p className="text-indigo-600">Wait & Return Surcharge: +£{waitAndReturnSurcharge.toFixed(2)}</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
 
   return (
     <div className="space-y-6 p-2 md:p-4 max-w-2xl mx-auto">
@@ -220,9 +281,7 @@ export default function RideSummaryPage() {
             
             <Separator className="my-2.5" />
             
-            <div className="font-semibold text-lg">
-              Total Fare: <span className="text-primary">£{finalFare.toFixed(2)}</span>
-            </div>
+            <FareBreakdown ride={rideDetails} />
 
             <div className="text-sm text-muted-foreground flex items-center gap-1.5">
               <PaymentIcon className="w-4 h-4" />
@@ -231,25 +290,14 @@ export default function RideSummaryPage() {
 
             {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
               <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-500/10">
-                <Crown className="h-3 w-3 mr-1"/>Priority +£{rideDetails.priorityFeeAmount.toFixed(2)}
+                <Crown className="h-3 w-3 mr-1"/>Priority Included
               </Badge>
             )}
              {rideDetails.waitAndReturn && (
               <Badge variant="outline" className="text-xs border-indigo-500 text-indigo-600 bg-indigo-500/10">
-                <RefreshCwIcon className="h-3 w-3 mr-1"/>W&R (~{rideDetails.estimatedAdditionalWaitTimeMinutes || 0}m)
+                <RefreshCwIcon className="h-3 w-3 mr-1"/>Wait & Return Journey
               </Badge>
             )}
-            {(rideDetails.pickupWaitingCharge || 0) > 0 && (
-                 <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700 bg-yellow-500/10">
-                    Pickup Wait: +£{(rideDetails.pickupWaitingCharge || 0).toFixed(2)}
-                </Badge>
-            )}
-             {(rideDetails.accumulatedStopWaitingCharges || 0) > 0 && (
-                 <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700 bg-yellow-500/10">
-                    Stop Wait: +£{(rideDetails.accumulatedStopWaitingCharges || 0).toFixed(2)}
-                </Badge>
-            )}
-
           </div>
           
           <Separator />
@@ -289,3 +337,4 @@ export default function RideSummaryPage() {
     </div>
   );
 }
+
