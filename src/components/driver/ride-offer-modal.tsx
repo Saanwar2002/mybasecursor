@@ -23,9 +23,9 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 });
 
 export interface RideOffer {
-  id: string; // This is the Firestore document ID
-  displayBookingId?: string; // Formatted ID like "001/firestore_id"
-  originatingOperatorId?: string; // e.g., "OP001", "OP002"
+  id: string; 
+  displayBookingId?: string; 
+  originatingOperatorId?: string; 
   pickupLocation: string;
   pickupCoords: { lat: number; lng: number };
   dropoffLocation: string;
@@ -88,7 +88,7 @@ const Progress = React.forwardRef<
     <ProgressIndicator value={value ?? 0} className={indicatorClassName} />
   </ProgressPrimitive.Root>
 ));
-Progress.displayName = ProgressPrimitive.Root.displayName;
+Progress.displayName = ProgressPrimitive.Root.displayName
 
 
 function formatAddressForMapLabel(fullAddress: string, type: string): string {
@@ -187,7 +187,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.pickupCoords,
             content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
             type: 'pickup',
-            variant: 'compact'
+            variant: 'default' 
         });
     }
     rideDetails.stops?.forEach((stop, index) => {
@@ -201,7 +201,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 position: stop.coords,
                 content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                 type: 'stop',
-                variant: 'compact'
+                variant: 'default'
             });
         }
     });
@@ -215,7 +215,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.dropoffCoords,
             content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
             type: 'dropoff',
-            variant: 'compact'
+            variant: 'default'
         });
     }
     return { markers, labels };
@@ -224,7 +224,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const mapCenter = useMemo(() => {
     if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
-    return { lat: 53.6450, lng: -1.7830 }; // Huddersfield center
+    return { lat: 53.6450, lng: -1.7830 }; 
   }, [rideDetails]);
 
   if (!rideDetails) {
@@ -240,12 +240,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onDecline(rideDetails.id);
     onClose();
   };
+  
+  const progressColorClass = "bg-green-500";
 
-  const getProgressColorClass = () => {
-    if (countdown <= 5) return "bg-red-500";
-    if (countdown <= 10) return "bg-orange-500";
-    return "bg-green-600";
-  };
 
   const totalFareForDriver = (rideDetails.fareEstimate || 0) + (rideDetails.priorityFeeAmount || 0);
 
@@ -267,7 +264,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       } else {
         text = "Dispatched By App: AUTO MODE";
         icon = CheckCircle;
-        bgColorClassName = "bg-green-600";
       }
     } else if (driverUser && rideDetails.requiredOperatorId === driverUser.operatorCode) {
       if (isManual) {
@@ -293,7 +289,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
       } else {
         text = "Dispatched By App (Auto)";
         icon = CheckCircle;
-        bgColorClassName = "bg-green-600";
       }
     }
     return { text, icon, bgColorClassName };
@@ -326,37 +321,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
         className={cn(
-          "sm:max-w-md bg-card shadow-2xl border-primary/50 p-0 flex flex-col",
-           "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] md:h-[calc(100vh-4rem)]"
+          "sm:max-w-md bg-card shadow-2xl p-0 flex flex-col",
+           "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] md:h-[calc(100vh-4rem)] overflow-hidden"
         )}
       >
-        <DialogHeader className="p-4 pb-2 space-y-1 shrink-0 border-b">
-          <DialogTitle className={cn(
-            "text-xl md:text-xl font-headline flex items-center gap-2",
-            )}>
-            <span className="flex items-center gap-2">
-              <Car className={cn(
-                "w-6 h-6",
-                dispatchInfo?.bgColorClassName === "bg-green-600" && "text-green-600 dark:text-green-500",
-                dispatchInfo?.bgColorClassName === "bg-blue-600" && "text-blue-600 dark:text-blue-500",
-                dispatchInfo?.bgColorClassName === "bg-purple-600" && "text-purple-600 dark:text-purple-500",
-                !dispatchInfo?.bgColorClassName && "text-primary"
-              )} />
+        <DialogHeader className="p-3 pb-2 space-y-1 shrink-0 border-b bg-slate-50 dark:bg-slate-800">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+              <Car className="w-5 h-5 text-primary" />
               New Ride Offer!
-            </span>
-            {rideDetails.displayBookingId && <Badge variant="outline" className="text-xs ml-auto">{rideDetails.displayBookingId}</Badge>}
-          </DialogTitle>
+            </DialogTitle>
+            {rideDetails.displayBookingId && <Badge variant="outline" className="text-xs">{rideDetails.displayBookingId}</Badge>}
+          </div>
         </DialogHeader>
 
+        {/* Main content area with scroll */}
         <ScrollArea className="flex-1">
-          <div className="px-4 pt-2 pb-4">
-            {rideDetails.paymentMethod === 'account' && (
-              <Badge variant="default" className="mb-2 text-sm py-1.5 px-4 w-full justify-center bg-purple-600 hover:bg-purple-700 text-white shadow-md border border-black font-bold">
-                <LockKeyhole className="w-4 h-4 mr-2" />
-                ACCOUNT JOB
-              </Badge>
-            )}
-            <div className="h-36 sm:h-48 w-full mb-3 rounded-md overflow-hidden border shrink-0">
+          <div className="flex flex-col"> {/* Content wrapper inside ScrollArea */}
+            <div className="h-48 sm:h-56 w-full bg-muted shrink-0"> {/* Map Area */}
                 {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
                   <GoogleMapDisplay
                     center={mapCenter}
@@ -369,105 +351,97 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     onSdkLoaded={setIsMapSdkLoadedForModal}
                   />
                 ) : (
-                  <Skeleton className="w-full h-full rounded-md" />
+                  <Skeleton className="w-full h-full" />
                 )}
             </div>
 
+            {/* Dispatch Info Bar */}
             {dispatchInfo && (
-              <div className={cn("p-2 my-1.5 rounded-lg text-center text-white font-bold shadow-md", dispatchInfo.bgColorClassName, "border border-black")}>
-                <p className="text-sm flex items-center justify-center gap-1">
+              <div className={cn(
+                "p-2 mx-2 mt-2 rounded-md text-center text-white font-semibold shadow", 
+                dispatchInfo.bgColorClassName, 
+                "border border-black/20" // Added slight border for definition
+              )}>
+                <p className="text-sm flex items-center justify-center gap-1.5">
                   <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
                 </p>
               </div>
             )}
 
-            {/* Combined Fare/Distance and Priority Badge Container */}
-            <div className="mt-2 flex items-stretch justify-between gap-2">
-                {/* Fare & Distance Badge */}
-                <div className="flex-1 py-1.5 px-3 rounded-lg bg-amber-600 text-white shadow-md border border-black flex flex-col justify-center items-center">
-                    <span className="text-lg font-bold">
-                        £{totalFareForDriver.toFixed(2)}
-                        {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-                            <span className="text-xs font-bold ml-1">(+£{rideDetails.priorityFeeAmount.toFixed(2)} Prio)</span>
-                        )}
-                    </span>
-                    {rideDetails.distanceMiles && (
-                        <span className="text-xs font-bold">({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
-                    )}
-                </div>
-
-                {/* Priority Badge (Conditional) */}
-                {rideDetails.isPriorityPickup && (
-                    <div className="py-1.5 px-3 rounded-lg bg-orange-100 text-orange-700 border-2 border-orange-500 shadow-md flex flex-col items-center justify-center">
-                        <Crown className="w-5 h-5 mb-0.5" />
-                        <span className="text-xs font-bold whitespace-nowrap">Priority</span>
-                    </div>
+            {/* Fare & Distance Bar */}
+            <div className="py-2 px-3 mx-2 mt-2 rounded-md bg-amber-500 text-white shadow border border-black/20 flex flex-col justify-center items-center">
+                <span className="text-xl font-bold">
+                    £{totalFareForDriver.toFixed(2)}
+                </span>
+                {rideDetails.distanceMiles && (
+                    <span className="text-xs font-medium">({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
                 )}
             </div>
-
-
-            <div className="p-3 bg-muted/50 rounded-lg border border-muted mt-2">
-              <p className="flex items-start gap-2 mb-1 text-base md:text-lg font-bold">
-                <MapPin className="w-4 h-4 text-primary shrink-0 mt-1" />
-                <span>Pickup: {rideDetails.pickupLocation}</span>
+            
+            {/* Pickup/Dropoff Details Area */}
+            <div className="p-3 mx-2 mt-2 bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 space-y-1.5">
+              <p className="flex items-start gap-2 text-sm md:text-base font-medium text-foreground">
+                <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <span className="font-semibold mr-1">Pickup:</span>{rideDetails.pickupLocation}
               </p>
               {rideDetails.stops && rideDetails.stops.length > 0 && (
                 <div className="mt-1.5 pl-2">
                   {rideDetails.stops.map((stop, index) => (
-                    <p key={`stop-display-${index}`} className="flex items-start gap-2 mb-1 text-base md:text-lg font-bold">
-                       <MapPin className="w-4 h-4 text-yellow-500 shrink-0 mt-1" />
-                       <span>Stop {index + 1}: {stop.address}</span>
+                    <p key={`stop-display-${index}`} className="flex items-start gap-2 mb-1 text-sm md:text-base font-medium text-foreground">
+                       <MapPin className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                       <span className="font-semibold mr-1">Stop {index + 1}:</span>{stop.address}
                     </p>
                   ))}
                 </div>
               )}
-              <p className="flex items-start gap-2 text-base md:text-lg font-bold">
-                <MapPin className="w-4 h-4 text-accent shrink-0 mt-1" />
-                <span>Dropoff: {rideDetails.dropoffLocation}</span>
+              <p className="flex items-start gap-2 text-sm md:text-base font-medium text-foreground">
+                <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                <span className="font-semibold mr-1">Dropoff:</span>{rideDetails.dropoffLocation}
               </p>
             </div>
 
-            {rideDetails.passengerName && (
-              <p className="text-sm flex items-center gap-1.5 mt-1.5 font-bold"><Info className="inline w-4 h-4 mr-0.5 text-muted-foreground shrink-0" /><strong>Passenger:</strong> {rideDetails.passengerName}</p>
-            )}
-
-            {rideDetails.notes && (
-               <div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-                  <p className="text-xs md:text-sm text-yellow-900 dark:text-yellow-200 font-bold whitespace-pre-wrap">
-                    <strong>Notes:</strong> {rideDetails.notes}
-                  </p>
-               </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 p-3 rounded-lg bg-muted/30 border border-border text-sm">
-              <p className="flex items-center gap-1.5 font-bold"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
-              {rideDetails.distanceMiles && (
-                <p className="flex items-center gap-1.5 font-bold"><Route className="w-4 h-4 text-muted-foreground shrink-0" /> Dist: ~{rideDetails.distanceMiles.toFixed(1)} mi</p>
+            {/* Other Info - Placed below address block */}
+            <div className="px-3 pt-2 pb-1 space-y-1 text-sm">
+              {rideDetails.passengerName && (
+                <p className="flex items-center gap-1.5 font-medium"><Info className="inline w-4 h-4 mr-0.5 text-muted-foreground shrink-0" />Passenger: {rideDetails.passengerName}</p>
               )}
+              {rideDetails.notes && (
+                 <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium whitespace-pre-wrap">
+                      Notes: {rideDetails.notes}
+                    </p>
+                 </div>
+              )}
+              <p className="flex items-center gap-1.5 font-medium"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
               {rideDetails.paymentMethod && (
-                  <div className="col-span-2 flex items-center gap-1.5 font-bold">
+                  <div className="flex items-center gap-1.5 font-medium">
                     <PaymentIcon className="w-4 h-4 text-muted-foreground shrink-0" />
                     Payment: {getPaymentMethodDisplay()}
                   </div>
                 )}
+               {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
+                  <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-500/10 mt-1">
+                    <Crown className="h-3 w-3 mr-1"/>Priority +£{rideDetails.priorityFeeAmount.toFixed(2)}
+                  </Badge>
+              )}
             </div>
           </div>
         </ScrollArea>
 
-        <div className="px-4 py-0.5 border-t border-border shrink-0">
-            <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={getProgressColorClass()} className="h-2" />
+        {/* Progress bar always at the bottom of the scrollable content, before footer */}
+        <div className="px-3 py-2 border-t border-border shrink-0">
+            <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
         </div>
 
         <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0">
-          <Button variant="destructive" onClick={handleDecline} size="sm" className="py-1 h-8">
-            <span>Decline ({countdown}s)</span>
+          <Button variant="destructive" onClick={handleDecline} size="lg" className="font-bold text-base py-2.5 h-auto bg-red-600 hover:bg-red-700 text-white">
+            Decline ({countdown}s)
           </Button>
-          <Button variant="default" onClick={handleAccept} size="sm" className="bg-green-600 hover:bg-green-700 text-white py-1 h-8">
-            <span>Accept Ride</span>
+          <Button variant="default" onClick={handleAccept} size="lg" className="font-bold text-base py-2.5 h-auto bg-green-600 hover:bg-green-700 text-white">
+            Accept Ride
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
