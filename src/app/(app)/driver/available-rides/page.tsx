@@ -1448,7 +1448,7 @@ export default function AvailableRidesPage() {
     await handleRideAction(activeRide.id, 'start_ride');
   };
 
-  async function handleRequestWaitAndReturnAction() { // Renamed from handleRequestWaitAndReturn
+  async function handleRequestWaitAndReturnAction() { 
     if (!activeRide || !driverUser) return;
     const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
@@ -1566,6 +1566,8 @@ export default function AvailableRidesPage() {
     if (currentMainActionText.toLowerCase().includes("arrived at stop")) primaryButtonBgClass = "bg-yellow-500 hover:bg-yellow-600 text-black";
 
     const showPassengerNameAndContact = (activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'driver_assigned');
+    const passengerPhone = activeRide?.passengerPhone;
+
 
     return (
       <div className={cn(
@@ -1587,23 +1589,28 @@ export default function AvailableRidesPage() {
               >
                 Passenger: {activeRide.passengerName}
               </Badge>
-            </div>
-          )}
-          {showPassengerNameAndContact && !isChatDisabled && (
-            <div className="flex items-center gap-1.5 mt-0.5">
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded",
-                  )}
-                  title={`Chat with ${activeRide.passengerName}`}
-                >
-                  <Link href="/driver/chat" aria-label={`Chat with ${activeRide.passengerName}`}>
-                    <MessageSquare className="w-3 h-3" />
-                  </Link>
-                </Button>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {passengerPhone && (
+                  <Button asChild variant="ghost" size="icon" className={cn("h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded")}>
+                    <a href={`tel:${passengerPhone}`} aria-label={`Call ${activeRide.passengerName}`}>
+                      <PhoneCall className="w-3 h-3" />
+                    </a>
+                  </Button>
+                )}
+                {passengerPhone && (
+                  <span className="font-bold text-xs text-muted-foreground">{passengerPhone}</span>
+                )}
+                {passengerPhone && !isChatDisabled && (
+                   <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-1" />
+                )}
+                {!isChatDisabled && (
+                  <Button asChild variant="ghost" size="icon" className={cn("h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded")}>
+                    <Link href="/driver/chat" aria-label={`Chat with ${activeRide.passengerName}`}>
+                      <MessageSquare className="w-3 h-3" />
+                    </Link>
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1612,7 +1619,7 @@ export default function AvailableRidesPage() {
                 <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+                    className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
                     onClick={() => setIsJourneyDetailsModalOpen(true)}
                     title="View Full Journey Details"
                 >
@@ -1621,7 +1628,7 @@ export default function AvailableRidesPage() {
                 <Button
                     variant="default"
                     size="icon"
-                    className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={() => {
                         if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
                             const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
