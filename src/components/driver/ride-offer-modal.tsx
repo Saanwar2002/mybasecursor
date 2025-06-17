@@ -2,9 +2,9 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole, X } from "lucide-react"; // Added X
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole, X } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -135,7 +135,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.pickupCoords,
             content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
             type: 'pickup',
-            variant: 'default' 
+            variant: 'default'
         });
     }
     rideDetails.stops?.forEach((stop, index) => {
@@ -149,7 +149,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 position: stop.coords,
                 content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                 type: 'stop',
-                variant: 'default' 
+                variant: 'default'
             });
         }
     });
@@ -163,7 +163,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.dropoffCoords,
             content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
             type: 'dropoff',
-            variant: 'default' 
+            variant: 'default'
         });
     }
     return { markers, labels };
@@ -294,12 +294,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <div className="py-1.5 px-3 bg-amber-500 text-black text-center flex justify-between items-center">
             <p className="text-sm font-bold flex items-center gap-1">
                 <DollarSign className="w-4 h-4" />
-                 <span>
-                    Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span>
+                 <span className="font-bold">
+                    Est. Fare: £{(rideDetails.fareEstimate || 0).toFixed(2)}
                     {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
                         <>
                         {' + '}
-                        <span className="font-bold text-red-700">
+                        <span className="text-red-700">
                             £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Priority)
                         </span>
                         {' = '}
@@ -319,8 +319,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-3 pt-2 pb-1 space-y-1.5">
-            <p style={{ backgroundColor: 'lime', color: 'black', padding: '10px', fontWeight: 'bold', textAlign: 'center', margin: '5px 0' }}>
-              JOB DETAILS AREA - CONTENT SHOULD BE HERE
+             <p style={{ backgroundColor: 'lime', color: 'black', padding: '10px', fontWeight: 'bold', textAlign: 'center', margin: '5px 0' }}>
+                JOB DETAILS AREA - CONTENT SHOULD BE HERE
             </p>
             <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
               <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
@@ -357,8 +357,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               {rideDetails.paymentMethod && (
                 <p className="col-span-2 flex items-center gap-1 font-medium">
                     <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    Payment: 
-                    {rideDetails.paymentMethod === 'account' ? (
+                    Payment: {rideDetails.paymentMethod === 'account' ? (
                         <Badge variant="secondary" className="bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground px-1.5 py-0 text-[10px] align-middle ml-0.5">
                             <span className="font-bold">{getPaymentMethodDisplay()}</span>
                         </Badge>
@@ -378,19 +377,18 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             )}
           </div>
         </ScrollArea>
-
-        <div className="px-3 py-2 border-t bg-card">
-            <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
+        
+        <div className="p-3 border-t bg-muted/30 space-y-2">
+          <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <Button variant="destructive" onClick={handleDecline} size="default" className="font-bold text-base bg-red-600 hover:bg-red-700 text-white">
+              Decline ({countdown}s)
+            </Button>
+            <Button variant="default" onClick={handleAccept} size="default" className="font-bold text-base bg-green-600 hover:bg-green-700 text-white">
+              Accept Ride
+            </Button>
+          </div>
         </div>
-
-        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 p-3 border-t bg-muted/30">
-          <Button variant="destructive" onClick={handleDecline} size="lg" className="font-bold text-base py-2.5 h-auto bg-red-600 hover:bg-red-700 text-white">
-            Decline ({countdown}s)
-          </Button>
-          <Button variant="default" onClick={handleAccept} size="lg" className="font-bold text-base py-2.5 h-auto bg-green-600 hover:bg-green-700 text-white">
-            Accept Ride
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
