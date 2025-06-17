@@ -1565,6 +1565,7 @@ export default function AvailableRidesPage() {
     if (currentMainActionText.toLowerCase().includes("depart stop") || currentMainActionText.toLowerCase().includes("proceed to")) primaryButtonBgClass = "bg-indigo-600 hover:bg-indigo-700";
     if (currentMainActionText.toLowerCase().includes("arrived at stop")) primaryButtonBgClass = "bg-yellow-500 hover:bg-yellow-600 text-black";
 
+    const showPassengerNameBadge = (activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'driver_assigned');
 
     return (
       <div className={cn(
@@ -1577,6 +1578,17 @@ export default function AvailableRidesPage() {
           <p className={cn("font-bold text-sm md:text-base", textColorClass)}>{parsedAddress.line1}</p>
           {parsedAddress.line2 && <p className={cn("font-bold text-xs md:text-sm opacity-80", textColorClass)}>{parsedAddress.line2}</p>}
           {parsedAddress.line3 && <p className={cn("font-bold text-xs opacity-70", textColorClass)}>{parsedAddress.line3}</p>}
+          
+          {showPassengerNameBadge && activeRide?.passengerName && (
+            <div className="mt-0.5">
+              <Badge
+                variant="outline"
+                className="font-semibold text-[10px] md:text-xs px-1.5 py-0 leading-tight border-purple-400 bg-purple-100 text-purple-700 dark:bg-purple-800/60 dark:text-purple-300 dark:border-purple-600"
+              >
+                Passenger: {activeRide.passengerName}
+              </Badge>
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
             <div className="flex items-center gap-1">
@@ -1905,12 +1917,14 @@ export default function AvailableRidesPage() {
 
         {activeRide?.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
             <Alert variant="default" className="my-2 bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
-                <Info className="h-4 w-4 text-current" />
-                <div className="flex justify-between items-center w-full">
-                  <span className="font-semibold text-current">Waiting Passenger Ack.</span>
-                  <span className="font-bold text-white bg-pink-600 dark:bg-pink-700 px-1.5 py-0.5 rounded text-xs">
-                    {formatTimer(ackWindowSecondsLeft)}
-                  </span>
+                <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center">
+                        <Info className="h-4 w-4 text-current mr-1.5" />
+                        <span className="font-semibold text-current">Waiting Passenger Ack.</span>
+                    </div>
+                    <span className="font-bold text-white bg-pink-600 dark:bg-pink-700 px-1.5 py-0.5 rounded text-xs">
+                        {formatTimer(ackWindowSecondsLeft)}
+                    </span>
                 </div>
             </Alert>
         )}
