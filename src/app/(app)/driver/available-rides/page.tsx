@@ -214,67 +214,6 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
-function formatAddressForDisplay(fullAddress: string): { line1: string; line2: string; line3: string } {
-  if (!fullAddress) return { line1: "N/A", line2: "", line3: "" };
-
-  let address = fullAddress;
-  let line1 = ""; 
-  let line2 = ""; 
-  let line3 = ""; 
-
-  const parts = address.split(',').map(p => p.trim()).filter(Boolean);
-
-  if (parts.length === 0) {
-    return { line1: "N/A", line2: "", line3: "" };
-  }
-
-  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i;
-  const postcodeMatch = fullAddress.match(postcodeRegex);
-  let postcode = "";
-  let city = "";
-
-  if (postcodeMatch) {
-    postcode = postcodeMatch[0].toUpperCase();
-    const addressBeforePostcode = fullAddress.substring(0, postcodeMatch.index).trim();
-    const cityParts = addressBeforePostcode.split(',').map(p => p.trim());
-    if (cityParts.length > 0) {
-      city = cityParts.pop() || ""; 
-    }
-    line3 = city ? `${city} ${postcode}` : postcode;
-    address = address.replace(postcode, "").replace(city, "").replace(/,$/, "").trim();
-  } else if (parts.length > 1 && parts[parts.length - 1].match(/^\s*[A-Z]{1,2}[0-9][A-Z0-9]?\s*$/i)) {
-    line3 = parts.pop() || "";
-    if (parts.length > 0) city = parts.pop() || "";
-    line3 = city ? `${city} ${line3}` : line3;
-    address = parts.join(', ').trim();
-  } else if (parts.length > 1) {
-    line3 = parts.pop() || "";
-    address = parts.join(', ').trim();
-  }
-
-
-  const remainingPartsAfterLine3 = address.split(',').map(p => p.trim()).filter(Boolean);
-  if (remainingPartsAfterLine3.length > 0) {
-    line1 = remainingPartsAfterLine3[0];
-    if (remainingPartsAfterLine3.length > 1) {
-      line2 = remainingPartsAfterLine3.slice(1).join(', ');
-    }
-  }
-  
-  if (!line1 && line2) { line1 = line2; line2 = ""; }
-  if (!line1 && line3 && !line2) { line1 = line3; line3 = ""; }
-  if (!line2 && line3 && line1.toLowerCase().includes(line3.split(' ')[0].toLowerCase())) {
-      line2 = line3; line3 = "";
-  }
-
-
-  return { 
-    line1: line1 || (parts.length === 1 ? parts[0] : "Address Detail N/A"), 
-    line2, 
-    line3 
-  };
-}
-
 
 const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number; lng: number } }> = [
     { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", coords: { lat: 53.6483, lng: -1.7805 } },
@@ -1823,7 +1762,7 @@ export default function AvailableRidesPage() {
     let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
     if (activeRide.waitAndReturn) {
       const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
-      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
+      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
       baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
     }
 
@@ -1965,42 +1904,51 @@ export default function AvailableRidesPage() {
         )}
 
         {activeRide?.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
-            <Alert variant="default" className="my-2 bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
-            <Info className="h-5 w-5 text-current" />
-            <ShadAlertTitle className="font-semibold text-current">Awaiting Passenger Acknowledgment</ShadAlertTitle>
-            <ShadAlertDescription className="text-current">
-                Waiting for passenger: <span className="font-bold">{formatTimer(ackWindowSecondsLeft)}</span>.
-                Free waiting starts after acknowledgment or if this timer expires.
-            </ShadAlertDescription>
+            <Alert variant="default" className="my-2 bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
+                <Info className="h-4 w-4 text-current" />
+                <div className="flex justify-between items-center w-full">
+                  <span className="font-semibold text-current">Waiting Passenger Ack.</span>
+                  <span className="font-bold text-white bg-pink-600 dark:bg-pink-700 px-1.5 py-0.5 rounded text-xs">
+                    {formatTimer(ackWindowSecondsLeft)}
+                  </span>
+                </div>
             </Alert>
         )}
         {activeRide?.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft === 0 && freeWaitingSecondsLeft !== null && (
-            <Alert variant="default" className="my-2 bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
-            <Timer className="h-5 w-5 text-current" />
-            <ShadAlertTitle className="font-semibold text-current">Free Waiting Period</ShadAlertTitle>
-            <ShadAlertDescription className="text-current">
-                Passenger did not acknowledge. Free waiting time: {formatTimer(freeWaitingSecondsLeft)}.
-                Charges (£{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min) apply after this period.
+            <Alert variant="default" className="my-2 bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 p-1.5 text-xs">
+            <Timer className="h-4 w-4 text-current" />
+            <div className="flex justify-between items-center w-full">
+                <span className="font-semibold text-current">Free Waiting Period</span>
+                <span className="font-bold text-current">
+                    {formatTimer(freeWaitingSecondsLeft)}
+                </span>
+            </div>
+             <ShadAlertDescription className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">
+                Ack. window expired. Waiting charges apply after this.
             </ShadAlertDescription>
             </Alert>
         )}
         {activeRide?.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && (
-            <Alert variant="default" className={cn("my-2",
-                (extraWaitingSeconds !== null && extraWaitingSeconds > 0) ? "bg-red-100 dark:bg-red-800/30 border-red-400 dark:border-red-600 text-red-700 dark:text-red-300"
-                                     : "bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300"
+            <Alert variant="default" className={cn("my-2 p-1.5 text-xs",
+                (extraWaitingSeconds !== null && extraWaitingSeconds > 0) ? "bg-red-100 dark:bg-red-700/40 border-red-400 dark:border-red-600 text-red-700 dark:text-red-200"
+                                     : "bg-green-100 dark:bg-green-700/40 border-green-400 dark:border-green-600 text-green-700 dark:text-green-200"
             )}>
-            <Timer className="h-5 w-5 text-current" />
-            <ShadAlertTitle className="font-semibold text-current">
-                {(extraWaitingSeconds !== null && extraWaitingSeconds > 0) ? "Extra Waiting Time" : "Free Waiting Period"}
-            </ShadAlertTitle>
-            <ShadAlertDescription className="text-current">
-                {freeWaitingSecondsLeft > 0 && (extraWaitingSeconds === null || extraWaitingSeconds <= 0) && (
-                <span>Passenger Acknowledged. Free waiting: {formatTimer(freeWaitingSecondsLeft)}.</span>
+            <Timer className="h-4 w-4 text-current" />
+            <div className="flex justify-between items-center w-full">
+                <span className="font-semibold text-current">
+                    {(extraWaitingSeconds !== null && extraWaitingSeconds > 0) ? "Extra Waiting" : "Free Waiting"}
+                </span>
+                <span className="font-bold text-current">
+                    {(extraWaitingSeconds !== null && extraWaitingSeconds > 0) 
+                        ? `${formatTimer(extraWaitingSeconds)} (+£${currentWaitingCharge.toFixed(2)})` 
+                        : formatTimer(freeWaitingSecondsLeft)}
+                </span>
+            </div>
+            <ShadAlertDescription className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">
+                 {freeWaitingSecondsLeft > 0 && (extraWaitingSeconds === null || extraWaitingSeconds <= 0) && (
+                    <span>Passenger Acknowledged.</span>
                 )}
-                {(extraWaitingSeconds !== null && extraWaitingSeconds > 0) && (
-                <span>Extra waiting: {formatTimer(extraWaitingSeconds)}. Current Charge: £{currentWaitingCharge.toFixed(2)}</span>
-                )}
-                {freeWaitingSecondsLeft === 0 && (extraWaitingSeconds === null || extraWaitingSeconds === 0) && <span>Free waiting time expired. Waiting charges (£0.20/min) now apply.</span>}
+                {freeWaitingSecondsLeft === 0 && (extraWaitingSeconds === null || extraWaitingSeconds === 0) && <span>Free time expired. Charges apply.</span>}
             </ShadAlertDescription>
             </Alert>
         )}
@@ -2025,7 +1973,7 @@ export default function AvailableRidesPage() {
                     </Button>
                 </CardHeader>
 
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 min-h-0">
                     <CardContent className="p-2 space-y-1.5">
                         {activeRide.status === 'completed' ? (
                             <div className="text-center">
@@ -2121,7 +2069,7 @@ export default function AvailableRidesPage() {
                                 </ShadAlertDescription></Alert>
                             )}
 
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-sm">
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-black/70 dark:border-green-700 text-green-900 dark:text-green-100 text-sm">
                                 <div className={cn("col-span-2 border-2 border-black dark:border-gray-700 rounded-md px-2 py-1 my-1")}>
                                   <p className="font-bold flex items-center gap-1.5 text-base">
                                     <DollarSign className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />
