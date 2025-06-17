@@ -1069,7 +1069,7 @@ export default function AvailableRidesPage() {
 
   const mainButtonText = (): string => {
     if (!activeRide) return "Loading...";
-    switch (activeRide.status) {
+    switch (activeRide.status.toLowerCase()) {
       case 'driver_assigned': return "Notify Arrival";
       case 'arrived_at_pickup': return "Start Ride";
       case 'in_progress':
@@ -1089,28 +1089,21 @@ export default function AvailableRidesPage() {
   };
   const mainButtonIsDisabledValue = isMainButtonDisabled();
 
-
   const mainButtonAction = () => {
-    if (!activeRide) return;
-    switch (activeRide.status) {
-      case 'driver_assigned': handleRideAction(activeRide.id, 'notify_arrival'); break;
-      case 'arrived_at_pickup': handleRideAction(activeRide.id, 'start_ride'); break;
-      case 'in_progress':
-      case 'in_progress_wait_and_return':
-        if (localCurrentLegIndex < journeyPoints.length - 1) {
-          handleRideAction(activeRide.id, 'proceed_to_next_leg');
-        } else {
-          handleRideAction(activeRide.id, 'complete_ride');
-        }
-        break;
-      default: console.log("No action for current status:", activeRide.status);
+    if (!activeRide || mainButtonIsDisabledValue) return;
+    const status = activeRide.status.toLowerCase();
+    if (status === 'driver_assigned') {
+      handleRideAction(activeRide.id, 'notify_arrival');
+    } else if (status === 'arrived_at_pickup') {
+      handleRideAction(activeRide.id, 'start_ride');
+    } else if (status === 'in_progress' || status === 'in_progress_wait_and_return') {
+      if (localCurrentLegIndex < journeyPoints.length - 1) {
+        handleRideAction(activeRide.id, 'proceed_to_next_leg');
+      } else {
+        handleRideAction(activeRide.id, 'complete_ride');
+      }
     }
   };
-
-
-  const showCompletedStatus = activeRide?.status === 'completed';
-  const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
-  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
   const CurrentNavigationLegBar = () => {
     if (!activeRide || isRideTerminated(activeRide.status) || !journeyPoints[localCurrentLegIndex]) {
@@ -1197,6 +1190,10 @@ export default function AvailableRidesPage() {
     </div>;
   }
 
+  const showCompletedStatus = activeRide?.status === 'completed';
+  const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
+  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
+
   return (
       <div className="flex flex-col h-full p-2 md:p-4">
         {isSpeedLimitFeatureEnabled &&
@@ -1276,7 +1273,7 @@ export default function AvailableRidesPage() {
                     {(activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && ( <div className="flex justify-center mb-1.5"> <Badge variant="default" className={cn("font-bold text-xs w-fit mx-auto py-1 px-3 rounded-md shadow", activeRide.status === 'in_progress_wait_and_return' ? "bg-teal-600 hover:bg-teal-700" : "bg-green-600 hover:bg-green-700" , "text-white")}>Ride In Progress{activeRide.status === 'in_progress_wait_and_return' ? ' (W&R)' : ''}</Badge> </div> )}
                     {activeRide.status === 'pending_driver_wait_and_return_approval' && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-purple-500 text-white py-1 px-3 rounded-md shadow">W&R Request Pending</Badge> </div> )}
                     {activeRide.status === 'completed' && ( <div className="flex justify-center my-3"> <Badge variant="default" className="font-bold text-base w-fit mx-auto bg-primary text-primary-foreground py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <CheckCircleIconLucide className="w-5 h-5" /> Ride Completed </Badge> </div> )}
-                    {(activeRide.status === 'cancelled_by_driver' || activeRide.status === 'cancelled_no_show') && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <XCircle className="w-5 h-5" /> {activeRide.status === 'cancelled_no_show' ? "Passenger No-Show" : "Ride Cancelled By You"} </Badge> </div> )}
+                    {(activeRide.status === 'cancelled_by_driver' || activeRide.status === 'cancelled_no_show') && ( <div className="flex justify-center my-3"> <Badge variant="destructive" className="font-bold text-base w-fit mx-auto py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2"> <XCircle className="mr-2 h-5 w-5" /> {activeRide.status === 'cancelled_no_show' ? "Passenger No-Show" : "Ride Cancelled By You"} </Badge> </div> )}
                     <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border"> <Avatar className="h-7 w-7 md:h-8 md:h-8"> <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/> <AvatarFallback className="text-sm">{activeRide.passengerName.charAt(0)}</AvatarFallback> </Avatar> <div className="flex-1"> <p className="font-bold text-sm md:text-base">{activeRide.passengerName}</p> {passengerPhone && (<p className="font-bold text-xs text-muted-foreground flex items-center gap-0.5"><PhoneCall className="w-2.5 h-2.5"/> {passengerPhone}</p>)} </div> {(!isRideTerminated(activeRide.status)) && (<div className="flex items-center gap-1"> {passengerPhone && !isChatDisabled && (<Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8"><a href={`tel:${passengerPhone}`} aria-label="Call passenger"><PhoneCall className="w-3.5 h-3.5 md:w-4 md:w-4" /></a></Button>)} {isChatDisabled ? (<Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8" disabled><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" /></Button>) : (<Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8"><Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></Link></Button>)} </div>)} </div>
                     {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (<div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400"><p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p></div>)}
                     {activeRide.isPriorityPickup && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (<Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1"><Crown className="h-3.5 w-3.5" /><ShadAlertTitle className="font-bold text-xs">Priority Booking</ShadAlertTitle><ShadAlertDescription className="font-bold text-[10px]">Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.</ShadAlertDescription></Alert>)}
