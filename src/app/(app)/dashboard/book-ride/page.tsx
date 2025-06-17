@@ -2442,9 +2442,9 @@ const handleProceedToConfirmation = async () => {
                       </DialogHeader>
                       <ScrollArea className="overflow-y-auto">
                         <div className="px-6 pt-6 pb-2 space-y-3">
-                          <Card className="w-full text-center shadow-md">
+                          <Card className="w-full text-center shadow-md bg-primary/10 border-primary/30">
                             <CardHeader className="p-3">
-                              <CardTitle className="text-lg font-headline flex items-center justify-center gap-2">
+                              <CardTitle className="text-lg font-bold font-headline flex items-center justify-center gap-2">
                                 <DollarSign className="w-5 h-5 text-primary" /> Fare Details
                               </CardTitle>
                             </CardHeader>
@@ -2456,11 +2456,11 @@ const handleProceedToConfirmation = async () => {
                                 </div>
                               ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
                                 <>
-                                  <p className="text-sm text-muted-foreground">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                  {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
-                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400">Wheelchair Access surcharge applied</p>}
+                                  <p className="text-sm text-muted-foreground font-semibold">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
+                                  {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400 font-semibold">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
+                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">Wheelchair Access surcharge applied</p>}
                                   {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
-                                    <p className="text-sm text-orange-600 dark:text-orange-400">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
+                                    <p className="text-sm text-orange-600 dark:text-orange-400 font-semibold">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
                                   ) : null}
                                   <p className="text-2xl font-bold text-primary">Total: £{totalFareEstimate.toFixed(2)}</p>
                                   {isSurgeActive && (
@@ -2468,20 +2468,20 @@ const handleProceedToConfirmation = async () => {
                                       <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
                                     </p>
                                   )}
-                                   {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">(Includes Wait & Return Surcharges)</p>}
-                                   <p className="text-xs text-muted-foreground mt-1">
+                                   {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1 font-semibold">(Includes Wait & Return Surcharges)</p>}
+                                   <p className="text-xs text-muted-foreground mt-1 font-semibold">
                                       Estimates may vary based on real-time conditions.
                                   </p>
                                 </>
                               ) : (
-                                <p className="text-lg text-muted-foreground">Enter pickup & drop-off to see fare.</p>
+                                <p className="text-lg text-muted-foreground font-semibold">Enter pickup & drop-off to see fare.</p>
                               )}
                             </CardContent>
                           </Card>
 
-                          <Card className="shadow-md bg-gradient-to-r from-accent/5 via-transparent to-primary/5">
+                          <Card className="shadow-md bg-accent/5 border-accent/20">
                             <CardHeader className="p-3">
-                              <CardTitle className="text-lg font-headline flex items-center gap-2">
+                              <CardTitle className="text-lg font-bold font-headline flex items-center gap-2">
                                 <CreditCard className="w-5 h-5 text-primary" /> Payment Method
                               </CardTitle>
                             </CardHeader>
@@ -2737,6 +2737,7 @@ const handleProceedToConfirmation = async () => {
 
 
     
+
 
 
 
