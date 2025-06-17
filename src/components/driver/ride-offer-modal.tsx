@@ -228,14 +228,14 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           ? `Manual Dispatch: ${rideDetails.requiredOperatorId}`
           : "Manually Dispatched by Platform Admin";
         icon = Briefcase;
-        iconColorClass = "text-slate-400";
+        iconColorClass = "text-slate-400"; // More neutral for "other operator"
         textColorClass = "text-slate-300";
       } else if (isPriorityOverride) {
         text = "Dispatched by Operator (PRIORITY)";
         icon = AlertOctagon;
         iconColorClass = "text-purple-400";
         textColorClass = "text-purple-300";
-      } else { 
+      } else { // Default to system/auto if not specified or platform, or if requiredOperatorId doesn't match driver's
         text = "Dispatched By App (Automatic)";
         icon = CheckCircle;
         iconColorClass = "text-green-400";
@@ -331,13 +331,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               </p>
             </div>
 
-            {rideDetails.notes && (
-              <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
-                <p className="text-xs text-yellow-800 dark:text-yellow-200 whitespace-pre-wrap">
-                  <span className="font-bold">Notes:</span> <span className="font-bold">{rideDetails.notes.trim() || "(empty note)"}</span>
-                </p>
-              </div>
-            )}
              <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800 border mt-2">
               <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs">
                 {rideDetails.passengerName && (
@@ -405,3 +398,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 }
 
     
+
