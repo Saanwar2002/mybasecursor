@@ -295,9 +295,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             <p className="text-sm font-bold flex items-center gap-1">
                 <DollarSign className="w-4 h-4" />
                  <span>
-                    {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
+                    Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span>
+                    {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
                         <>
-                        Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span>
                         {' + '}
                         <span className="font-bold text-red-700">
                             £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Priority)
@@ -307,8 +307,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                             £{totalFareForDriver.toFixed(2)}
                         </span>
                         </>
-                    ) : (
-                       <>Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span></>
                     )}
                 </span>
             </p>
@@ -321,6 +319,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-3 pt-2 pb-1 space-y-1.5">
+            <p style={{ backgroundColor: 'lime', color: 'black', padding: '10px', fontWeight: 'bold', textAlign: 'center', margin: '5px 0' }}>
+              JOB DETAILS AREA - CONTENT SHOULD BE HERE
+            </p>
             <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
               <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
@@ -394,3 +395,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
