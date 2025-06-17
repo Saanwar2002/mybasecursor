@@ -1018,13 +1018,13 @@ export default function AvailableRidesPage() {
       displayBookingId: mockDisplayBookingId,
       originatingOperatorId: mockOriginatingOperatorId,
     };
-    console.log("Simulating offer:", mockOfferWithDisplayId);
+    console.log("[handleSimulateOffer] Generated Mock Offer:", JSON.stringify(mockOfferWithDisplayId, null, 2));
     setStagedOfferDetails(mockOfferWithDisplayId);
   };
 
 
   const handleAcceptOffer = async (rideId: string) => {
-    console.log(`Attempting to accept offer: ${rideId}`);
+    console.log(`[handleAcceptOffer] Attempting to accept offer: ${rideId}`);
     setIsPollingEnabled(false);
     if (rideRefreshIntervalIdRef.current) {
       clearInterval(rideRefreshIntervalIdRef.current);
@@ -1040,39 +1040,41 @@ export default function AvailableRidesPage() {
     }
 
     const currentActionRideId = offerToAccept.id;
-    console.log(`Setting actionLoading for ${currentActionRideId} to true`);
+    console.log(`[handleAcceptOffer] Setting actionLoading for ${currentActionRideId} to true`);
     setActionLoading(prev => ({ ...prev, [currentActionRideId]: true }));
-    try {
-      const updatePayload: any = {
+    
+    const updatePayload: any = {
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        offerDetails: { ...offerToAccept },
+        offerDetails: { ...offerToAccept }, // Ensure this is deeply cloned
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
-        driverCurrentLocation: driverLocation,
+        driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null,
         accountJobPin: offerToAccept.accountJobPin,
       };
-      console.log(`Sending accept payload for ${currentActionRideId}:`, updatePayload);
+    console.log(`[handleAcceptOffer] Sending accept payload for ${currentActionRideId}:`, JSON.stringify(updatePayload, null, 2));
 
+
+    try {
       const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload),
       });
-      console.log(`Accept offer response status for ${currentActionRideId}: ${response.status}`);
+      console.log(`[handleAcceptOffer] Accept offer response status for ${currentActionRideId}: ${response.status}`);
 
       let updatedBookingDataFromServer;
       if (response.ok) {
         updatedBookingDataFromServer = await response.json();
         if (!updatedBookingDataFromServer || !updatedBookingDataFromServer.booking) {
-            console.error(`Accept offer for ${currentActionRideId}: Server OK but booking data missing.`);
+            console.error(`[handleAcceptOffer] Accept offer for ${currentActionRideId}: Server OK but booking data missing.`);
             throw new Error("Server returned success but booking data was missing in response.");
         }
-        console.log(`Accept offer for ${currentActionRideId}: Server returned booking data:`, updatedBookingDataFromServer.booking);
+        console.log(`[handleAcceptOffer] Accept offer for ${currentActionRideId}: Server returned booking data:`, JSON.stringify(updatedBookingDataFromServer.booking, null, 2));
       } else {
         const clonedResponse = response.clone();
         let errorDetailsText = `Server responded with status: ${response.status}.`;
@@ -1088,10 +1090,10 @@ export default function AvailableRidesPage() {
                 errorDetailsText += " Additionally, failed to read response body as text.";
             }
         }
-        console.error(`Accept offer for ${currentActionRideId} - Server error:`, errorDetailsText);
+        console.error(`[handleAcceptOffer] Accept offer for ${currentActionRideId} - Server error:`, errorDetailsText);
         toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
         setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
-        console.log(`Reset actionLoading for ${currentActionRideId} to false after server error.`);
+        console.log(`[handleAcceptOffer] Reset actionLoading for ${currentActionRideId} to false after server error.`);
         setIsOfferModalOpen(false);
         setCurrentOfferDetails(null);
         setIsPollingEnabled(true);
@@ -1135,7 +1137,7 @@ export default function AvailableRidesPage() {
         accountJobPin: serverBooking.accountJobPin,
         distanceMiles: offerToAccept.distanceMiles,
       };
-      console.log(`Accept offer for ${currentActionRideId}: Setting activeRide:`, newActiveRideFromServer);
+      console.log(`[handleAcceptOffer] Accept offer for ${currentActionRideId}: Setting activeRide:`, JSON.stringify(newActiveRideFromServer, null, 2));
       setActiveRide(newActiveRideFromServer);
       setLocalCurrentLegIndex(0);
       setRideRequests([]);
@@ -1153,7 +1155,7 @@ export default function AvailableRidesPage() {
       toast({title: "Ride Accepted!", description: toastDesc});
 
     } catch(error: any) {
-      console.error(`Error in handleAcceptOffer process for ${currentActionRideId} (outer catch):`, error);
+      console.error(`[handleAcceptOffer] Error in handleAcceptOffer process for ${currentActionRideId} (outer catch):`, error);
 
       let detailedMessage = "An unknown error occurred during ride acceptance.";
       if (error instanceof Error) {
@@ -1169,7 +1171,7 @@ export default function AvailableRidesPage() {
       setCurrentOfferDetails(null);
       setIsPollingEnabled(true);
     } finally {
-      console.log(`Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
+      console.log(`[handleAcceptOffer] Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
       setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
     }
   };
@@ -1591,16 +1593,16 @@ export default function AvailableRidesPage() {
               </Badge>
               <div className="flex items-center gap-1.5 mt-0.5">
                 {passengerPhone && (
-                  <Button asChild variant="ghost" size="icon" className={cn("h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded")}>
-                    <a href={`tel:${passengerPhone}`} aria-label={`Call ${activeRide.passengerName}`}>
-                      <PhoneCall className="w-3 h-3" />
-                    </a>
-                  </Button>
+                  <>
+                    <Button asChild variant="ghost" size="icon" className={cn("h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded")}>
+                      <a href={`tel:${passengerPhone}`} aria-label={`Call ${activeRide.passengerName}`}>
+                        <PhoneCall className="w-3 h-3" />
+                      </a>
+                    </Button>
+                    <span className="font-bold text-xs text-muted-foreground">{passengerPhone}</span>
+                  </>
                 )}
-                {passengerPhone && (
-                  <span className="font-bold text-xs text-muted-foreground">{passengerPhone}</span>
-                )}
-                {passengerPhone && !isChatDisabled && (
+                 {passengerPhone && !isChatDisabled && (
                    <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-1" />
                 )}
                 {!isChatDisabled && (
@@ -1940,7 +1942,7 @@ export default function AvailableRidesPage() {
         )}
 
         {activeRide?.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
-             <Alert variant="default" className="my-2 bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
+            <Alert variant="default" className="my-2 bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
                 <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-1">
                         <Info className="h-3.5 w-3.5 text-current" />
@@ -2426,4 +2428,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-

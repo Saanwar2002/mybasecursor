@@ -211,7 +211,7 @@ export async function POST(request: NextRequest, context: PostContext) {
         newBookingData.accountJobPin = generateFourDigitPin();
       }
 
-      console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Data to be written to Firestore (addDoc):`, JSON.stringify(newBookingData, null, 2));
+      console.log(`API POST /api/operator/bookings/${bookingIdForHandler} (MOCK OFFER): Data to be written to Firestore (addDoc):`, JSON.stringify(newBookingData, null, 2));
 
       try {
         const docRef = await addDoc(collection(db, 'bookings'), newBookingData);
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           displayBookingId: finalDisplayBookingId
         });
 
-        console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: New booking created with ID: ${newFirestoreId}, Display ID: ${finalDisplayBookingId} from mock offer.`);
+        console.log(`API POST /api/operator/bookings/${bookingIdForHandler} (MOCK OFFER): New booking created with ID: ${newFirestoreId}, Display ID: ${finalDisplayBookingId} from mock offer.`);
 
         const newBookingSnap = await getDoc(docRef);
         const newBookingSavedData = newBookingSnap.data();
@@ -240,10 +240,11 @@ export async function POST(request: NextRequest, context: PostContext) {
             updatedAt: serializeTimestamp(newBookingSavedData?.updatedAt as Timestamp | undefined),
             currentLegEntryTimestamp: serializeTimestamp(newBookingSavedData?.currentLegEntryTimestamp as Timestamp | undefined),
         };
+        console.log(`API POST /api/operator/bookings/${bookingIdForHandler} (MOCK OFFER): Returning response:`, JSON.stringify({ message: 'Mock offer accepted, new booking created.', booking: responseData }, null, 2));
         return NextResponse.json({ message: 'Mock offer accepted, new booking created.', booking: responseData }, { status: 201 });
 
       } catch (addDocError: any) {
-        console.error(`API POST /api/operator/bookings/${bookingIdForHandler}: Firestore addDoc FAILED. Raw Error:`, addDocError);
+        console.error(`API POST /api/operator/bookings/${bookingIdForHandler} (MOCK OFFER): Firestore addDoc FAILED. Raw Error:`, addDocError);
         let details = 'Firestore addDoc operation failed.';
         if (addDocError.message) {
             details += ` Message: ${addDocError.message}.`;
@@ -333,7 +334,8 @@ export async function POST(request: NextRequest, context: PostContext) {
           updatePayloadFirestore.status = 'completed';
           updatePayloadFirestore.completedAtActual = Timestamp.now();
           if (updateDataFromPayload.finalFare !== undefined) {
-              updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare;
+              updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare; // Store the final calculated fare
+              updatePayloadFirestore.finalCalculatedFare = updateDataFromPayload.finalFare; // Store final for consistency if a dedicated field is used
           }
           updatePayloadFirestore.currentLegEntryTimestamp = deleteField();
       } else if (updateDataFromPayload.action === 'cancel_active') {
