@@ -159,7 +159,7 @@ export default function PassengerDashboardPage() {
             <Button 
               asChild 
               size="lg" 
-              className="w-full bg-primary hover:bg-primary/90 active:bg-primary/80 active:scale-[0.98] transition-transform duration-100 ease-in-out text-primary-foreground mt-4"
+              className="w-full bg-primary hover:bg-primary/90 active:bg-accent active:text-accent-foreground active:scale-[0.98] transition-transform duration-100 ease-in-out text-primary-foreground mt-4"
               disabled={bookingPreference === 'specific_operator' && !selectedOperator}
             >
               <Link href={bookRideHref}>
