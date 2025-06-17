@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -17,6 +16,7 @@ import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructo
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from "@/components/ui/separator";
 import { formatAddressForMapLabel } from '@/lib/utils';
+import type { LucideIcon } from "lucide-react";
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -189,7 +189,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onClose();
   };
 
-  const progressColorClass = "bg-green-500";
+  const progressColorClass = 
+    countdown <= 5 ? "bg-red-500" : 
+    countdown <= 10 ? "bg-yellow-500" : 
+    "bg-green-500";
 
 
   const baseFare = rideDetails.fareEstimate || 0;
@@ -197,39 +200,45 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const totalFareForDriver = baseFare + priorityFeeAmount;
 
 
-  const getDispatchMethodText = () => {
+  const getDispatchMethodInfo = (): { text: string; icon: LucideIcon; styleClasses: string } | null => {
     if (!rideDetails) return null;
 
     const isManual = rideDetails.dispatchMethod === 'manual_operator';
     const isPriorityOverride = rideDetails.dispatchMethod === 'priority_override';
 
     let text = "";
-    let icon = CheckCircle;
+    let icon: LucideIcon = CheckCircle;
+    let styleClasses = "bg-green-500 text-white"; // Default (auto system)
 
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
       text = isManual ? "Dispatched By App (MANUAL MODE)" : "Dispatched By App (AUTO MODE)";
       icon = isManual ? Briefcase : CheckCircle;
+      styleClasses = isManual ? "bg-blue-500 text-white" : "bg-green-500 text-white";
     } else if (driverUser && rideDetails.requiredOperatorId === driverUser.operatorCode) {
-      text = isManual ? "Dispatched By YOUR BASE (MANUAL MODE)" : "Dispatched By YOUR BASE (AUTO MODE)";
+      text = isManual ? "Dispatched By YOUR BASE (MANUAL)" : "Dispatched By YOUR BASE (AUTO)";
       icon = isManual ? Briefcase : CheckCircle;
-    } else {
+      styleClasses = isManual ? "bg-sky-600 text-white" : "bg-emerald-500 text-white";
+    } else { // Job from another operator or platform admin dispatch for a non-platform driver
       if (isManual) {
         text = rideDetails.requiredOperatorId
-          ? `Manual Dispatch from ${rideDetails.requiredOperatorId}`
+          ? `Manual Dispatch: ${rideDetails.requiredOperatorId}`
           : "Manually Dispatched by Platform Admin";
         icon = Briefcase;
+        styleClasses = "bg-slate-500 text-white";
       } else if (isPriorityOverride) {
-        text = "Dispatched by Operator (Priority)";
+        text = "Dispatched by Operator (PRIORITY)";
         icon = AlertOctagon;
+        styleClasses = "bg-purple-600 text-white";
       }
-       else {
-        text = "Dispatched By App (Auto)";
+       else { // Default to auto if specific conditions aren't met (e.g. dispatchMethod is undefined)
+        text = "Dispatched By App (Automatic)";
         icon = CheckCircle;
+        styleClasses = "bg-green-500 text-white";
       }
     }
-    return { text, icon };
+    return { text, icon, styleClasses };
   };
-  const dispatchInfo = getDispatchMethodText();
+  const dispatchInfo = getDispatchMethodInfo();
 
   const getPaymentMethodDisplay = () => {
     if (!rideDetails.paymentMethod) return "N/A";
@@ -284,7 +293,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </div>
         
         {dispatchInfo && (
-            <div className="py-1.5 px-3 bg-green-500 text-white text-center">
+            <div className={cn("py-1.5 px-3 text-center", dispatchInfo.styleClasses)}>
                 <p className="text-xs font-semibold flex items-center justify-center gap-1">
                     <dispatchInfo.icon className="w-3.5 h-3.5"/> {dispatchInfo.text}
                 </p>
@@ -350,15 +359,17 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </ScrollArea>
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
-            <div className="py-1 px-2 text-base text-center bg-amber-600 text-white border border-amber-700 rounded-md shadow font-bold flex items-center justify-between">
-              {/* Fare Group */}
+            <div className={cn(
+              "py-1 px-2 text-base text-center text-white border rounded-md shadow font-bold flex items-center justify-between",
+              rideDetails.isPriorityPickup ? "bg-orange-600 border-orange-700" : "bg-amber-600 border-amber-700"
+            )}>
               <div className="flex items-center gap-1">
                 <DollarSign className="w-4 h-4 shrink-0" />
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
                   <>
                     <span>(Base £{baseFare.toFixed(2)}</span>
                     <span className="mx-0.5">+</span> {}
-                    <span className="bg-yellow-500 dark:bg-yellow-600 text-white px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5 text-sm leading-none">
+                    <span className="bg-yellow-400 dark:bg-yellow-500 text-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5 text-sm leading-none">
                       <Crown className="w-3.5 h-3.5" /> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
                     </span>
                     <span>) = £{totalFareForDriver.toFixed(2)}</span>
@@ -368,7 +379,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
               </div>
 
-              {/* Distance */}
               {rideDetails.distanceMiles !== undefined && (
                 <span className="font-bold text-white text-base">
                   (~{rideDetails.distanceMiles.toFixed(1)} mi)
