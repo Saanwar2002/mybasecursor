@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -242,7 +243,7 @@ const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const MOVEMENT_THRESHOLD_METERS = 50;
 const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000;
 
-const STOP_FREE_WAITING_TIME_SECONDS = 1 * 60; // Changed from 2 * 60
+const STOP_FREE_WAITING_TIME_SECONDS = 1 * 60; 
 const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;
 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
@@ -520,7 +521,7 @@ export default function AvailableRidesPage() {
     } else if (driverUser?.id && driverUser.id.includes('/')) {
       const parts = driverUser.id.split('/');
       if (parts.length > 0) {
-        return parts[0];
+        setCurrentDriverOperatorPrefix(parts[0]);
       }
     } else if (driverUser?.id) {
       setCurrentDriverOperatorPrefix('OP_DefaultGuest');
@@ -669,16 +670,24 @@ export default function AvailableRidesPage() {
       clearInterval(stopIntervalRef.current);
       stopIntervalRef.current = null;
     }
-    setCurrentStopTimerDisplay(null); // Clear previous timer display
+    // setCurrentStopTimerDisplay(null); // Clear previous timer display - MOVED to else block
 
     const currentLegIdx = activeRide?.driverCurrentLegIndex;
     const isAtIntermediateStop = activeRide &&
                                  (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
                                  currentLegIdx !== undefined &&
-                                 currentLegIdx > 0 && // Current target is a stop (leg 1 is first stop)
-                                 currentLegIdx < journeyPoints.length -1; // Not the final dropoff leg
+                                 currentLegIdx > 0 && 
+                                 currentLegIdx < journeyPoints.length -1; 
 
-    // Check if activeStopDetails is set for the *current stop the driver is AT*
+    console.log("[StopTimerEffect Debug]", {
+        status: activeRide?.status,
+        currentLegIdx,
+        journeyPointsLength: journeyPoints.length,
+        isAtIntermediateStop,
+        activeStopDetails_stopDataIndex: activeStopDetails?.stopDataIndex,
+        condition3_match: activeStopDetails ? activeStopDetails.stopDataIndex === (currentLegIdx! - 1) : "N/A (no activeStopDetails)"
+    });
+
     if (isAtIntermediateStop && activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx! - 1)) {
       const { stopDataIndex, arrivalTime } = activeStopDetails;
       console.log(`[StopTimerEffect] Activating timer for Stop ${stopDataIndex + 1}. Arrival: ${arrivalTime}`);
@@ -705,7 +714,6 @@ export default function AvailableRidesPage() {
       }, 1000);
       stopIntervalRef.current = intervalId;
 
-      // Initial timer display update
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
       let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
@@ -724,7 +732,7 @@ export default function AvailableRidesPage() {
       });
 
     } else {
-      console.log("[StopTimerEffect] Conditions not met for stop timer or activeStopDetails not set for current stop. Clearing timer display.");
+      setCurrentStopTimerDisplay(null);
     }
 
     return () => {
@@ -733,7 +741,7 @@ export default function AvailableRidesPage() {
         clearInterval(stopIntervalRef.current);
       }
     };
-  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints.length, activeStopDetails]);
+  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints, activeStopDetails]);
 
 
  useEffect(() => {
@@ -2034,6 +2042,29 @@ export default function AvailableRidesPage() {
             </Alert>
         )}
 
+        {currentStopTimerDisplay &&
+            activeRide && 
+            activeRide.driverCurrentLegIndex !== undefined && 
+            activeRide.driverCurrentLegIndex > 0 &&
+            activeRide.driverCurrentLegIndex < journeyPoints.length -1 &&
+            currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
+            (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
+          (
+            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
+              <Timer className="h-4 w-4 text-current" />
+              <ShadAlertTitle className="font-bold text-current text-xs">
+                <span>Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}</span>
+              </ShadAlertTitle>
+              <ShadAlertDescription className="font-bold text-current text-[10px]">
+                <span>
+                  {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (`Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`)}
+                  {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (`Extra waiting: ${formatTimer(currentStopTimerDisplay.extraSeconds)}. Current Charge: £${currentStopTimerDisplay.charge.toFixed(2)}`)}
+                </span>
+              </ShadAlertDescription>
+            </Alert>
+          )
+        }
+        
         {activeRide && !isRideDetailsPanelMinimized && (
             <Card
                 className={cn(
@@ -2121,21 +2152,6 @@ export default function AvailableRidesPage() {
                                 )}
                             </div>
                             {activeRide.isPriorityPickup && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (<Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1"><Crown className="h-3.5 w-3.5" /><ShadAlertTitle className="font-bold text-xs"><span>Priority Booking</span></ShadAlertTitle><ShadAlertDescription className="font-bold text-[10px]"><span>Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.</span></ShadAlertDescription></Alert>)}
-
-                           {currentStopTimerDisplay &&
-                              activeRide.driverCurrentLegIndex &&
-                              activeRide.driverCurrentLegIndex > 0 &&
-                              activeRide.driverCurrentLegIndex < journeyPoints.length -1 &&
-                              currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
-                              (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
-                            (
-                              <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5"><Timer className="h-4 w-4 text-current" /><ShadAlertTitle className="font-bold text-current text-xs">
-                                <span>Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}</span>
-                              </ShadAlertTitle><ShadAlertDescription className="font-bold text-current text-[10px]"><span>
-                                {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (`Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`)}
-                                {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (`Extra waiting: ${formatTimer(currentStopTimerDisplay.extraSeconds)}. Current Charge: £${currentStopTimerDisplay.charge.toFixed(2)}`)}
-                              </span></ShadAlertDescription></Alert>
-                            )}
                             {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
                                  <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5"><RefreshCw className="h-4 w-4 text-current animate-spin" /><ShadAlertTitle className="font-bold text-current text-xs"><span>Wait & Return Request</span></ShadAlertTitle><ShadAlertDescription className="font-bold text-current text-[10px]">
                                     <span>Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.</span>
@@ -2467,3 +2483,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
