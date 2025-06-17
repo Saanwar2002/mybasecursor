@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context'; // To potentially get driver details for API calls
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Label } from "@/components/ui/label"; // Added this import
 
 // Placeholder for ride details - in a real app, you'd fetch this
 interface CompletedRideDetails {
