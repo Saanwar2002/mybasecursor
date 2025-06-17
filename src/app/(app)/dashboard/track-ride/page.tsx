@@ -1085,8 +1085,8 @@ export default function MyActiveRidePage() {
                         {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 && "Free time remaining:"}
                         {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && "Extra waiting time:"}
                       </span>
-                      <span className={cn("bg-accent text-white px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-accent text-white" : "bg-accent text-white")}>
-                        {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 ? formatTimerPassenger(currentPassengerStopTimerDisplay.freeSecondsLeft) : formatTimerPassenger(currentPassengerStopTimerDisplay.extraSeconds || 0)}
+                      <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-accent text-white" : "bg-accent text-white")}>
+                          {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 ? formatTimerPassenger(currentPassengerStopTimerDisplay.freeSecondsLeft) : formatTimerPassenger(currentPassengerStopTimerDisplay.extraSeconds || 0)}
                       </span>
                       {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && (
                          <span className="ml-1">Current Charge: £{currentPassengerStopTimerDisplay.charge.toFixed(2)}</span>
@@ -1108,11 +1108,11 @@ export default function MyActiveRidePage() {
                   </div>
                   <p className="text-xs text-muted-foreground pl-5">Booking ID: {activeRide.displayBookingId || activeRide.id}</p>
 
-                <div className="flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
+                <div className="bg-primary/10 p-2 rounded-md border border-black/70 flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
             </CardContent>
              {activeRide.status === 'pending_assignment' && (
-                <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2">
+                <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2 bg-primary/10 p-3 rounded-md border-black/70 mt-3">
                   <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto" disabled={isUpdatingDetails || isEditingDisabled}>
                     <Edit className="mr-2 h-4 w-4" /> Edit Details
                   </Button>
@@ -1251,5 +1251,6 @@ export default function MyActiveRidePage() {
   );
 }
     
+
 
 
