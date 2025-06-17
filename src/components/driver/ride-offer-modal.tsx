@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -192,8 +193,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
 
   const baseFare = rideDetails.fareEstimate || 0;
-  const priorityFee = rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount ? rideDetails.priorityFeeAmount : 0;
-  const totalFareForDriver = baseFare + priorityFee;
+  const priorityFeeAmount = rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount ? rideDetails.priorityFeeAmount : 0;
+  const totalFareForDriver = baseFare + priorityFeeAmount;
 
 
   const getDispatchMethodText = () => {
@@ -290,40 +291,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             </div>
         )}
 
-        <div className="py-1.5 px-3 bg-amber-500 text-black text-xs">
-           <div className={cn(
-            "flex items-center",
-            rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? "justify-between" : "justify-between"
-          )}>
-            <span className="font-bold flex items-center gap-0.5">
-              <DollarSign className="w-3 h-3 mr-0.5" />
-              Est. Fare: £
-              {(rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0) 
-                ? baseFare.toFixed(2) 
-                : totalFareForDriver.toFixed(2)}
-            </span>
-            {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-                <span className="text-red-700 font-bold">
-                + £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Prio)
-                </span>
-            )}
-            {rideDetails.distanceMiles && (
-              <span className="font-bold flex items-center gap-0.5">
-                <Route className="w-3 h-3" />
-                ~{rideDetails.distanceMiles.toFixed(1)} mi
-              </span>
-            )}
-          </div>
-          {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-            <div className="text-center mt-0.5">
-              <p className="text-base font-extrabold">
-                TOTAL: £{totalFareForDriver.toFixed(2)}
-              </p>
-            </div>
-          )}
-        </div>
-
-
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-3 pt-2 pb-1 space-y-1.5">
             
@@ -370,6 +337,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     )}
                 </p>
               )}
+               {/* New Job Price Badge Box */}
+              <div className="col-span-2 mt-1">
+                <div className={cn(
+                  "py-2 px-3 text-sm text-center", 
+                  "bg-amber-500 text-black",
+                  "border border-amber-600 rounded-md shadow font-bold"
+                )}>
+                  {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
+                    <span>
+                      (Base £{baseFare.toFixed(2)} + Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}) = £{totalFareForDriver.toFixed(2)}
+                    </span>
+                  ) : (
+                    <span>
+                      Fare = £{totalFareForDriver.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {rideDetails.notes && (
@@ -382,13 +367,13 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </ScrollArea>
         
-        <div className="p-3 border-t bg-muted/30 space-y-2">
+        <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto"> {/* Added mt-auto */}
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <Button variant="destructive" onClick={handleDecline} size="sm" className="font-bold text-sm bg-red-600 hover:bg-red-700 text-white">
+            <Button variant="destructive" onClick={handleDecline} size="sm" className="font-bold text-sm bg-red-600 hover:bg-red-700 text-white h-9">
               Decline ({countdown}s)
             </Button>
-            <Button variant="default" onClick={handleAccept} size="sm" className="font-bold text-sm bg-green-600 hover:bg-green-700 text-white">
+            <Button variant="default" onClick={handleAccept} size="sm" className="font-bold text-sm bg-green-600 hover:bg-green-700 text-white h-9">
               Accept Ride
             </Button>
           </div>
