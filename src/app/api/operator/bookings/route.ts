@@ -46,21 +46,71 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
     const numericPart = operatorCode.substring(2);
     if (/^\d{3,}$/.test(numericPart)) {
-      return numericPart.slice(0, 3); // Return first 3 digits of the numeric part
+      return numericPart.slice(0, 3);
     }
   }
   return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
 function generateNumericSuffix(): string {
-  const timestampPart = Date.now().toString().slice(-4); // Last 4 digits of ms
-  const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0'); // 2 random digits
-  return `${timestampPart}${randomPart}`; // 6-digit numeric suffix
+  const timestampPart = Date.now().toString().slice(-4);
+  const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+  return `${timestampPart}${randomPart}`;
 }
 
-export async function GET(request: NextRequest) {
-  // TODO: Implement authentication/authorization for operator role
+const nowForMocks = Timestamp.now();
+const nowSerializedForMocks = serializeTimestamp(nowForMocks);
 
+const priorityMockBookingsForTesting: any[] = [
+    {
+        id: `mock_phone_1stop_${Date.now() + 1}`,
+        displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
+        originatingOperatorId: "OP001",
+        passengerName: "Contactable Rider (Phone & Stop)",
+        passengerPhone: "+447700900123",
+        pickupLocation: { address: "Huddersfield Library, Princess Alexandra Walk, Huddersfield HD1 2SU", latitude: 53.6469, longitude: -1.7821 },
+        stops: [{ address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", latitude: 53.6465, longitude: -1.7833 }],
+        dropoffLocation: { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", latitude: 53.6483, longitude: -1.7805 },
+        status: 'pending_assignment',
+        fareEstimate: 19.80,
+        bookingTimestamp: nowSerializedForMocks,
+        vehicleType: 'estate', passengers: 1, paymentMethod: 'cash',
+        driverNotes: "Please wait near the main entrance, I have a small suitcase."
+    },
+    {
+        id: `mock_phone_2stops_${Date.now() + 2}`,
+        displayBookingId: `${getOperatorPrefix("OP002")}/${generateNumericSuffix()}`,
+        originatingOperatorId: "OP002",
+        passengerName: "Multi-Stop Passenger (Phone & 2 Stops)",
+        passengerPhone: "07700900456",
+        pickupLocation: { address: "University of Huddersfield, Queensgate, Huddersfield HD1 3DH", latitude: 53.6438, longitude: -1.7787 },
+        stops: [
+            { address: "Greenhead Park (Play Area), Park Drive, Huddersfield HD1 4HS", latitude: 53.6501, longitude: -1.7969 },
+            { address: "Lindley Village (Post Office), Lidget Street, Huddersfield HD3 3JB", latitude: 53.6580, longitude: -1.8280 }
+        ],
+        dropoffLocation: { address: "Beaumont Park, Huddersfield HD4 7AY", latitude: 53.6333, longitude: -1.8080 },
+        status: 'pending_assignment',
+        fareEstimate: 28.50,
+        bookingTimestamp: nowSerializedForMocks,
+        vehicleType: 'minibus_6', passengers: 4, paymentMethod: 'card'
+    },
+    {
+        id: `mock_note_only_${Date.now() + 3}`,
+        displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
+        originatingOperatorId: "OP001",
+        passengerName: "Specific Needs Rider (Note)",
+        pickupLocation: { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", latitude: 53.6542, longitude: -1.7677 },
+        dropoffLocation: { address: "Almondbury Village, Huddersfield HD5 8XE", latitude: 53.6391, longitude: -1.7542 },
+        status: 'pending_assignment',
+        fareEstimate: 16.25,
+        bookingTimestamp: nowSerializedForMocks,
+        vehicleType: 'disable_wheelchair_access', passengers: 1, paymentMethod: 'account',
+        driverNotes: "Requires assistance with a foldable wheelchair. Please ensure boot space is clear. Thank you."
+    }
+];
+
+
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const params = Object.fromEntries(searchParams.entries());
 
@@ -85,8 +135,7 @@ export async function GET(request: NextRequest) {
     const bookingsRef = collection(db, 'bookings');
     const queryConstraints: QueryConstraint[] = [];
 
-    // Filtering
-    if (status && status !== "all") { // Make sure "all" doesn't apply a filter
+    if (status && status !== "all") {
       queryConstraints.push(where('status', '==', status));
     }
     if (passengerName) {
@@ -112,8 +161,6 @@ export async function GET(request: NextRequest) {
         queryConstraints.push(orderBy(sortBy, sortOrder));
     }
 
-
-    // Pagination
     let lastDocSnapshot = null;
     if (startAfterDocId) {
       const startAfterDocRef = doc(db, 'bookings', startAfterDocId);
@@ -131,7 +178,6 @@ export async function GET(request: NextRequest) {
 
     const firestoreBookings = querySnapshot.docs.map((doc) => {
       const data = doc.data();
-
       let displayBookingId = data.displayBookingId;
       const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
       
@@ -147,12 +193,13 @@ export async function GET(request: NextRequest) {
         originatingOperatorId: rideOriginatingOperatorId,
         passengerId: data.passengerId,
         passengerName: data.passengerName,
+        passengerPhone: data.passengerPhone || data.customerPhoneNumber, // Include passengerPhone
         driverId: data.driverId,
         driverName: data.driverName,
         driverVehicleDetails: data.driverVehicleDetails,
         pickupLocation: data.pickupLocation,
         dropoffLocation: data.dropoffLocation,
-        stops: data.stops,
+        stops: data.stops || [], // Ensure stops is an array
         status: data.status,
         fareEstimate: data.fareEstimate,
         bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
@@ -170,66 +217,9 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // --- MOCK DATA INJECTION FOR TESTING ---
-    const mockBookingsForTesting: any[] = [];
-    if (!startAfterDocId) { // Only add mocks on the first page load for simplicity
-        const now = Timestamp.now();
-        const nowSerialized = serializeTimestamp(now);
-
-        // New Mock Job 1: Phone, 1 Stop, Note
-        mockBookingsForTesting.push({
-            id: `mock_phone_1stop_${Date.now()}`,
-            displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
-            originatingOperatorId: "OP001",
-            passengerName: "Contactable Rider",
-            passengerPhone: "+447700900123", // Added phone
-            pickupLocation: { address: "Huddersfield Library, Princess Alexandra Walk, Huddersfield HD1 2SU", latitude: 53.6469, longitude: -1.7821 },
-            stops: [{ address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", latitude: 53.6465, longitude: -1.7833 }], // 1 stop
-            dropoffLocation: { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", latitude: 53.6483, longitude: -1.7805 },
-            status: 'pending_assignment',
-            fareEstimate: 19.80,
-            bookingTimestamp: nowSerialized,
-            vehicleType: 'estate', passengers: 1, paymentMethod: 'cash',
-            driverNotes: "Please wait near the main entrance, I have a small suitcase." // Added note
-        });
-
-        // New Mock Job 2: Phone, 2 Stops
-        mockBookingsForTesting.push({
-            id: `mock_phone_2stops_${Date.now()}`,
-            displayBookingId: `${getOperatorPrefix("OP002")}/${generateNumericSuffix()}`,
-            originatingOperatorId: "OP002",
-            passengerName: "Multi-Stop Passenger",
-            passengerPhone: "07700900456", // Added phone
-            pickupLocation: { address: "University of Huddersfield, Queensgate, Huddersfield HD1 3DH", latitude: 53.6438, longitude: -1.7787 },
-            stops: [
-                { address: "Greenhead Park (Play Area), Park Drive, Huddersfield HD1 4HS", latitude: 53.6501, longitude: -1.7969 },
-                { address: "Lindley Village (Post Office), Lidget Street, Huddersfield HD3 3JB", latitude: 53.6580, longitude: -1.8280 }
-            ], // 2 stops
-            dropoffLocation: { address: "Beaumont Park, Huddersfield HD4 7AY", latitude: 53.6333, longitude: -1.8080 },
-            status: 'pending_assignment',
-            fareEstimate: 28.50,
-            bookingTimestamp: nowSerialized,
-            vehicleType: 'minibus_6', passengers: 4, paymentMethod: 'card'
-        });
-
-        // New Mock Job 3: Note only, OP001
-        mockBookingsForTesting.push({
-            id: `mock_note_only_${Date.now()}`,
-            displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
-            originatingOperatorId: "OP001",
-            passengerName: "Specific Needs Rider",
-            pickupLocation: { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", latitude: 53.6542, longitude: -1.7677 },
-            dropoffLocation: { address: "Almondbury Village, Huddersfield HD5 8XE", latitude: 53.6391, longitude: -1.7542 },
-            status: 'pending_assignment',
-            fareEstimate: 16.25,
-            bookingTimestamp: nowSerialized,
-            vehicleType: 'disable_wheelchair_access', passengers: 1, paymentMethod: 'account',
-            driverNotes: "Requires assistance with a foldable wheelchair. Please ensure boot space is clear. Thank you." // Added note
-        });
-
-
-        // Job 1 (Simple)
-        mockBookingsForTesting.push({
+    const generalMockBookingsForTesting: any[] = [];
+    if (!startAfterDocId) { // Only add general mocks on the first page load
+        generalMockBookingsForTesting.push({
             id: `mock_simple_${Date.now()}`,
             displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP001",
@@ -238,27 +228,23 @@ export async function GET(request: NextRequest) {
             dropoffLocation: { address: "Buckingham Palace, London", latitude: 51.501364, longitude: -0.141890 },
             status: 'pending_assignment',
             fareEstimate: 15.50,
-            bookingTimestamp: nowSerialized,
+            bookingTimestamp: nowSerializedForMocks,
             vehicleType: 'car', passengers: 1, paymentMethod: 'card'
         });
-
-        // Job 2 (One Stop)
-        mockBookingsForTesting.push({
-            id: `mock_onestop_${Date.now()}`,
+        generalMockBookingsForTesting.push({
+            id: `mock_onestop_general_${Date.now()}`, // Unique ID from priority one
             displayBookingId: `${getOperatorPrefix("OP002")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP002",
-            passengerName: "Test Passenger OneStop",
+            passengerName: "Test Passenger OneStop (General)",
             pickupLocation: { address: "Tower of London, London", latitude: 51.508112, longitude: -0.075949 },
             stops: [{ address: "London Eye, London", latitude: 51.503324, longitude: -0.119543 }],
             dropoffLocation: { address: "Trafalgar Square, London", latitude: 51.508039, longitude: -0.128069 },
             status: 'pending_assignment',
             fareEstimate: 22.75,
-            bookingTimestamp: nowSerialized,
+            bookingTimestamp: nowSerializedForMocks,
             vehicleType: 'estate', passengers: 2, paymentMethod: 'cash'
         });
-        
-        // Job 3 (Priority)
-        mockBookingsForTesting.push({
+        generalMockBookingsForTesting.push({
             id: `mock_priority_${Date.now()}`,
             displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP001",
@@ -269,12 +255,10 @@ export async function GET(request: NextRequest) {
             fareEstimate: 18.00,
             isPriorityPickup: true,
             priorityFeeAmount: 3.00,
-            bookingTimestamp: nowSerialized,
+            bookingTimestamp: nowSerializedForMocks,
             vehicleType: 'car', passengers: 1, paymentMethod: 'card'
         });
-
-        // Job 4 (Wait & Return)
-        mockBookingsForTesting.push({
+        generalMockBookingsForTesting.push({
             id: `mock_waitreturn_${Date.now()}`,
             displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
             originatingOperatorId: "OP001",
@@ -282,25 +266,35 @@ export async function GET(request: NextRequest) {
             pickupLocation: { address: "Harrods, London", latitude: 51.501055, longitude: -0.163226 },
             dropoffLocation: { address: "Natural History Museum, London", latitude: 51.496712, longitude: -0.176367 },
             status: 'pending_assignment',
-            fareEstimate: 12.20, // One way base
+            fareEstimate: 12.20,
             waitAndReturn: true,
             estimatedWaitTimeMinutes: 25,
-            bookingTimestamp: nowSerialized,
+            bookingTimestamp: nowSerializedForMocks,
             vehicleType: 'car', passengers: 3, paymentMethod: 'cash'
         });
     }
-    const allBookings = [...mockBookingsForTesting, ...firestoreBookings];
-    // --- END MOCK DATA INJECTION ---
+    
+    const combinedBookings = [...priorityMockBookingsForTesting, ...generalMockBookingsForTesting, ...firestoreBookings];
+    
+    const uniqueBookingsMap = new Map();
+    combinedBookings.forEach(booking => {
+        if (!uniqueBookingsMap.has(booking.id)) {
+            uniqueBookingsMap.set(booking.id, booking);
+        }
+    });
+    const finalUniqueBookings = Array.from(uniqueBookingsMap.values());
+
 
     let nextCursor: string | null = null;
-    if (firestoreBookings.length === limit && allBookings.length > mockBookingsForTesting.length) { // ensure we only paginate if Firestore had more
-      const lastFirestoreBooking = firestoreBookings[firestoreBookings.length - 1];
-      if(lastFirestoreBooking) nextCursor = lastFirestoreBooking.id;
+    if (querySnapshot.docs.length === limit) {
+      const lastVisibleFirestoreDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+      if (lastVisibleFirestoreDoc) {
+        nextCursor = lastVisibleFirestoreDoc.id;
+      }
     }
 
-
     return NextResponse.json({
-      bookings: allBookings, // Return combined list
+      bookings: finalUniqueBookings.slice(0, limit), // Ensure we only return the requested limit of the combined list
       nextCursor,
     }, { status: 200 });
 
