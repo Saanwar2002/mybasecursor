@@ -1550,13 +1550,12 @@ export default function AvailableRidesPage() {
         <Button onClick={fetchActiveRide} variant="outline"><span>Try Again</span></Button>
     </div>;
   }
-
-  const isMainButtonDisabled = () => {
+  
+  const mainButtonIsDisabled = () => {
     if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
     if (activeRide.status === 'pending_driver_wait_and_return_approval') return true;
     return false;
   };
-  
   const mainButtonIsDisabledValue = isMainButtonDisabled();
   const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
@@ -1816,6 +1815,7 @@ export default function AvailableRidesPage() {
     basePlusWRFare = numericGrandTotal - currentPriorityAmount;
   }
 
+
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
         {isSpeedLimitFeatureEnabled && (
@@ -2026,7 +2026,7 @@ export default function AvailableRidesPage() {
                                       </Button>
                                     )}
                                     {isChatDisabled ? (
-                                      <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8" disabled>
+                                      <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled>
                                         <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
                                       </Button>
                                     ) : (
@@ -2135,9 +2135,9 @@ export default function AvailableRidesPage() {
                                   <Button
                                     className="font-bold w-full bg-blue-600 hover:bg-blue-700 text-sm text-white py-2 h-auto"
                                     onClick={mainActionBtnAction}
-                                    disabled={mainButtonIsDisabledValue || (activeRide && !!actionLoading[activeRide.id])}
+                                    disabled={!!actionLoading[activeRide.id]}
                                   >
-                                    {activeRide && actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Navigation className="mr-1.5 h-4 w-4" />}
+                                    {actionLoading[activeRide.id] ? <Loader2 className="animate-spin mr-1.5 h-4 w-4" /> : <Navigation className="mr-1.5 h-4 w-4" />}
                                     <span>{mainActionBtnText}</span>
                                   </Button>
                                   {showInProgressStatus && !activeRide.waitAndReturn && (
@@ -2159,7 +2159,11 @@ export default function AvailableRidesPage() {
         )}
 
       {!activeRide && !isLoading && (
-        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border mt-4 max-h-40"> 
+        <Card className="relative flex-1 flex flex-col rounded-xl shadow-lg bg-card border mt-4 max-h-40">
+           <div className="absolute top-3 left-3 z-10 flex items-center space-x-1 p-1 bg-background/70 backdrop-blur-sm rounded-md">
+            <Switch id="speed-limit-mock-toggle-main" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI" className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 data-[state=checked]:[&>span]:translate-x-3 data-[state=unchecked]:[&>span]:translate-x-0.5" />
+            <Label htmlFor="speed-limit-mock-toggle-main" className="text-xs font-medium text-muted-foreground">Speed Mock</Label>
+          </div>
           <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> 
             <CardTitle className={cn( "font-bold text-lg", isDriverOnline ? "text-green-600" : "text-red-600")}> 
               <span>{isDriverOnline ? "Online - Awaiting Offers" : "Offline"}</span>
@@ -2174,10 +2178,6 @@ export default function AvailableRidesPage() {
             </Alert>
         )}
         {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </>) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > <span>{isDriverOnline ? "Online" : "Offline"}</span> </Label> </div>
-        <div className="pt-1">
-            <Switch id="speed-limit-mock-toggle" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI"/>
-            <Label htmlFor="speed-limit-mock-toggle" className="font-bold text-xs ml-2 text-muted-foreground"><span>Show Speed Limit Mock UI</span></Label>
-        </div>
         {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => {
             if (!activeRide) {
               handleSimulateOffer();
