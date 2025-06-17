@@ -1323,6 +1323,7 @@ export default function AvailableRidesPage() {
             }
             break;
         case 'complete_ride':
+            setIsPollingEnabled(false); // Pause polling before potentially redirecting
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             let wrCharge = 0;
@@ -1461,8 +1462,7 @@ export default function AvailableRidesPage() {
 
       toast({ title: toastTitle, description: toastMessage });
       if (actionType === 'complete_ride') {
-        setIsPollingEnabled(false); // Stop polling before redirecting
-        router.push(`/driver/ride-summary/${rideId}`); // Redirect to summary page
+        router.push(`/driver/ride-summary/${rideId}`);
       } else if (actionType === 'cancel_active' || actionType === 'report_no_show') {
         console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Polling might resume if driver is online.`);
       }
@@ -1514,9 +1514,9 @@ export default function AvailableRidesPage() {
     if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
       const nextLegIsDropoff = currentLegIdx + 1 === journeyPoints.length - 1;
       if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-          return `Depart Stop ${currentLegIdx}`;
+          return `Depart Stop ${currentLegIdx} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx +1}`}`;
       } else {
-          return `Arrived at Stop ${currentLegIdx}`;
+          return `Arrived at Stop ${currentLegIdx} / Start Timer`;
       }
     }
     if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
@@ -1532,39 +1532,24 @@ export default function AvailableRidesPage() {
       handleRideAction(activeRide.id, 'notify_arrival');
     } else if (activeRide.status === 'arrived_at_pickup') {
       handleRideAction(activeRide.id, 'start_ride');
-    } else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return')) {
-        if (currentLegIdx < journeyPoints.length -1) {
-            if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-                handleRideAction(activeRide.id, 'proceed_to_next_leg');
-            } else {
-                // Logic to start timer for the current stop (which is currentLegIdx -1 if we've arrived at a stop)
-                // This means the button "Arrived at Stop X" was pressed.
-                setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
-            }
-        } else if (currentLegIdx === journeyPoints.length -1) { // At final dropoff
-            handleRideAction(activeRide.id, 'complete_ride');
+    }
+    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
+        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
+            handleRideAction(activeRide.id, 'proceed_to_next_leg');
+        } else {
+            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
         }
     }
+    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
+        handleRideAction(activeRide.id, 'complete_ride');
+    }
   };
-  
-  const isMainButtonDisabled = () => {
+
+   const isMainButtonDisabled = () => {
     if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
     if (activeRide.status === 'pending_driver_wait_and_return_approval') return true;
     return false;
   };
-
-  if (isLoading && !activeRide) {
-    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  }
-  if (error && !activeRide && !isLoading) {
-    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
-        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
-        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
-        <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <Button onClick={fetchActiveRide} variant="outline"><span>Try Again</span></Button>
-    </div>;
-  }
-  
   const mainButtonIsDisabledValue = isMainButtonDisabled();
   const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
@@ -1586,7 +1571,7 @@ export default function AvailableRidesPage() {
     } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
       bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
       textColorClass = "text-yellow-700 dark:text-yellow-300";
-      legTypeLabel = `TO STOP ${localCurrentLegIndex}`; // This index is for array, stop number is index + 1
+      legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
     } else { 
       bgColorClass = "bg-red-100 dark:bg-red-800/50";
       textColorClass = "text-red-700 dark:text-red-300";
@@ -1605,6 +1590,7 @@ export default function AvailableRidesPage() {
     if (currentMainActionText.toLowerCase().includes("depart stop") || currentMainActionText.toLowerCase().includes("proceed to")) primaryButtonBgClass = "bg-indigo-600 hover:bg-indigo-700";
     if (currentMainActionText.toLowerCase().includes("arrived at stop")) primaryButtonBgClass = "bg-yellow-500 hover:bg-yellow-600 text-black";
 
+
     return (
       <div className={cn(
         "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2",
@@ -1618,46 +1604,57 @@ export default function AvailableRidesPage() {
           </p>
           {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
         </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <div className="flex items-center gap-1.5">
-                <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
-                    onClick={() => setIsJourneyDetailsModalOpen(true)}
-                    title="View Full Journey Details"
-                >
-                    <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-                </Button>
-                <Button 
-                    variant="default" 
-                    size="icon" 
-                    className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={() => {
-                        if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
-                            const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
-                            window.open(mapsUrl, '_blank');
-                        } else {
-                            toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
-                        }
-                    }}
-                    title={`Navigate to ${legTypeLabel}`}
-                >
-                    <Navigation className="h-4 w-4" />
-                </Button>
-            </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+              onClick={() => setIsJourneyDetailsModalOpen(true)}
+              title="View Full Journey Details"
+            >
+              <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+            </Button>
+            <Button 
+              variant="default" 
+              size="icon" 
+              className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => {
+                  if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
+                      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
+                      window.open(mapsUrl, '_blank');
+                  } else {
+                      toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
+                  }
+              }}
+              title={`Navigate to ${legTypeLabel}`}
+            >
+              <Navigation className="h-4 w-4" />
+            </Button>
+          </div>
             <Button
-                className={cn("font-bold text-xs text-white py-1 h-7 px-2 w-full", primaryButtonBgClass)}
+                className={cn("font-bold text-xs text-white py-1 h-7 px-2 w-full mt-1", primaryButtonBgClass)}
                 onClick={mainActionBtnAction}
                 disabled={mainButtonIsDisabledValue}
             >
                 {actionLoading[activeRide.id] && <Loader2 className="animate-spin mr-1.5 h-3 w-3" />}
                 {currentMainActionText}
             </Button>
+           {activeRide && isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && (
+                <Button
+                    onClick={() => setIsRideDetailsPanelMinimized(false)}
+                    variant="outline"
+                    size="sm"
+                    className="bg-background/70 hover:bg-background/90 text-foreground shadow-sm px-2 py-1 h-auto text-[10px] font-semibold w-full mt-1"
+                >
+                    JOB DETAIL <ChevronUp className="ml-1 h-3 w-3"/>
+                </Button>
+            )}
         </div>
       </div>
     );
   };
+
 
   const handleCancelSwitchChange = (checked: boolean) => {
     console.log("handleCancelSwitchChange: Switch toggled to", checked);
@@ -1854,7 +1851,7 @@ export default function AvailableRidesPage() {
         <div className={cn(
             "relative w-full rounded-b-xl overflow-hidden shadow-lg border", 
             activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-10rem)]", 
-            activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,8rem)+env(safe-area-inset-bottom))]" : "pb-[env(safe-area-inset-bottom)]" 
+             activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,8rem)+env(safe-area-inset-bottom))]" : "pb-[env(safe-area-inset-bottom)]" 
         )}
           style={{ '--navigation-bar-height': '8rem' } as React.CSSProperties} 
         >
@@ -1960,18 +1957,7 @@ export default function AvailableRidesPage() {
             {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
         </div>
         
-        {activeRide && isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && (
-             <Button
-                onClick={() => setIsRideDetailsPanelMinimized(false)}
-                className={cn(
-                    "absolute right-4 z-20 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg px-3 py-1.5 h-auto text-xs font-semibold",
-                     "bottom-[calc(var(--navigation-bar-height,8rem)+0.5rem+env(safe-area-inset-bottom))]" 
-                )}
-                style={{ '--navigation-bar-height': '8rem' } as React.CSSProperties} 
-            >
-                <span>JOB DETAIL</span> <ChevronUp className="ml-1 h-4 w-4"/>
-            </Button>
-        )}
+        {/* Collapsible Panel Toggle - Removed from here as it's now in CurrentNavigationLegBar */}
 
         {activeRide && !isRideDetailsPanelMinimized && (
             <Card
@@ -2025,9 +2011,7 @@ export default function AvailableRidesPage() {
                             </div>
                         ) : (
                         <> {/* Active Ride Details */}
-                            {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md shadow"> En Route to Pickup </Badge> </div> )}
-                            {/* Passenger notes are now shown in main view */}
-                            {/* Waiting timers are now shown in main view */}
+                            {/* Badges for status already handled by CurrentNavigationLegBar or primary status display */}
                             
                             <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
                                 <Avatar className="h-7 w-7 md:h-8 md:h-8">
@@ -2063,7 +2047,6 @@ export default function AvailableRidesPage() {
                                   </div>
                                 )}
                             </div>
-
                             {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
                                  <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5"><RefreshCw className="h-4 w-4 text-current animate-spin" /><ShadAlertTitle className="font-bold text-current text-xs"><span>Wait & Return Request</span></ShadAlertTitle><ShadAlertDescription className="font-bold text-current text-[10px]">
                                     <span>Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.</span>
@@ -2112,7 +2095,7 @@ export default function AvailableRidesPage() {
                         </Button>
                     ) : (
                         <div className="grid gap-1.5 w-full">
-                           {/* Primary action buttons removed from here, now in CurrentNavigationLegBar */}
+                           {/* Main actions buttons are now in CurrentNavigationLegBar */}
                            {showDriverAssignedStatus && (
                              <CancelRideInteraction ride={activeRide} isLoading={!!actionLoading[activeRide.id]} />
                            )}
@@ -2172,6 +2155,7 @@ export default function AvailableRidesPage() {
             </Alert>
         )}
         {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </>) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > <span>{isDriverOnline ? "Online" : "Offline"}</span> </Label> </div>
+        
         {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => {
             if (!activeRide) {
               handleSimulateOffer();
@@ -2180,55 +2164,6 @@ export default function AvailableRidesPage() {
             }
           }} className="mt-2 text-xs h-8 px-3 py-1 font-bold" disabled={!!activeRide}> <span>Simulate Incoming Ride Offer (Test)</span> </Button> )} </CardContent> </Card> 
       )}
-
-      {/* Passenger Waiting Timers and Notes moved here */}
-      {activeRide && activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
-        <div className="mt-2 rounded-md p-2.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-            <p className="font-bold text-yellow-900 dark:text-yellow-200 text-sm md:text-base whitespace-pre-wrap">
-                <strong>Notes:</strong> {activeRide.notes}
-            </p>
-        </div>
-      )}
-
-      {activeRide && activeRide.status === 'arrived_at_pickup' && (
-        <>
-            {!activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && (
-              <Alert variant="default" className="mt-2 bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
-                <Info className="h-5 w-5 text-current" />
-                <ShadAlertTitle className="font-semibold text-current">Awaiting Passenger Acknowledgment</ShadAlertTitle>
-                <ShadAlertDescription className="text-current">
-                  Passenger has <span className="font-bold">{formatTimer(ackWindowSecondsLeft)}</span> to acknowledge your arrival before free waiting time starts.
-                </ShadAlertDescription>
-              </Alert>
-            )}
-            {!activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft === 0 && (
-              <Alert variant="default" className="mt-2 bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300">
-                <Timer className="h-5 w-5 text-current" />
-                <ShadAlertTitle className="font-semibold text-current">Free Waiting Active</ShadAlertTitle>
-                <ShadAlertDescription className="text-current">
-                 Passenger did not ack. Free waiting: {freeWaitingSecondsLeft !== null ? formatTimer(freeWaitingSecondsLeft) : 'N/A'}. Charges (£{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min) apply after.
-                </ShadAlertDescription>
-              </Alert>
-            )}
-            {activeRide.passengerAcknowledgedArrivalTimestamp && (
-              <Alert variant="default" className="mt-2 bg-green-100 dark:bg-green-700/30 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300">
-                <CheckCheck className="h-5 w-5 text-current" />
-                <ShadAlertTitle className="font-semibold text-current">Passenger Acknowledged - Free Waiting</ShadAlertTitle>
-                <ShadAlertDescription className="text-current">
-                  {freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
-                    <span>Free waiting time: {formatTimer(freeWaitingSecondsLeft)}. Charges (£{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min) apply after.</span>
-                  )}
-                  {extraWaitingSeconds !== null && extraWaitingSeconds >= 0 && freeWaitingSecondsLeft === 0 && (
-                    <span>Extra waiting: {formatTimer(extraWaitingSeconds)}. Current Charge: £{currentWaitingCharge.toFixed(2)}</span>
-                  )}
-                   {!extraWaitingSeconds && freeWaitingSecondsLeft === 0 && <span>Free waiting time expired. Charges (£{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min) may apply.</span>}
-                </ShadAlertDescription>
-              </Alert>
-            )}
-        </>
-      )}
-
-
       <RideOfferModal
         isOpen={isOfferModalOpen}
         onClose={() => {
@@ -2440,3 +2375,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
