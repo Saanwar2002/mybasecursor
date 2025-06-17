@@ -1307,3 +1307,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
