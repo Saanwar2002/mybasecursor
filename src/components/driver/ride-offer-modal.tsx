@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole, X, Eye } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
@@ -185,7 +185,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onClose();
   };
 
-  const handleDecline = () => {
+  const handleDecline = () => { // This function remains, but the button triggering it is removed. The X button calls onClose directly.
     onDecline(rideDetails.id);
     onClose();
   };
@@ -201,7 +201,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const totalFareForDriver = baseFare + priorityFeeAmount;
 
 
-  const getDispatchMethodInfo = (): { text: string; icon: LucideIcon; iconColorClass: string; textColorClass: string } | null => {
+ const getDispatchMethodInfo = (): { text: string; icon: LucideIcon; iconColorClass: string; textColorClass: string } | null => {
     if (!rideDetails) return null;
 
     const isManual = rideDetails.dispatchMethod === 'manual_operator';
@@ -209,8 +209,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
     let text = "";
     let icon: LucideIcon = CheckCircle;
-    let iconColorClass = "text-green-400"; // Default text color for icon
-    let textColorClass = "text-green-300"; // Default text color for message
+    let iconColorClass = "text-green-400";
+    let textColorClass = "text-green-300"; 
 
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
       text = isManual ? "Dispatched By App (MANUAL MODE)" : "Dispatched By App (AUTO MODE)";
@@ -228,7 +228,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           ? `Manual Dispatch: ${rideDetails.requiredOperatorId}`
           : "Manually Dispatched by Platform Admin";
         icon = Briefcase;
-        iconColorClass = "text-slate-400";
+        iconColorClass = "text-slate-400"; 
         textColorClass = "text-slate-300";
       } else if (isPriorityOverride) {
         text = "Dispatched by Operator (PRIORITY)";
@@ -277,7 +277,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               <Car className="w-5 h-5 text-primary" />
               New Ride Offer!
             </DialogTitle>
-            {rideDetails.displayBookingId && <Badge variant="outline" className="text-xs border-primary/50 text-primary/90">{rideDetails.displayBookingId}</Badge>}
+            <div className="flex items-center gap-2">
+              {rideDetails.displayBookingId && (
+                <Badge variant="outline" className="text-xs border-primary/50 text-primary/90">
+                  {rideDetails.displayBookingId}
+                </Badge>
+              )}
+              <DialogClose asChild>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="h-7 w-7 p-0 rounded-md"
+                  onClick={onClose}
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
           </div>
         </DialogHeader>
 
@@ -300,8 +317,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         
         {dispatchInfo && (
             <div className={cn(
-              "py-1.5 px-3 text-center text-slate-100",
-              "bg-slate-700 dark:bg-slate-800" // Fixed dark grey background
+              "py-1.5 px-3 text-center text-slate-100", // Light text for dark background
+              "bg-slate-700 dark:bg-slate-800" // Consistent dark grey background
             )}>
                 <p className="text-xs font-semibold flex items-center justify-center gap-1">
                     <dispatchInfo.icon className={cn("w-3.5 h-3.5", dispatchInfo.iconColorClass)}/> 
@@ -362,9 +379,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </ScrollArea>
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
-            <div className={cn(
+             <div className={cn(
               "py-1 px-2 text-base text-center text-white border rounded-md shadow font-bold flex items-center justify-between w-full",
-              "bg-orange-600 border-orange-700"
+              "bg-orange-600 border-orange-700" // Fixed orange background
             )}>
               <span className="flex items-center gap-1">
                 <DollarSign className="w-4 h-4 shrink-0 text-white" />
