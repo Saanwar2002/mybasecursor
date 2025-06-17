@@ -319,55 +319,57 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             )}
         </div>
 
-        <ScrollArea className="flex-1 min-h-0"> {/* Added min-h-0 here */}
-            <div className="px-3 pt-2 pb-1 space-y-1.5">
-                <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
-                    <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
-                        <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <span className="font-bold">{rideDetails.pickupLocation}</span>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-3 pt-2 pb-1 space-y-1.5">
+            <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
+              <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
+                <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <span className="font-bold">{rideDetails.pickupLocation || "Pickup Address N/A"}</span>
+              </p>
+              {rideDetails.stops && rideDetails.stops.length > 0 && (
+                <div className="ml-2 my-0.5 border-l-2 border-dashed border-slate-400 dark:border-slate-600 pl-2.5">
+                  {rideDetails.stops.map((stop, index) => (
+                    <p key={`stop-offer-${index}`} className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300 py-0.5">
+                      <MapPin className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
+                      <span className="font-bold">{stop.address || `Stop ${index + 1} N/A`}</span>
                     </p>
-                    {rideDetails.stops && rideDetails.stops.length > 0 && (
-                        <div className="ml-2 my-0.5 border-l-2 border-dashed border-slate-400 dark:border-slate-600 pl-2.5">
-                            {rideDetails.stops.map((stop, index) => (
-                                <p key={`stop-offer-${index}`} className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300 py-0.5">
-                                <MapPin className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
-                                <span className="font-bold">{stop.address}</span>
-                                </p>
-                            ))}
-                        </div>
-                    )}
-                    <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
-                        <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                        <span className="font-bold">{rideDetails.dropoffLocation}</span>
-                    </p>
+                  ))}
                 </div>
-
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs pt-1">
-                    {rideDetails.passengerName && (
-                        <p className="flex items-center gap-1 font-medium"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: <span className="font-bold">{rideDetails.passengerName}</span></p>
-                    )}
-                    <p className="flex items-center gap-1 font-medium"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span></p>
-                    {rideDetails.paymentMethod && (
-                        <p className="col-span-2 flex items-center gap-1 font-medium">
-                            <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
-                            {rideDetails.paymentMethod === 'account' && (
-                              <Badge variant="default" className="ml-1 text-xs px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
-                                ACCOUNT JOB
-                              </Badge>
-                            )}
-                        </p>
-                    )}
-                </div>
-
-                {rideDetails.notes && (
-                    <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
-                        <p className="text-xs text-yellow-800 dark:text-yellow-200 whitespace-pre-wrap">
-                        <span className="font-bold">Notes:</span> <span className="font-bold">{rideDetails.notes}</span>
-                        </p>
-                    </div>
-                )}
+              )}
+              <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
+                <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                <span className="font-bold">{rideDetails.dropoffLocation || "Dropoff Address N/A"}</span>
+              </p>
             </div>
+
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs pt-1">
+              {rideDetails.passengerName && (
+                <p className="flex items-center gap-1 font-medium"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: <span className="font-bold">{rideDetails.passengerName || "N/A"}</span></p>
+              )}
+              <p className="flex items-center gap-1 font-medium"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span></p>
+              {rideDetails.paymentMethod && (
+                <p className="col-span-2 flex items-center gap-1 font-medium">
+                  <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  Payment: 
+                  {rideDetails.paymentMethod === 'account' ? (
+                    <Badge variant="default" className="ml-1 text-xs px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
+                      ACCOUNT JOB
+                    </Badge>
+                  ) : (
+                    <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                  )}
+                </p>
+              )}
+            </div>
+
+            {rideDetails.notes && (
+              <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
+                <p className="text-xs text-yellow-800 dark:text-yellow-200 whitespace-pre-wrap">
+                  <span className="font-bold">Notes:</span> <span className="font-bold">{rideDetails.notes.trim() || "(empty note)"}</span>
+                </p>
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
         <div className="px-3 py-2 border-t bg-card">
