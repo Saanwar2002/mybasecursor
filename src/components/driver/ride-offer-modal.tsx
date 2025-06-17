@@ -297,9 +297,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 <span>
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
                     <>
-                    Est. Fare: £{(rideDetails.fareEstimate || 0).toFixed(2)}
+                    Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span>
                     {' + '}
-                    <span className="font-semibold text-red-700">
+                    <span className="font-bold text-red-700">
                         £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Priority)
                     </span>
                     {' = '}
@@ -308,7 +308,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     </span>
                     </>
                 ) : (
-                    `Est. Fare: £${(rideDetails.fareEstimate || 0).toFixed(2)}`
+                   <>Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span></>
                 )}
                 </span>
             </p>
@@ -344,13 +344,16 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs pt-1">
                     {rideDetails.passengerName && (
-                        <p className="flex items-center gap-1"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: <span className="font-bold">{rideDetails.passengerName}</span></p>
+                        <p className="flex items-center gap-1 font-medium"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: <span className="font-bold">{rideDetails.passengerName}</span></p>
                     )}
-                    <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span></p>
+                    <p className="flex items-center gap-1 font-medium"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span></p>
                     {rideDetails.paymentMethod && (
-                        <p className="col-span-2 flex items-center gap-1">
+                        <p className="col-span-2 flex items-center gap-1 font-medium">
                             <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                            Payment: {rideDetails.paymentMethod === 'account' ? 
+                                <Badge variant="default" className="ml-1 text-xs px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">ACCOUNT JOB</Badge>
+                                : <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                            }
                         </p>
                     )}
                 </div>
