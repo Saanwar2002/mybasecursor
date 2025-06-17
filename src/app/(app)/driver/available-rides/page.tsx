@@ -1565,7 +1565,7 @@ export default function AvailableRidesPage() {
     if (currentMainActionText.toLowerCase().includes("depart stop") || currentMainActionText.toLowerCase().includes("proceed to")) primaryButtonBgClass = "bg-indigo-600 hover:bg-indigo-700";
     if (currentMainActionText.toLowerCase().includes("arrived at stop")) primaryButtonBgClass = "bg-yellow-500 hover:bg-yellow-600 text-black";
 
-    const showPassengerNameBadge = (activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'driver_assigned');
+    const showPassengerNameAndContact = (activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'driver_assigned');
 
     return (
       <div className={cn(
@@ -1579,7 +1579,7 @@ export default function AvailableRidesPage() {
           {parsedAddress.line2 && <p className={cn("font-bold text-xs md:text-sm opacity-80", textColorClass)}>{parsedAddress.line2}</p>}
           {parsedAddress.line3 && <p className={cn("font-bold text-xs opacity-70", textColorClass)}>{parsedAddress.line3}</p>}
           
-          {showPassengerNameBadge && activeRide?.passengerName && (
+          {showPassengerNameAndContact && activeRide?.passengerName && (
             <div className="mt-0.5">
               <Badge
                 variant="outline"
@@ -1589,32 +1589,14 @@ export default function AvailableRidesPage() {
               </Badge>
             </div>
           )}
-          {(activeRide?.status === 'arrived_at_pickup' || activeRide?.status === 'driver_assigned') && (
+          {showPassengerNameAndContact && !isChatDisabled && (
             <div className="flex items-center gap-1.5 mt-0.5">
-              {activeRide.passengerPhone && (
-                <>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 p-0.5 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-700/50 rounded"
-                    title={`Call ${activeRide.passengerName}: ${activeRide.passengerPhone}`}
-                  >
-                    <a href={`tel:${activeRide.passengerPhone}`} aria-label={`Call ${activeRide.passengerName}`}>
-                      <PhoneCall className="w-3 h-3" />
-                    </a>
-                  </Button>
-                  <span className="text-[10px] font-medium text-muted-foreground mr-1">{activeRide.passengerPhone}</span>
-                </>
-              )}
-              {!isChatDisabled && (
                 <Button
                   asChild
                   variant="ghost"
                   size="icon"
                   className={cn(
                     "h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded",
-                    !activeRide.passengerPhone && "ml-0"
                   )}
                   title={`Chat with ${activeRide.passengerName}`}
                 >
@@ -1622,7 +1604,6 @@ export default function AvailableRidesPage() {
                     <MessageSquare className="w-3 h-3" />
                   </Link>
                 </Button>
-              )}
             </div>
           )}
         </div>
@@ -1946,7 +1927,7 @@ export default function AvailableRidesPage() {
          {activeRide?.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
             <div className="rounded-md p-2 my-2 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400 shadow">
                 <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
-                    <strong>Notes from Passenger:</strong> {activeRide.notes}
+                    <strong>Notes from Passenger:</strong> {activeRide.notes.trim() || "(empty note)"}
                 </p>
             </div>
         )}
@@ -2438,3 +2419,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
