@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -243,7 +242,7 @@ const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const MOVEMENT_THRESHOLD_METERS = 50;
 const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000;
 
-const STOP_FREE_WAITING_TIME_SECONDS = 2 * 60;
+const STOP_FREE_WAITING_TIME_SECONDS = 1 * 60; // Changed from 2 * 60
 const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;
 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
@@ -521,7 +520,7 @@ export default function AvailableRidesPage() {
     } else if (driverUser?.id && driverUser.id.includes('/')) {
       const parts = driverUser.id.split('/');
       if (parts.length > 0) {
-        setCurrentDriverOperatorPrefix(parts[0]);
+        return parts[0];
       }
     } else if (driverUser?.id) {
       setCurrentDriverOperatorPrefix('OP_DefaultGuest');
@@ -602,11 +601,11 @@ export default function AvailableRidesPage() {
         setLocalCurrentLegIndex(data.driverCurrentLegIndex);
 
         if (data.status === 'in_progress' || data.status === 'in_progress_wait_and_return') {
-            const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < (data.stops?.length || 0) + 1;
+            const newLegIsIntermediateStop = data.driverCurrentLegIndex > 0 && data.driverCurrentLegIndex < ((data.stops?.length || 0) + 1);
             if (newLegIsIntermediateStop) {
-                setActiveStopDetails({ stopDataIndex: data.driverCurrentLegIndex - 1, arrivalTime: new Date() });
+                // Timer initiation for the stop is now handled by driver clicking "Arrived at Stop X"
             } else {
-                setActiveStopDetails(null);
+                setActiveStopDetails(null); // No longer at an intermediate stop or it's the final leg
             }
         }
       }
@@ -670,18 +669,18 @@ export default function AvailableRidesPage() {
       clearInterval(stopIntervalRef.current);
       stopIntervalRef.current = null;
     }
-    setCurrentStopTimerDisplay(null);
+    setCurrentStopTimerDisplay(null); // Clear previous timer display
 
     const currentLegIdx = activeRide?.driverCurrentLegIndex;
     const isAtIntermediateStop = activeRide &&
                                  (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
                                  currentLegIdx !== undefined &&
-                                 currentLegIdx > 0 &&
-                                 currentLegIdx < journeyPoints.length -1;
+                                 currentLegIdx > 0 && // Current target is a stop (leg 1 is first stop)
+                                 currentLegIdx < journeyPoints.length -1; // Not the final dropoff leg
 
+    // Check if activeStopDetails is set for the *current stop the driver is AT*
     if (isAtIntermediateStop && activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx! - 1)) {
       const { stopDataIndex, arrivalTime } = activeStopDetails;
-
       console.log(`[StopTimerEffect] Activating timer for Stop ${stopDataIndex + 1}. Arrival: ${arrivalTime}`);
 
       const intervalId = setInterval(() => {
@@ -704,10 +703,9 @@ export default function AvailableRidesPage() {
           charge: newCharge,
         });
       }, 1000);
-
       stopIntervalRef.current = intervalId;
 
-
+      // Initial timer display update
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
       let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
@@ -724,8 +722,9 @@ export default function AvailableRidesPage() {
           extraSeconds: initialExtraSeconds,
           charge: initialCharge,
       });
+
     } else {
-      console.log("[StopTimerEffect] Conditions not met or arrivalTime not set for current stop. Clearing timer display.");
+      console.log("[StopTimerEffect] Conditions not met for stop timer or activeStopDetails not set for current stop. Clearing timer display.");
     }
 
     return () => {
@@ -963,19 +962,19 @@ export default function AvailableRidesPage() {
     }
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
-    const passengerPhone = `+447700900${Math.floor(Math.random() * 900) + 100}`;
+    const passengerPhone = `+447712345${Math.floor(Math.random() * 900) + 100}`;
 
     let stopsForOffer: Array<{ address: string; coords: { lat: number; lng: number } }> = [];
-    if (Math.random() < 0.5) { // 50% chance of having at least one stop
+    if (Math.random() < 0.5) { 
         let stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
-        while (stop1Index === randomPickupIndex || stop1Index === randomDropoffIndex) {
+        while ([randomPickupIndex, randomDropoffIndex].includes(stop1Index)) {
             stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
         }
         stopsForOffer.push(mockHuddersfieldLocations[stop1Index]);
 
-        if (Math.random() < 0.5) { // 50% chance of a second stop if there's one already
+        if (Math.random() < 0.5) { 
             let stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
-            while (stop2Index === randomPickupIndex || stop2Index === randomDropoffIndex || stop2Index === stop1Index) {
+            while ([randomPickupIndex, randomDropoffIndex, stop1Index].includes(stop2Index)) {
                 stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
             }
             stopsForOffer.push(mockHuddersfieldLocations[stop2Index]);
@@ -1008,13 +1007,13 @@ export default function AvailableRidesPage() {
       dropoffLocation: dropoff.address,
       dropoffCoords: dropoff.coords,
       stops: stopsForOffer,
-      fareEstimate: parseFloat((Math.random() * 15 + 5 + (stopsForOffer.length * 3)).toFixed(2)), // Add a bit for stops
+      fareEstimate: parseFloat((Math.random() * 15 + 5 + (stopsForOffer.length * 3)).toFixed(2)), 
       isPriorityPickup: isPriority,
       priorityFeeAmount: currentPriorityFeeAmount,
       passengerCount: Math.floor(Math.random() * 3) + 1,
       passengerId: `pass-mock-${Date.now().toString().slice(-4)}`,
       passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
-      passengerPhone: passengerPhone,
+      passengerPhone: passengerPhone, 
       notes: Math.random() < 0.3 ? `Test note: ${Math.random() < 0.5 ? "Luggage." : "Call on arrival."}` : undefined,
       requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
       distanceMiles: parseFloat((Math.random() * 9 + 1 + (stopsForOffer.length * 2)).toFixed(1)),
@@ -1306,7 +1305,7 @@ export default function AvailableRidesPage() {
                 payload.updatedLegDetails.waitingChargeForPreviousStop = chargeForPreviousStop;
             }
 
-            setActiveStopDetails(null);
+            setActiveStopDetails(null); // Clear current stop details as we are proceeding
 
             if (updateDataFromPayload.driverCurrentLocation) {
               payload.driverCurrentLocation = updateDataFromPayload.driverCurrentLocation;
@@ -1508,18 +1507,29 @@ export default function AvailableRidesPage() {
   const mainButtonText = () => {
     if (!activeRide) return "Status Action";
     const currentLegIdx = localCurrentLegIndex;
+    const journeyLegCount = journeyPoints.length;
+
     if (activeRide.status === 'driver_assigned') return "Notify Arrival";
     if (activeRide.status === 'arrived_at_pickup') return "Start Ride";
-    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-      const nextLegIsDropoff = currentLegIdx + 1 === journeyPoints.length - 1;
-      if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-          return `Depart Stop ${currentLegIdx} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx +1}`}`;
-      } else {
-          return `Arrived at Stop ${currentLegIdx} / Start Timer`;
-      }
-    }
-    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
-      return "Complete Ride";
+
+    if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return')) {
+        if (currentLegIdx < journeyLegCount - 1) {
+            const currentStopArrayIndex = currentLegIdx -1;
+            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) {
+                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) {
+                    const nextLegIsDropoff = currentLegIdx + 1 === journeyLegCount - 1;
+                    return `Depart Stop ${currentStopArrayIndex + 1} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentStopArrayIndex + 2}`}`;
+                } else {
+                    return `Arrived at Stop ${currentStopArrayIndex + 1} / Start Timer`;
+                }
+            } else if (currentLegIdx === 0 && journeyLegCount > 1) { // Just started from pickup, heading to first stop or dropoff
+                 const nextLegIsDropoff = currentLegIdx + 1 === journeyLegCount - 1;
+                 const nextStopIndexIfAny = currentLegIdx; // if journeyPoints[1] is a stop, its index in activeRide.stops would be 0
+                 return `Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${nextStopIndexIfAny + 1}`}`;
+            }
+        } else if (currentLegIdx === journeyLegCount - 1) {
+            return "Complete Ride";
+        }
     }
     return "Status Action";
   };
@@ -1527,20 +1537,31 @@ export default function AvailableRidesPage() {
   const mainActionBtnAction = () => {
     if (!activeRide) return;
     const currentLegIdx = localCurrentLegIndex;
+    const journeyLegCount = journeyPoints.length;
+
     if (activeRide.status === 'driver_assigned') {
-      handleRideAction(activeRide.id, 'notify_arrival');
+        handleRideAction(activeRide.id, 'notify_arrival');
     } else if (activeRide.status === 'arrived_at_pickup') {
-      handleRideAction(activeRide.id, 'start_ride');
-    }
-    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx < journeyPoints.length -1) {
-        if(activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx -1)) {
-            handleRideAction(activeRide.id, 'proceed_to_next_leg');
-        } else {
-            setActiveStopDetails({stopDataIndex: currentLegIdx - 1, arrivalTime: new Date()});
+        handleRideAction(activeRide.id, 'start_ride');
+    } else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return')) {
+        if (currentLegIdx < journeyLegCount - 1) { // Not yet at final dropoff leg
+            const currentStopArrayIndex = currentLegIdx - 1; // Index for activeRide.stops array
+
+            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { // This is an intermediate stop
+                if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) {
+                    // Timer was active for this stop, now departing
+                    handleRideAction(activeRide.id, 'proceed_to_next_leg');
+                } else {
+                    // Arriving at this stop, start timer
+                    setActiveStopDetails({ stopDataIndex: currentStopArrayIndex, arrivalTime: new Date() });
+                }
+            } else if (currentLegIdx === 0 && journeyLegCount > 1) { // Departing from pickup towards first stop or final dropoff
+                 handleRideAction(activeRide.id, 'proceed_to_next_leg');
+            }
+
+        } else if (currentLegIdx === journeyLegCount - 1) { // At final dropoff leg
+            handleRideAction(activeRide.id, 'complete_ride');
         }
-    }
-    else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') && currentLegIdx === journeyPoints.length -1) {
-        handleRideAction(activeRide.id, 'complete_ride');
     }
   };
 
@@ -1624,7 +1645,7 @@ export default function AvailableRidesPage() {
                     <span className="font-bold text-xs text-muted-foreground">{passengerPhone}</span>
                   </>
                 )}
-                 {(!isChatDisabled && passengerPhone) && <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-0.5" />}
+                {(!isChatDisabled && passengerPhone) && <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-0.5" />}
                 {!isChatDisabled && (
                   <Button asChild variant="ghost" size="icon" className={cn("h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded")}>
                     <Link href="/driver/chat" aria-label={`Chat with ${activeRide.passengerName}`}>
