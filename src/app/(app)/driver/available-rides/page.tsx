@@ -266,6 +266,64 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   return `${type}:\n${street}\n${locationLine}`;
 }
 
+function parseAddressToThreeLines(fullAddress: string): { line1: string; line2: string; line3: string } {
+  if (!fullAddress) return { line1: "N/A", line2: "", line3: "" };
+
+  let address = fullAddress;
+  let line1 = ""; // Street Address
+  let line2 = ""; // Locality / Area
+  let line3 = ""; // City & Postcode
+
+  const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+
+  if (parts.length === 0) {
+    return { line1: "N/A", line2: "", line3: "" };
+  }
+
+  // Attempt to extract postcode and city for line3
+  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i;
+  const postcodeMatch = fullAddress.match(postcodeRegex);
+  let postcode = "";
+  let city = "";
+
+  if (postcodeMatch) {
+    postcode = postcodeMatch[0];
+    const addressBeforePostcode = fullAddress.substring(0, postcodeMatch.index).trim();
+    const cityParts = addressBeforePostcode.split(',').map(p => p.trim());
+    if (cityParts.length > 0) {
+      city = cityParts.pop() || ""; // Last part before postcode is likely city
+    }
+    line3 = city ? `${city} ${postcode}` : postcode;
+
+    // Remove city and postcode from the main address string to process lines 1 and 2
+    address = address.replace(postcode, "").replace(city, "").replace(/,$/, "").trim();
+  } else if (parts.length > 1) {
+    // If no postcode, last part might be city
+    line3 = parts.pop() || "";
+    address = parts.join(', ').trim();
+  } else {
+    // Only one part, treat as line1
+    line1 = parts[0];
+    return { line1, line2, line3 };
+  }
+
+  // Process remaining for line1 and line2
+  const remainingPartsAfterLine3 = address.split(',').map(p => p.trim()).filter(Boolean);
+  if (remainingPartsAfterLine3.length > 0) {
+    line1 = remainingPartsAfterLine3[0];
+    if (remainingPartsAfterLine3.length > 1) {
+      line2 = remainingPartsAfterLine3.slice(1).join(', ');
+    }
+  }
+  
+  // Final cleanup: if line1 is empty but others have content, shift them up.
+  if (!line1 && line2) { line1 = line2; line2 = ""; }
+  if (!line1 && line3 && !line2) { line1 = line3; line3 = ""; }
+
+
+  return { line1, line2, line3 };
+}
+
 
 const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number; lng: number } }> = [
     { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", coords: { lat: 53.6483, lng: -1.7805 } },
@@ -1260,7 +1318,7 @@ export default function AvailableRidesPage() {
     }
   };
 
-  const handleRideAction = async (rideId: string, actionType: 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active' | 'accept_wait_and_return' | 'decline_wait_and_return' | 'report_no_show' | 'proceed_to_next_leg') => {
+  async function handleRideAction(rideId: string, actionType: 'notify_arrival' | 'start_ride' | 'complete_ride' | 'cancel_active' | 'accept_wait_and_return' | 'decline_wait_and_return' | 'report_no_show' | 'proceed_to_next_leg') {
     if (!driverUser || !activeRide || activeRide.id !== rideId) {
         console.error(`handleRideAction: Pre-condition failed. driverUser: ${!!driverUser}, activeRide: ${!!activeRide}, activeRide.id vs rideId: ${activeRide?.id} vs ${rideId}`);
         toast({ title: "Error", description: "No active ride context or ID mismatch.", variant: "destructive"});
@@ -1346,7 +1404,7 @@ export default function AvailableRidesPage() {
             }
             break;
         case 'complete_ride':
-            setIsPollingEnabled(false); 
+            setIsPollingEnabled(false);
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             let wrCharge = 0;
@@ -1435,7 +1493,7 @@ export default function AvailableRidesPage() {
       toast({ title: toastTitle, description: toastMessage, duration: 6000 });
 
       if (actionType === 'complete_ride') {
-        // No longer setting activeRide to null here, redirect will handle view change.
+        setIsPollingEnabled(false);
         router.push(`/driver/ride-summary/${rideId}`);
       } else {
          // For non-terminal actions, update the local state.
@@ -1505,7 +1563,7 @@ export default function AvailableRidesPage() {
       console.log(`Resetting actionLoading for ${rideId} to false after action ${actionType}`);
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
-  };
+  }
 
   const verifyAndStartAccountJobRide = async () => {
     if (!activeRide || !activeRide.accountJobPin) {
@@ -1573,7 +1631,7 @@ export default function AvailableRidesPage() {
     }
   };
 
-  async function handleRequestWaitAndReturnInternal() { // Renamed to avoid conflict
+  async function handleRequestWaitAndReturnInternal() {
     if (!activeRide || !driverUser) return;
     const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
@@ -1586,7 +1644,7 @@ export default function AvailableRidesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'request_wait_and_return', // This should be the passenger initiating via driver's app
+          action: 'request_wait_and_return', 
           estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
         }),
       });
@@ -1639,10 +1697,8 @@ export default function AvailableRidesPage() {
       textColorClass = "text-red-700 dark:text-red-300";
       legTypeLabel = "TO DROPOFF";
     }
-
-    const addressParts = currentLeg.address.split(',');
-    const primaryAddressLine = addressParts[0]?.trim();
-    const secondaryAddressLine = addressParts.slice(1).join(',').trim();
+    
+    const { line1, line2, line3 } = parseAddressToThreeLines(currentLeg.address);
 
     const currentMainActionText = mainButtonText();
     let primaryButtonBgClass = "bg-blue-600 hover:bg-blue-700";
@@ -1661,13 +1717,12 @@ export default function AvailableRidesPage() {
       )}>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
-          <p className={cn("font-bold text-base md:text-lg truncate", textColorClass)}>
-            {primaryAddressLine}
-          </p>
-          {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
+          <p className={cn("font-semibold text-sm md:text-base truncate", textColorClass)}>{line1}</p>
+          {line2 && <p className={cn("text-xs md:text-sm truncate opacity-80", textColorClass)}>{line2}</p>}
+          {line3 && <p className={cn("text-xs truncate opacity-70", textColorClass)}>{line3}</p>}
         </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <div className="flex items-center gap-1.5">
+        <div className="flex flex-col items-end gap-1 shrink-0">
+            <div className="flex items-center gap-1">
                 <Button
                     variant="outline"
                     size="icon"
@@ -1708,7 +1763,7 @@ export default function AvailableRidesPage() {
                     onClick={() => setIsRideDetailsPanelMinimized(false)}
                     variant="outline"
                     size="sm"
-                    className="bg-background/70 hover:bg-background/90 text-foreground shadow-sm px-2 py-1 h-auto text-[10px] font-semibold w-full"
+                    className="bg-background/70 hover:bg-background/90 text-foreground shadow-sm px-2 py-1 h-auto text-[10px] font-semibold w-full mt-1"
                 >
                     JOB DETAIL <ChevronUp className="ml-1 h-3 w-3"/>
                 </Button>
@@ -1880,7 +1935,7 @@ export default function AvailableRidesPage() {
         <div className={cn(
             "relative w-full rounded-b-xl overflow-hidden shadow-lg border",
             activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-10rem)]",
-             activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,10rem)+env(safe-area-inset-bottom)))]" : ""
+             activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,11rem)+env(safe-area-inset-bottom)))]" : "" // Adjusted height for nav bar
         )}>
             <GoogleMapDisplay
               center={memoizedMapCenter}
@@ -1983,7 +2038,7 @@ export default function AvailableRidesPage() {
             </AlertDialog>
             {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
         </div>
-         {/* Passenger Notes and Waiting Timers - MOVED HERE */}
+         {/* Passenger Notes and Waiting Timers */}
         {activeRide?.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
             <div className="rounded-md p-2 my-2 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400 shadow">
                 <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
@@ -2464,3 +2519,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
