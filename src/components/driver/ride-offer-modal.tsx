@@ -322,9 +322,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 </p>
               </div>
             )}
-
-            {/* New Group for Passenger, Pax, Payment - Placed at the end of ScrollArea content */}
-            <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800 border mt-2">
+             <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800 border mt-2">
               <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs">
                 {rideDetails.passengerName && (
                   <p className="flex items-center gap-1 font-medium">
@@ -348,20 +346,28 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
               </div>
             </div>
-
           </div>
         </ScrollArea>
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
-            <div className="py-1 px-3 text-sm text-center bg-amber-500 text-black border border-amber-600 rounded-md shadow font-bold">
+           <div className="py-1 px-3 text-sm text-center bg-amber-500 text-black border border-amber-600 rounded-md shadow font-bold flex items-center justify-center gap-1">
+                <DollarSign className="w-4 h-4" />
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
-                    <span>
-                    (Base £{baseFare.toFixed(2)} + Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}) = £{totalFareForDriver.toFixed(2)}
-                    </span>
+                    <>
+                        <span>(Base £{baseFare.toFixed(2)}</span>
+                        <span className="mx-0.5">-</span> 
+                        <span className="bg-yellow-400 dark:bg-yellow-500 text-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-1 text-xs">
+                            <Crown className="w-3 h-3"/> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
+                        </span>
+                        <span>) = £{totalFareForDriver.toFixed(2)}</span>
+                    </>
                 ) : (
                     <span>
                     Fare = £{totalFareForDriver.toFixed(2)}
                     </span>
+                )}
+                 {rideDetails.distanceMiles !== undefined && (
+                    <span className="text-xs font-normal text-black/80 ml-1.5">(~{rideDetails.distanceMiles.toFixed(1)} mi)</span>
                 )}
             </div>
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
