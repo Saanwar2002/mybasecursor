@@ -213,60 +213,7 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
-function formatAddressForMapLabel(fullAddress: string, type: string): string {
-  if (!fullAddress) return `${type}:\nN/A`;
-
-  let addressRemainder = fullAddress;
-  let outwardPostcode = "";
-
-  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
-  const postcodeMatch = fullAddress.match(postcodeRegex);
-
-  if (postcodeMatch) {
-    outwardPostcode = postcodeMatch[1].toUpperCase();
-    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
-  }
-
-  const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-
-  let street = parts[0] || "Location";
-  let area = "";
-
-  if (parts.length > 1) {
-    area = parts[1];
-    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
-        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
-    }
-  } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area";
-  }
-
-  if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', ');
-  }
-
-  let locationLine = area;
-  if (outwardPostcode) {
-    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
-  }
-
-  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = "";
-  }
-  if (street && !locationLine) {
-     return `${type}:\n${street}`;
-  }
-  if (!street && locationLine) {
-     return `${type}:\n${locationLine}`;
-  }
-  if (!street && !locationLine) {
-      return `${type}:\nDetails N/A`;
-  }
-
-  return `${type}:\n${street}\n${locationLine}`;
-}
-
-function parseAddressToThreeLines(fullAddress: string): { line1: string; line2: string; line3: string } {
+function formatAddressForDisplay(fullAddress: string): { line1: string; line2: string; line3: string } {
   if (!fullAddress) return { line1: "N/A", line2: "", line3: "" };
 
   let address = fullAddress;
@@ -280,34 +227,32 @@ function parseAddressToThreeLines(fullAddress: string): { line1: string; line2: 
     return { line1: "N/A", line2: "", line3: "" };
   }
 
-  // Attempt to extract postcode and city for line3
   const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i;
   const postcodeMatch = fullAddress.match(postcodeRegex);
   let postcode = "";
   let city = "";
 
   if (postcodeMatch) {
-    postcode = postcodeMatch[0];
+    postcode = postcodeMatch[0].toUpperCase();
     const addressBeforePostcode = fullAddress.substring(0, postcodeMatch.index).trim();
     const cityParts = addressBeforePostcode.split(',').map(p => p.trim());
     if (cityParts.length > 0) {
-      city = cityParts.pop() || ""; // Last part before postcode is likely city
+      city = cityParts.pop() || ""; 
     }
     line3 = city ? `${city} ${postcode}` : postcode;
-
-    // Remove city and postcode from the main address string to process lines 1 and 2
     address = address.replace(postcode, "").replace(city, "").replace(/,$/, "").trim();
+  } else if (parts.length > 1 && parts[parts.length - 1].match(/^\s*[A-Z]{1,2}[0-9][A-Z0-9]?\s*$/i)) {
+     // If last part looks like an outward postcode and no full postcode found
+    line3 = parts.pop() || "";
+    if (parts.length > 0) city = parts.pop() || "";
+    line3 = city ? `${city} ${line3}` : line3;
+    address = parts.join(', ').trim();
   } else if (parts.length > 1) {
-    // If no postcode, last part might be city
     line3 = parts.pop() || "";
     address = parts.join(', ').trim();
-  } else {
-    // Only one part, treat as line1
-    line1 = parts[0];
-    return { line1, line2, line3 };
   }
 
-  // Process remaining for line1 and line2
+
   const remainingPartsAfterLine3 = address.split(',').map(p => p.trim()).filter(Boolean);
   if (remainingPartsAfterLine3.length > 0) {
     line1 = remainingPartsAfterLine3[0];
@@ -316,12 +261,18 @@ function parseAddressToThreeLines(fullAddress: string): { line1: string; line2: 
     }
   }
   
-  // Final cleanup: if line1 is empty but others have content, shift them up.
   if (!line1 && line2) { line1 = line2; line2 = ""; }
   if (!line1 && line3 && !line2) { line1 = line3; line3 = ""; }
+  if (!line2 && line3 && line1.toLowerCase().includes(line3.split(' ')[0].toLowerCase())) {
+      line2 = line3; line3 = "";
+  }
 
 
-  return { line1, line2, line3 };
+  return { 
+    line1: line1 || (parts.length === 1 ? parts[0] : "Address Detail N/A"), 
+    line2, 
+    line3 
+  };
 }
 
 
@@ -526,7 +477,7 @@ export default function AvailableRidesPage() {
       if (isEnRouteToPickup || isAtPickup) {
         labels.push({
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+            content: formatAddressForDisplay(activeRide.pickupLocation.address).line1, // Using helper
             type: 'pickup',
             variant: (isAtPickup && (currentLegIdx === 0 || journeyPoints.length === 2)) ? 'default' : 'compact'
         });
@@ -547,7 +498,7 @@ export default function AvailableRidesPage() {
                     });
                     labels.push({
                         position: { lat: stop.latitude, lng: stop.longitude },
-                        content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
+                        content: formatAddressForDisplay(stop.address).line1, // Using helper
                         type: 'stop',
                         variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact'
                     });
@@ -564,9 +515,9 @@ export default function AvailableRidesPage() {
                 });
                 labels.push({
                     position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-                    content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+                    content: formatAddressForDisplay(activeRide.dropoffLocation.address).line1, // Using helper
                     type: 'dropoff',
-                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2 && dropoffLegIndex === 1) || // Special case for direct trip from pickup
+                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2 && dropoffLegIndex === 1) || 
                                (localCurrentLegIndex === dropoffLegIndex)
                                ? 'default' : 'compact'
                 });
@@ -1404,7 +1355,7 @@ export default function AvailableRidesPage() {
             }
             break;
         case 'complete_ride':
-            setIsPollingEnabled(false);
+            setIsPollingEnabled(false); 
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             let wrCharge = 0;
@@ -1493,7 +1444,6 @@ export default function AvailableRidesPage() {
       toast({ title: toastTitle, description: toastMessage, duration: 6000 });
 
       if (actionType === 'complete_ride') {
-        setIsPollingEnabled(false);
         router.push(`/driver/ride-summary/${rideId}`);
       } else {
          // For non-terminal actions, update the local state.
@@ -1592,6 +1542,40 @@ export default function AvailableRidesPage() {
     await handleRideAction(activeRide.id, 'start_ride');
   };
 
+  async function handleRequestWaitAndReturn() {
+    if (!activeRide || !driverUser) return;
+    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
+    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
+      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
+      return;
+    }
+    setIsRequestingWR(true);
+    try {
+      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'request_wait_and_return', 
+          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to request Wait & Return.");
+      }
+      const updatedBooking = await response.json();
+      setActiveRide(updatedBooking.booking);
+      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
+      setIsWRRequestDialogOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error.";
+      toast({ title: "Request Failed", description: message, variant: "destructive" });
+    } finally {
+      setIsRequestingWR(false);
+    }
+  }
+
+
   const mainButtonText = () => {
     if (!activeRide) return "Status Action";
     const currentLegIdx = localCurrentLegIndex;
@@ -1631,39 +1615,6 @@ export default function AvailableRidesPage() {
     }
   };
 
-  async function handleRequestWaitAndReturnInternal() {
-    if (!activeRide || !driverUser) return;
-    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
-    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
-      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
-      return;
-    }
-    setIsRequestingWR(true);
-    try {
-      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'request_wait_and_return', 
-          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to request Wait & Return.");
-      }
-      const updatedBooking = await response.json();
-      setActiveRide(updatedBooking.booking);
-      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
-      setIsWRRequestDialogOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error.";
-      toast({ title: "Request Failed", description: message, variant: "destructive" });
-    } finally {
-      setIsRequestingWR(false);
-    }
-  }
-
 
   const isMainButtonDisabled = () => {
     if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
@@ -1698,7 +1649,7 @@ export default function AvailableRidesPage() {
       legTypeLabel = "TO DROPOFF";
     }
     
-    const { line1, line2, line3 } = parseAddressToThreeLines(currentLeg.address);
+    const parsedAddress = formatAddressForDisplay(currentLeg.address);
 
     const currentMainActionText = mainButtonText();
     let primaryButtonBgClass = "bg-blue-600 hover:bg-blue-700";
@@ -1717,11 +1668,11 @@ export default function AvailableRidesPage() {
       )}>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
-          <p className={cn("font-semibold text-sm md:text-base truncate", textColorClass)}>{line1}</p>
-          {line2 && <p className={cn("text-xs md:text-sm truncate opacity-80", textColorClass)}>{line2}</p>}
-          {line3 && <p className={cn("text-xs truncate opacity-70", textColorClass)}>{line3}</p>}
+          <p className={cn("font-bold text-sm md:text-base truncate", textColorClass)}>{parsedAddress.line1}</p>
+          {parsedAddress.line2 && <p className={cn("font-bold text-xs md:text-sm truncate opacity-80", textColorClass)}>{parsedAddress.line2}</p>}
+          {parsedAddress.line3 && <p className={cn("font-bold text-xs truncate opacity-70", textColorClass)}>{parsedAddress.line3}</p>}
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
             <div className="flex items-center gap-1">
                 <Button
                     variant="outline"
@@ -1905,7 +1856,7 @@ export default function AvailableRidesPage() {
     let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
     if (activeRide.waitAndReturn) {
       const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
-      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE;
+      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER;
       baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
     }
 
@@ -1935,7 +1886,7 @@ export default function AvailableRidesPage() {
         <div className={cn(
             "relative w-full rounded-b-xl overflow-hidden shadow-lg border",
             activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-10rem)]",
-             activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,11rem)+env(safe-area-inset-bottom)))]" : "" // Adjusted height for nav bar
+             activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,11rem)+env(safe-area-inset-bottom)))]" : ""
         )}>
             <GoogleMapDisplay
               center={memoizedMapCenter}
@@ -2038,7 +1989,6 @@ export default function AvailableRidesPage() {
             </AlertDialog>
             {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
         </div>
-         {/* Passenger Notes and Waiting Timers */}
         {activeRide?.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
             <div className="rounded-md p-2 my-2 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400 shadow">
                 <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
@@ -2197,7 +2147,7 @@ export default function AvailableRidesPage() {
                                  <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5"><RefreshCw className="h-4 w-4 text-current animate-spin" /><ShadAlertTitle className="font-bold text-current text-xs"><span>Wait & Return Request</span></ShadAlertTitle><ShadAlertDescription className="font-bold text-current text-[10px]">
                                     <span>Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.</span>
                                     <br />
-                                    <span>New estimated total fare (if accepted): £{(( (activeRide.fareEstimate || 0) + (activeRide.priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.</span>
+                                    <span>New estimated total fare (if accepted): £{(( (activeRide.fareEstimate || 0) + (activeRide.priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER)).toFixed(2)}.</span>
                                     <div className="flex gap-1 mt-1">
                                         <Button size="sm" className="font-bold bg-green-600 hover:bg-green-700 text-white h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}><span>Accept W&R</span></Button>
                                         <Button size="sm" variant="destructive" className="font-bold h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}><span>Decline W&R</span></Button>
@@ -2215,6 +2165,11 @@ export default function AvailableRidesPage() {
                                 <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Passengers: {activeRide.passengerCount}</span></p>
                                 {activeRide.distanceMiles != null && (<p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</span></p>)}
                                 {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} <span>Payment: {paymentMethodDisplay}</span> </p> )}
+                            </div>
+                             <div className="text-sm space-y-1 mt-2">
+                                <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong className="shrink-0">From:</strong> <span className="font-bold">{activeRide?.pickupLocation?.address || 'Pickup N/A'}</span></p>
+                                {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong className="shrink-0">Stop {index+1}:</strong> <span className="font-bold">{stop.address}</span> </p> ))}
+                                <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong className="shrink-0">To:</strong> <span className="font-bold">{activeRide?.dropoffLocation?.address || 'Dropoff N/A'}</span></p>
                             </div>
                         </>
                         )}
@@ -2415,7 +2370,7 @@ export default function AvailableRidesPage() {
               <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
                 <span>Cancel</span>
               </Button>
-              <Button type="button" onClick={handleRequestWaitAndReturnInternal} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+              <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
                 {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 <span>Request</span>
               </Button>
