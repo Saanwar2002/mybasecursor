@@ -135,7 +135,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.pickupCoords,
             content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
             type: 'pickup',
-            variant: 'default'
+            variant: 'default' 
         });
     }
     rideDetails.stops?.forEach((stop, index) => {
@@ -149,7 +149,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 position: stop.coords,
                 content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                 type: 'stop',
-                variant: 'default'
+                variant: 'default' 
             });
         }
     });
@@ -163,7 +163,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.dropoffCoords,
             content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
             type: 'dropoff',
-            variant: 'default'
+            variant: 'default' 
         });
     }
     return { markers, labels };
@@ -255,7 +255,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-card shadow-2xl p-0 flex flex-col max-h-[90vh]">
+      <DialogContent className="w-full sm:max-w-md bg-card shadow-2xl p-0 flex flex-col h-[88vh] max-h-[88vh]">
         <DialogHeader className="p-3 pb-2 space-y-1 border-b bg-card">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-bold flex items-center gap-1.5">
@@ -294,22 +294,22 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <div className="py-1.5 px-3 bg-amber-500 text-black text-center flex justify-between items-center">
             <p className="text-sm font-bold flex items-center gap-1">
                 <DollarSign className="w-4 h-4" />
-                <span>
-                {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
-                    <>
-                    Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span>
-                    {' + '}
-                    <span className="font-bold text-red-700">
-                        £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Priority)
-                    </span>
-                    {' = '}
-                    <span className="font-extrabold">
-                        £{totalFareForDriver.toFixed(2)}
-                    </span>
-                    </>
-                ) : (
-                   <>Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span></>
-                )}
+                 <span>
+                    {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
+                        <>
+                        Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span>
+                        {' + '}
+                        <span className="font-bold text-red-700">
+                            £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Priority)
+                        </span>
+                        {' = '}
+                        <span className="font-extrabold">
+                            £{totalFareForDriver.toFixed(2)}
+                        </span>
+                        </>
+                    ) : (
+                       <>Est. Fare: <span className="font-bold">£{(rideDetails.fareEstimate || 0).toFixed(2)}</span></>
+                    )}
                 </span>
             </p>
             {rideDetails.distanceMiles && (
@@ -347,10 +347,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 <p className="flex items-center gap-1 font-medium"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: <span className="font-bold">{rideDetails.passengerName || "N/A"}</span></p>
               )}
               <p className="flex items-center gap-1 font-medium"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span></p>
+              
               {rideDetails.paymentMethod && (
                 <p className="col-span-2 flex items-center gap-1 font-medium">
-                  <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                    <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    Payment: {rideDetails.paymentMethod === 'account' ? <Badge variant="secondary" className="bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground px-1.5 py-0 text-[10px] align-middle ml-0.5">Account Job</Badge> : <span className="font-bold">{getPaymentMethodDisplay()}</span>}
                 </p>
               )}
             </div>
