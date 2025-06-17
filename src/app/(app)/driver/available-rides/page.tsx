@@ -46,6 +46,7 @@ import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/fire
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
+import { formatAddressForMapLabel } from '@/lib/utils'; // Import the new helper
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -217,9 +218,9 @@ function formatAddressForDisplay(fullAddress: string): { line1: string; line2: s
   if (!fullAddress) return { line1: "N/A", line2: "", line3: "" };
 
   let address = fullAddress;
-  let line1 = ""; // Street Address
-  let line2 = ""; // Locality / Area
-  let line3 = ""; // City & Postcode
+  let line1 = ""; 
+  let line2 = ""; 
+  let line3 = ""; 
 
   const parts = address.split(',').map(p => p.trim()).filter(Boolean);
 
@@ -242,7 +243,6 @@ function formatAddressForDisplay(fullAddress: string): { line1: string; line2: s
     line3 = city ? `${city} ${postcode}` : postcode;
     address = address.replace(postcode, "").replace(city, "").replace(/,$/, "").trim();
   } else if (parts.length > 1 && parts[parts.length - 1].match(/^\s*[A-Z]{1,2}[0-9][A-Z0-9]?\s*$/i)) {
-     // If last part looks like an outward postcode and no full postcode found
     line3 = parts.pop() || "";
     if (parts.length > 0) city = parts.pop() || "";
     line3 = city ? `${city} ${line3}` : line3;
@@ -298,16 +298,16 @@ const isRideTerminated = (status?: string): boolean => {
 };
 
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // Free waiting for driver at initial pickup
-const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;  // Charge per minute after free time at initial pickup
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; 
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;  
 
 const MOVEMENT_THRESHOLD_METERS = 50;
-const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000; 
 
-const STOP_FREE_WAITING_TIME_SECONDS = 2 * 60;       // Free waiting at intermediate stops, 2 mins
-const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;         // Charge per minute for intermediate stops, £0.25/min
+const STOP_FREE_WAITING_TIME_SECONDS = 2 * 60;       
+const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;         
 
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10; // Free waiting for W&R at destination
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10; 
 
 
 export default function AvailableRidesPage() {
@@ -477,7 +477,7 @@ export default function AvailableRidesPage() {
       if (isEnRouteToPickup || isAtPickup) {
         labels.push({
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-            content: formatAddressForDisplay(activeRide.pickupLocation.address).line1, // Using helper
+            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
             type: 'pickup',
             variant: (isAtPickup && (currentLegIdx === 0 || journeyPoints.length === 2)) ? 'default' : 'compact'
         });
@@ -498,7 +498,7 @@ export default function AvailableRidesPage() {
                     });
                     labels.push({
                         position: { lat: stop.latitude, lng: stop.longitude },
-                        content: formatAddressForDisplay(stop.address).line1, // Using helper
+                        content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
                         type: 'stop',
                         variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact'
                     });
@@ -515,7 +515,7 @@ export default function AvailableRidesPage() {
                 });
                 labels.push({
                     position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-                    content: formatAddressForDisplay(activeRide.dropoffLocation.address).line1, // Using helper
+                    content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
                     type: 'dropoff',
                     variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2 && dropoffLegIndex === 1) || 
                                (localCurrentLegIndex === dropoffLegIndex)
@@ -819,14 +819,12 @@ export default function AvailableRidesPage() {
         let currentExtraSecs: number | null = null;
         let currentChargeVal = 0;
 
-        if (!ackTime) { // Passenger hasn't acknowledged yet
+        if (!ackTime) { 
           if (secondsSinceNotified < ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER) {
             currentAckLeft = ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER - secondsSinceNotified;
-            currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER; // Still full free time pending ack
-            // console.log("TIMER: Ack window active. AckLeft:", currentAckLeft, "FreeLeft:", currentFreeLeft);
-          } else { // Acknowledgment window expired
+            currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER; 
+          } else { 
             currentAckLeft = 0;
-            // Effective free wait starts AFTER ack window (if no ack)
             const effectiveFreeWaitStartTime = new Date(notifiedTime.getTime() + ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER * 1000);
             const secondsSinceEffectiveFreeWaitStart = Math.floor((now.getTime() - effectiveFreeWaitStartTime.getTime()) / 1000);
 
@@ -837,10 +835,9 @@ export default function AvailableRidesPage() {
               currentExtraSecs = secondsSinceEffectiveFreeWaitStart - FREE_WAITING_TIME_SECONDS_DRIVER;
               currentChargeVal = Math.floor((currentExtraSecs ?? 0) / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER;
             }
-            // console.log("TIMER: Ack window expired. AckLeft:", currentAckLeft, "FreeLeft:", currentFreeLeft, "ExtraSecs:", currentExtraSecs, "Charge:", currentChargeVal);
           }
-        } else { // Passenger has acknowledged
-          currentAckLeft = null; // No ack window needed
+        } else { 
+          currentAckLeft = null; 
           const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
           if (secondsSinceAck < FREE_WAITING_TIME_SECONDS_DRIVER) {
             currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceAck;
@@ -849,7 +846,6 @@ export default function AvailableRidesPage() {
             currentExtraSecs = secondsSinceAck - FREE_WAITING_TIME_SECONDS_DRIVER;
             currentChargeVal = Math.floor((currentExtraSecs ?? 0) / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER;
           }
-          // console.log("TIMER: Passenger acknowledged. FreeLeft:", currentFreeLeft, "ExtraSecs:", currentExtraSecs, "Charge:", currentChargeVal);
         }
 
         setAckWindowSecondsLeft(currentAckLeft);
@@ -980,10 +976,10 @@ export default function AvailableRidesPage() {
     const origin = driverLocation;
     const destination = { lat: currentLeg.latitude, lng: currentLeg.longitude };
 
-    let routeColor = "#808080"; // Default gray
-    if (localCurrentLegIndex === 0) routeColor = "#008000"; // Green to Pickup
-    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; // Red to final Dropoff
-    else routeColor = "#FFD700"; // Yellow to intermediate Stop
+    let routeColor = "#808080"; 
+    if (localCurrentLegIndex === 0) routeColor = "#008000"; 
+    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; 
+    else routeColor = "#FFD700"; 
 
     directionsServiceRef.current.route(
       { origin, destination, travelMode: google.maps.TravelMode.DRIVING },
@@ -1446,56 +1442,27 @@ export default function AvailableRidesPage() {
       if (actionType === 'complete_ride') {
         router.push(`/driver/ride-summary/${rideId}`);
       } else {
-         // For non-terminal actions, update the local state.
-        setActiveRide(prev => {
-            if (!prev || prev.id !== rideId) {
-                console.warn(`handleRideAction (${actionType}): setActiveRide callback - prev.id (${prev?.id}) !== rideId (${rideId}). This shouldn't happen if activeRide is the source of truth.`);
-                return prev;
-            }
-            const serverData = updatedBookingFromServer.booking;
-            const newClientState: ActiveRide = {
-            ...prev,
-            status: serverData.status || prev.status,
-            notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
-            passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
-            rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
-            completedAt: serverData.completedAt || prev.completedAt,
-            fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
-            waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
-            estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
-            isPriorityPickup: serverData.isPriorityPickup ?? prev.isPriorityPickup,
-            priorityFeeAmount: serverData.priorityFeeAmount ?? prev.priorityFeeAmount,
-            passengerId: serverData.passengerId || prev.passengerId,
-            passengerName: serverData.passengerName || prev.passengerName,
-            passengerAvatar: serverData.passengerAvatar || prev.passengerAvatar,
-            passengerPhone: serverData.passengerPhone || prev.passengerPhone,
-            pickupLocation: serverData.pickupLocation || prev.pickupLocation,
-            dropoffLocation: serverData.dropoffLocation || prev.dropoffLocation,
-            stops: serverData.stops || prev.stops,
-            vehicleType: serverData.vehicleType || prev.vehicleType,
-            paymentMethod: serverData.paymentMethod || prev.paymentMethod,
-            notes: serverData.notes || prev.notes,
-            requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
-            dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
-            driverCurrentLocation: serverData.driverCurrentLocation,
-            accountJobPin: serverData.accountJobPin || prev.accountJobPin,
-            distanceMiles: serverData.distanceMiles || prev.distanceMiles,
-            cancellationFeeApplicable: serverData.cancellationFeeApplicable,
-            noShowFeeApplicable: serverData.noShowFeeApplicable,
-            cancellationType: serverData.cancellationType,
-            driverCurrentLegIndex: serverData.driverCurrentLegIndex !== undefined ? serverData.driverCurrentLegIndex : prev.driverCurrentLegIndex,
-            currentLegEntryTimestamp: serverData.currentLegEntryTimestamp || prev.currentLegEntryTimestamp,
-            completedStopWaitCharges: serverData.completedStopWaitCharges || prev.completedStopWaitCharges || {},
-            };
-            if (newClientState.driverCurrentLocation === undefined) {
-            newClientState.driverCurrentLocation = driverLocation;
-            }
-            console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
-            if (actionType === 'start_ride' || actionType === 'proceed_to_next_leg') {
-            setLocalCurrentLegIndex(newClientState.driverCurrentLegIndex || 0);
-            }
-            return newClientState;
-        });
+        const serverData = updatedBookingFromServer.booking;
+        const newClientState: ActiveRide = {
+        ...activeRide, 
+        status: serverData.status || activeRide.status,
+        notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || activeRide.notifiedPassengerArrivalTimestamp,
+        passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || activeRide.passengerAcknowledgedArrivalTimestamp,
+        rideStartedAt: serverData.rideStartedAt || activeRide.rideStartedAt,
+        completedAt: serverData.completedAt || activeRide.completedAt,
+        fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? activeRide.fareEstimate),
+        waitAndReturn: serverData.waitAndReturn ?? activeRide.waitAndReturn,
+        estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? activeRide.estimatedAdditionalWaitTimeMinutes,
+        driverCurrentLocation: serverData.driverCurrentLocation || activeRide.driverCurrentLocation || driverLocation,
+        driverCurrentLegIndex: serverData.driverCurrentLegIndex !== undefined ? serverData.driverCurrentLegIndex : activeRide.driverCurrentLegIndex,
+        currentLegEntryTimestamp: serverData.currentLegEntryTimestamp || activeRide.currentLegEntryTimestamp,
+        completedStopWaitCharges: serverData.completedStopWaitCharges || activeRide.completedStopWaitCharges || {},
+        };
+        console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
+        if (actionType === 'start_ride' || actionType === 'proceed_to_next_leg') {
+        setLocalCurrentLegIndex(newClientState.driverCurrentLegIndex || 0);
+        }
+        setActiveRide(newClientState);
       }
 
 
@@ -1542,7 +1509,7 @@ export default function AvailableRidesPage() {
     await handleRideAction(activeRide.id, 'start_ride');
   };
 
-  async function handleRequestWaitAndReturn() {
+  async function handleRequestWaitAndReturnAction() { // Renamed from handleRequestWaitAndReturn
     if (!activeRide || !driverUser) return;
     const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
@@ -1668,9 +1635,9 @@ export default function AvailableRidesPage() {
       )}>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
-          <p className={cn("font-bold text-sm md:text-base truncate", textColorClass)}>{parsedAddress.line1}</p>
-          {parsedAddress.line2 && <p className={cn("font-bold text-xs md:text-sm truncate opacity-80", textColorClass)}>{parsedAddress.line2}</p>}
-          {parsedAddress.line3 && <p className={cn("font-bold text-xs truncate opacity-70", textColorClass)}>{parsedAddress.line3}</p>}
+          <p className={cn("font-bold text-sm md:text-base", textColorClass)}>{parsedAddress.line1}</p>
+          {parsedAddress.line2 && <p className={cn("font-bold text-xs md:text-sm opacity-80", textColorClass)}>{parsedAddress.line2}</p>}
+          {parsedAddress.line3 && <p className={cn("font-bold text-xs opacity-70", textColorClass)}>{parsedAddress.line3}</p>}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
             <div className="flex items-center gap-1">
@@ -1989,7 +1956,7 @@ export default function AvailableRidesPage() {
             </AlertDialog>
             {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
         </div>
-        {activeRide?.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
+         {activeRide?.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (
             <div className="rounded-md p-2 my-2 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400 shadow">
                 <p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap">
                     <strong>Notes from Passenger:</strong> {activeRide.notes}
@@ -2037,7 +2004,6 @@ export default function AvailableRidesPage() {
             </ShadAlertDescription>
             </Alert>
         )}
-
 
         {activeRide && !isRideDetailsPanelMinimized && (
             <Card
@@ -2090,7 +2056,7 @@ export default function AvailableRidesPage() {
                                 <p className="mt-1 text-sm text-muted-foreground"><span>Passenger: {activeRide.passengerName}</span></p>
                             </div>
                         ) : (
-                        <> {/* Active Ride Details */}
+                        <> {}
                             {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md shadow"> En Route to Pickup </Badge> </div> )}
 
                             <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
@@ -2147,7 +2113,7 @@ export default function AvailableRidesPage() {
                                  <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5"><RefreshCw className="h-4 w-4 text-current animate-spin" /><ShadAlertTitle className="font-bold text-current text-xs"><span>Wait & Return Request</span></ShadAlertTitle><ShadAlertDescription className="font-bold text-current text-[10px]">
                                     <span>Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.</span>
                                     <br />
-                                    <span>New estimated total fare (if accepted): £{(( (activeRide.fareEstimate || 0) + (activeRide.priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * WAITING_CHARGE_PER_MINUTE_DRIVER)).toFixed(2)}.</span>
+                                    <span>New estimated total fare (if accepted): £{(( (activeRide.fareEstimate || 0) + (activeRide.priorityFeeAmount || 0) ) * 1.70 + (Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE)).toFixed(2)}.</span>
                                     <div className="flex gap-1 mt-1">
                                         <Button size="sm" className="font-bold bg-green-600 hover:bg-green-700 text-white h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'accept_wait_and_return')} disabled={!!actionLoading[activeRide.id]}><span>Accept W&R</span></Button>
                                         <Button size="sm" variant="destructive" className="font-bold h-6 text-[10px] px-1.5" onClick={() => handleRideAction(activeRide.id, 'decline_wait_and_return')} disabled={!!actionLoading[activeRide.id]}><span>Decline W&R</span></Button>
@@ -2370,7 +2336,7 @@ export default function AvailableRidesPage() {
               <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
                 <span>Cancel</span>
               </Button>
-              <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+              <Button type="button" onClick={handleRequestWaitAndReturnAction} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
                 {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 <span>Request</span>
               </Button>
@@ -2474,4 +2440,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-

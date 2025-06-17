@@ -16,6 +16,7 @@ import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context';
 import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from "@/components/ui/separator";
+import { formatAddressForMapLabel } from '@/lib/utils'; // Import the new helper
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -92,59 +93,6 @@ const Progress = React.forwardRef<
 Progress.displayName = ProgressPrimitive.Root.displayName
 
 
-function formatAddressForMapLabel(fullAddress: string, type: string): string {
-  if (!fullAddress) return `${type}:\nN/A`;
-
-  let addressRemainder = fullAddress;
-  let outwardPostcode = "";
-
-  const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
-  const postcodeMatch = fullAddress.match(postcodeRegex);
-
-  if (postcodeMatch) {
-    outwardPostcode = postcodeMatch[1].toUpperCase();
-    addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
-  }
-
-  const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-  let street = parts[0] || "Location";
-  let area = "";
-
-  if (parts.length > 1) {
-    area = parts[1];
-    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
-        street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
-    }
-  } else if (parts.length === 0 && outwardPostcode) {
-    street = "Area";
-  }
-
-  if (!area && parts.length > 2) {
-      area = parts.slice(1).join(', ');
-  }
-
-  let locationLine = area;
-  if (outwardPostcode) {
-    locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
-  }
-
-  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = "";
-  }
-  if (street && !locationLine) {
-     return `${type}:\n${street}`;
-  }
-  if (!street && locationLine) {
-     return `${type}:\n${locationLine}`;
-  }
-  if (!street && !locationLine) {
-      return `${type}:\nDetails N/A`;
-  }
-
-  return `${type}:\n${street}\n${locationLine}`;
-}
-
-
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const { user: driverUser } = useAuth();
@@ -187,7 +135,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.pickupCoords,
             content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
             type: 'pickup',
-            variant: 'default'
+            variant: 'default' // Use default variant for prominent display
         });
     }
     rideDetails.stops?.forEach((stop, index) => {
@@ -201,7 +149,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 position: stop.coords,
                 content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                 type: 'stop',
-                variant: 'default'
+                variant: 'default' // Use default variant
             });
         }
     });
@@ -215,7 +163,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.dropoffCoords,
             content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
             type: 'dropoff',
-            variant: 'default'
+            variant: 'default' // Use default variant
         });
     }
     return { markers, labels };
@@ -241,7 +189,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onClose();
   };
 
-  const progressColorClass = "bg-green-500"; // Always green as per image for timer
+  const progressColorClass = "bg-green-500"; 
 
 
   const totalFareForDriver = (rideDetails.fareEstimate || 0) + (rideDetails.priorityFeeAmount || 0);
@@ -315,7 +263,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </DialogHeader>
 
-        <div className="h-48 sm:h-56 w-full bg-muted flex-shrink-0"> {/* Increased Map Area Height */}
+        <div className="h-48 sm:h-56 w-full bg-muted flex-shrink-0">
             {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
               <GoogleMapDisplay
                 center={mapCenter}
@@ -332,7 +280,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             )}
         </div>
         
-        {/* Dispatch Info Bar */}
         {dispatchInfo && (
             <div className="py-1.5 px-3 bg-green-500 text-white text-center">
                 <p className="text-xs font-semibold flex items-center justify-center gap-1">
@@ -341,7 +288,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             </div>
         )}
 
-        {/* Fare and Distance Bar */}
         <div className="py-1.5 px-3 bg-amber-500 text-black text-center flex justify-between items-center">
             <p className="text-sm font-bold flex items-center gap-1">
                 <DollarSign className="w-4 h-4" /> Est. Fare: £{totalFareForDriver.toFixed(2)}

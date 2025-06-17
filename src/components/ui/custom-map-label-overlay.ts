@@ -1,4 +1,3 @@
-
 // This will be a factory function to create the class
 // It expects the fully loaded 'google.maps' object as an argument.
 
@@ -54,55 +53,52 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
 
       // Common styles
       this.div.style.textAlign = 'center';
-      this.div.style.whiteSpace = 'pre-line';
-      this.div.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+      this.div.style.whiteSpace = 'pre-line'; // Crucial for \n line breaks
+      this.div.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
       this.div.style.zIndex = '101';
-      
+      this.div.style.lineHeight = '1.3';
+      this.div.style.overflow = 'hidden';
+      this.div.style.textOverflow = 'ellipsis';
+      this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-12px)'; // Adjust vertical offset
+
 
       if (this.variant === 'compact') {
-        this.div.style.padding = '1px 3px';
-        this.div.style.borderRadius = '3px';
-        this.div.style.fontSize = '8px';
-        this.div.style.minWidth = 'auto'; // Let content dictate width for short text
-        this.div.style.maxWidth = '100px'; // Max width for very long addresses
-        this.div.style.overflow = 'hidden';
-        this.div.style.textOverflow = 'ellipsis';
-        this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-8px)'; 
-      } else { // Default styles
-        this.div.style.padding = '3px 6px';
-        this.div.style.borderRadius = '6px';
-        this.div.style.fontSize = '10px';
-        this.div.style.minWidth = '90px';
-        this.div.style.maxWidth = '150px';
-        this.div.style.overflow = 'hidden';
-        this.div.style.textOverflow = 'ellipsis';
-        this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-10px)';
+        this.div.style.padding = '2px 4px';
+        this.div.style.borderRadius = '4px';
+        this.div.style.fontSize = '9px';
+        this.div.style.minWidth = 'auto'; 
+        this.div.style.maxWidth = '100px'; 
+      } else { // Default styles - more prominent, like the screenshot
+        this.div.style.padding = '5px 8px';
+        this.div.style.borderRadius = '8px';
+        this.div.style.fontSize = '11px'; // Slightly larger font for default
+        this.div.style.minWidth = '100px'; // Min width for better shape
+        this.div.style.maxWidth = '180px'; // Max width for very long addresses
       }
 
       // Type-specific styles
       if (this.type === 'pickup') {
         this.div.style.background = 'rgb(22, 163, 74)'; // Green
-        this.div.style.border = '1px solid rgba(255, 255, 255, 0.4)';
+        this.div.style.border = '1px solid rgba(0, 70, 20, 0.6)';
         this.div.style.color = '#FFFFFF';
-        this.div.style.fontWeight = '500';
+        this.div.style.fontWeight = 'bold';
       } else if (this.type === 'dropoff') {
-        this.div.style.background = 'rgb(220, 38, 38)'; // Red
-        this.div.style.border = '1px solid rgba(255, 255, 255, 0.5)';
-        this.div.style.color = '#FFFFFF';
-        this.div.style.fontWeight = '500';
+        this.div.style.background = 'rgb(220, 38, 38)'; // Red (matches screenshot)
+        this.div.style.border = '1px solid rgba(120, 0, 0, 0.6)';
+        this.div.style.color = '#FFFFFF'; // White text (matches screenshot)
+        this.div.style.fontWeight = 'bold';
       } else if (this.type === 'stop') {
-        this.div.style.background = 'rgb(255, 235, 59)'; // Yellow
-        this.div.style.border = '1px solid rgba(0, 0, 0, 0.2)';
-        this.div.style.color = '#000000';
-        this.div.style.fontWeight = '500';
+        this.div.style.background = 'rgb(250, 204, 21)'; // Yellow-ish (Tailwind yellow-400)
+        this.div.style.border = '1px solid rgba(100, 80, 0, 0.6)';
+        this.div.style.color = '#000000'; // Black text for yellow background
+        this.div.style.fontWeight = 'bold';
       } else if (this.type === 'driver') {
         this.div.style.background = 'rgba(0, 0, 0, 0.75)';
         this.div.style.border = '1px solid rgba(255, 255, 255, 0.75)';
         this.div.style.color = '#FFFFFF';
         this.div.style.fontWeight = '600';
-        // Override font size and minWidth for driver if needed, based on variant
         this.div.style.fontSize = this.variant === 'compact' ? '9px' : '11px';
-        this.div.style.minWidth = this.variant === 'compact' ? 'auto' : '110px'; // Allow driver label to shrink
+        this.div.style.minWidth = this.variant === 'compact' ? 'auto' : '110px'; 
         this.div.style.maxWidth = this.variant === 'compact' ? '90px' : '130px';
       }
     }
@@ -174,4 +170,3 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
   }
   return CustomMapLabelOverlayInternal;
 }
-
