@@ -319,7 +319,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             )}
         </div>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0"> {/* Added min-h-0 here */}
             <div className="px-3 pt-2 pb-1 space-y-1.5">
                 <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
                     <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
@@ -350,10 +350,12 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     {rideDetails.paymentMethod && (
                         <p className="col-span-2 flex items-center gap-1 font-medium">
                             <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            Payment: {rideDetails.paymentMethod === 'account' ? 
-                                <Badge variant="default" className="ml-1 text-xs px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">ACCOUNT JOB</Badge>
-                                : <span className="font-bold">{getPaymentMethodDisplay()}</span>
-                            }
+                            Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                            {rideDetails.paymentMethod === 'account' && (
+                              <Badge variant="default" className="ml-1 text-xs px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
+                                ACCOUNT JOB
+                              </Badge>
+                            )}
                         </p>
                     )}
                 </div>
