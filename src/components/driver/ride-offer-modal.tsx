@@ -290,7 +290,24 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
         <div className="py-1.5 px-3 bg-amber-500 text-black text-center flex justify-between items-center">
             <p className="text-sm font-bold flex items-center gap-1">
-                <DollarSign className="w-4 h-4" /> Est. Fare: £{totalFareForDriver.toFixed(2)}
+                <DollarSign className="w-4 h-4" />
+                <span>
+                {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
+                    <>
+                    Est. Fare: £{(rideDetails.fareEstimate || 0).toFixed(2)}
+                    {' + '}
+                    <span className="font-semibold text-red-700">
+                        £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Priority)
+                    </span>
+                    {' = '}
+                    <span className="font-extrabold">
+                        £{totalFareForDriver.toFixed(2)}
+                    </span>
+                    </>
+                ) : (
+                    `Est. Fare: £${(rideDetails.fareEstimate || 0).toFixed(2)}`
+                )}
+                </span>
             </p>
             {rideDetails.distanceMiles && (
                 <p className="text-sm font-bold flex items-center gap-1">
@@ -342,11 +359,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                         Notes: {rideDetails.notes}
                         </p>
                     </div>
-                )}
-                {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-                    <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-500/10 mt-1">
-                        <Crown className="h-3 w-3 mr-1"/>Priority Booking +£{rideDetails.priorityFeeAmount.toFixed(2)}
-                    </Badge>
                 )}
             </div>
         </ScrollArea>
