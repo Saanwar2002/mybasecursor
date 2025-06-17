@@ -142,11 +142,11 @@ const editDetailsFormSchema = z.object({
 type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
 type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
 
-const PASSENGER_PICKUP_FREE_WAITING_SECONDS = 3 * 60; // 3 minutes free at pickup
-const PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS = 30; // 30 seconds for passenger to acknowledge arrival
-const PASSENGER_WAITING_CHARGE_PER_MINUTE = 0.20; // £0.20 per minute for pickup waiting
-const PASSENGER_STOP_FREE_WAITING_SECONDS = 1 * 60; // 1 minute free at intermediate stops
-const PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE = 0.25; // £0.25 per minute for stop waiting
+const PASSENGER_PICKUP_FREE_WAITING_SECONDS = 3 * 60; 
+const PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS = 30; 
+const PASSENGER_WAITING_CHARGE_PER_MINUTE = 0.20; 
+const PASSENGER_STOP_FREE_WAITING_SECONDS = 1 * 60; 
+const PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE = 0.25; 
 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10;
 
@@ -381,7 +381,7 @@ export default function MyActiveRidePage() {
               setCurrentPassengerWaitingChargePickup(Math.floor(currentExtra / 60) * PASSENGER_WAITING_CHARGE_PER_MINUTE);
             }
           }
-        } else { // Passenger has acknowledged
+        } else { 
           setPassengerAckWindowSecondsLeft(null);
           const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
           if (secondsSinceAck < PASSENGER_PICKUP_FREE_WAITING_SECONDS) {
@@ -956,12 +956,6 @@ export default function MyActiveRidePage() {
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
   
-  // Calculations for display decomposition
-  const numericGrandTotal = activeRide ? parseFloat(finalFareDisplay.replace(/[^\d.-]/g, '')) : 0;
-  const hasPriority = activeRide && activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0;
-  const priorityAmount = hasPriority && activeRide ? activeRide.priorityFeeAmount : 0;
-  const basePlusWRFare = numericGrandTotal - (priorityAmount || 0) - currentPassengerWaitingChargePickup - (currentPassengerStopTimerDisplay?.charge || 0);
-
   const journeyLegCount = (activeRide?.stops?.length || 0) + 2; 
 
 
@@ -1039,7 +1033,7 @@ export default function MyActiveRidePage() {
                         <span className="font-semibold text-current">
                           {isPassengerBeyondFreeWaitingPickup ? 'Extra Waiting Period' : 'Free Waiting Period'}
                         </span>
-                        <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider text-white", isPassengerBeyondFreeWaitingPickup ? "bg-accent" : "bg-accent")}>
+                        <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent text-white" : "bg-accent text-white")}>
                           {passengerFreeWaitingSecondsLeft > 0 ? formatTimerPassenger(passengerFreeWaitingSecondsLeft) : formatTimerPassenger(passengerExtraWaitingSecondsPickup || 0)}
                         </span>
                       </div>
@@ -1061,7 +1055,7 @@ export default function MyActiveRidePage() {
                       <span className="font-semibold text-current">
                         {isPassengerBeyondFreeWaitingPickup ? "Extra Waiting" : "Free Waiting"}
                       </span>
-                      <span className={cn("font-bold text-white px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent" : "bg-green-600")}>
+                      <span className={cn("font-bold px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent text-white" : "bg-green-600 text-white")}>
                         {isPassengerBeyondFreeWaitingPickup
                           ? `${formatTimerPassenger(passengerExtraWaitingSecondsPickup || 0)} (+£${currentPassengerWaitingChargePickup.toFixed(2)})`
                           : formatTimerPassenger(passengerFreeWaitingSecondsLeft)}
@@ -1080,14 +1074,18 @@ export default function MyActiveRidePage() {
                   )}>
                     <TimerIcon className="h-4 w-4 text-current" />
                     <ShadAlertTitle className="font-bold text-current text-xs">
-                        Driver Waiting at Stop {currentPassengerStopTimerDisplay.stopDataIndex + 1}
+                        <span>
+                          {currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0
+                            ? `Extra Waiting at Stop ${currentPassengerStopTimerDisplay.stopDataIndex + 1}`
+                            : `Free Waiting at Stop ${currentPassengerStopTimerDisplay.stopDataIndex + 1}`}
+                        </span>
                     </ShadAlertTitle>
                     <ShadAlertDescriptionForAlert className="font-bold text-current text-[10px] flex justify-between items-center">
                       <span>
                         {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 && "Free time remaining:"}
                         {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && "Extra waiting time:"}
                       </span>
-                      <span className={cn("bg-accent text-white px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-red-500" : "bg-accent")}>
+                      <span className={cn("bg-accent text-white px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-accent text-white" : "bg-accent text-white")}>
                         {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 ? formatTimerPassenger(currentPassengerStopTimerDisplay.freeSecondsLeft) : formatTimerPassenger(currentPassengerStopTimerDisplay.extraSeconds || 0)}
                       </span>
                       {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && (
@@ -1101,12 +1099,11 @@ export default function MyActiveRidePage() {
                 <Separator />
                 <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> 
                   
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <DollarSign className="w-4 h-4 text-muted-foreground" />
-                    <strong>Fare:</strong>
-                    <span className="text-xl font-bold">{finalFareDisplay}</span>
+                  <div className="flex items-center gap-1.5 bg-green-600 text-white font-bold text-lg rounded-md px-3 py-1.5">
+                    <DollarSign className="w-5 h-5 text-white" />
+                    <span>Fare: {finalFareDisplay}</span>
                     {activeRide.isSurgeApplied && (
-                      <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>
+                      <Badge variant="outline" className="ml-1.5 border-orange-300 text-orange-100 bg-orange-500/50">Surge</Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground pl-5">Booking ID: {activeRide.displayBookingId || activeRide.id}</p>
@@ -1254,4 +1251,5 @@ export default function MyActiveRidePage() {
   );
 }
     
+
 
