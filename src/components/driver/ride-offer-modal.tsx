@@ -337,24 +337,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     )}
                 </p>
               )}
-               {/* New Job Price Badge Box */}
-              <div className="col-span-2 mt-1">
-                <div className={cn(
-                  "py-2 px-3 text-sm text-center", 
-                  "bg-amber-500 text-black",
-                  "border border-amber-600 rounded-md shadow font-bold"
-                )}>
-                  {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
-                    <span>
-                      (Base £{baseFare.toFixed(2)} + Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}) = £{totalFareForDriver.toFixed(2)}
-                    </span>
-                  ) : (
-                    <span>
-                      Fare = £{totalFareForDriver.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
 
             {rideDetails.notes && (
@@ -367,7 +349,18 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </ScrollArea>
         
-        <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto"> {/* Added mt-auto */}
+        <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
+            <div className="py-1 px-3 text-sm text-center bg-amber-500 text-black border border-amber-600 rounded-md shadow font-bold">
+              {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
+                <span>
+                  (Base £{baseFare.toFixed(2)} + Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}) = £{totalFareForDriver.toFixed(2)}
+                </span>
+              ) : (
+                <span>
+                  Fare = £{totalFareForDriver.toFixed(2)}
+                </span>
+              )}
+            </div>
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Button variant="destructive" onClick={handleDecline} size="sm" className="font-bold text-sm bg-red-600 hover:bg-red-700 text-white h-9">
