@@ -243,7 +243,7 @@ const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const MOVEMENT_THRESHOLD_METERS = 50;
 const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000;
 
-const STOP_FREE_WAITING_TIME_SECONDS = 1 * 60;
+const STOP_FREE_WAITING_TIME_SECONDS = 1 * 60; // Changed to 1 minute
 const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;
 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
@@ -705,7 +705,6 @@ export default function AvailableRidesPage() {
       }, 1000);
       stopIntervalRef.current = intervalId;
 
-      // Immediately set initial timer display
       const now = new Date();
       const secondsSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / 1000);
       let initialFreeSeconds = STOP_FREE_WAITING_TIME_SECONDS - secondsSinceArrival;
@@ -734,8 +733,6 @@ export default function AvailableRidesPage() {
         clearInterval(stopIntervalRef.current);
       }
     };
-  // }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints, activeStopDetails]); // Changed journeyPoints.length to journeyPoints
-  // console.log added in above thought, so no need for this line
   }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints, activeStopDetails]);
 
 
@@ -1308,7 +1305,7 @@ export default function AvailableRidesPage() {
                 payload.updatedLegDetails.waitingChargeForPreviousStop = chargeForPreviousStop;
             }
 
-            setActiveStopDetails(null); // Clear current stop details as we are proceeding
+            setActiveStopDetails(null); 
 
             if (updateDataFromPayload.driverCurrentLocation) {
               payload.driverCurrentLocation = updateDataFromPayload.driverCurrentLocation;
@@ -1548,19 +1545,22 @@ export default function AvailableRidesPage() {
         handleRideAction(activeRide.id, 'start_ride');
     } else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return')) {
         if (currentLegIdx < journeyLegCount - 1) {
-            const currentStopArrayIndex = currentLegIdx - 1;
+            const currentStopArrayIndex = currentLegIdx - 1; // This is the index in the stops array
 
             if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) {
+                 // We are at an intermediate stop
                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) {
+                    // Timer was active for this stop, now departing
                     handleRideAction(activeRide.id, 'proceed_to_next_leg');
                 } else {
+                    // Arriving at this stop, start timer
                     setActiveStopDetails({ stopDataIndex: currentStopArrayIndex, arrivalTime: new Date() });
                 }
-            } else if (currentLegIdx === 0 && journeyLegCount > 1) {
+            } else if (currentLegIdx === 0 && journeyLegCount > 1) { // Just started from pickup, proceeding to first stop or dropoff
                  handleRideAction(activeRide.id, 'proceed_to_next_leg');
             }
 
-        } else if (currentLegIdx === journeyLegCount - 1) {
+        } else if (currentLegIdx === journeyLegCount - 1) { // At the final dropoff
             handleRideAction(activeRide.id, 'complete_ride');
         }
     }
@@ -1923,7 +1923,7 @@ export default function AvailableRidesPage() {
                     <AlertDialogCancel><span>Cancel</span></AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleConfirmEmergency}
-                      className="bg-destructive hover:bg-destructive/90 font-bold"
+                      className="font-bold bg-destructive hover:bg-destructive/90"
                     >
                       <span>Send General Alert Now</span>
                     </AlertDialogAction>
@@ -1997,23 +1997,27 @@ export default function AvailableRidesPage() {
             </Alert>
         )}
         {activeRide?.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ackWindowSecondsLeft === 0 && freeWaitingSecondsLeft !== null && (
-            <Alert variant="default" className="my-2 bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 p-1.5 text-xs">
-            <Timer className="h-4 w-4 text-current" />
-            <div className="flex justify-between items-center w-full">
-                <span className="font-semibold text-current">Free Waiting Period</span>
-                <span className="font-bold text-white bg-accent px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
-                    {formatTimer(freeWaitingSecondsLeft)}
-                </span>
-            </div>
-             <ShadAlertDescription className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">
-                Ack. window expired. Waiting charges apply after this.
-            </ShadAlertDescription>
+             <Alert variant="default" className={cn("my-2 p-1.5 text-xs", extraWaitingSeconds && extraWaitingSeconds > 0 ? "bg-red-100 dark:bg-red-800/30 border-red-400 dark:border-red-600 text-red-700 dark:text-red-300" : "bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300")}>
+                <Timer className="h-4 w-4 text-current" />
+                <div className="flex justify-between items-center w-full">
+                    <span className="font-semibold text-current">
+                        {extraWaitingSeconds && extraWaitingSeconds > 0 ? 'Extra Waiting Period' : 'Free Waiting Period'}
+                    </span>
+                    <span className="font-bold text-white bg-accent px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
+                        {(freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0) ? formatTimer(freeWaitingSecondsLeft) : formatTimer(extraWaitingSeconds || 0)}
+                    </span>
+                </div>
+                <ShadAlertDescription className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">
+                    {(extraWaitingSeconds && extraWaitingSeconds > 0)
+                        ? `Charges accumulating: £${currentWaitingCharge.toFixed(2)}`
+                        : 'Ack. window expired. Waiting charges apply after this free period.'}
+                </ShadAlertDescription>
             </Alert>
         )}
         {activeRide?.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && (
             <Alert variant="default" className={cn("my-2 p-1.5 text-xs",
                 (extraWaitingSeconds !== null && extraWaitingSeconds > 0) ? "bg-red-100 dark:bg-red-700/40 border-red-400 dark:border-red-600 text-red-700 dark:text-red-200"
-                                     : "bg-green-100 dark:bg-green-700/40 border-green-400 dark:border-green-600 text-green-700 dark:text-green-200"
+                                     : "bg-green-100 dark:bg-green-700/40 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300"
             )}>
             <Timer className="h-4 w-4 text-current" />
             <div className="flex justify-between items-center w-full">
@@ -2043,32 +2047,36 @@ export default function AvailableRidesPage() {
             currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
             (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
           (
-            <Alert variant="default" className="bg-accent text-accent-foreground my-1 p-1.5">
+            <Alert variant="default" className={cn("my-1 p-1.5", 
+                currentStopTimerDisplay.extraSeconds && currentStopTimerDisplay.extraSeconds > 0 ? "bg-red-100 dark:bg-red-700/80 border-red-500 dark:border-red-600 text-red-900 dark:text-red-100" : "bg-sky-100 dark:bg-sky-800/70 border-sky-300 dark:border-sky-600 text-sky-800 dark:text-sky-200"
+            )}>
               <Timer className="h-4 w-4 text-current" />
               <ShadAlertTitle className="font-bold text-current text-xs">
-                <span>Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}</span>
+                <span>
+                  {currentStopTimerDisplay.extraSeconds && currentStopTimerDisplay.extraSeconds > 0
+                    ? `Extra Waiting at Stop ${currentStopTimerDisplay.stopDataIndex + 1}`
+                    : `Free Waiting at Stop ${currentStopTimerDisplay.stopDataIndex + 1}`}
+                </span>
               </ShadAlertTitle>
-              <ShadAlertDescription className="font-bold text-current text-[10px]">
+              <ShadAlertDescription className="font-bold text-current text-[10px] flex justify-between items-center">
                 <span>
                   {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
                   <>
-                    Free waiting time:{" "}
-                    <span className="bg-primary text-primary-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
-                        {formatTimer(currentStopTimerDisplay.freeSecondsLeft)}
-                    </span>{" "}
-                    remaining.
+                    Time remaining:
                   </>
                   )}
-                  {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (
+                  {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds > 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (
                   <>
-                    Extra waiting:{" "}
-                    <span className="bg-primary text-primary-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
-                        {formatTimer(currentStopTimerDisplay.extraSeconds)}
-                    </span>
-                    . Current Charge: £{currentStopTimerDisplay.charge.toFixed(2)}
+                    Extra waiting time:
                   </>
                   )}
                 </span>
+                <span className={cn("bg-accent text-white px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentStopTimerDisplay.extraSeconds && currentStopTimerDisplay.extraSeconds > 0 ? "bg-red-500" : "bg-accent")}>
+                    {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 ? formatTimer(currentStopTimerDisplay.freeSecondsLeft) : formatTimer(currentStopTimerDisplay.extraSeconds || 0)}
+                </span>
+                {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds > 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (
+                   <span className="ml-1">Current Charge: £{currentStopTimerDisplay.charge.toFixed(2)}</span>
+                )}
               </ShadAlertDescription>
             </Alert>
           )
@@ -2353,9 +2361,9 @@ export default function AvailableRidesPage() {
                               if (rideToReportNoShow) handleRideAction(rideToReportNoShow.id, 'report_no_show');
                               setIsNoShowConfirmDialogOpen(false);
                           }}
-                          className="bg-destructive hover:bg-destructive/90"
+                          className="font-bold bg-destructive hover:bg-destructive/90"
                       >
-                         <span className="font-bold">Confirm No-Show</span>
+                         <span>Confirm No-Show</span>
                       </AlertDialogAction>
                   </AlertDialogFooter>
               </AlertDialogContent>
@@ -2488,3 +2496,4 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
