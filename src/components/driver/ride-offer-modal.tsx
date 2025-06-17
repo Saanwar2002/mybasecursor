@@ -16,7 +16,7 @@ import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context';
 import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from "@/components/ui/separator";
-import { formatAddressForMapLabel } from '@/lib/utils'; // Import the new helper
+import { formatAddressForMapLabel } from '@/lib/utils'; 
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -135,7 +135,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.pickupCoords,
             content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
             type: 'pickup',
-            variant: 'default' // Use default variant for prominent display
+            variant: 'default' 
         });
     }
     rideDetails.stops?.forEach((stop, index) => {
@@ -149,7 +149,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 position: stop.coords,
                 content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                 type: 'stop',
-                variant: 'default' // Use default variant
+                variant: 'default' 
             });
         }
     });
@@ -163,7 +163,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.dropoffCoords,
             content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
             type: 'dropoff',
-            variant: 'default' // Use default variant
+            variant: 'default' 
         });
     }
     return { markers, labels };
@@ -192,7 +192,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const progressColorClass = "bg-green-500"; 
 
 
-  const totalFareForDriver = (rideDetails.fareEstimate || 0) + (rideDetails.priorityFeeAmount || 0);
+  const baseFare = rideDetails.fareEstimate || 0;
+  const priorityFee = rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount ? rideDetails.priorityFeeAmount : 0;
+  const totalFareForDriver = baseFare + priorityFee;
+
 
   const getDispatchMethodText = () => {
     if (!rideDetails) return null;
@@ -348,7 +351,6 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                         <p className="col-span-2 flex items-center gap-1 font-medium">
                             <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             Payment: {getPaymentMethodDisplay()}
-                            {rideDetails.paymentMethod === 'account' && rideDetails.accountJobPin && <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">PIN: {rideDetails.accountJobPin}</Badge>}
                         </p>
                     )}
                 </div>
@@ -379,3 +381,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
