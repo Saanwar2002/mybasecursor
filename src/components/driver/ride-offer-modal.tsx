@@ -344,14 +344,26 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs pt-1">
               {rideDetails.passengerName && (
-                <p className="flex items-center gap-1 font-medium"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: <span className="font-bold">{rideDetails.passengerName || "N/A"}</span></p>
+                <p className="flex items-center gap-1 font-medium">
+                  <Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  Pass: <span className="font-bold">{rideDetails.passengerName || "Passenger N/A"}</span>
+                </p>
               )}
-              <p className="flex items-center gap-1 font-medium"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span></p>
+              <p className="flex items-center gap-1 font-medium">
+                <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span>
+              </p>
               
               {rideDetails.paymentMethod && (
                 <p className="col-span-2 flex items-center gap-1 font-medium">
                     <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    Payment: {rideDetails.paymentMethod === 'account' ? <Badge variant="secondary" className="bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground px-1.5 py-0 text-[10px] align-middle ml-0.5">Account Job</Badge> : <span className="font-bold">{getPaymentMethodDisplay()}</span>}
+                    Payment: 
+                    {rideDetails.paymentMethod === 'account' ? (
+                        <Badge variant="secondary" className="bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground px-1.5 py-0 text-[10px] align-middle ml-0.5">
+                            <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                        </Badge>
+                    ) : (
+                        <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                    )}
                 </p>
               )}
             </div>
@@ -382,4 +394,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
