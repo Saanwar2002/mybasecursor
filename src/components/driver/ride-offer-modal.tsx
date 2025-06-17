@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -200,7 +201,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const totalFareForDriver = baseFare + priorityFeeAmount;
 
 
-  const getDispatchMethodInfo = (): { text: string; icon: LucideIcon; styleClasses: string } | null => {
+  const getDispatchMethodInfo = (): { text: string; icon: LucideIcon; iconColorClass: string; textColorClass: string } | null => {
     if (!rideDetails) return null;
 
     const isManual = rideDetails.dispatchMethod === 'manual_operator';
@@ -208,35 +209,40 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
     let text = "";
     let icon: LucideIcon = CheckCircle;
-    let styleClasses = "bg-green-500 text-white"; // Default (auto system)
+    let iconColorClass = "text-green-400";
+    let textColorClass = "text-green-300";
 
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
       text = isManual ? "Dispatched By App (MANUAL MODE)" : "Dispatched By App (AUTO MODE)";
       icon = isManual ? Briefcase : CheckCircle;
-      styleClasses = isManual ? "bg-blue-500 text-white" : "bg-green-500 text-white";
+      iconColorClass = isManual ? "text-blue-400" : "text-green-400";
+      textColorClass = isManual ? "text-blue-300" : "text-green-300";
     } else if (driverUser && rideDetails.requiredOperatorId === driverUser.operatorCode) {
       text = isManual ? "Dispatched By YOUR BASE (MANUAL)" : "Dispatched By YOUR BASE (AUTO)";
       icon = isManual ? Briefcase : CheckCircle;
-      styleClasses = isManual ? "bg-sky-600 text-white" : "bg-emerald-500 text-white";
-    } else { // Job from another operator or platform admin dispatch for a non-platform driver
+      iconColorClass = isManual ? "text-sky-400" : "text-emerald-400";
+      textColorClass = isManual ? "text-sky-300" : "text-emerald-300";
+    } else { 
       if (isManual) {
         text = rideDetails.requiredOperatorId
           ? `Manual Dispatch: ${rideDetails.requiredOperatorId}`
           : "Manually Dispatched by Platform Admin";
         icon = Briefcase;
-        styleClasses = "bg-slate-500 text-white";
+        iconColorClass = "text-slate-400";
+        textColorClass = "text-slate-300";
       } else if (isPriorityOverride) {
         text = "Dispatched by Operator (PRIORITY)";
         icon = AlertOctagon;
-        styleClasses = "bg-purple-600 text-white";
-      }
-       else { // Default to auto if specific conditions aren't met (e.g. dispatchMethod is undefined)
+        iconColorClass = "text-purple-400";
+        textColorClass = "text-purple-300";
+      } else { 
         text = "Dispatched By App (Automatic)";
         icon = CheckCircle;
-        styleClasses = "bg-green-500 text-white";
+        iconColorClass = "text-green-400";
+        textColorClass = "text-green-300";
       }
     }
-    return { text, icon, styleClasses };
+    return { text, icon, iconColorClass, textColorClass };
   };
   const dispatchInfo = getDispatchMethodInfo();
 
@@ -293,9 +299,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </div>
         
         {dispatchInfo && (
-            <div className={cn("py-1.5 px-3 text-center", dispatchInfo.styleClasses)}>
+            <div className="py-1.5 px-3 text-center bg-slate-700 dark:bg-slate-800 text-slate-100">
                 <p className="text-xs font-semibold flex items-center justify-center gap-1">
-                    <dispatchInfo.icon className="w-3.5 h-3.5"/> {dispatchInfo.text}
+                    <dispatchInfo.icon className={cn("w-3.5 h-3.5", dispatchInfo.iconColorClass)}/> 
+                    <span className={dispatchInfo.textColorClass}>{dispatchInfo.text}</span>
                 </p>
             </div>
         )}
@@ -386,12 +393,9 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )}
             </div>
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <Button variant="destructive" onClick={handleDecline} size="sm" className="font-bold text-sm bg-red-600 hover:bg-red-700 text-white h-9">
-              Decline ({countdown}s)
-            </Button>
-            <Button variant="default" onClick={handleAccept} size="sm" className="font-bold text-sm bg-green-600 hover:bg-green-700 text-white h-9">
-              Accept Ride
+          <div className="grid grid-cols-1 gap-2 sm:gap-3">
+            <Button variant="default" onClick={handleAccept} size="sm" className="font-bold text-sm bg-green-600 hover:bg-green-700 text-white h-10 w-full">
+              Accept Ride ({countdown}s)
             </Button>
           </div>
         </div>
