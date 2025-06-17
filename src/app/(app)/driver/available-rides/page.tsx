@@ -46,7 +46,7 @@ import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/fire
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
-import { formatAddressForMapLabel } from '@/lib/utils'; // Import the new helper
+import { formatAddressForMapLabel, formatAddressForDisplay } from '@/lib/utils';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
