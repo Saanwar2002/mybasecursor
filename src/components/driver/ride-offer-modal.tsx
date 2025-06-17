@@ -350,15 +350,15 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </ScrollArea>
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
-            <div className="py-1 px-2 text-xs text-center bg-amber-500 text-black border border-amber-600 rounded-md shadow font-bold flex items-center justify-between">
+            <div className="py-1 px-2 text-sm text-center bg-amber-500 text-white border border-amber-600 rounded-md shadow font-bold flex items-center justify-between">
               {/* Fare Group */}
               <div className="flex items-center gap-1">
                 <DollarSign className="w-4 h-4 shrink-0" />
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
                   <>
                     <span>(Base £{baseFare.toFixed(2)}</span>
-                    <span className="mx-0.5">-</span>
-                    <span className="bg-yellow-400 dark:bg-yellow-500 text-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5 text-[10px] leading-none">
+                    <span className="mx-0.5">-</span> {/* This should be '+' if priority fee ADDS to base fare for driver's view, this display is for driver so should represent their income addition */}
+                    <span className="bg-yellow-400 dark:bg-yellow-500 text-white px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5 text-xs leading-none">
                       <Crown className="w-3 h-3" /> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
                     </span>
                     <span>) = £{totalFareForDriver.toFixed(2)}</span>
@@ -370,7 +370,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
               {/* Distance */}
               {rideDetails.distanceMiles !== undefined && (
-                <span className="font-bold text-black/90">
+                <span className="font-bold text-white">
                   (~{rideDetails.distanceMiles.toFixed(1)} mi)
                 </span>
               )}
