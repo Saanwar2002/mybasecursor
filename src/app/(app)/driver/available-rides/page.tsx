@@ -1079,6 +1079,7 @@ export default function AvailableRidesPage() {
       default: return "No Action Available";
     }
   };
+  const mainActionBtnText = mainButtonText();
 
   const isMainButtonDisabled = (): boolean => {
     if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
