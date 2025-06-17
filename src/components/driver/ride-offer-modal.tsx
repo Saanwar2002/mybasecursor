@@ -246,7 +246,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     switch (rideDetails.paymentMethod) {
       case "card": return CreditCard;
       case "cash": return Coins;
-      case "account": return LockKeyhole; // Updated icon
+      case "account": return LockKeyhole; 
       default: return Info;
     }
   };
@@ -291,31 +291,40 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             </div>
         )}
 
-        <div className="py-1.5 px-3 bg-amber-500 text-black text-center flex justify-between items-center">
-            <p className="text-sm font-bold flex items-center gap-1">
-                <DollarSign className="w-4 h-4" />
-                 <span className="font-bold">
-                    Est. Fare: £{baseFare.toFixed(2)}
-                    {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-                        <>
-                        {' + '}
-                        <span className="text-red-700">
-                            £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Priority)
-                        </span>
-                        {' = '}
-                        <span className="font-extrabold">
-                            £{totalFareForDriver.toFixed(2)}
-                        </span>
-                        </>
-                    )}
-                </span>
-            </p>
+        <div className="py-1.5 px-3 bg-amber-500 text-black text-xs">
+          <div className="flex justify-between items-center">
+            <span className="font-bold flex items-center">
+              <DollarSign className="w-3 h-3 mr-0.5" />
+              Est. Fare: £
+              {(rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0) 
+                ? baseFare.toFixed(2) 
+                : totalFareForDriver.toFixed(2)}
+              
+              {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
+                <>
+                  {' + '}
+                  <span className="text-red-700 font-semibold">
+                    £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Prio)
+                  </span>
+                </>
+              )}
+            </span>
             {rideDetails.distanceMiles && (
-                <p className="text-sm font-bold flex items-center gap-1">
-                    <Route className="w-4 h-4" /> ~{rideDetails.distanceMiles.toFixed(1)} miles
-                </p>
+              <span className="font-bold flex items-center gap-0.5">
+                <Route className="w-3 h-3" />
+                ~{rideDetails.distanceMiles.toFixed(1)} mi
+              </span>
             )}
+          </div>
+          {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
+            <div className="text-center mt-0.5">
+              <p className="text-lg font-extrabold">
+                £{totalFareForDriver.toFixed(2)}
+              </p>
+            </div>
+          )}
         </div>
+
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-3 pt-2 pb-1 space-y-1.5">
@@ -355,12 +364,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               {rideDetails.paymentMethod && (
                 <p className="col-span-2 flex items-center gap-1 font-medium">
                     <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    Payment: {rideDetails.paymentMethod === 'account' ? (
-                        <Badge variant="secondary" className="bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground px-1.5 py-0 text-xs align-middle ml-0.5">
-                            <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                    Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
+                    {rideDetails.paymentMethod === 'account' && (
+                        <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
+                           <span className="font-bold">ACCOUNT JOB</span>
                         </Badge>
-                    ) : (
-                        <span className="font-bold">{getPaymentMethodDisplay()}</span>
                     )}
                 </p>
               )}
@@ -391,4 +399,3 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
-
