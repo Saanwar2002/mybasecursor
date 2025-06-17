@@ -246,7 +246,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     switch (rideDetails.paymentMethod) {
       case "card": return CreditCard;
       case "cash": return Coins;
-      case "account": return LockKeyhole;
+      case "account": return LockKeyhole; // Updated icon
       default: return Info;
     }
   };
@@ -295,7 +295,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             <p className="text-sm font-bold flex items-center gap-1">
                 <DollarSign className="w-4 h-4" />
                  <span className="font-bold">
-                    Est. Fare: £{(rideDetails.fareEstimate || 0).toFixed(2)}
+                    Est. Fare: £{baseFare.toFixed(2)}
                     {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
                         <>
                         {' + '}
@@ -319,9 +319,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-3 pt-2 pb-1 space-y-1.5">
-             <p style={{ backgroundColor: 'lime', color: 'black', padding: '10px', fontWeight: 'bold', textAlign: 'center', margin: '5px 0' }}>
-                JOB DETAILS AREA - CONTENT SHOULD BE HERE
-            </p>
+            
             <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
               <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
@@ -358,7 +356,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 <p className="col-span-2 flex items-center gap-1 font-medium">
                     <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     Payment: {rideDetails.paymentMethod === 'account' ? (
-                        <Badge variant="secondary" className="bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground px-1.5 py-0 text-[10px] align-middle ml-0.5">
+                        <Badge variant="secondary" className="bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground px-1.5 py-0 text-xs align-middle ml-0.5">
                             <span className="font-bold">{getPaymentMethodDisplay()}</span>
                         </Badge>
                     ) : (
@@ -381,10 +379,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <div className="p-3 border-t bg-muted/30 space-y-2">
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <Button variant="destructive" onClick={handleDecline} size="default" className="font-bold text-base bg-red-600 hover:bg-red-700 text-white">
+            <Button variant="destructive" onClick={handleDecline} size="default" className="font-bold text-base bg-red-600 hover:bg-red-700 text-white h-10">
               Decline ({countdown}s)
             </Button>
-            <Button variant="default" onClick={handleAccept} size="default" className="font-bold text-base bg-green-600 hover:bg-green-700 text-white">
+            <Button variant="default" onClick={handleAccept} size="default" className="font-bold text-base bg-green-600 hover:bg-green-700 text-white h-10">
               Accept Ride
             </Button>
           </div>
