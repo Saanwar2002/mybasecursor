@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole, X } from "lucide-react";
+import { Car, Users, DollarSign, MapPin, Info, Briefcase, Route, CreditCard, Coins, Crown, AlertOctagon, CheckCircle, LockKeyhole, X, Eye } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -82,7 +82,7 @@ const Progress = React.forwardRef<
   <ProgressPrimitive.Root
     ref={ref}
     className={cn(
-      "relative h-3 w-full overflow-hidden rounded-full bg-secondary",
+      "relative h-2.5 w-full overflow-hidden rounded-full bg-secondary", // h-2.5 for slightly taller progress bar
       className
     )}
     {...props}
@@ -350,25 +350,30 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </ScrollArea>
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
-           <div className="py-1 px-3 text-sm text-center bg-amber-500 text-black border border-amber-600 rounded-md shadow font-bold flex items-center justify-center gap-1">
-                <DollarSign className="w-4 h-4" />
+            <div className="py-1 px-2 text-xs text-center bg-amber-500 text-black border border-amber-600 rounded-md shadow font-bold flex items-center justify-between">
+              {/* Fare Group */}
+              <div className="flex items-center gap-1">
+                <DollarSign className="w-4 h-4 shrink-0" />
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
-                    <>
-                        <span>(Base £{baseFare.toFixed(2)}</span>
-                        <span className="mx-0.5">-</span> 
-                        <span className="bg-yellow-400 dark:bg-yellow-500 text-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-1 text-xs">
-                            <Crown className="w-3 h-3"/> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
-                        </span>
-                        <span>) = £{totalFareForDriver.toFixed(2)}</span>
-                    </>
-                ) : (
-                    <span>
-                    Fare = £{totalFareForDriver.toFixed(2)}
+                  <>
+                    <span>(Base £{baseFare.toFixed(2)}</span>
+                    <span className="mx-0.5">-</span>
+                    <span className="bg-yellow-400 dark:bg-yellow-500 text-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5 text-[10px] leading-none">
+                      <Crown className="w-3 h-3" /> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
                     </span>
+                    <span>) = £{totalFareForDriver.toFixed(2)}</span>
+                  </>
+                ) : (
+                  <span>Fare = £{totalFareForDriver.toFixed(2)}</span>
                 )}
-                 {rideDetails.distanceMiles !== undefined && (
-                    <span className="text-xs font-normal text-black/80 ml-1.5">(~{rideDetails.distanceMiles.toFixed(1)} mi)</span>
-                )}
+              </div>
+
+              {/* Distance */}
+              {rideDetails.distanceMiles !== undefined && (
+                <span className="font-bold text-black/90">
+                  (~{rideDetails.distanceMiles.toFixed(1)} mi)
+                </span>
+              )}
             </div>
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -385,3 +390,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   );
 }
 
+    
