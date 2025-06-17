@@ -82,7 +82,7 @@ const Progress = React.forwardRef<
   <ProgressPrimitive.Root
     ref={ref}
     className={cn(
-      "relative h-3 w-full overflow-hidden rounded-full bg-secondary", // Increased height
+      "relative h-3 w-full overflow-hidden rounded-full bg-secondary",
       className
     )}
     {...props}
@@ -172,7 +172,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   const mapCenter = useMemo(() => {
     if (rideDetails?.pickupCoords) return rideDetails.pickupCoords;
-    return { lat: 53.6450, lng: -1.7830 };
+    return { lat: 53.6450, lng: -1.7830 }; // Default to Huddersfield
   }, [rideDetails]);
 
   if (!rideDetails) {
@@ -324,7 +324,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
               <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span className="font-bold">{rideDetails.pickupLocation || "Pickup Address N/A"}</span>
+                <span className="font-bold">{rideDetails.pickupLocation || "Pickup N/A"}</span>
               </p>
               {rideDetails.stops && rideDetails.stops.length > 0 && (
                 <div className="ml-2 my-0.5 border-l-2 border-dashed border-slate-400 dark:border-slate-600 pl-2.5">
@@ -338,7 +338,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               )}
               <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                 <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                <span className="font-bold">{rideDetails.dropoffLocation || "Dropoff Address N/A"}</span>
+                <span className="font-bold">{rideDetails.dropoffLocation || "Dropoff N/A"}</span>
               </p>
             </div>
 
@@ -350,14 +350,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               {rideDetails.paymentMethod && (
                 <p className="col-span-2 flex items-center gap-1 font-medium">
                   <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  Payment: 
-                  {rideDetails.paymentMethod === 'account' ? (
-                    <Badge variant="default" className="ml-1 text-xs px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
-                      ACCOUNT JOB
-                    </Badge>
-                  ) : (
-                    <span className="font-bold">{getPaymentMethodDisplay()}</span>
-                  )}
+                  Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
                 </p>
               )}
             </div>
@@ -388,3 +381,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
