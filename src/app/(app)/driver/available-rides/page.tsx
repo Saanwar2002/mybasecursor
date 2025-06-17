@@ -321,7 +321,6 @@ export default function AvailableRidesPage() {
 
   const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
   const [freeWaitingSecondsLeft, setFreeWaitingSecondsLeft] = useState<number | null>(null);
-  const [isBeyondFreeWaiting, setIsBeyondFreeWaiting] = useState<boolean>(false);
   const [extraWaitingSeconds, setExtraWaitingSeconds] = useState<number | null>(null);
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
   const waitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -780,27 +779,22 @@ export default function AvailableRidesPage() {
 
 
  useEffect(() => {
-    console.log("Driver Timer useEffect triggered. Status:", activeRide?.status);
     if (waitingTimerIntervalRef.current) {
-      console.log("Driver Timer useEffect: Clearing existing interval.");
       clearInterval(waitingTimerIntervalRef.current);
       waitingTimerIntervalRef.current = null;
     }
 
     const notifiedTime = parseTimestampToDate(activeRide?.notifiedPassengerArrivalTimestamp);
     const ackTime = parseTimestampToDate(activeRide?.passengerAcknowledgedArrivalTimestamp);
-    console.log("Driver Timer useEffect: notifiedTime:", notifiedTime, "ackTime:", ackTime);
 
     if (activeRide?.status === 'arrived_at_pickup' && notifiedTime) {
-      console.log("Driver Timer useEffect: Conditions met to START timers.");
       const updateTimers = () => {
         const now = new Date();
         const secondsSinceNotified = Math.floor((now.getTime() - notifiedTime.getTime()) / 1000);
 
-        let currentAckLeft = null;
-        let currentFreeLeft = null;
-        let currentIsBeyondFree = false;
-        let currentExtraSecs = null;
+        let currentAckLeft: number | null = null;
+        let currentFreeLeft: number | null = null;
+        let currentExtraSecs: number | null = null;
         let currentChargeVal = 0;
 
         if (!ackTime) {
@@ -816,47 +810,38 @@ export default function AvailableRidesPage() {
               currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceEffectiveFreeWaitStart;
             } else {
               currentFreeLeft = 0;
-              currentIsBeyondFree = true;
               currentExtraSecs = secondsSinceEffectiveFreeWaitStart - FREE_WAITING_TIME_SECONDS_DRIVER;
-              currentChargeVal = Math.floor(currentExtraSecs / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER;
+              currentChargeVal = Math.floor((currentExtraSecs ?? 0) / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER;
             }
           }
-        } else { // Passenger has acknowledged
+        } else { 
           currentAckLeft = null; 
           const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
           if (secondsSinceAck < FREE_WAITING_TIME_SECONDS_DRIVER) {
             currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceAck;
           } else {
             currentFreeLeft = 0;
-            currentIsBeyondFree = true;
             currentExtraSecs = secondsSinceAck - FREE_WAITING_TIME_SECONDS_DRIVER;
-            currentChargeVal = Math.floor(currentExtraSecs / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER;
+            currentChargeVal = Math.floor((currentExtraSecs ?? 0) / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER;
           }
         }
         
         setAckWindowSecondsLeft(currentAckLeft);
         setFreeWaitingSecondsLeft(currentFreeLeft);
-        setIsBeyondFreeWaiting(currentIsBeyondFree);
         setExtraWaitingSeconds(currentExtraSecs);
         setCurrentWaitingCharge(currentChargeVal);
-        // console.log(`Driver Timer Update: AckLeft: ${currentAckLeft}, FreeLeft: ${currentFreeLeft}, BeyondFree: ${currentIsBeyondFree}, ExtraSec: ${currentExtraSecs}, Charge: ${currentChargeVal}`);
       };
-      updateTimers(); // Initial call
-      waitingTimerIntervalRef.current = setInterval(updateTimers, 1000); // Update every second
-      console.log("Driver Timer useEffect: Interval SET.");
-    } else {
-      // If status is not 'arrived_at_pickup' or notifiedTime is missing, clear all timer states
-      console.log("Driver Timer useEffect: Conditions NOT MET or status changed. Clearing timers.");
+      updateTimers(); 
+      waitingTimerIntervalRef.current = setInterval(updateTimers, 1000); 
+    } else if (activeRide?.status !== 'arrived_at_pickup') {
       setAckWindowSecondsLeft(null);
       setFreeWaitingSecondsLeft(null);
-      setIsBeyondFreeWaiting(false);
       setExtraWaitingSeconds(null);
       setCurrentWaitingCharge(0);
     }
 
     return () => {
       if (waitingTimerIntervalRef.current) {
-        console.log("Driver Timer useEffect: Cleanup - clearing interval.");
         clearInterval(waitingTimerIntervalRef.current);
       }
     };
@@ -1339,7 +1324,7 @@ export default function AvailableRidesPage() {
             }
             break;
         case 'complete_ride':
-            setIsPollingEnabled(false); // Pause polling before potentially redirecting
+            setIsPollingEnabled(false); // Pause polling before redirect
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             let wrCharge = 0;
@@ -1359,7 +1344,6 @@ export default function AvailableRidesPage() {
             payload.finalFare = finalFare;
             payload.completedAt = true;
             setActiveStopDetails(null);
-
             break;
         case 'cancel_active':
             toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`;
@@ -1477,11 +1461,13 @@ export default function AvailableRidesPage() {
       });
 
       toast({ title: toastTitle, description: toastMessage });
+
       if (actionType === 'complete_ride') {
-        // Remove setIsPollingEnabled(false) to allow the summary page to handle polling.
+        // setIsPollingEnabled(false); // Already set before API call
         router.push(`/driver/ride-summary/${rideId}`);
       } else if (actionType === 'cancel_active' || actionType === 'report_no_show') {
         console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Polling might resume if driver is online.`);
+        // Polling will be re-enabled if driver is online and no active ride is present via useEffect.
       }
 
 
@@ -1489,7 +1475,7 @@ export default function AvailableRidesPage() {
       const message = err instanceof Error ? err.message : "Unknown error processing ride action.";
       console.error(`handleRideAction (${actionType}) for ${rideId}: Error caught:`, message);
       toast({ title: "Action Failed", description: message, variant: "destructive" });
-      fetchActiveRide();
+      fetchActiveRide(); // Attempt to re-sync state if action failed
     } finally {
       console.log(`Resetting actionLoading for ${rideId} to false after action ${actionType}`);
       setActionLoading(prev => ({ ...prev, [rideId]: false }));
@@ -1562,19 +1548,14 @@ export default function AvailableRidesPage() {
     }
   };
 
-  if (isLoading && !activeRide) {
-    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  }
-  if (error && !activeRide && !isLoading) {
-    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
-        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
-        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
-        <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <Button onClick={fetchActiveRide} variant="outline"><span>Try Again</span></Button>
-    </div>;
-  }
-  
+  const isMainButtonDisabled = () => {
+    if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
+    if (activeRide.status === 'pending_driver_wait_and_return_approval') return true;
+    return false;
+  };
+  const mainButtonIsDisabledValue = isMainButtonDisabled();
   const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
+
 
   const CurrentNavigationLegBar = () => {
     if (!activeRide || !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
@@ -1613,13 +1594,6 @@ export default function AvailableRidesPage() {
     if (currentMainActionText.toLowerCase().includes("depart stop") || currentMainActionText.toLowerCase().includes("proceed to")) primaryButtonBgClass = "bg-indigo-600 hover:bg-indigo-700";
     if (currentMainActionText.toLowerCase().includes("arrived at stop")) primaryButtonBgClass = "bg-yellow-500 hover:bg-yellow-600 text-black";
 
-    const mainButtonIsDisabled = () => {
-      if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
-      if (activeRide.status === 'pending_driver_wait_and_return_approval') return true;
-      return false;
-    };
-    const mainButtonIsDisabledValue = mainButtonIsDisabled();
-
 
     return (
       <div className={cn(
@@ -1634,46 +1608,46 @@ export default function AvailableRidesPage() {
           </p>
           {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className="flex items-center gap-1.5">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
-              onClick={() => setIsJourneyDetailsModalOpen(true)}
-              title="View Full Journey Details"
-            >
-              <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-            </Button>
-            <Button 
-              variant="default" 
-              size="icon" 
-              className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => {
-                  if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
-                      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
-                      window.open(mapsUrl, '_blank');
-                  } else {
-                      toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
-                  }
-              }}
-              title={`Navigate to ${legTypeLabel}`}
-            >
-              <Navigation className="h-4 w-4" />
-            </Button>
-          </div>
-          {activeRide && isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && (
-              <Button
-                  onClick={() => setIsRideDetailsPanelMinimized(false)}
-                  variant="outline"
-                  size="sm"
-                  className="bg-background/70 hover:bg-background/90 text-foreground shadow-sm px-2 py-1 h-auto text-[10px] font-semibold"
-              >
-                  JOB DETAIL <ChevronUp className="ml-1 h-3 w-3"/>
-              </Button>
-          )}
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5">
+                <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+                    onClick={() => setIsJourneyDetailsModalOpen(true)}
+                    title="View Full Journey Details"
+                >
+                    <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                </Button>
+                <Button 
+                    variant="default" 
+                    size="icon" 
+                    className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => {
+                        if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
+                            const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
+                            window.open(mapsUrl, '_blank');
+                        } else {
+                            toast({ title: "Navigation Error", description: "Destination coordinates are not available for this leg.", variant: "destructive"});
+                        }
+                    }}
+                    title={`Navigate to ${legTypeLabel}`}
+                >
+                    <Navigation className="h-4 w-4" />
+                </Button>
+            </div>
+            {activeRide && isRideDetailsPanelMinimized && !isRideTerminated(activeRide.status) && (
+                <Button
+                    onClick={() => setIsRideDetailsPanelMinimized(false)}
+                    variant="outline"
+                    size="sm"
+                    className="bg-background/70 hover:bg-background/90 text-foreground shadow-sm px-2 py-1 h-auto text-[10px] font-semibold"
+                >
+                    JOB DETAIL <ChevronUp className="ml-1 h-3 w-3"/>
+                </Button>
+            )}
            <Button
-                className={cn("font-bold text-xs text-white py-1 h-7 px-2 mt-1 w-full", primaryButtonBgClass)}
+                className={cn("font-bold text-xs text-white py-1 h-7 px-2 w-full", primaryButtonBgClass)}
                 onClick={mainActionBtnAction}
                 disabled={mainButtonIsDisabledValue}
                 size="sm" 
@@ -1869,7 +1843,6 @@ export default function AvailableRidesPage() {
     basePlusWRFare = numericGrandTotal - currentPriorityAmount;
   }
 
-
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
         {isSpeedLimitFeatureEnabled &&
@@ -1882,7 +1855,7 @@ export default function AvailableRidesPage() {
         <div className={cn(
             "relative w-full rounded-b-xl overflow-hidden shadow-lg border", 
             activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-10rem)]", 
-             activeRide && !isRideTerminated(activeRide.status) ? "pb-[8rem]" : "" 
+             activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,8rem)+env(safe-area-inset-bottom)))]" : "" 
         )}>
             <GoogleMapDisplay
               center={memoizedMapCenter}
@@ -1986,41 +1959,6 @@ export default function AvailableRidesPage() {
             {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}
         </div>
         
-        {activeRide && showArrivedAtPickupStatus && (
-          <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-2 p-2">
-            <Timer className="h-4 w-4 text-current" />
-            <ShadAlertTitle className="font-bold text-current text-sm">Passenger Waiting Status</ShadAlertTitle>
-            <ShadAlertDescription className="font-semibold text-current text-xs">
-              {ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && (
-                `Waiting for passenger acknowledgment: ${formatTimer(ackWindowSecondsLeft)} left.`
-              )}
-              {ackWindowSecondsLeft === 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && (
-                `Passenger did not ack. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`
-              )}
-              {activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (
-                `Passenger acknowledged. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`
-              )}
-              {extraWaitingSeconds !== null && extraWaitingSeconds >= 0 && freeWaitingSecondsLeft === 0 && (
-                `Extra waiting: ${formatTimer(extraWaitingSeconds)}. Charge: £${currentWaitingCharge.toFixed(2)}`
-              )}
-              {/* Fallback if none of the above conditions met but alert is shown */}
-              {ackWindowSecondsLeft === null && freeWaitingSecondsLeft === null && extraWaitingSeconds === null && (
-                "Calculating waiting status..."
-              )}
-            </ShadAlertDescription>
-          </Alert>
-        )}
-
-        {activeRide && activeRide.notes && (showDriverAssignedStatus || showArrivedAtPickupStatus) && (
-          <Alert variant="default" className="my-2 p-2 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400">
-            <ShadAlertTitle className="font-bold text-yellow-900 dark:text-yellow-200 text-sm">Passenger Notes:</ShadAlertTitle>
-            <ShadAlertDescription className="text-yellow-900 dark:text-yellow-200 text-xs whitespace-pre-wrap">
-              {activeRide.notes}
-            </ShadAlertDescription>
-          </Alert>
-        )}
-
-
         {activeRide && !isRideDetailsPanelMinimized && (
             <Card
                 className={cn(
@@ -2073,7 +2011,7 @@ export default function AvailableRidesPage() {
                             </div>
                         ) : (
                         <> {/* Active Ride Details */}
-                            {/* Badges for status already handled by CurrentNavigationLegBar or primary status display */}
+                            {showDriverAssignedStatus && ( <div className="flex justify-center mb-1.5"> <Badge variant="secondary" className="font-bold text-xs w-fit mx-auto bg-sky-500 text-white py-1 px-3 rounded-md shadow"> En Route to Pickup </Badge> </div> )}
                             
                             <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
                                 <Avatar className="h-7 w-7 md:h-8 md:h-8">
@@ -2098,17 +2036,42 @@ export default function AvailableRidesPage() {
                                       </Button>
                                     )}
                                     {isChatDisabled ? (
-                                      <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8" disabled>
+                                      <Button variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8" disabled>
                                         <MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4 text-muted-foreground opacity-50" />
                                       </Button>
                                     ) : (
-                                      <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:h-8">
+                                      <Button asChild variant="outline" size="icon" className="h-7 w-7 md:h-8 md:w-8">
                                         <Link href="/driver/chat"><MessageSquare className="w-3.5 h-3.5 md:w-4 md:w-4" /></Link>
                                       </Button>
                                     )}
                                   </div>
                                 )}
                             </div>
+
+                            {showArrivedAtPickupStatus && (
+                              <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
+                                <Timer className="h-4 w-4 text-current" />
+                                <ShadAlertTitle className="font-bold text-current text-xs"><span>Passenger Waiting Status</span></ShadAlertTitle>
+                                <ShadAlertDescription className="font-bold text-current text-[10px]"><span>{ackWindowSecondsLeft !== null && ackWindowSecondsLeft > 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && (`Waiting for passenger acknowledgment: ${formatTimer(ackWindowSecondsLeft)} left.`)}{ackWindowSecondsLeft === 0 && !activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && (`Passenger did not ack. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`)}{activeRide.passengerAcknowledgedArrivalTimestamp && freeWaitingSecondsLeft !== null && freeWaitingSecondsLeft > 0 && (`Passenger acknowledged. Free waiting: ${formatTimer(freeWaitingSecondsLeft)}.`)}{extraWaitingSeconds !== null && extraWaitingSeconds >= 0 && freeWaitingSecondsLeft === 0 && (`Extra waiting: ${formatTimer(extraWaitingSeconds)}. Charge: £${currentWaitingCharge.toFixed(2)}`)}</span></ShadAlertDescription>
+                              </Alert>
+                            )}
+                            {activeRide.notes && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (<div className="rounded-md p-2 my-1.5 bg-yellow-300 dark:bg-yellow-700/50 border-l-4 border-purple-600 dark:border-purple-400"><p className="font-bold text-yellow-900 dark:text-yellow-200 text-xs md:text-sm whitespace-pre-wrap"><strong>Notes:</strong> {activeRide.notes}</p></div>)}
+                            {activeRide.isPriorityPickup && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup') && (<Alert variant="default" className="bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300 p-1.5 text-[10px] my-1"><Crown className="h-3.5 w-3.5" /><ShadAlertTitle className="font-bold text-xs"><span>Priority Booking</span></ShadAlertTitle><ShadAlertDescription className="font-bold text-[10px]"><span>Passenger offered +£{(activeRide.priorityFeeAmount || 0).toFixed(2)}.</span></ShadAlertDescription></Alert>)}
+                            
+                           {currentStopTimerDisplay &&
+                              activeRide.driverCurrentLegIndex &&
+                              activeRide.driverCurrentLegIndex > 0 &&
+                              activeRide.driverCurrentLegIndex < journeyPoints.length -1 &&
+                              currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
+                              (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
+                            (
+                              <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5"><Timer className="h-4 w-4 text-current" /><ShadAlertTitle className="font-bold text-current text-xs">
+                                <span>Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}</span>
+                              </ShadAlertTitle><ShadAlertDescription className="font-bold text-current text-[10px]"><span>
+                                {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (`Free waiting time: ${formatTimer(currentStopTimerDisplay.freeSecondsLeft)} remaining.`)}
+                                {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (`Extra waiting: ${formatTimer(currentStopTimerDisplay.extraSeconds)}. Current Charge: £${currentStopTimerDisplay.charge.toFixed(2)}`)}
+                              </span></ShadAlertDescription></Alert>
+                            )}
                             {showPendingWRApprovalStatus && activeRide.estimatedAdditionalWaitTimeMinutes !== undefined && (
                                  <Alert variant="default" className="bg-purple-100 dark:bg-purple-800/30 border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 my-1 p-1.5"><RefreshCw className="h-4 w-4 text-current animate-spin" /><ShadAlertTitle className="font-bold text-current text-xs"><span>Wait & Return Request</span></ShadAlertTitle><ShadAlertDescription className="font-bold text-current text-[10px]">
                                     <span>Passenger requests Wait & Return with an estimated <strong>{activeRide.estimatedAdditionalWaitTimeMinutes} minutes</strong> of waiting.</span>
@@ -2435,4 +2398,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
