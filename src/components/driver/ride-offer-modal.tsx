@@ -16,7 +16,7 @@ import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context';
 import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from "@/components/ui/separator";
-import { formatAddressForMapLabel } from '@/lib/utils'; 
+import { formatAddressForMapLabel } from '@/lib/utils';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -135,7 +135,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.pickupCoords,
             content: formatAddressForMapLabel(rideDetails.pickupLocation, 'Pickup'),
             type: 'pickup',
-            variant: 'default' 
+            variant: 'default'
         });
     }
     rideDetails.stops?.forEach((stop, index) => {
@@ -149,7 +149,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 position: stop.coords,
                 content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                 type: 'stop',
-                variant: 'default' 
+                variant: 'default'
             });
         }
     });
@@ -163,7 +163,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
             position: rideDetails.dropoffCoords,
             content: formatAddressForMapLabel(rideDetails.dropoffLocation, 'Dropoff'),
             type: 'dropoff',
-            variant: 'default' 
+            variant: 'default'
         });
     }
     return { markers, labels };
@@ -189,7 +189,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     onClose();
   };
 
-  const progressColorClass = "bg-green-500"; 
+  const progressColorClass = "bg-green-500";
 
 
   const baseFare = rideDetails.fareEstimate || 0;
@@ -322,43 +322,43 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <ScrollArea className="flex-1">
             <div className="px-3 pt-2 pb-1 space-y-1.5">
                 <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
-                    <p className="flex items-start gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                         <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <span>{rideDetails.pickupLocation}</span>
+                        <span className="font-bold">{rideDetails.pickupLocation}</span>
                     </p>
                     {rideDetails.stops && rideDetails.stops.length > 0 && (
                         <div className="ml-2 my-0.5 border-l-2 border-dashed border-slate-400 dark:border-slate-600 pl-2.5">
                             {rideDetails.stops.map((stop, index) => (
                                 <p key={`stop-offer-${index}`} className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300 py-0.5">
                                 <MapPin className="w-3 h-3 text-yellow-500 shrink-0 mt-0.5" />
-                                <span>{stop.address}</span>
+                                <span className="font-bold">{stop.address}</span>
                                 </p>
                             ))}
                         </div>
                     )}
-                    <p className="flex items-start gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                         <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                        <span>{rideDetails.dropoffLocation}</span>
+                        <span className="font-bold">{rideDetails.dropoffLocation}</span>
                     </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs pt-1">
                     {rideDetails.passengerName && (
-                        <p className="flex items-center gap-1"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: {rideDetails.passengerName}</p>
+                        <p className="flex items-center gap-1"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: <span className="font-bold">{rideDetails.passengerName}</span></p>
                     )}
-                    <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: {rideDetails.passengerCount}</p>
+                    <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: <span className="font-bold">{rideDetails.passengerCount}</span></p>
                     {rideDetails.paymentMethod && (
-                        <p className="col-span-2 flex items-center gap-1 font-medium">
+                        <p className="col-span-2 flex items-center gap-1">
                             <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            Payment: {getPaymentMethodDisplay()}
+                            Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
                         </p>
                     )}
                 </div>
 
                 {rideDetails.notes && (
                     <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
-                        <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium whitespace-pre-wrap">
-                        Notes: {rideDetails.notes}
+                        <p className="text-xs text-yellow-800 dark:text-yellow-200 whitespace-pre-wrap">
+                        <span className="font-bold">Notes:</span> <span className="font-bold">{rideDetails.notes}</span>
                         </p>
                     </div>
                 )}
