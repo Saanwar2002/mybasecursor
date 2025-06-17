@@ -10,11 +10,12 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_OPERATOR_CODE, useAuth } from '@/contexts/auth-context';
 import type { LabelType, ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
+import { Separator } from "@/components/ui/separator";
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -33,17 +34,17 @@ export interface RideOffer {
   stops?: Array<{ address: string; coords: { lat: number; lng: number } }>;
   fareEstimate: number;
   passengerCount: number;
-  passengerId: string;
-  passengerName?: string;
-  passengerPhone?: string;
-  notes?: string;
-  requiredOperatorId?: string;
-  distanceMiles?: number;
-  paymentMethod?: 'card' | 'cash' | 'account';
-  isPriorityPickup?: boolean;
-  priorityFeeAmount?: number;
-  dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override';
-  accountJobPin?: string;
+  passengerId: string; 
+  passengerName?: string; 
+  passengerPhone?: string; 
+  notes?: string; 
+  requiredOperatorId?: string; 
+  distanceMiles?: number; 
+  paymentMethod?: 'card' | 'cash' | 'account'; 
+  isPriorityPickup?: boolean; 
+  priorityFeeAmount?: number; 
+  dispatchMethod?: 'auto_system' | 'manual_operator' | 'priority_override'; 
+  accountJobPin?: string; 
 }
 
 interface RideOfferModalProps {
@@ -96,23 +97,22 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
 
   let addressRemainder = fullAddress;
   let outwardPostcode = "";
-
+  
   const postcodeRegex = /\b([A-Z]{1,2}[0-9][A-Z0-9]?)\s*(?:[0-9][A-Z]{2})?\b/i;
   const postcodeMatch = fullAddress.match(postcodeRegex);
 
   if (postcodeMatch) {
-    outwardPostcode = postcodeMatch[1].toUpperCase();
+    outwardPostcode = postcodeMatch[1].toUpperCase(); 
     addressRemainder = fullAddress.replace(postcodeMatch[0], '').replace(/,\s*$/, '').trim();
   }
-
+  
   const parts = addressRemainder.split(',').map(p => p.trim()).filter(Boolean);
-
-  let street = parts[0] || "Location";
+  let street = parts[0] || "Location"; 
   let area = "";
 
   if (parts.length > 1) {
-    area = parts[1];
-    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) {
+    area = parts[1]; 
+    if (street.toLowerCase().includes(area.toLowerCase()) && street.length > area.length + 2) { 
         street = street.substring(0, street.toLowerCase().indexOf(area.toLowerCase())).replace(/,\s*$/,'').trim();
     }
   } else if (parts.length === 0 && outwardPostcode) {
@@ -127,17 +127,17 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
   if (outwardPostcode) {
     locationLine = (locationLine ? locationLine + " " : "") + outwardPostcode;
   }
-
-  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) {
-      street = "";
+  
+  if (locationLine.trim() === outwardPostcode && (street === "Location" || street === "Area" || street === "Unknown Street")) { 
+      street = ""; 
   }
-  if (street && !locationLine) {
+  if (street && !locationLine) { 
      return `${type}:\n${street}`;
   }
-  if (!street && locationLine) {
+  if (!street && locationLine) { 
      return `${type}:\n${locationLine}`;
   }
-  if (!street && !locationLine) {
+  if (!street && !locationLine) { 
       return `${type}:\nDetails N/A`;
   }
 
@@ -147,19 +147,19 @@ function formatAddressForMapLabel(fullAddress: string, type: string): string {
 
 export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetails }: RideOfferModalProps) {
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const { user: driverUser } = useAuth();
+  const { user: driverUser } = useAuth(); 
   const [isMapSdkLoadedForModal, setIsMapSdkLoadedForModal] = useState(false);
 
 
   useEffect(() => {
     if (!isOpen) {
-      setCountdown(COUNTDOWN_SECONDS);
+      setCountdown(COUNTDOWN_SECONDS); 
       return;
     }
 
     if (countdown === 0) {
       if (rideDetails) {
-        onDecline(rideDetails.id);
+        onDecline(rideDetails.id); 
       }
       onClose();
       return;
@@ -228,20 +228,20 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   }, [rideDetails]);
 
   if (!rideDetails) {
-    return null;
+    return null; 
   }
 
   const handleAccept = () => {
     onAccept(rideDetails.id);
-    onClose();
+    onClose(); 
   };
 
   const handleDecline = () => {
     onDecline(rideDetails.id);
-    onClose();
+    onClose(); 
   };
   
-  const progressColorClass = "bg-green-500";
+  const progressColorClass = countdown <= 5 ? "bg-red-500" : countdown <= 10 ? "bg-yellow-400" : "bg-green-500";
 
 
   const totalFareForDriver = (rideDetails.fareEstimate || 0) + (rideDetails.priorityFeeAmount || 0);
@@ -253,45 +253,30 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     const isPriority = rideDetails.dispatchMethod === 'priority_override';
 
     let text = "";
-    let icon = CheckCircle;
-    let bgColorClassName = "bg-green-600";
+    let icon = CheckCircle; 
 
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
-      if (isManual) {
-        text = "Dispatched By App: MANUAL MODE";
-        icon = Briefcase;
-        bgColorClassName = "bg-blue-600";
-      } else {
-        text = "Dispatched By App: AUTO MODE";
-        icon = CheckCircle;
-      }
+      text = isManual ? "Dispatched By App (MANUAL MODE)" : "Dispatched By App (AUTO MODE)";
+      icon = isManual ? Briefcase : CheckCircle;
     } else if (driverUser && rideDetails.requiredOperatorId === driverUser.operatorCode) {
-      if (isManual) {
-        text = "Dispatched By YOUR BASE: MANUAL MODE";
-        icon = Briefcase;
-        bgColorClassName = "bg-blue-600";
-      } else {
-        text = "Dispatched By YOUR BASE: AUTO MODE";
-        icon = CheckCircle;
-        bgColorClassName = "bg-green-600";
-      }
+      text = isManual ? "Dispatched By YOUR BASE (MANUAL MODE)" : "Dispatched By YOUR BASE (AUTO MODE)";
+      icon = isManual ? Briefcase : CheckCircle;
     } else {
       if (isManual) {
         text = rideDetails.requiredOperatorId
           ? `Manual Dispatch from ${rideDetails.requiredOperatorId}`
           : "Manually Dispatched by Platform Admin";
         icon = Briefcase;
-        bgColorClassName = "bg-blue-600";
       } else if (isPriority) {
         text = "Dispatched by Operator (Priority)";
-        icon = AlertOctagon;
-        bgColorClassName = "bg-purple-600";
-      } else {
+        icon = AlertOctagon; 
+      }
+       else {
         text = "Dispatched By App (Auto)";
         icon = CheckCircle;
       }
     }
-    return { text, icon, bgColorClassName };
+    return { text, icon };
   };
   const dispatchInfo = getDispatchMethodText();
 
@@ -306,11 +291,11 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   };
 
   const getPaymentMethodIcon = () => {
-    if (!rideDetails.paymentMethod) return Info;
+    if (!rideDetails.paymentMethod) return Info; 
     switch (rideDetails.paymentMethod) {
       case "card": return CreditCard;
       case "cash": return Coins;
-      case "account": return LockKeyhole;
+      case "account": return LockKeyhole; 
       default: return Info;
     }
   };
@@ -319,15 +304,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent
-        className={cn(
-          "sm:max-w-md bg-card shadow-2xl p-0 flex flex-col",
-           "h-[calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] md:h-[calc(100vh-4rem)] overflow-hidden"
-        )}
-      >
-        <DialogHeader className="p-3 pb-2 space-y-1 shrink-0 border-b bg-slate-50 dark:bg-slate-800">
+      <DialogContent className="sm:max-w-md bg-card shadow-2xl p-0">
+        <DialogHeader className="p-4 pb-2 space-y-1 border-b bg-muted/30">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <Car className="w-5 h-5 text-primary" />
               New Ride Offer!
             </DialogTitle>
@@ -335,109 +315,101 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </DialogHeader>
 
-        {/* Main content area with scroll */}
-        <ScrollArea className="flex-1">
-          <div className="flex flex-col"> {/* Content wrapper inside ScrollArea */}
-            <div className="h-48 sm:h-56 w-full bg-muted shrink-0"> {/* Map Area */}
-                {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
-                  <GoogleMapDisplay
-                    center={mapCenter}
-                    zoom={13}
-                    markers={mapDisplayElements.markers}
-                    customMapLabels={mapDisplayElements.labels}
-                    className="w-full h-full"
-                    disableDefaultUI={true}
-                    fitBoundsToMarkers={true}
-                    onSdkLoaded={setIsMapSdkLoadedForModal}
-                  />
-                ) : (
-                  <Skeleton className="w-full h-full" />
-                )}
-            </div>
-
-            {/* Dispatch Info Bar */}
-            {dispatchInfo && (
-              <div className={cn(
-                "p-2 mx-2 mt-2 rounded-md text-center text-white font-semibold shadow", 
-                dispatchInfo.bgColorClassName, 
-                "border border-black/20" // Added slight border for definition
-              )}>
-                <p className="text-sm flex items-center justify-center gap-1.5">
-                  <dispatchInfo.icon className="w-4 h-4 text-white"/> {dispatchInfo.text}
-                </p>
-              </div>
+        <div className="h-40 sm:h-48 w-full bg-muted"> {/* Map Area */}
+            {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
+              <GoogleMapDisplay
+                center={mapCenter}
+                zoom={13}
+                markers={mapDisplayElements.markers}
+                customMapLabels={mapDisplayElements.labels}
+                className="w-full h-full"
+                disableDefaultUI={true}
+                fitBoundsToMarkers={true}
+                onSdkLoaded={setIsMapSdkLoadedForModal} 
+              />
+            ) : (
+              <Skeleton className="w-full h-full" />
             )}
+        </div>
 
-            {/* Fare & Distance Bar */}
-            <div className="py-2 px-3 mx-2 mt-2 rounded-md bg-amber-500 text-white shadow border border-black/20 flex flex-col justify-center items-center">
-                <span className="text-xl font-bold">
-                    £{totalFareForDriver.toFixed(2)}
-                </span>
-                {rideDetails.distanceMiles && (
-                    <span className="text-xs font-medium">({rideDetails.distanceMiles.toFixed(1)} Miles)</span>
-                )}
-            </div>
-            
-            {/* Pickup/Dropoff Details Area */}
-            <div className="p-3 mx-2 mt-2 bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 space-y-1.5">
-              <p className="flex items-start gap-2 text-sm md:text-base font-medium text-foreground">
-                <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span className="font-semibold mr-1">Pickup:</span>{rideDetails.pickupLocation}
-              </p>
-              {rideDetails.stops && rideDetails.stops.length > 0 && (
-                <div className="mt-1.5 pl-2">
-                  {rideDetails.stops.map((stop, index) => (
-                    <p key={`stop-display-${index}`} className="flex items-start gap-2 mb-1 text-sm md:text-base font-medium text-foreground">
-                       <MapPin className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-                       <span className="font-semibold mr-1">Stop {index + 1}:</span>{stop.address}
+        <div className="px-4 pt-3 pb-2 space-y-2">
+          {dispatchInfo && (
+             <div className="py-1.5 px-2.5 rounded-md bg-primary/10 border border-primary/30 text-center">
+                <p className="text-xs font-semibold text-primary flex items-center justify-center gap-1">
+                    <dispatchInfo.icon className="w-3.5 h-3.5"/> {dispatchInfo.text}
+                </p>
+             </div>
+          )}
+          <p className="flex items-center justify-between text-sm font-medium">
+            <span className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-green-500" /> Est. Fare:</span>
+            <span className="text-lg font-bold text-green-600">£{totalFareForDriver.toFixed(2)}</span>
+          </p>
+           {rideDetails.distanceMiles && (
+            <p className="text-xs text-muted-foreground text-right -mt-1">
+              (Approx. {rideDetails.distanceMiles.toFixed(1)} miles)
+            </p>
+          )}
+
+          <Separator />
+
+          <p className="flex items-start gap-2 text-sm font-medium">
+            <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <span>{rideDetails.pickupLocation}</span>
+          </p>
+          {rideDetails.stops && rideDetails.stops.length > 0 && (
+            <div className="ml-3 border-l-2 border-dashed border-muted-foreground/50 pl-3">
+                {rideDetails.stops.map((stop, index) => (
+                    <p key={`stop-offer-${index}`} className="flex items-start gap-2 text-sm text-muted-foreground">
+                       <MapPin className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" />
+                       <span>{stop.address}</span>
                     </p>
-                  ))}
-                </div>
-              )}
-              <p className="flex items-start gap-2 text-sm md:text-base font-medium text-foreground">
-                <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                <span className="font-semibold mr-1">Dropoff:</span>{rideDetails.dropoffLocation}
-              </p>
+                ))}
             </div>
+          )}
+          <p className="flex items-start gap-2 text-sm font-medium">
+            <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+            <span>{rideDetails.dropoffLocation}</span>
+          </p>
+          
+          <Separator />
 
-            {/* Other Info - Placed below address block */}
-            <div className="px-3 pt-2 pb-1 space-y-1 text-sm">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
               {rideDetails.passengerName && (
-                <p className="flex items-center gap-1.5 font-medium"><Info className="inline w-4 h-4 mr-0.5 text-muted-foreground shrink-0" />Passenger: {rideDetails.passengerName}</p>
+                <p className="flex items-center gap-1"><Info className="inline w-3.5 h-3.5 text-muted-foreground shrink-0" />Pass: {rideDetails.passengerName}</p>
               )}
-              {rideDetails.notes && (
-                 <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
-                    <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium whitespace-pre-wrap">
-                      Notes: {rideDetails.notes}
-                    </p>
-                 </div>
-              )}
-              <p className="flex items-center gap-1.5 font-medium"><Users className="w-4 h-4 text-muted-foreground shrink-0" /> Passengers: {rideDetails.passengerCount}</p>
+              <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Pax: {rideDetails.passengerCount}</p>
               {rideDetails.paymentMethod && (
-                  <div className="flex items-center gap-1.5 font-medium">
-                    <PaymentIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <p className="col-span-2 flex items-center gap-1">
+                    <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     Payment: {getPaymentMethodDisplay()}
-                  </div>
-                )}
-               {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-                  <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-500/10 mt-1">
-                    <Crown className="h-3 w-3 mr-1"/>Priority +£{rideDetails.priorityFeeAmount.toFixed(2)}
-                  </Badge>
+                    {rideDetails.paymentMethod === 'account' && rideDetails.accountJobPin && <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">PIN: {rideDetails.accountJobPin}</Badge>}
+                  </p>
               )}
-            </div>
           </div>
-        </ScrollArea>
+          
+          {rideDetails.notes && (
+             <div className="rounded-md p-1.5 my-1 bg-yellow-100 dark:bg-yellow-700/30 border-l-2 border-yellow-500 dark:border-yellow-400">
+                <p className="text-xs text-yellow-800 dark:text-yellow-200 font-medium whitespace-pre-wrap">
+                  Notes: {rideDetails.notes}
+                </p>
+             </div>
+          )}
+           {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
+              <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-500/10 mt-1">
+                <Crown className="h-3 w-3 mr-1"/>Priority Booking +£{rideDetails.priorityFeeAmount.toFixed(2)}
+              </Badge>
+          )}
+        </div>
 
-        {/* Progress bar always at the bottom of the scrollable content, before footer */}
-        <div className="px-3 py-2 border-t border-border shrink-0">
+        <div className="px-4 py-2 border-t">
             <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 px-3 pt-2 pb-3 border-t border-border shrink-0">
-          <Button variant="destructive" onClick={handleDecline} size="lg" className="font-bold text-base py-2.5 h-auto bg-red-600 hover:bg-red-700 text-white">
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:gap-3 p-4 border-t">
+          <Button variant="destructive" onClick={handleDecline} size="lg" className="font-semibold text-base">
             Decline ({countdown}s)
           </Button>
-          <Button variant="default" onClick={handleAccept} size="lg" className="font-bold text-base py-2.5 h-auto bg-green-600 hover:bg-green-700 text-white">
+          <Button variant="default" onClick={handleAccept} size="lg" className="font-semibold text-base bg-green-600 hover:bg-green-700 text-white">
             Accept Ride
           </Button>
         </DialogFooter>
@@ -445,3 +417,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+    
