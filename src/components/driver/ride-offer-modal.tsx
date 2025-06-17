@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -266,7 +265,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </DialogHeader>
 
-        <div className="h-48 sm:h-56 w-full bg-muted flex-shrink-0">
+        <div className="h-24 sm:h-28 w-full bg-muted flex-shrink-0">
             {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
               <GoogleMapDisplay
                 center={mapCenter}
@@ -292,23 +291,22 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         )}
 
         <div className="py-1.5 px-3 bg-amber-500 text-black text-xs">
-          <div className="flex justify-between items-center">
-            <span className="font-bold flex items-center">
+           <div className={cn(
+            "flex items-center",
+            rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? "justify-between" : "justify-between"
+          )}>
+            <span className="font-bold flex items-center gap-0.5">
               <DollarSign className="w-3 h-3 mr-0.5" />
               Est. Fare: £
               {(rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0) 
                 ? baseFare.toFixed(2) 
                 : totalFareForDriver.toFixed(2)}
-              
-              {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
-                <>
-                  {' + '}
-                  <span className="text-red-700 font-semibold">
-                    £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Prio)
-                  </span>
-                </>
-              )}
             </span>
+            {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
+                <span className="text-red-700 font-bold">
+                + £{(rideDetails.priorityFeeAmount || 0).toFixed(2)} (Prio)
+                </span>
+            )}
             {rideDetails.distanceMiles && (
               <span className="font-bold flex items-center gap-0.5">
                 <Route className="w-3 h-3" />
@@ -318,8 +316,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
           {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && (
             <div className="text-center mt-0.5">
-              <p className="text-lg font-extrabold">
-                £{totalFareForDriver.toFixed(2)}
+              <p className="text-base font-extrabold">
+                TOTAL: £{totalFareForDriver.toFixed(2)}
               </p>
             </div>
           )}
@@ -366,7 +364,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                     <PaymentIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     Payment: <span className="font-bold">{getPaymentMethodDisplay()}</span>
                     {rideDetails.paymentMethod === 'account' && (
-                        <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
+                        <Badge variant="secondary" className="ml-1 text-[10px] px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white dark:text-purple-foreground">
                            <span className="font-bold">ACCOUNT JOB</span>
                         </Badge>
                     )}
@@ -387,10 +385,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         <div className="p-3 border-t bg-muted/30 space-y-2">
           <Progress value={(countdown / COUNTDOWN_SECONDS) * 100} indicatorClassName={progressColorClass} className="h-2.5 rounded-full" />
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <Button variant="destructive" onClick={handleDecline} size="default" className="font-bold text-base bg-red-600 hover:bg-red-700 text-white h-10">
+            <Button variant="destructive" onClick={handleDecline} size="sm" className="font-bold text-sm bg-red-600 hover:bg-red-700 text-white">
               Decline ({countdown}s)
             </Button>
-            <Button variant="default" onClick={handleAccept} size="default" className="font-bold text-base bg-green-600 hover:bg-green-700 text-white h-10">
+            <Button variant="default" onClick={handleAccept} size="sm" className="font-bold text-sm bg-green-600 hover:bg-green-700 text-white">
               Accept Ride
             </Button>
           </div>
@@ -399,3 +397,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
