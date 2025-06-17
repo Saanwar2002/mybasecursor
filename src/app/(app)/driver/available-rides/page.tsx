@@ -1007,67 +1007,106 @@ export default function AvailableRidesPage() {
     return terminalStatuses.includes(status.toLowerCase());
   };
 
-  function mainButtonText(): string {
-    if (!activeRide) return "Status Action";
-    const currentLegIdx = localCurrentLegIndex;
-    const status = activeRide.status.toLowerCase();
 
-    if (status === 'arrived_at_pickup') return "Start Ride";
-    if ((status === 'in_progress' || status === 'in_progress_wait_and_return')) {
-      if (activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx - 1)) {
-        const nextLegIsDropoff = currentLegIdx === journeyPoints.length - 1;
-        return `Depart Stop ${currentLegIdx} / To ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx + 1}`}`;
-      } else if (currentLegIdx < journeyPoints.length - 1) {
-        return `Arrived at ${currentLegIdx === 0 ? 'Pickup' : `Stop ${currentLegIdx}`} / Start Timer`;
-      } else if (currentLegIdx === journeyPoints.length - 1) {
-        return "Complete Ride";
-      }
+  const handleCancelSwitchChange = (checked: boolean) => {
+    setIsCancelSwitchOn(checked);
+    if (checked) {
+        setShowCancelConfirmationDialog(true);
+    } else {
+        setShowCancelConfirmationDialog(false);
     }
-    return "Status Action";
+  };
+
+
+  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
+    if (!ride || !['driver_assigned'].includes(ride.status.toLowerCase())) return null;
+    if (ride.status.toLowerCase() === 'arrived_at_pickup') return null;
+
+    return (
+        <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
+        <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="font-bold text-destructive text-sm">
+            <span>Initiate Cancellation</span>
+        </Label>
+        <Switch
+            id={`cancel-ride-switch-${ride.id}`}
+            checked={isCancelSwitchOn}
+            onCheckedChange={handleCancelSwitchChange}
+            disabled={actionIsLoadingProp}
+            className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0"
+        />
+        </div>
+    );
+  };
+
+
+  const handleConfirmEmergency = () => { toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified. Stay safe.", variant: "destructive", duration: 10000 }); setIsSosDialogOpen(false); };
+  const handleQuickSOSAlert = (alertType: string) => { toast({ title: "QUICK SOS ALERT SENT!", description: `Your operator has been notified: ${alertType}. Stay safe.`, variant: "destructive", duration: 10000 }); setIsSosDialogOpen(false); };
+  const handleToggleOnlineStatus = (newOnlineStatus: boolean) => { setIsDriverOnline(newOnlineStatus); if (newOnlineStatus) { setConsecutiveMissedOffers(0); if (geolocationError) setGeolocationError(null); setIsPollingEnabled(true); } else { setRideRequests([]); setIsPollingEnabled(false); if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; } } };
+  const handleReportHazard = async (hazardType: string) => { if (!driverLocation) { toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" }); return; } const payload = { hazardType: hazardType, location: driverLocation, reportedByDriverId: driverUser?.id || "unknown_driver", reportedAt: new Date().toISOString(), status: "active", }; console.log("Map Hazard Report Payload:", payload); try { const response = await fetch('/api/driver/map-hazards/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || "Failed to submit hazard report to server."); } toast({ title: "Hazard Reported", description: `${hazardType} reported at your current location. Other drivers will be notified.`, }); } catch (error) { console.error("Error reporting hazard:", error); toast({ title: "Hazard Report Failed", description: error instanceof Error ? error.message : "Could not send hazard report.", variant: "destructive", }); } setIsHazardReportDialogOpen(false); };
+  const passengerPhone = activeRide?.passengerPhone;
+
+  let displayedFare = "£0.00";
+  let numericGrandTotal = 0;
+  let hasPriority = false;
+  let currentPriorityAmount = 0;
+  let basePlusWRFare = 0;
+  let paymentMethodDisplay = "N/A";
+
+  if (activeRide) {
+    let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
+    if (activeRide.waitAndReturn) {
+      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE_DRIVER;
+      baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
+    }
+    numericGrandTotal = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
+    displayedFare = `£${numericGrandTotal.toFixed(2)}`;
+    paymentMethodDisplay = activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'cash' ? 'Cash' : activeRide.paymentMethod === 'account' ? 'Account' : 'Payment N/A';
+    hasPriority = !!(activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0);
+    currentPriorityAmount = hasPriority && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
+    basePlusWRFare = numericGrandTotal - currentPriorityAmount;
   }
 
-
-  const isMainButtonDisabled = (): boolean => {
-    if (!activeRide || !!actionLoading[activeRide.id]) return true;
-    const status = activeRide.status.toLowerCase();
-    if (status === 'driver_assigned' || status === 'pending_driver_wait_and_return_approval') return true;
-    return false;
-  };
-
-  const mainButtonAction = (): void => {
-    if (!activeRide) return;
-    const currentLegIdx = localCurrentLegIndex;
-    const status = activeRide.status.toLowerCase();
-
-    if (status === 'arrived_at_pickup') {
-        handleRideAction(activeRide.id, 'start_ride');
-    } else if ((status === 'in_progress' || status === 'in_progress_wait_and_return')) {
-        if (activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx - 1)) {
-            handleRideAction(activeRide.id, 'proceed_to_next_leg');
-        } else if (currentLegIdx < journeyPoints.length - 1) {
-            setActiveStopDetails({ stopDataIndex: currentLegIdx, arrivalTime: new Date() });
-            toast({ title: `Arrived at ${currentLegIdx === 0 ? 'Pickup' : `Stop ${currentLegIdx}`}`, description: "Stop waiting timer started." });
-        } else if (currentLegIdx === journeyPoints.length - 1) {
-            handleRideAction(activeRide.id, 'complete_ride');
-        }
+  const mainButtonText = (): string => {
+    if (!activeRide) return "Loading...";
+    switch (activeRide.status) {
+      case 'driver_assigned': return "Notify Arrival";
+      case 'arrived_at_pickup': return "Start Ride";
+      case 'in_progress':
+      case 'in_progress_wait_and_return':
+        return localCurrentLegIndex < journeyPoints.length - 1 ? "Mark Leg Complete & Proceed" : "Complete Ride";
+      case 'pending_driver_wait_and_return_approval': return "Awaiting W&R Approval";
+      default: return "No Action Available";
     }
   };
+
+  const isMainButtonDisabled = (): boolean => {
+    if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
+    const status = activeRide.status.toLowerCase();
+    if (status === 'pending_driver_wait_and_return_approval') return true;
+    return false;
+  };
+  
+  const mainButtonAction = () => {
+    if (!activeRide) return;
+    switch (activeRide.status) {
+      case 'driver_assigned': handleRideAction(activeRide.id, 'notify_arrival'); break;
+      case 'arrived_at_pickup': handleRideAction(activeRide.id, 'start_ride'); break;
+      case 'in_progress':
+      case 'in_progress_wait_and_return':
+        if (localCurrentLegIndex < journeyPoints.length - 1) {
+          handleRideAction(activeRide.id, 'proceed_to_next_leg');
+        } else {
+          handleRideAction(activeRide.id, 'complete_ride');
+        }
+        break;
+      default: console.log("No action for current status:", activeRide.status);
+    }
+  };
+
 
   const showCompletedStatus = activeRide?.status === 'completed';
   const showCancelledByDriverStatus = activeRide?.status === 'cancelled_by_driver';
-
-  if (isLoading && !activeRide) {
-    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  }
-  if (error && !activeRide && !isLoading) {
-    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
-        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
-        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
-        <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
-    </div>;
-  }
-
   const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
   const CurrentNavigationLegBar = () => {
@@ -1143,66 +1182,17 @@ export default function AvailableRidesPage() {
     );
   };
 
-  const handleCancelSwitchChange = (checked: boolean) => {
-    setIsCancelSwitchOn(checked);
-    if (checked) {
-        setShowCancelConfirmationDialog(true);
-    } else {
-        setShowCancelConfirmationDialog(false);
-    }
-  };
-
-
-  const CancelRideInteraction = ({ ride, isLoading: actionIsLoadingProp }: { ride: ActiveRide | null, isLoading: boolean }) => {
-    if (!ride || !['driver_assigned'].includes(ride.status.toLowerCase())) return null;
-    if (ride.status.toLowerCase() === 'arrived_at_pickup') return null;
-
-    return (
-        <div className="flex items-center justify-between space-x-2 bg-destructive/10 p-3 rounded-md mt-3">
-        <Label htmlFor={`cancel-ride-switch-${ride.id}`} className="font-bold text-destructive text-sm">
-            <span>Initiate Cancellation</span>
-        </Label>
-        <Switch
-            id={`cancel-ride-switch-${ride.id}`}
-            checked={isCancelSwitchOn}
-            onCheckedChange={handleCancelSwitchChange}
-            disabled={actionIsLoadingProp}
-            className="data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted shrink-0"
-        />
-        </div>
-    );
-  };
-
-
-  const handleConfirmEmergency = () => { toast({ title: "EMERGENCY ALERT SENT!", description: "Your operator has been notified. Stay safe.", variant: "destructive", duration: 10000 }); setIsSosDialogOpen(false); };
-  const handleQuickSOSAlert = (alertType: string) => { toast({ title: "QUICK SOS ALERT SENT!", description: `Your operator has been notified: ${alertType}. Stay safe.`, variant: "destructive", duration: 10000 }); setIsSosDialogOpen(false); };
-  const handleToggleOnlineStatus = (newOnlineStatus: boolean) => { setIsDriverOnline(newOnlineStatus); if (newOnlineStatus) { setConsecutiveMissedOffers(0); if (geolocationError) setGeolocationError(null); setIsPollingEnabled(true); } else { setRideRequests([]); setIsPollingEnabled(false); if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; } } };
-  const handleReportHazard = async (hazardType: string) => { if (!driverLocation) { toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" }); return; } const payload = { hazardType: hazardType, location: driverLocation, reportedByDriverId: driverUser?.id || "unknown_driver", reportedAt: new Date().toISOString(), status: "active", }; console.log("Map Hazard Report Payload:", payload); try { const response = await fetch('/api/driver/map-hazards/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || "Failed to submit hazard report to server."); } toast({ title: "Hazard Reported", description: `${hazardType} reported at your current location. Other drivers will be notified.`, }); } catch (error) { console.error("Error reporting hazard:", error); toast({ title: "Hazard Report Failed", description: error instanceof Error ? error.message : "Could not send hazard report.", variant: "destructive", }); } setIsHazardReportDialogOpen(false); };
-  const passengerPhone = activeRide?.passengerPhone;
-
-  // Ensure all variables used in JSX are defined before the main return
-  let displayedFare = "£0.00";
-  let numericGrandTotal = 0;
-  let hasPriority = false;
-  let currentPriorityAmount = 0;
-  let basePlusWRFare = 0;
-  let paymentMethodDisplay = "N/A";
-
-  if (activeRide) {
-    let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
-    if (activeRide.waitAndReturn) {
-      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
-      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE_DRIVER;
-      baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
-    }
-    numericGrandTotal = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
-    displayedFare = `£${numericGrandTotal.toFixed(2)}`;
-    paymentMethodDisplay = activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'cash' ? 'Cash' : activeRide.paymentMethod === 'account' ? 'Account' : 'Payment N/A';
-    hasPriority = !!(activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0);
-    currentPriorityAmount = hasPriority && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0; // Added ! for definite assignment if hasPriority is true
-    basePlusWRFare = numericGrandTotal - currentPriorityAmount;
+  if (isLoading && !activeRide) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
-  const mainActionBtnText = mainButtonText();
+  if (error && !activeRide && !isLoading) {
+    return <div className="flex flex-col justify-center items-center h-full text-center p-4">
+        <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
+        <p className="font-bold text-lg text-destructive">Error Loading Ride Data</p>
+        <p className="text-sm text-muted-foreground mb-4">{error}</p>
+        <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
+    </div>;
+  }
 
   return (
       <div className="flex flex-col h-full p-2 md:p-4">
