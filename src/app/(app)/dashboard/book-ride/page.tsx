@@ -2456,25 +2456,25 @@ const handleProceedToConfirmation = async () => {
                                 </div>
                               ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
                                 <>
-                                  <p className="text-sm text-muted-foreground font-semibold">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                  {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400 font-semibold">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
-                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">Wheelchair Access surcharge applied</p>}
+                                  <p className="text-sm text-muted-foreground font-bold">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
+                                  {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400 font-bold">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
+                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">Wheelchair Access surcharge applied</p>}
                                   {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
-                                    <p className="text-sm text-orange-600 dark:text-orange-400 font-semibold">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
+                                    <p className="text-sm text-orange-600 dark:text-orange-400 font-bold">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
                                   ) : null}
-                                  <p className="text-2xl font-bold text-primary">Total: £{totalFareEstimate.toFixed(2)}</p>
+                                  <div className="text-2xl font-bold text-white bg-green-600 px-3 py-1.5 rounded-md inline-block my-1">Total: £{totalFareEstimate.toFixed(2)}</div>
                                   {isSurgeActive && (
                                     <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
                                       <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
                                     </p>
                                   )}
-                                   {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1 font-semibold">(Includes Wait & Return Surcharges)</p>}
-                                   <p className="text-xs text-muted-foreground mt-1 font-semibold">
+                                   {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1 font-bold">(Includes Wait & Return Surcharges)</p>}
+                                   <p className="text-xs text-muted-foreground mt-1 font-bold">
                                       Estimates may vary based on real-time conditions.
                                   </p>
                                 </>
                               ) : (
-                                <p className="text-lg text-muted-foreground font-semibold">Enter pickup & drop-off to see fare.</p>
+                                <p className="text-lg text-muted-foreground font-bold">Enter pickup & drop-off to see fare.</p>
                               )}
                             </CardContent>
                           </Card>
@@ -2737,6 +2737,7 @@ const handleProceedToConfirmation = async () => {
 
 
     
+
 
 
 
