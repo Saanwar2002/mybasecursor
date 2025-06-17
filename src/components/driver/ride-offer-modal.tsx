@@ -209,8 +209,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 
     let text = "";
     let icon: LucideIcon = CheckCircle;
-    let iconColorClass = "text-green-400";
-    let textColorClass = "text-green-300";
+    let iconColorClass = "text-green-400"; // Default text color for icon
+    let textColorClass = "text-green-300"; // Default text color for message
 
     if (rideDetails.requiredOperatorId === PLATFORM_OPERATOR_CODE) {
       text = isManual ? "Dispatched By App (MANUAL MODE)" : "Dispatched By App (AUTO MODE)";
@@ -228,14 +228,14 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           ? `Manual Dispatch: ${rideDetails.requiredOperatorId}`
           : "Manually Dispatched by Platform Admin";
         icon = Briefcase;
-        iconColorClass = "text-slate-400"; // More neutral for "other operator"
+        iconColorClass = "text-slate-400";
         textColorClass = "text-slate-300";
       } else if (isPriorityOverride) {
         text = "Dispatched by Operator (PRIORITY)";
         icon = AlertOctagon;
         iconColorClass = "text-purple-400";
         textColorClass = "text-purple-300";
-      } else { // Default to system/auto if not specified or platform, or if requiredOperatorId doesn't match driver's
+      } else { 
         text = "Dispatched By App (Automatic)";
         icon = CheckCircle;
         iconColorClass = "text-green-400";
@@ -299,7 +299,10 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </div>
         
         {dispatchInfo && (
-            <div className="py-1.5 px-3 text-center bg-slate-700 dark:bg-slate-800 text-slate-100">
+            <div className={cn(
+              "py-1.5 px-3 text-center text-slate-100",
+              "bg-slate-700 dark:bg-slate-800" // Fixed dark grey background
+            )}>
                 <p className="text-xs font-semibold flex items-center justify-center gap-1">
                     <dispatchInfo.icon className={cn("w-3.5 h-3.5", dispatchInfo.iconColorClass)}/> 
                     <span className={dispatchInfo.textColorClass}>{dispatchInfo.text}</span>
@@ -360,24 +363,22 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         
         <div className="p-3 border-t bg-muted/30 space-y-2 mt-auto">
             <div className={cn(
-              "py-1 px-2 text-base text-center text-white border rounded-md shadow font-bold flex items-center justify-between",
-              rideDetails.isPriorityPickup ? "bg-orange-600 border-orange-700" : "bg-amber-600 border-amber-700"
+              "py-1 px-2 text-base text-center text-white border rounded-md shadow font-bold flex items-center justify-between w-full",
+              "bg-orange-600 border-orange-700"
             )}>
-              <div className="flex items-center gap-1">
-                <DollarSign className="w-4 h-4 shrink-0" />
+              <span className="flex items-center gap-1">
+                <DollarSign className="w-4 h-4 shrink-0 text-white" />
+                <span className="text-white">(Base £{baseFare.toFixed(2)}</span>
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
                   <>
-                    <span>(Base £{baseFare.toFixed(2)}</span>
-                    <span className="mx-0.5">+</span> {}
-                    <span className="bg-yellow-400 dark:bg-yellow-500 text-black px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5 text-sm leading-none">
-                      <Crown className="w-3.5 h-3.5" /> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
+                    <span className="text-white"> + </span>
+                    <span className="bg-yellow-400 text-black px-1 py-0.5 rounded-sm inline-flex items-center gap-0.5 leading-none">
+                      <Crown className="w-3.5 h-3.5 text-black" /> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
                     </span>
-                    <span>) = £{totalFareForDriver.toFixed(2)}</span>
                   </>
-                ) : (
-                  <span>Fare = £{totalFareForDriver.toFixed(2)}</span>
-                )}
-              </div>
+                ) : null}
+                <span className="text-white">) = £{totalFareForDriver.toFixed(2)}</span>
+              </span>
 
               {rideDetails.distanceMiles !== undefined && (
                 <span className="font-bold text-white text-base">
@@ -398,4 +399,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
 }
 
     
-
+    
