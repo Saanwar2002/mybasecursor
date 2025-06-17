@@ -176,6 +176,58 @@ export async function GET(request: NextRequest) {
         const now = Timestamp.now();
         const nowSerialized = serializeTimestamp(now);
 
+        // New Mock Job 1: Phone, 1 Stop, Note
+        mockBookingsForTesting.push({
+            id: `mock_phone_1stop_${Date.now()}`,
+            displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
+            originatingOperatorId: "OP001",
+            passengerName: "Contactable Rider",
+            passengerPhone: "+447700900123", // Added phone
+            pickupLocation: { address: "Huddersfield Library, Princess Alexandra Walk, Huddersfield HD1 2SU", latitude: 53.6469, longitude: -1.7821 },
+            stops: [{ address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", latitude: 53.6465, longitude: -1.7833 }], // 1 stop
+            dropoffLocation: { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", latitude: 53.6483, longitude: -1.7805 },
+            status: 'pending_assignment',
+            fareEstimate: 19.80,
+            bookingTimestamp: nowSerialized,
+            vehicleType: 'estate', passengers: 1, paymentMethod: 'cash',
+            driverNotes: "Please wait near the main entrance, I have a small suitcase." // Added note
+        });
+
+        // New Mock Job 2: Phone, 2 Stops
+        mockBookingsForTesting.push({
+            id: `mock_phone_2stops_${Date.now()}`,
+            displayBookingId: `${getOperatorPrefix("OP002")}/${generateNumericSuffix()}`,
+            originatingOperatorId: "OP002",
+            passengerName: "Multi-Stop Passenger",
+            passengerPhone: "07700900456", // Added phone
+            pickupLocation: { address: "University of Huddersfield, Queensgate, Huddersfield HD1 3DH", latitude: 53.6438, longitude: -1.7787 },
+            stops: [
+                { address: "Greenhead Park (Play Area), Park Drive, Huddersfield HD1 4HS", latitude: 53.6501, longitude: -1.7969 },
+                { address: "Lindley Village (Post Office), Lidget Street, Huddersfield HD3 3JB", latitude: 53.6580, longitude: -1.8280 }
+            ], // 2 stops
+            dropoffLocation: { address: "Beaumont Park, Huddersfield HD4 7AY", latitude: 53.6333, longitude: -1.8080 },
+            status: 'pending_assignment',
+            fareEstimate: 28.50,
+            bookingTimestamp: nowSerialized,
+            vehicleType: 'minibus_6', passengers: 4, paymentMethod: 'card'
+        });
+
+        // New Mock Job 3: Note only, OP001
+        mockBookingsForTesting.push({
+            id: `mock_note_only_${Date.now()}`,
+            displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
+            originatingOperatorId: "OP001",
+            passengerName: "Specific Needs Rider",
+            pickupLocation: { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", latitude: 53.6542, longitude: -1.7677 },
+            dropoffLocation: { address: "Almondbury Village, Huddersfield HD5 8XE", latitude: 53.6391, longitude: -1.7542 },
+            status: 'pending_assignment',
+            fareEstimate: 16.25,
+            bookingTimestamp: nowSerialized,
+            vehicleType: 'disable_wheelchair_access', passengers: 1, paymentMethod: 'account',
+            driverNotes: "Requires assistance with a foldable wheelchair. Please ensure boot space is clear. Thank you." // Added note
+        });
+
+
         // Job 1 (Simple)
         mockBookingsForTesting.push({
             id: `mock_simple_${Date.now()}`,
