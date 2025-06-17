@@ -2,7 +2,7 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, Timer, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, TimerIcon, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -242,7 +242,7 @@ export default function MyActiveRidePage() {
   const driverLocation = useMemo(() => activeRide?.driverCurrentLocation || huddersfieldCenterGoogle, [activeRide?.driverCurrentLocation]);
 
   const [passengerAckWindowSecondsLeft, setPassengerAckWindowSecondsLeft] = useState<number | null>(null);
-  const [passengerFreeWaitingSecondsLeftPickup, setPassengerFreeWaitingSecondsLeftPickup] = useState<number | null>(null);
+  const [passengerFreeWaitingSecondsLeft, setPassengerFreeWaitingSecondsLeft] = useState<number | null>(null);
   const [isPassengerBeyondFreeWaitingPickup, setIsPassengerBeyondFreeWaitingPickup] = useState<boolean>(false);
   const [passengerExtraWaitingSecondsPickup, setPassengerExtraWaitingSecondsPickup] = useState<number | null>(null);
   const [currentPassengerWaitingChargePickup, setCurrentPassengerWaitingChargePickup] = useState<number>(0);
@@ -359,7 +359,7 @@ export default function MyActiveRidePage() {
         if (!ackTime) {
           if (secondsSinceNotified < PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS) {
             setPassengerAckWindowSecondsLeft(PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS - secondsSinceNotified);
-            setPassengerFreeWaitingSecondsLeftPickup(PASSENGER_PICKUP_FREE_WAITING_SECONDS);
+            setPassengerFreeWaitingSecondsLeft(PASSENGER_PICKUP_FREE_WAITING_SECONDS);
             setIsPassengerBeyondFreeWaitingPickup(false);
             setPassengerExtraWaitingSecondsPickup(null);
             setCurrentPassengerWaitingChargePickup(0);
@@ -369,12 +369,12 @@ export default function MyActiveRidePage() {
             const secondsSinceEffectiveFreeWaitStart = Math.floor((now.getTime() - effectiveFreeWaitStartTime.getTime()) / 1000);
 
             if (secondsSinceEffectiveFreeWaitStart < PASSENGER_PICKUP_FREE_WAITING_SECONDS) {
-              setPassengerFreeWaitingSecondsLeftPickup(PASSENGER_PICKUP_FREE_WAITING_SECONDS - secondsSinceEffectiveFreeWaitStart);
+              setPassengerFreeWaitingSecondsLeft(PASSENGER_PICKUP_FREE_WAITING_SECONDS - secondsSinceEffectiveFreeWaitStart);
               setIsPassengerBeyondFreeWaitingPickup(false);
               setPassengerExtraWaitingSecondsPickup(null);
               setCurrentPassengerWaitingChargePickup(0);
             } else {
-              setPassengerFreeWaitingSecondsLeftPickup(0);
+              setPassengerFreeWaitingSecondsLeft(0);
               setIsPassengerBeyondFreeWaitingPickup(true);
               const currentExtra = secondsSinceEffectiveFreeWaitStart - PASSENGER_PICKUP_FREE_WAITING_SECONDS;
               setPassengerExtraWaitingSecondsPickup(currentExtra);
@@ -385,12 +385,12 @@ export default function MyActiveRidePage() {
           setPassengerAckWindowSecondsLeft(null);
           const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
           if (secondsSinceAck < PASSENGER_PICKUP_FREE_WAITING_SECONDS) {
-            setPassengerFreeWaitingSecondsLeftPickup(PASSENGER_PICKUP_FREE_WAITING_SECONDS - secondsSinceAck);
+            setPassengerFreeWaitingSecondsLeft(PASSENGER_PICKUP_FREE_WAITING_SECONDS - secondsSinceAck);
             setIsPassengerBeyondFreeWaitingPickup(false);
             setPassengerExtraWaitingSecondsPickup(null);
             setCurrentPassengerWaitingChargePickup(0);
           } else {
-            setPassengerFreeWaitingSecondsLeftPickup(0);
+            setPassengerFreeWaitingSecondsLeft(0);
             setIsPassengerBeyondFreeWaitingPickup(true);
             const currentExtra = secondsSinceAck - PASSENGER_PICKUP_FREE_WAITING_SECONDS;
             setPassengerExtraWaitingSecondsPickup(currentExtra);
@@ -402,7 +402,7 @@ export default function MyActiveRidePage() {
       passengerWaitingTimerIntervalRef.current = setInterval(updateTimers, 1000);
     } else {
       setPassengerAckWindowSecondsLeft(null);
-      setPassengerFreeWaitingSecondsLeftPickup(null);
+      setPassengerFreeWaitingSecondsLeft(null);
       setIsPassengerBeyondFreeWaitingPickup(false);
       setPassengerExtraWaitingSecondsPickup(null);
       setCurrentPassengerWaitingChargePickup(0);
@@ -420,50 +420,36 @@ export default function MyActiveRidePage() {
         clearInterval(passengerStopTimerIntervalRef.current);
         passengerStopTimerIntervalRef.current = null;
     }
-
     const currentLegIndex = activeRide?.driverCurrentLegIndex;
     const legEntryTime = parseTimestampToDatePassenger(activeRide?.currentLegEntryTimestamp);
-
     const isAtIntermediateStop = activeRide &&
                                  (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
                                  currentLegIndex !== undefined &&
                                  legEntryTime &&
-                                 currentLegIndex > 0 && // Not pickup
-                                 currentLegIndex < ((activeRide.stops?.length || 0) + 1); // Not final dropoff
+                                 currentLegIndex > 0 && 
+                                 currentLegIndex < ((activeRide.stops?.length || 0) + 1); 
 
     if (isAtIntermediateStop) {
-        const stopDataIndex = currentLegIndex! -1; // Array index for stops (0-based)
+        const stopDataIndex = currentLegIndex! -1; 
         const updateStopTimer = () => {
             const now = new Date();
             const secondsSinceStopArrival = Math.floor((now.getTime() - legEntryTime!.getTime()) / 1000);
-            
             let freeSeconds = PASSENGER_STOP_FREE_WAITING_SECONDS - secondsSinceStopArrival;
             let extraSeconds = 0;
             let charge = 0;
-
             if (freeSeconds < 0) {
                 extraSeconds = -freeSeconds;
                 freeSeconds = 0;
                 charge = Math.floor(extraSeconds / 60) * PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE;
             }
-            setCurrentPassengerStopTimerDisplay({
-                stopDataIndex,
-                freeSecondsLeft: freeSeconds,
-                extraSeconds,
-                charge,
-            });
+            setCurrentPassengerStopTimerDisplay({ stopDataIndex, freeSecondsLeft: freeSeconds, extraSeconds, charge });
         };
         updateStopTimer();
         passengerStopTimerIntervalRef.current = setInterval(updateStopTimer, 1000);
     } else {
         setCurrentPassengerStopTimerDisplay(null);
     }
-
-    return () => {
-        if (passengerStopTimerIntervalRef.current) {
-            clearInterval(passengerStopTimerIntervalRef.current);
-        }
-    };
+    return () => { if (passengerStopTimerIntervalRef.current) clearInterval(passengerStopTimerIntervalRef.current); };
   }, [activeRide?.status, activeRide?.driverCurrentLegIndex, activeRide?.currentLegEntryTimestamp, activeRide?.stops]);
 
 
@@ -943,7 +929,6 @@ export default function MyActiveRidePage() {
   const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
   const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
   
-
   let baseFareWithWRSurcharge = activeRide?.fareEstimate || 0;
   let finalFareDisplay = "";
   let finalFareSuffix = "";
@@ -977,7 +962,7 @@ export default function MyActiveRidePage() {
   const priorityAmount = hasPriority && activeRide ? activeRide.priorityFeeAmount : 0;
   const basePlusWRFare = numericGrandTotal - (priorityAmount || 0) - currentPassengerWaitingChargePickup - (currentPassengerStopTimerDisplay?.charge || 0);
 
-  const journeyLegCount = (activeRide?.stops?.length || 0) + 2; // pickup + stops + dropoff
+  const journeyLegCount = (activeRide?.stops?.length || 0) + 2; 
 
 
   return (
@@ -1047,18 +1032,18 @@ export default function MyActiveRidePage() {
                   </Alert>
                 )}
 
-                {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && passengerAckWindowSecondsLeft === 0 && passengerFreeWaitingSecondsLeftPickup !== null && (
-                    <Alert variant="default" className={cn("my-2 p-1.5 text-xs", isPassengerBeyondFreeWaitingPickup ? "bg-red-100 dark:bg-red-700/40 border-red-400 dark:border-red-600 text-red-700 dark:text-red-200" : "bg-yellow-100 dark:bg-yellow-700/40 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-200")}>
-                      <Timer className="h-4 w-4 text-current" />
+                {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && passengerAckWindowSecondsLeft === 0 && passengerFreeWaitingSecondsLeft !== null && (
+                    <Alert variant="default" className={cn("my-2 p-1.5 text-xs", isPassengerBeyondFreeWaitingPickup ? "bg-red-100 dark:bg-red-800/30 border-red-400 dark:border-red-600 text-red-700 dark:text-red-300" : "bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300")}>
+                      <TimerIcon className="h-4 w-4 text-current" />
                       <div className="flex justify-between items-center w-full">
                         <span className="font-semibold text-current">
                           {isPassengerBeyondFreeWaitingPickup ? 'Extra Waiting Period' : 'Free Waiting Period'}
                         </span>
-                        <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent text-white" : "text-current")}>
-                          {passengerFreeWaitingSecondsLeftPickup > 0 ? formatTimerPassenger(passengerFreeWaitingSecondsLeftPickup) : formatTimerPassenger(passengerExtraWaitingSecondsPickup || 0)}
+                        <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider text-white", isPassengerBeyondFreeWaitingPickup ? "bg-accent" : "bg-accent")}>
+                          {passengerFreeWaitingSecondsLeft > 0 ? formatTimerPassenger(passengerFreeWaitingSecondsLeft) : formatTimerPassenger(passengerExtraWaitingSecondsPickup || 0)}
                         </span>
                       </div>
-                      <ShadAlertDescriptionForAlert className={cn("text-xs pl-[calc(1rem+0.375rem)] -mt-1", isPassengerBeyondFreeWaitingPickup ? "text-red-700/80 dark:text-red-200/80" : "text-yellow-700/80 dark:text-yellow-200/80")}>
+                      <ShadAlertDescriptionForAlert className={cn("text-xs pl-[calc(1rem+0.375rem)] -mt-1", isPassengerBeyondFreeWaitingPickup ? "text-red-700/80 dark:text-red-300/80" : "text-yellow-700/80 dark:text-yellow-300/80")}>
                         {isPassengerBeyondFreeWaitingPickup
                           ? `Charges accumulating: £${currentPassengerWaitingChargePickup.toFixed(2)}`
                           : 'Ack. window expired. Waiting charges apply after this free period.'}
@@ -1066,26 +1051,26 @@ export default function MyActiveRidePage() {
                     </Alert>
                 )}
 
-                {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && passengerFreeWaitingSecondsLeftPickup !== null && (
+                {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && passengerFreeWaitingSecondsLeft !== null && (
                   <Alert variant="default" className={cn("my-2 p-1.5 text-xs",
                     isPassengerBeyondFreeWaitingPickup ? "bg-red-100 dark:bg-red-700/40 border-red-400 dark:border-red-600 text-red-700 dark:text-red-200"
                                          : "bg-green-100 dark:bg-green-700/40 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300"
                   )}>
-                    <Timer className="h-4 w-4 text-current" />
+                    <TimerIcon className="h-4 w-4 text-current" />
                     <div className="flex justify-between items-center w-full">
                       <span className="font-semibold text-current">
                         {isPassengerBeyondFreeWaitingPickup ? "Extra Waiting" : "Free Waiting"}
                       </span>
-                      <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent text-white" : "text-current")}>
+                      <span className={cn("font-bold text-white px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent" : "bg-green-600")}>
                         {isPassengerBeyondFreeWaitingPickup
                           ? `${formatTimerPassenger(passengerExtraWaitingSecondsPickup || 0)} (+£${currentPassengerWaitingChargePickup.toFixed(2)})`
-                          : formatTimerPassenger(passengerFreeWaitingSecondsLeftPickup)}
+                          : formatTimerPassenger(passengerFreeWaitingSecondsLeft)}
                       </span>
                     </div>
-                     {passengerFreeWaitingSecondsLeftPickup > 0 && !isPassengerBeyondFreeWaitingPickup && (
+                     {passengerFreeWaitingSecondsLeft > 0 && !isPassengerBeyondFreeWaitingPickup && (
                         <ShadAlertDescriptionForAlert className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">Arrival Acknowledged.</ShadAlertDescriptionForAlert>
                     )}
-                    {passengerFreeWaitingSecondsLeftPickup === 0 && !isPassengerBeyondFreeWaitingPickup && <ShadAlertDescriptionForAlert className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">Free time expired. Charges apply.</ShadAlertDescriptionForAlert>}
+                    {passengerFreeWaitingSecondsLeft === 0 && !isPassengerBeyondFreeWaitingPickup && <ShadAlertDescriptionForAlert className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">Free time expired. Charges apply.</ShadAlertDescriptionForAlert>}
                   </Alert>
                 )}
 
@@ -1093,24 +1078,20 @@ export default function MyActiveRidePage() {
                   <Alert variant="default" className={cn("my-1 p-1.5", 
                     currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-red-100 dark:bg-red-700/80 border-red-500 dark:border-red-600 text-red-900 dark:text-red-100" : "bg-sky-100 dark:bg-sky-800/70 border-sky-300 dark:border-sky-600 text-sky-800 dark:text-sky-200"
                   )}>
-                    <Timer className="h-4 w-4 text-current" />
+                    <TimerIcon className="h-4 w-4 text-current" />
                     <ShadAlertTitle className="font-bold text-current text-xs">
-                      <span>
-                        {currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0
-                          ? `Extra Waiting at Stop ${currentPassengerStopTimerDisplay.stopDataIndex + 1}`
-                          : `Driver Waiting at Stop ${currentPassengerStopTimerDisplay.stopDataIndex + 1}`}
-                      </span>
+                        Driver Waiting at Stop {currentPassengerStopTimerDisplay.stopDataIndex + 1}
                     </ShadAlertTitle>
                     <ShadAlertDescriptionForAlert className="font-bold text-current text-[10px] flex justify-between items-center">
                       <span>
                         {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 && "Free time remaining:"}
                         {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && "Extra waiting time:"}
                       </span>
-                      <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-accent text-white" : "text-current")}>
+                      <span className={cn("bg-accent text-white px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-red-500" : "bg-accent")}>
                         {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 ? formatTimerPassenger(currentPassengerStopTimerDisplay.freeSecondsLeft) : formatTimerPassenger(currentPassengerStopTimerDisplay.extraSeconds || 0)}
                       </span>
                       {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && (
-                        <span className="ml-1">Current Charge: £{currentPassengerStopTimerDisplay.charge.toFixed(2)}</span>
+                         <span className="ml-1">Current Charge: £{currentPassengerStopTimerDisplay.charge.toFixed(2)}</span>
                       )}
                     </ShadAlertDescriptionForAlert>
                   </Alert>
@@ -1123,34 +1104,7 @@ export default function MyActiveRidePage() {
                   <div className="flex items-center gap-1 flex-wrap">
                     <DollarSign className="w-4 h-4 text-muted-foreground" />
                     <strong>Fare:</strong>
-                    {hasPriority ? (
-                      <>
-                        <span className="text-xl font-bold">£{basePlusWRFare.toFixed(2)}</span>
-                        {activeRide.waitAndReturn && <span className="text-xs font-medium text-muted-foreground ml-0.5">(Base + W&R)</span>}
-                        <span className="text-lg font-medium text-muted-foreground mx-0.5">+</span>
-                        <span className="text-xl font-bold text-orange-500">£{priorityAmount.toFixed(2)}</span>
-                        <span className="text-xs font-medium text-orange-500 ml-0.5 align-middle">(Priority)</span>
-                        {(currentPassengerWaitingChargePickup > 0 || (currentPassengerStopTimerDisplay?.charge || 0) > 0) && <span className="text-lg font-medium text-muted-foreground mx-0.5">+</span>}
-                        {currentPassengerWaitingChargePickup > 0 && <span className="text-xl font-bold text-red-500">£{currentPassengerWaitingChargePickup.toFixed(2)}</span>}
-                        {currentPassengerWaitingChargePickup > 0 && <span className="text-xs font-medium text-red-500 ml-0.5 align-middle">(Wait)</span>}
-                        {(currentPassengerStopTimerDisplay?.charge || 0) > 0 && <span className="text-xl font-bold text-red-500">£{(currentPassengerStopTimerDisplay?.charge || 0).toFixed(2)}</span>}
-                        {(currentPassengerStopTimerDisplay?.charge || 0) > 0 && <span className="text-xs font-medium text-red-500 ml-0.5 align-middle">(Stop Wait)</span>}
-                        <span className="text-lg font-medium text-muted-foreground mx-0.5">=</span>
-                        <span className="text-xl font-bold">{finalFareDisplay}</span>
-                      </>
-                    ) : (
-                       <>
-                        <span className="text-xl font-bold">£{basePlusWRFare.toFixed(2)}</span>
-                        {activeRide.waitAndReturn && <span className="text-xs font-medium text-muted-foreground ml-0.5">(Base + W&R)</span>}
-                        {(currentPassengerWaitingChargePickup > 0 || (currentPassengerStopTimerDisplay?.charge || 0) > 0) && <span className="text-lg font-medium text-muted-foreground mx-0.5">+</span>}
-                        {currentPassengerWaitingChargePickup > 0 && <span className="text-xl font-bold text-red-500">£{currentPassengerWaitingChargePickup.toFixed(2)}</span>}
-                        {currentPassengerWaitingChargePickup > 0 && <span className="text-xs font-medium text-red-500 ml-0.5 align-middle">(Wait)</span>}
-                        {(currentPassengerStopTimerDisplay?.charge || 0) > 0 && <span className="text-xl font-bold text-red-500">£{(currentPassengerStopTimerDisplay?.charge || 0).toFixed(2)}</span>}
-                        {(currentPassengerStopTimerDisplay?.charge || 0) > 0 && <span className="text-xs font-medium text-red-500 ml-0.5 align-middle">(Stop Wait)</span>}
-                        {(currentPassengerWaitingChargePickup > 0 || (currentPassengerStopTimerDisplay?.charge || 0) > 0) && <span className="text-lg font-medium text-muted-foreground mx-0.5">=</span>}
-                        <span className="text-xl font-bold">{finalFareDisplay}</span>
-                      </>
-                    )}
+                    <span className="text-xl font-bold">{finalFareDisplay}</span>
                     {activeRide.isSurgeApplied && (
                       <Badge variant="outline" className="ml-1.5 border-orange-500 text-orange-500">Surge</Badge>
                     )}
@@ -1270,7 +1224,7 @@ export default function MyActiveRidePage() {
           <DialogHeader>
             <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
             <ShadDialogDescriptionDialog>
-              Estimate additional waiting time at current drop-off. 10 mins free, then £0.25/min. Driver must approve.
+              Estimate additional waiting time at current drop-off. 10 mins free, then £0.25/min. Passenger must approve.
             </ShadDialogDescriptionDialog>
           </DialogHeader>
           <div className="py-4 space-y-2">
@@ -1300,3 +1254,4 @@ export default function MyActiveRidePage() {
   );
 }
     
+
