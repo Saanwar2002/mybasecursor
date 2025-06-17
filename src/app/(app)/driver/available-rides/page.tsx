@@ -732,7 +732,7 @@ export default function AvailableRidesPage() {
         clearInterval(stopIntervalRef.current);
       }
     };
-  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints, activeStopDetails]);
+  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints.length, activeStopDetails]);
 
 
  useEffect(() => {
@@ -964,7 +964,7 @@ export default function AvailableRidesPage() {
     const passengerPhoneNumber = `+447700900${Math.floor(Math.random() * 900) + 100}`;
 
     let stopsForOffer: Array<{ address: string; coords: { lat: number; lng: number } }> = [];
-    const numberOfStops = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2); // 30% 0 stops, 70% for 1 or 2
+    const numberOfStops = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2); 
     
     if (numberOfStops >= 1) {
         let stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
@@ -2041,7 +2041,7 @@ export default function AvailableRidesPage() {
             currentStopTimerDisplay.stopDataIndex === (activeRide.driverCurrentLegIndex -1) &&
             (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
           (
-            <Alert variant="default" className="bg-yellow-500/10 border-yellow-500/40 text-yellow-700 dark:text-yellow-300 my-1 p-1.5">
+            <Alert variant="default" className="bg-accent text-accent-foreground my-1 p-1.5">
               <Timer className="h-4 w-4 text-current" />
               <ShadAlertTitle className="font-bold text-current text-xs">
                 <span>Waiting at Stop {currentStopTimerDisplay.stopDataIndex + 1}</span>
@@ -2051,7 +2051,7 @@ export default function AvailableRidesPage() {
                   {currentStopTimerDisplay.freeSecondsLeft !== null && currentStopTimerDisplay.freeSecondsLeft > 0 && (
                   <>
                     Free waiting time:{" "}
-                    <span className="bg-accent text-accent-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
+                    <span className="bg-primary text-primary-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
                         {formatTimer(currentStopTimerDisplay.freeSecondsLeft)}
                     </span>{" "}
                     remaining.
@@ -2060,7 +2060,7 @@ export default function AvailableRidesPage() {
                   {currentStopTimerDisplay.extraSeconds !== null && currentStopTimerDisplay.extraSeconds >= 0 && currentStopTimerDisplay.freeSecondsLeft === 0 && (
                   <>
                     Extra waiting:{" "}
-                    <span className="bg-accent text-accent-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
+                    <span className="bg-primary text-primary-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
                         {formatTimer(currentStopTimerDisplay.extraSeconds)}
                     </span>
                     . Current Charge: £{currentStopTimerDisplay.charge.toFixed(2)}
@@ -2123,7 +2123,7 @@ export default function AvailableRidesPage() {
                                 <p className="mt-1 text-sm text-muted-foreground"><span>Passenger: {activeRide.passengerName}</span></p>
                             </div>
                         ) : (
-                        <> {}
+                        <> {/* Active Ride Details - Minimized address section */}
                             <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
                                 <Avatar className="h-7 w-7 md:h-8 md:h-8">
                                     <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
@@ -2182,11 +2182,7 @@ export default function AvailableRidesPage() {
                                 {activeRide.distanceMiles != null && (<p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</span></p>)}
                                 {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} <span>Payment: {paymentMethodDisplay}</span> </p> )}
                             </div>
-                             <div className="text-sm space-y-1 mt-2">
-                                <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong className="shrink-0">From:</strong> <span className="font-bold">{activeRide?.pickupLocation?.address || 'Pickup N/A'}</span></p>
-                                {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong className="shrink-0">Stop {index+1}:</strong> <span className="font-bold">{stop.address}</span> </p> ))}
-                                <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong className="shrink-0">To:</strong> <span className="font-bold">{activeRide?.dropoffLocation?.address || 'Dropoff N/A'}</span></p>
-                            </div>
+                            {/* Detailed address list removed from here */}
                         </>
                         )}
                     </CardContent>
@@ -2367,7 +2363,7 @@ export default function AvailableRidesPage() {
             <DialogHeader>
               <DialogTitle className="font-bold text-xl flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> <span>Request Wait & Return</span></DialogTitle>
               <ShadDialogDescriptionDialog>
-                <span>Estimate additional waiting time at current drop-off. {FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER} mins free, then £{WAITING_CHARGE_PER_MINUTE_DRIVER.toFixed(2)}/min. Passenger must approve.</span>
+                <span>Estimate additional waiting time at current drop-off. {FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER} mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.</span>
               </ShadDialogDescriptionDialog>
             </DialogHeader>
             <div className="py-4 space-y-2">
@@ -2490,5 +2486,6 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
+
 
 
