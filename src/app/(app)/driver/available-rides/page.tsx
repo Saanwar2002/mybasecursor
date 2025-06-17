@@ -437,7 +437,7 @@ export default function AvailableRidesPage() {
                     });
                     labels.push({
                         position: { lat: stop.latitude, lng: stop.longitude },
-                        content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+                        content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
                         type: 'stop',
                         variant: (localCurrentLegIndex === stopLegIndex) ? 'default' : 'compact'
                     });
@@ -732,7 +732,7 @@ export default function AvailableRidesPage() {
         clearInterval(stopIntervalRef.current);
       }
     };
-  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints.length, activeStopDetails]);
+  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, journeyPoints, activeStopDetails]);
 
 
  useEffect(() => {
@@ -964,7 +964,7 @@ export default function AvailableRidesPage() {
     const passengerPhoneNumber = `+447700900${Math.floor(Math.random() * 900) + 100}`;
 
     let stopsForOffer: Array<{ address: string; coords: { lat: number; lng: number } }> = [];
-    const numberOfStops = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2); 
+    const numberOfStops = Math.random() < 0.5 ? 0 : (Math.random() < 0.7 ? 1 : 2); 
     
     if (numberOfStops >= 1) {
         let stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
@@ -1513,20 +1513,20 @@ export default function AvailableRidesPage() {
 
     if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return')) {
         if (currentLegIdx < journeyLegCount - 1) {
-            const currentStopArrayIndex = currentLegIdx -1; // This is the index for activeRide.stops
-            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { // current leg IS an intermediate stop
-                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) { // Timer is active for this stop
+            const currentStopArrayIndex = currentLegIdx -1; 
+            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { 
+                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) { 
                     const nextLegIsDropoff = currentLegIdx + 1 === journeyLegCount - 1;
                     return `Depart Stop ${currentStopArrayIndex + 1} / Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentStopArrayIndex + 2}`}`;
-                } else { // Arrived at stop, timer not yet started
+                } else { 
                     return `Arrived at Stop ${currentStopArrayIndex + 1} / Start Timer`;
                 }
-            } else if (currentLegIdx === 0 && journeyLegCount > 1) { // Just started from pickup, heading to first stop or dropoff
+            } else if (currentLegIdx === 0 && journeyLegCount > 1) { 
                  const nextLegIsDropoff = currentLegIdx + 1 === journeyLegCount - 1;
-                 const nextStopIndexIfAny = currentLegIdx; // if journeyPoints[1] is a stop, its index in activeRide.stops would be 0
+                 const nextStopIndexIfAny = currentLegIdx; 
                  return `Proceed to ${nextLegIsDropoff ? "Dropoff" : `Stop ${nextStopIndexIfAny + 1}`}`;
             }
-        } else if (currentLegIdx === journeyLegCount - 1) { // Current leg is the final dropoff
+        } else if (currentLegIdx === journeyLegCount - 1) { 
             return "Complete Ride";
         }
     }
@@ -1543,22 +1543,20 @@ export default function AvailableRidesPage() {
     } else if (activeRide.status === 'arrived_at_pickup') {
         handleRideAction(activeRide.id, 'start_ride');
     } else if ((activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return')) {
-        if (currentLegIdx < journeyLegCount - 1) { // Not yet at final dropoff leg
-            const currentStopArrayIndex = currentLegIdx - 1; // Index for activeRide.stops array
+        if (currentLegIdx < journeyLegCount - 1) { 
+            const currentStopArrayIndex = currentLegIdx - 1; 
 
-            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { // This is an intermediate stop leg
+            if (currentStopArrayIndex >= 0 && activeRide.stops && currentStopArrayIndex < activeRide.stops.length) { 
                 if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndex) {
-                    // Timer was active for this stop, now departing
                     handleRideAction(activeRide.id, 'proceed_to_next_leg');
                 } else {
-                    // Arriving at this stop, start timer
                     setActiveStopDetails({ stopDataIndex: currentStopArrayIndex, arrivalTime: new Date() });
                 }
-            } else if (currentLegIdx === 0 && journeyLegCount > 1) { // Departing from pickup towards first stop or final dropoff
+            } else if (currentLegIdx === 0 && journeyLegCount > 1) { 
                  handleRideAction(activeRide.id, 'proceed_to_next_leg');
             }
 
-        } else if (currentLegIdx === journeyLegCount - 1) { // At final dropoff leg
+        } else if (currentLegIdx === journeyLegCount - 1) { 
             handleRideAction(activeRide.id, 'complete_ride');
         }
     }
@@ -1999,7 +1997,7 @@ export default function AvailableRidesPage() {
             <Timer className="h-4 w-4 text-current" />
             <div className="flex justify-between items-center w-full">
                 <span className="font-semibold text-current">Free Waiting Period</span>
-                <span className="font-bold text-current">
+                <span className="font-bold text-current bg-accent text-accent-foreground px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider">
                     {formatTimer(freeWaitingSecondsLeft)}
                 </span>
             </div>
@@ -2123,7 +2121,7 @@ export default function AvailableRidesPage() {
                                 <p className="mt-1 text-sm text-muted-foreground"><span>Passenger: {activeRide.passengerName}</span></p>
                             </div>
                         ) : (
-                        <> {/* Active Ride Details - Minimized address section */}
+                        <> 
                             <div className="flex items-center gap-3 p-1.5 rounded-lg bg-muted/30 border">
                                 <Avatar className="h-7 w-7 md:h-8 md:h-8">
                                     <AvatarImage src={activeRide.passengerAvatar || `https://placehold.co/40x40.png?text=${activeRide.passengerName.charAt(0)}`} alt={activeRide.passengerName} data-ai-hint="passenger avatar"/>
@@ -2182,7 +2180,7 @@ export default function AvailableRidesPage() {
                                 {activeRide.distanceMiles != null && (<p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</span></p>)}
                                 {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} <span>Payment: {paymentMethodDisplay}</span> </p> )}
                             </div>
-                            {/* Detailed address list removed from here */}
+                           
                         </>
                         )}
                     </CardContent>
@@ -2486,6 +2484,3 @@ export default function AvailableRidesPage() {
     </div>
   );
 }
-
-
-
