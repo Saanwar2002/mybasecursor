@@ -237,16 +237,16 @@ const isRideTerminated = (status?: string): boolean => {
 };
 
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; 
-const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;  
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 
 const MOVEMENT_THRESHOLD_METERS = 50;
-const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000; 
+const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000;
 
-const STOP_FREE_WAITING_TIME_SECONDS = 2 * 60;       
-const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;         
+const STOP_FREE_WAITING_TIME_SECONDS = 2 * 60;
+const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;
 
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10; 
+const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 
 
 export default function AvailableRidesPage() {
@@ -456,7 +456,7 @@ export default function AvailableRidesPage() {
                     position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
                     content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
                     type: 'dropoff',
-                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2 && dropoffLegIndex === 1) || 
+                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2 && dropoffLegIndex === 1) ||
                                (localCurrentLegIndex === dropoffLegIndex)
                                ? 'default' : 'compact'
                 });
@@ -758,11 +758,11 @@ export default function AvailableRidesPage() {
         let currentExtraSecs: number | null = null;
         let currentChargeVal = 0;
 
-        if (!ackTime) { 
+        if (!ackTime) {
           if (secondsSinceNotified < ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER) {
             currentAckLeft = ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER - secondsSinceNotified;
-            currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER; 
-          } else { 
+            currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER;
+          } else {
             currentAckLeft = 0;
             const effectiveFreeWaitStartTime = new Date(notifiedTime.getTime() + ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER * 1000);
             const secondsSinceEffectiveFreeWaitStart = Math.floor((now.getTime() - effectiveFreeWaitStartTime.getTime()) / 1000);
@@ -775,8 +775,8 @@ export default function AvailableRidesPage() {
               currentChargeVal = Math.floor((currentExtraSecs ?? 0) / 60) * WAITING_CHARGE_PER_MINUTE_DRIVER;
             }
           }
-        } else { 
-          currentAckLeft = null; 
+        } else {
+          currentAckLeft = null;
           const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
           if (secondsSinceAck < FREE_WAITING_TIME_SECONDS_DRIVER) {
             currentFreeLeft = FREE_WAITING_TIME_SECONDS_DRIVER - secondsSinceAck;
@@ -915,10 +915,10 @@ export default function AvailableRidesPage() {
     const origin = driverLocation;
     const destination = { lat: currentLeg.latitude, lng: currentLeg.longitude };
 
-    let routeColor = "#808080"; 
-    if (localCurrentLegIndex === 0) routeColor = "#008000"; 
-    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000"; 
-    else routeColor = "#FFD700"; 
+    let routeColor = "#808080";
+    if (localCurrentLegIndex === 0) routeColor = "#008000";
+    else if (localCurrentLegIndex === journeyPoints.length - 1) routeColor = "#FF0000";
+    else routeColor = "#FFD700";
 
     directionsServiceRef.current.route(
       { origin, destination, travelMode: google.maps.TravelMode.DRIVING },
@@ -963,6 +963,25 @@ export default function AvailableRidesPage() {
     }
     const pickup = mockHuddersfieldLocations[randomPickupIndex];
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
+    const passengerPhone = `+447700900${Math.floor(Math.random() * 900) + 100}`;
+
+    let stopsForOffer: Array<{ address: string; coords: { lat: number; lng: number } }> = [];
+    if (Math.random() < 0.5) { // 50% chance of having at least one stop
+        let stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+        while (stop1Index === randomPickupIndex || stop1Index === randomDropoffIndex) {
+            stop1Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+        }
+        stopsForOffer.push(mockHuddersfieldLocations[stop1Index]);
+
+        if (Math.random() < 0.5) { // 50% chance of a second stop if there's one already
+            let stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+            while (stop2Index === randomPickupIndex || stop2Index === randomDropoffIndex || stop2Index === stop1Index) {
+                stop2Index = Math.floor(Math.random() * mockHuddersfieldLocations.length);
+            }
+            stopsForOffer.push(mockHuddersfieldLocations[stop2Index]);
+        }
+    }
+
 
     const isPriority = Math.random() < 0.4;
     let currentPriorityFeeAmount = 0;
@@ -988,15 +1007,17 @@ export default function AvailableRidesPage() {
       pickupCoords: pickup.coords,
       dropoffLocation: dropoff.address,
       dropoffCoords: dropoff.coords,
-      fareEstimate: parseFloat((Math.random() * 15 + 5).toFixed(2)),
+      stops: stopsForOffer,
+      fareEstimate: parseFloat((Math.random() * 15 + 5 + (stopsForOffer.length * 3)).toFixed(2)), // Add a bit for stops
       isPriorityPickup: isPriority,
       priorityFeeAmount: currentPriorityFeeAmount,
       passengerCount: Math.floor(Math.random() * 3) + 1,
       passengerId: `pass-mock-${Date.now().toString().slice(-4)}`,
       passengerName: `Passenger ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`,
-      notes: Math.random() < 0.3 ? "Has some luggage." : undefined,
+      passengerPhone: passengerPhone,
+      notes: Math.random() < 0.3 ? `Test note: ${Math.random() < 0.5 ? "Luggage." : "Call on arrival."}` : undefined,
       requiredOperatorId: Math.random() < 0.5 ? PLATFORM_OPERATOR_CODE : driverUser?.operatorCode || PLATFORM_OPERATOR_CODE,
-      distanceMiles: parseFloat((Math.random() * 9 + 1).toFixed(1)),
+      distanceMiles: parseFloat((Math.random() * 9 + 1 + (stopsForOffer.length * 2)).toFixed(1)),
       paymentMethod: paymentMethodChoice,
       dispatchMethod: Math.random() < 0.7 ? 'auto_system' : 'manual_operator',
       accountJobPin: jobPinForOffer,
@@ -1042,14 +1063,14 @@ export default function AvailableRidesPage() {
     const currentActionRideId = offerToAccept.id;
     console.log(`[handleAcceptOffer] Setting actionLoading for ${currentActionRideId} to true`);
     setActionLoading(prev => ({ ...prev, [currentActionRideId]: true }));
-    
+
     const updatePayload: any = {
         driverId: driverUser.id,
         driverName: driverUser.name || "Driver",
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        offerDetails: { ...offerToAccept }, // Ensure this is deeply cloned
+        offerDetails: { ...offerToAccept },
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
@@ -1292,7 +1313,7 @@ export default function AvailableRidesPage() {
             }
             break;
         case 'complete_ride':
-            setIsPollingEnabled(false); 
+            setIsPollingEnabled(false);
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             let wrCharge = 0;
@@ -1377,7 +1398,7 @@ export default function AvailableRidesPage() {
 
       const updatedBookingFromServer = await response.json();
       console.log(`handleRideAction (${actionType}): API success for ${rideId}. Server data:`, updatedBookingFromServer.booking);
-      
+
       toast({ title: toastTitle, description: toastMessage, duration: 6000 });
 
       if (actionType === 'complete_ride') {
@@ -1385,7 +1406,7 @@ export default function AvailableRidesPage() {
       } else {
         const serverData = updatedBookingFromServer.booking;
         const newClientState: ActiveRide = {
-        ...activeRide, 
+        ...activeRide,
         status: serverData.status || activeRide.status,
         notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || activeRide.notifiedPassengerArrivalTimestamp,
         passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || activeRide.passengerAcknowledgedArrivalTimestamp,
@@ -1450,7 +1471,7 @@ export default function AvailableRidesPage() {
     await handleRideAction(activeRide.id, 'start_ride');
   };
 
-  async function handleRequestWaitAndReturnAction() { 
+  async function handleRequestWaitAndReturnAction() {
     if (!activeRide || !driverUser) return;
     const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
@@ -1463,7 +1484,7 @@ export default function AvailableRidesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'request_wait_and_return', 
+          action: 'request_wait_and_return',
           estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
         }),
       });
@@ -1556,7 +1577,7 @@ export default function AvailableRidesPage() {
       textColorClass = "text-red-700 dark:text-red-300";
       legTypeLabel = "TO DROPOFF";
     }
-    
+
     const parsedAddress = formatAddressForDisplay(currentLeg.address);
 
     const currentMainActionText = mainButtonText();
@@ -1582,7 +1603,7 @@ export default function AvailableRidesPage() {
           <p className={cn("font-bold text-sm md:text-base", textColorClass)}>{parsedAddress.line1}</p>
           {parsedAddress.line2 && <p className={cn("font-bold text-xs md:text-sm opacity-80", textColorClass)}>{parsedAddress.line2}</p>}
           {parsedAddress.line3 && <p className={cn("font-bold text-xs opacity-70", textColorClass)}>{parsedAddress.line3}</p>}
-          
+
           {showPassengerNameAndContact && activeRide?.passengerName && (
             <div className="mt-0.5">
               <Badge
@@ -1600,10 +1621,8 @@ export default function AvailableRidesPage() {
                       </a>
                     </Button>
                     <span className="font-bold text-xs text-muted-foreground">{passengerPhone}</span>
+                    {!isChatDisabled && <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-0.5" />}
                   </>
-                )}
-                 {passengerPhone && !isChatDisabled && (
-                   <Separator orientation="vertical" className="h-3 bg-muted-foreground/50 mx-1" />
                 )}
                 {!isChatDisabled && (
                   <Button asChild variant="ghost" size="icon" className={cn("h-5 w-5 p-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700/50 rounded")}>
@@ -1979,8 +1998,8 @@ export default function AvailableRidesPage() {
                     {(extraWaitingSeconds !== null && extraWaitingSeconds > 0) ? "Extra Waiting" : "Free Waiting"}
                 </span>
                 <span className="font-bold text-current">
-                    {(extraWaitingSeconds !== null && extraWaitingSeconds > 0) 
-                        ? `${formatTimer(extraWaitingSeconds)} (+£${currentWaitingCharge.toFixed(2)})` 
+                    {(extraWaitingSeconds !== null && extraWaitingSeconds > 0)
+                        ? `${formatTimer(extraWaitingSeconds)} (+£${currentWaitingCharge.toFixed(2)})`
                         : formatTimer(freeWaitingSecondsLeft)}
                 </span>
             </div>
