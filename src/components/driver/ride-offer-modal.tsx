@@ -203,8 +203,8 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   const totalFareForDriver = baseFare + priorityFeeAmount;
 
 
- const getDispatchMethodInfo = (): { text: string; icon: LucideIcon; iconColorClass: string; textColorClass: string } | null => {
-    if (!rideDetails) return null;
+ const getDispatchMethodInfo = (): { text: string; icon: LucideIcon; iconColorClass: string; textColorClass: string } => {
+    if (!rideDetails) return { text: "Dispatch Info N/A", icon: Info, iconColorClass: "text-slate-400", textColorClass: "text-slate-300" };
 
     const isManual = rideDetails.dispatchMethod === 'manual_operator';
     const isPriorityOverride = rideDetails.dispatchMethod === 'priority_override';
@@ -318,7 +318,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
         </div>
         
         {dispatchInfo && (
-            <div className="py-1.5 px-3 text-center bg-slate-700 dark:bg-slate-800 text-slate-100">
+            <div className="py-1.5 px-3 text-center bg-slate-700 dark:bg-slate-800">
                 <p className="text-xs font-semibold flex items-center justify-center gap-1">
                     <dispatchInfo.icon className={cn("w-3.5 h-3.5", dispatchInfo.iconColorClass)}/> 
                     <span className={dispatchInfo.textColorClass}>{dispatchInfo.text}</span>
@@ -386,7 +386,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 <DollarSign className="w-4 h-4 shrink-0 text-white" />
                 {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 ? (
                   <>
-                    <span>(Base £{baseFare.toFixed(2)}</span>
+                    <span>(£{baseFare.toFixed(2)}</span>
                     <span className="text-white"> + </span>
                     <span className="bg-yellow-400 text-black px-1 py-0.5 rounded-sm inline-flex items-center gap-0.5 leading-none">
                       <Crown className="w-3.5 h-3.5 text-black" /> Prio £{(rideDetails.priorityFeeAmount || 0).toFixed(2)}
@@ -415,3 +415,4 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
     </Dialog>
   );
 }
+
