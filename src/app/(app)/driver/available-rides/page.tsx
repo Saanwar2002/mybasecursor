@@ -282,13 +282,13 @@ const mockHuddersfieldLocations: Array<{ address: string; coords: { lat: number;
     { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", coords: { lat: 53.6542, lng: -1.7677 } },
 ];
 
-const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60; // For driver at pickup
-const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20; // For driver at pickup after free time
+const FREE_WAITING_TIME_SECONDS_DRIVER = 3 * 60;
+const WAITING_CHARGE_PER_MINUTE_DRIVER = 0.20;
 const ACKNOWLEDGMENT_WINDOW_SECONDS_DRIVER = 30;
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 const STOP_WAITING_CHARGE_PER_MINUTE = 0.20;
-const MOVEMENT_THRESHOLD_METERS = 50; 
-const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+const MOVEMENT_THRESHOLD_METERS = 50;
+const STATIONARY_REMINDER_TIMEOUT_MS = 2 * 60 * 1000;
 
 
 export default function AvailableRidesPage() {
@@ -966,7 +966,7 @@ export default function AvailableRidesPage() {
         case 'notify_arrival': toastTitle = "Passenger Notified"; toastMessage = `Passenger ${activeRide.passengerName} has been notified of your arrival.`; payload.notifiedPassengerArrivalTimestamp = true; break;
         case 'start_ride': toastTitle = "Ride Started"; toastMessage = `Ride with ${activeRide.passengerName} is now in progress.`; if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setAckWindowSecondsLeft(null); payload.rideStartedAt = true; payload.updatedLegDetails = { newLegIndex: 1, currentLegEntryTimestamp: true }; setActiveStopDetails(null); break;
         case 'proceed_to_next_leg': const newLegIdxForProceed = localCurrentLegIndex + 1; const currentStopArrayIndexForCharge = localCurrentLegIndex - 1; const targetPoint = journeyPoints[newLegIdxForProceed]; const targetType = newLegIdxForProceed === journeyPoints.length - 1 ? "final dropoff" : `stop ${newLegIdxForProceed}`; toastTitle = `Proceeding to ${targetType}`; toastMessage = `Navigating to ${targetPoint?.address || 'next location'}.`; payload.updatedLegDetails = { newLegIndex: newLegIdxForProceed, currentLegEntryTimestamp: true, }; if (activeStopDetails && activeStopDetails.stopDataIndex === currentStopArrayIndexForCharge && currentStopTimerDisplay && currentStopTimerDisplay.stopDataIndex === currentStopArrayIndexForCharge) { chargeForPreviousStop = currentStopTimerDisplay.charge; payload.updatedLegDetails.previousStopIndex = currentStopArrayIndexForCharge; payload.updatedLegDetails.waitingChargeForPreviousStop = chargeForPreviousStop; } setActiveStopDetails(null); if (updateDataFromPayload.driverCurrentLocation) payload.driverCurrentLocation = updateDataFromPayload.driverCurrentLocation; break;
-        case 'complete_ride': const baseFare = activeRide.fareEstimate || 0; const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0; let wrCharge = 0; if(activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) wrCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE; const finalFare = baseFare + priorityFee + currentWaitingCharge + accumulatedStopWaitingCharges + chargeForPreviousStop + wrCharge; toastTitle = "Ride Completed"; if (activeRide.paymentMethod === "account" && activeRide.accountJobPin) toastMessage = `Ride with ${activeRide.passengerName} completed. Account holder will be notified. PIN used: ${activeRide.accountJobPin}. Final Fare: £${finalFare.toFixed(2)}. (Job ID: ${activeRide.displayBookingId || activeRide.id})`; else toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, all waiting): £${finalFare.toFixed(2)}. (Job ID: ${activeRide.displayBookingId || activeRide.id})`; if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); payload.finalFare = finalFare; payload.completedAt = true; setActiveStopDetails(null); break;
+        case 'complete_ride': const baseFare = activeRide.fareEstimate || 0; const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0; let wrCharge = 0; if(activeRide.waitAndReturn && activeRide.estimatedAdditionalWaitTimeMinutes) wrCharge = Math.max(0, activeRide.estimatedAdditionalWaitTimeMinutes - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE_DRIVER; const finalFare = baseFare + priorityFee + currentWaitingCharge + accumulatedStopWaitingCharges + chargeForPreviousStop + wrCharge; toastTitle = "Ride Completed"; if (activeRide.paymentMethod === "account" && activeRide.accountJobPin) toastMessage = `Ride with ${activeRide.passengerName} completed. Account holder will be notified. PIN used: ${activeRide.accountJobPin}. Final Fare: £${finalFare.toFixed(2)}. (Job ID: ${activeRide.displayBookingId || activeRide.id})`; else toastMessage = `Ride with ${activeRide.passengerName} marked as completed. Final fare (incl. priority, all waiting): £${finalFare.toFixed(2)}. (Job ID: ${activeRide.displayBookingId || activeRide.id})`; if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); payload.finalFare = finalFare; payload.completedAt = true; setActiveStopDetails(null); break;
         case 'cancel_active': toastTitle = "Ride Cancelled By You"; toastMessage = `Active ride with ${activeRide.passengerName} cancelled.`; if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); setActiveStopDetails(null); setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges({}); setAckWindowSecondsLeft(null); setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0); payload.status = 'cancelled_by_driver'; payload.cancellationType = 'driver_cancelled_active'; break;
         case 'report_no_show': toastTitle = "No Show Reported"; toastMessage = `Passenger ${activeRide.passengerName} reported as no-show. Ride cancelled.`; if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current); setActiveStopDetails(null); setAccumulatedStopWaitingCharges(0); setCompletedStopWaitCharges({}); setAckWindowSecondsLeft(null); setFreeWaitingSecondsLeft(null); setExtraWaitingSeconds(null); setCurrentWaitingCharge(0); payload.status = 'cancelled_no_show'; payload.cancellationType = 'passenger_no_show'; payload.noShowFeeApplicable = true; payload.cancelledAt = Timestamp.now(); break;
         case 'accept_wait_and_return': toastTitle = "Wait & Return Accepted"; toastMessage = `Wait & Return for ${activeRide.passengerName} has been activated.`; payload.waitAndReturn = true; payload.status = 'in_progress_wait_and_return'; break;
@@ -1014,24 +1014,24 @@ export default function AvailableRidesPage() {
 
     if (status === 'arrived_at_pickup') return "Start Ride";
     if ((status === 'in_progress' || status === 'in_progress_wait_and_return')) {
-        if (activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx - 1)) {
-            const nextLegIsDropoff = currentLegIdx === journeyPoints.length - 1;
-            return `Depart Stop ${currentLegIdx} / To ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx + 1}`}`;
-        } else if (currentLegIdx < journeyPoints.length - 1) {
-            return `Arrived at ${currentLegIdx === 0 ? 'Pickup' : `Stop ${currentLegIdx}`} / Start Timer`;
-        } else if (currentLegIdx === journeyPoints.length - 1) {
-            return "Complete Ride";
-        }
+      if (activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx - 1)) {
+        const nextLegIsDropoff = currentLegIdx === journeyPoints.length - 1;
+        return `Depart Stop ${currentLegIdx} / To ${nextLegIsDropoff ? "Dropoff" : `Stop ${currentLegIdx + 1}`}`;
+      } else if (currentLegIdx < journeyPoints.length - 1) {
+        return `Arrived at ${currentLegIdx === 0 ? 'Pickup' : `Stop ${currentLegIdx}`} / Start Timer`;
+      } else if (currentLegIdx === journeyPoints.length - 1) {
+        return "Complete Ride";
+      }
     }
-    return "Status Action"; // Default or for unhandled states
+    return "Status Action";
   }
 
 
   const isMainButtonDisabled = (): boolean => {
     if (!activeRide || !!actionLoading[activeRide.id]) return true;
     const status = activeRide.status.toLowerCase();
-    if (status === 'driver_assigned' || status === 'pending_driver_wait_and_return_approval') return true; // No main action button in these states
-    return false; // Enable for arrived_at_pickup, in_progress, in_progress_wait_and_return
+    if (status === 'driver_assigned' || status === 'pending_driver_wait_and_return_approval') return true;
+    return false;
   };
 
   const mainButtonAction = (): void => {
@@ -1043,15 +1043,11 @@ export default function AvailableRidesPage() {
         handleRideAction(activeRide.id, 'start_ride');
     } else if ((status === 'in_progress' || status === 'in_progress_wait_and_return')) {
         if (activeStopDetails && activeStopDetails.stopDataIndex === (currentLegIdx - 1)) {
-            // We were waiting at a stop, now departing
             handleRideAction(activeRide.id, 'proceed_to_next_leg');
         } else if (currentLegIdx < journeyPoints.length - 1) {
-            // Arrived at current leg (pickup or intermediate stop), start timer for this stop
             setActiveStopDetails({ stopDataIndex: currentLegIdx, arrivalTime: new Date() });
-            // Potentially, backend could be notified of stop arrival here too if needed
             toast({ title: `Arrived at ${currentLegIdx === 0 ? 'Pickup' : `Stop ${currentLegIdx}`}`, description: "Stop waiting timer started." });
         } else if (currentLegIdx === journeyPoints.length - 1) {
-            // Arrived at final dropoff
             handleRideAction(activeRide.id, 'complete_ride');
         }
     }
@@ -1071,7 +1067,7 @@ export default function AvailableRidesPage() {
         <Button onClick={fetchActiveRide} variant="outline">Try Again</Button>
     </div>;
   }
-  
+
   const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
   const CurrentNavigationLegBar = () => {
@@ -1085,20 +1081,20 @@ export default function AvailableRidesPage() {
     let textColorClass = "text-gray-800 dark:text-gray-200";
     let legTypeLabel = "";
 
-    if (localCurrentLegIndex === 0) { 
+    if (localCurrentLegIndex === 0) {
       bgColorClass = "bg-green-100 dark:bg-green-900/50";
       textColorClass = "text-green-700 dark:text-green-300";
       legTypeLabel = activeRide.status === 'arrived_at_pickup' ? "AT PICKUP" : "TO PICKUP";
-    } else if (localCurrentLegIndex < journeyPoints.length - 1) { 
+    } else if (localCurrentLegIndex < journeyPoints.length - 1) {
       bgColorClass = "bg-yellow-100 dark:bg-yellow-800/50";
       textColorClass = "text-yellow-700 dark:text-yellow-300";
       legTypeLabel = `TO STOP ${localCurrentLegIndex}`;
-    } else { 
+    } else {
       bgColorClass = "bg-red-100 dark:bg-red-800/50";
       textColorClass = "text-red-700 dark:text-red-300";
       legTypeLabel = "TO DROPOFF";
     }
-    
+
     const addressParts = currentLeg.address.split(',');
     const primaryAddressLine = addressParts[0]?.trim();
     const secondaryAddressLine = addressParts.slice(1).join(',').trim();
@@ -1107,7 +1103,7 @@ export default function AvailableRidesPage() {
       <div className={cn(
         "absolute bottom-0 left-0 right-0 p-2.5 shadow-lg flex items-start justify-between gap-2 z-10 h-16",
         bgColorClass,
-        "border-t-2 border-black/20 dark:border-white/20" 
+        "border-t-2 border-black/20 dark:border-white/20"
       )}>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold text-xs uppercase tracking-wide", textColorClass)}>{legTypeLabel}</p>
@@ -1117,18 +1113,18 @@ export default function AvailableRidesPage() {
           {secondaryAddressLine && <p className={cn("font-bold text-xs truncate opacity-80", textColorClass)}>{secondaryAddressLine}</p>}
         </div>
         <div className="flex items-start gap-1.5 shrink-0">
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
             onClick={() => setIsJourneyDetailsModalOpen(true)}
             title="View Full Journey Details"
           >
             <Info className="h-4 w-4 text-slate-600 dark:text-slate-300" />
           </Button>
-          <Button 
-            variant="default" 
-            size="icon" 
+          <Button
+            variant="default"
+            size="icon"
             className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => {
                 if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
@@ -1183,27 +1179,29 @@ export default function AvailableRidesPage() {
   const handleToggleOnlineStatus = (newOnlineStatus: boolean) => { setIsDriverOnline(newOnlineStatus); if (newOnlineStatus) { setConsecutiveMissedOffers(0); if (geolocationError) setGeolocationError(null); setIsPollingEnabled(true); } else { setRideRequests([]); setIsPollingEnabled(false); if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; } } };
   const handleReportHazard = async (hazardType: string) => { if (!driverLocation) { toast({ title: "Location Unknown", description: "Cannot report hazard, current location not available.", variant: "destructive" }); return; } const payload = { hazardType: hazardType, location: driverLocation, reportedByDriverId: driverUser?.id || "unknown_driver", reportedAt: new Date().toISOString(), status: "active", }; console.log("Map Hazard Report Payload:", payload); try { const response = await fetch('/api/driver/map-hazards/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || "Failed to submit hazard report to server."); } toast({ title: "Hazard Reported", description: `${hazardType} reported at your current location. Other drivers will be notified.`, }); } catch (error) { console.error("Error reporting hazard:", error); toast({ title: "Hazard Report Failed", description: error instanceof Error ? error.message : "Could not send hazard report.", variant: "destructive", }); } setIsHazardReportDialogOpen(false); };
   const passengerPhone = activeRide?.passengerPhone;
-  let displayedFare = "£0.00"; 
-  let numericGrandTotal = 0; 
-  let hasPriority = false; 
-  let currentPriorityAmount = 0; 
-  let basePlusWRFare = 0; 
-  let paymentMethodDisplay = "N/A";
-  if (activeRide) { 
-    let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0; 
-    if (activeRide.waitAndReturn) { 
-      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70; 
-      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE_DRIVER; 
-      baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge; 
-    } 
-    numericGrandTotal = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0); 
-    displayedFare = `£${numericGrandTotal.toFixed(2)}`; 
-    paymentMethodDisplay = activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'cash' ? 'Cash' : activeRide.paymentMethod === 'account' ? 'Account' : 'Payment N/A'; 
-    hasPriority = !!(activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0); 
-    currentPriorityAmount = hasPriority && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0; 
-    basePlusWRFare = numericGrandTotal - currentPriorityAmount; 
-  }
 
+  // Ensure all variables used in JSX are defined before the main return
+  let displayedFare = "£0.00";
+  let numericGrandTotal = 0;
+  let hasPriority = false;
+  let currentPriorityAmount = 0;
+  let basePlusWRFare = 0;
+  let paymentMethodDisplay = "N/A";
+
+  if (activeRide) {
+    let baseFareWithWRSurchargeForDisplay = activeRide.fareEstimate || 0;
+    if (activeRide.waitAndReturn) {
+      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
+      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER) * STOP_WAITING_CHARGE_PER_MINUTE_DRIVER;
+      baseFareWithWRSurchargeForDisplay = wrBaseFare + additionalWaitCharge;
+    }
+    numericGrandTotal = baseFareWithWRSurchargeForDisplay + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0);
+    displayedFare = `£${numericGrandTotal.toFixed(2)}`;
+    paymentMethodDisplay = activeRide.paymentMethod === 'card' ? 'Card' : activeRide.paymentMethod === 'cash' ? 'Cash' : activeRide.paymentMethod === 'account' ? 'Account' : 'Payment N/A';
+    hasPriority = !!(activeRide.isPriorityPickup && activeRide.priorityFeeAmount && activeRide.priorityFeeAmount > 0);
+    currentPriorityAmount = hasPriority && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0; // Added ! for definite assignment if hasPriority is true
+    basePlusWRFare = numericGrandTotal - currentPriorityAmount;
+  }
   const mainActionBtnText = mainButtonText();
 
   return (
@@ -1217,11 +1215,11 @@ export default function AvailableRidesPage() {
         }
         <div className={cn(
           "relative flex-1 overflow-hidden",
-           (activeRide && !isRideTerminated(activeRide.status)) && "pb-16" // Padding for nav bar if active ride
+           (activeRide && !isRideTerminated(activeRide.status)) && "pb-16"
         )}>
             <div className={cn(
                 "absolute inset-0 rounded-md shadow-lg border",
-                (activeRide && !isRideTerminated(activeRide.status)) ? "" : "rounded-b-md" // Adjust rounding if nav bar is not present
+                (activeRide && !isRideTerminated(activeRide.status)) ? "" : "rounded-b-md"
             )}>
                 <GoogleMapDisplay
                 center={memoizedMapCenter}
@@ -1258,9 +1256,9 @@ export default function AvailableRidesPage() {
                 className={cn(
                   "bg-card shadow-2xl border-t-2 border-primary/30 rounded-t-xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out",
                   isRideTerminated(activeRide.status)
-                    ? "relative mt-4 rounded-xl max-h-none" 
-                    : [ 
-                        "absolute bottom-0 left-0 right-0 z-30 max-h-[50vh]", 
+                    ? "relative mt-4 rounded-xl max-h-none"
+                    : [
+                        "absolute bottom-0 left-0 right-0 z-30 max-h-[calc(55%-0.5rem)]",
                         isRideDetailsPanelMinimized ? "translate-y-full" : "translate-y-0"
                       ]
                 )}
