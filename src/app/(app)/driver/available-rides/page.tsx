@@ -1346,7 +1346,7 @@ export default function AvailableRidesPage() {
             }
             break;
         case 'complete_ride':
-            setIsPollingEnabled(false);
+            setIsPollingEnabled(false); 
             const baseFare = activeRide.fareEstimate || 0;
             const priorityFee = activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0;
             let wrCharge = 0;
@@ -1431,62 +1431,67 @@ export default function AvailableRidesPage() {
 
       const updatedBookingFromServer = await response.json();
       console.log(`handleRideAction (${actionType}): API success for ${rideId}. Server data:`, updatedBookingFromServer.booking);
-
-      setActiveRide(prev => {
-        if (!prev || prev.id !== rideId) {
-             console.warn(`handleRideAction (${actionType}): setActiveRide callback - prev.id (${prev?.id}) !== rideId (${rideId}). This shouldn't happen if activeRide is the source of truth.`);
-             return prev;
-        }
-        const serverData = updatedBookingFromServer.booking;
-        const newClientState: ActiveRide = {
-          ...prev,
-          status: serverData.status || prev.status,
-          notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
-          passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
-          rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
-          completedAt: serverData.completedAt || prev.completedAt,
-          fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
-          waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
-          estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
-          isPriorityPickup: serverData.isPriorityPickup ?? prev.isPriorityPickup,
-          priorityFeeAmount: serverData.priorityFeeAmount ?? prev.priorityFeeAmount,
-          passengerId: serverData.passengerId || prev.passengerId,
-          passengerName: serverData.passengerName || prev.passengerName,
-          passengerAvatar: serverData.passengerAvatar || prev.passengerAvatar,
-          passengerPhone: serverData.passengerPhone || prev.passengerPhone,
-          pickupLocation: serverData.pickupLocation || prev.pickupLocation,
-          dropoffLocation: serverData.dropoffLocation || prev.dropoffLocation,
-          stops: serverData.stops || prev.stops,
-          vehicleType: serverData.vehicleType || prev.vehicleType,
-          paymentMethod: serverData.paymentMethod || prev.paymentMethod,
-          notes: serverData.notes || prev.notes,
-          requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
-          dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
-          driverCurrentLocation: serverData.driverCurrentLocation,
-          accountJobPin: serverData.accountJobPin || prev.accountJobPin,
-          distanceMiles: serverData.distanceMiles || prev.distanceMiles,
-          cancellationFeeApplicable: serverData.cancellationFeeApplicable,
-          noShowFeeApplicable: serverData.noShowFeeApplicable,
-          cancellationType: serverData.cancellationType,
-          driverCurrentLegIndex: serverData.driverCurrentLegIndex !== undefined ? serverData.driverCurrentLegIndex : prev.driverCurrentLegIndex,
-          currentLegEntryTimestamp: serverData.currentLegEntryTimestamp || prev.currentLegEntryTimestamp,
-          completedStopWaitCharges: serverData.completedStopWaitCharges || prev.completedStopWaitCharges || {},
-        };
-        if (newClientState.driverCurrentLocation === undefined) {
-           newClientState.driverCurrentLocation = driverLocation;
-        }
-        console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
-        if (actionType === 'start_ride' || actionType === 'proceed_to_next_leg') {
-          setLocalCurrentLegIndex(newClientState.driverCurrentLegIndex || 0);
-        }
-        return newClientState;
-      });
-
-      toast({ title: toastTitle, description: toastMessage });
+      
+      toast({ title: toastTitle, description: toastMessage, duration: 6000 });
 
       if (actionType === 'complete_ride') {
+        // No longer setting activeRide to null here, redirect will handle view change.
         router.push(`/driver/ride-summary/${rideId}`);
-      } else if (actionType === 'cancel_active' || actionType === 'report_no_show') {
+      } else {
+         // For non-terminal actions, update the local state.
+        setActiveRide(prev => {
+            if (!prev || prev.id !== rideId) {
+                console.warn(`handleRideAction (${actionType}): setActiveRide callback - prev.id (${prev?.id}) !== rideId (${rideId}). This shouldn't happen if activeRide is the source of truth.`);
+                return prev;
+            }
+            const serverData = updatedBookingFromServer.booking;
+            const newClientState: ActiveRide = {
+            ...prev,
+            status: serverData.status || prev.status,
+            notifiedPassengerArrivalTimestamp: serverData.notifiedPassengerArrivalTimestamp || prev.notifiedPassengerArrivalTimestamp,
+            passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || prev.passengerAcknowledgedArrivalTimestamp,
+            rideStartedAt: serverData.rideStartedAt || prev.rideStartedAt,
+            completedAt: serverData.completedAt || prev.completedAt,
+            fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? prev.fareEstimate),
+            waitAndReturn: serverData.waitAndReturn ?? prev.waitAndReturn,
+            estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? prev.estimatedAdditionalWaitTimeMinutes,
+            isPriorityPickup: serverData.isPriorityPickup ?? prev.isPriorityPickup,
+            priorityFeeAmount: serverData.priorityFeeAmount ?? prev.priorityFeeAmount,
+            passengerId: serverData.passengerId || prev.passengerId,
+            passengerName: serverData.passengerName || prev.passengerName,
+            passengerAvatar: serverData.passengerAvatar || prev.passengerAvatar,
+            passengerPhone: serverData.passengerPhone || prev.passengerPhone,
+            pickupLocation: serverData.pickupLocation || prev.pickupLocation,
+            dropoffLocation: serverData.dropoffLocation || prev.dropoffLocation,
+            stops: serverData.stops || prev.stops,
+            vehicleType: serverData.vehicleType || prev.vehicleType,
+            paymentMethod: serverData.paymentMethod || prev.paymentMethod,
+            notes: serverData.notes || prev.notes,
+            requiredOperatorId: serverData.requiredOperatorId || prev.requiredOperatorId,
+            dispatchMethod: serverData.dispatchMethod || prev.dispatchMethod,
+            driverCurrentLocation: serverData.driverCurrentLocation,
+            accountJobPin: serverData.accountJobPin || prev.accountJobPin,
+            distanceMiles: serverData.distanceMiles || prev.distanceMiles,
+            cancellationFeeApplicable: serverData.cancellationFeeApplicable,
+            noShowFeeApplicable: serverData.noShowFeeApplicable,
+            cancellationType: serverData.cancellationType,
+            driverCurrentLegIndex: serverData.driverCurrentLegIndex !== undefined ? serverData.driverCurrentLegIndex : prev.driverCurrentLegIndex,
+            currentLegEntryTimestamp: serverData.currentLegEntryTimestamp || prev.currentLegEntryTimestamp,
+            completedStopWaitCharges: serverData.completedStopWaitCharges || prev.completedStopWaitCharges || {},
+            };
+            if (newClientState.driverCurrentLocation === undefined) {
+            newClientState.driverCurrentLocation = driverLocation;
+            }
+            console.log(`handleRideAction (${actionType}): Setting new activeRide state for ${rideId}:`, newClientState);
+            if (actionType === 'start_ride' || actionType === 'proceed_to_next_leg') {
+            setLocalCurrentLegIndex(newClientState.driverCurrentLegIndex || 0);
+            }
+            return newClientState;
+        });
+      }
+
+
+      if (actionType === 'cancel_active' || actionType === 'report_no_show') {
         console.log(`handleRideAction (${actionType}): Action is terminal for ride ${rideId}. Polling might resume if driver is online.`);
       }
 
@@ -1568,7 +1573,7 @@ export default function AvailableRidesPage() {
     }
   };
 
-  async function handleRequestWaitAndReturn() {
+  async function handleRequestWaitAndReturnInternal() { // Renamed to avoid conflict
     if (!activeRide || !driverUser) return;
     const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
@@ -1581,7 +1586,7 @@ export default function AvailableRidesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'request_wait_and_return',
+          action: 'request_wait_and_return', // This should be the passenger initiating via driver's app
           estimatedAdditionalWaitTimeMinutes: waitTimeMinutes
         }),
       });
@@ -1591,7 +1596,7 @@ export default function AvailableRidesPage() {
       }
       const updatedBooking = await response.json();
       setActiveRide(updatedBooking.booking);
-      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the driver for confirmation." });
+      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the passenger for confirmation." });
       setIsWRRequestDialogOpen(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error.";
@@ -1600,6 +1605,7 @@ export default function AvailableRidesPage() {
       setIsRequestingWR(false);
     }
   }
+
 
   const isMainButtonDisabled = () => {
     if (!activeRide || (actionLoading[activeRide.id] ?? false)) return true;
@@ -1665,7 +1671,7 @@ export default function AvailableRidesPage() {
                 <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7 md:h-8 md:h-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
+                    className="h-7 w-7 md:h-8 md:w-8 bg-white/80 dark:bg-slate-700/80 border-slate-400 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
                     onClick={() => setIsJourneyDetailsModalOpen(true)}
                     title="View Full Journey Details"
                 >
@@ -1674,7 +1680,7 @@ export default function AvailableRidesPage() {
                 <Button
                     variant="default"
                     size="icon"
-                    className="h-7 w-7 md:h-8 md:h-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    className="h-7 w-7 md:h-8 md:w-8 bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={() => {
                         if (currentLeg && currentLeg.latitude && currentLeg.longitude) {
                             const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${currentLeg.latitude},${currentLeg.longitude}`;
@@ -2354,7 +2360,7 @@ export default function AvailableRidesPage() {
               <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
                 <span>Cancel</span>
               </Button>
-              <Button type="button" onClick={handleRequestWaitAndReturn} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+              <Button type="button" onClick={handleRequestWaitAndReturnInternal} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
                 {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 <span>Request</span>
               </Button>
