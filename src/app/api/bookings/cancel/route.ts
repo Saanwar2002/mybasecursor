@@ -1,65 +1,61 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase'; 
+import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 
 interface CancelBookingPayload {
-  bookingId: string;
+  rideId: string;
   passengerId: string; // For verification
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { bookingId, passengerId } = (await request.json()) as CancelBookingPayload;
+    const { rideId, passengerId } = (await request.json()) as CancelBookingPayload;
 
-    if (!bookingId || !passengerId) {
-      return NextResponse.json({ message: 'Booking ID and Passenger ID are required.' }, { status: 400 });
+    if (!rideId || !passengerId) {
+      return NextResponse.json({ message: 'Ride ID and Passenger ID are required.' }, { status: 400 });
+    }
+    
+    if (!db) {
+        return NextResponse.json({ message: 'Database connection is not available.' }, { status: 500 });
     }
 
-    const bookingRef = doc(db, 'bookings', bookingId);
-    const bookingSnap = await getDoc(bookingRef);
+    const rideRef = doc(db, 'rides', rideId);
+    const rideSnap = await getDoc(rideRef);
 
-    if (!bookingSnap.exists()) {
-      return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
+    if (!rideSnap.exists()) {
+      return NextResponse.json({ message: `Ride with ID ${rideId} not found.` }, { status: 404 });
     }
 
-    const bookingData = bookingSnap.data();
+    const rideData = rideSnap.data();
 
     // Verify passenger ownership
-    if (bookingData.passengerId !== passengerId) {
-      return NextResponse.json({ message: 'You are not authorized to cancel this booking.' }, { status: 403 });
+    if (rideData.passengerId !== passengerId) {
+      return NextResponse.json({ message: 'You are not authorized to cancel this ride.' }, { status: 403 });
     }
 
-    // Check if the booking can be cancelled
-    if (bookingData.status !== 'pending_assignment') {
-      let reason = 'This booking cannot be cancelled.';
-      if (bookingData.status === 'driver_assigned') {
-        reason = 'Driver has already been assigned. Booking cannot be cancelled.';
-      } else if (bookingData.status === 'in_progress') {
-        reason = 'Ride is already in progress. Booking cannot be cancelled.';
-      } else if (bookingData.status === 'completed') {
-        reason = 'Ride has already been completed.';
-      } else if (bookingData.status === 'cancelled') {
-        reason = 'Ride has already been cancelled.';
-      }
-      return NextResponse.json({ message: reason, currentStatus: bookingData.status }, { status: 400 });
+    // Check if the ride can be cancelled
+    const cancellableStatuses = ['searching', 'driver_assigned', 'arrived_at_pickup'];
+    if (!cancellableStatuses.includes(rideData.status)) {
+        let reason = `This ride cannot be cancelled as it is already ${rideData.status.replace(/_/g, ' ')}.`;
+        return NextResponse.json({ message: reason, currentStatus: rideData.status }, { status: 409 });
     }
 
-    // Update the booking status to 'cancelled'
-    await updateDoc(bookingRef, {
+    // Update the ride status to 'cancelled'
+    await updateDoc(rideRef, {
       status: 'cancelled',
-      cancelledAt: Timestamp.now(), // Optionally add a cancellation timestamp
+      cancelledAt: Timestamp.now(),
+      cancellationReason: 'Cancelled by passenger',
     });
     
-    return NextResponse.json({ message: 'Booking cancelled successfully', bookingId }, { status: 200 });
+    return NextResponse.json({ message: 'Ride cancelled successfully', rideId }, { status: 200 });
 
   } catch (error) {
-    console.error('Error cancelling booking:', error);
+    console.error('Error cancelling ride:', error);
     let errorMessage = 'Internal Server Error';
     if (error instanceof Error) {
         errorMessage = error.message;
     }
-    return NextResponse.json({ message: 'Failed to cancel booking', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ message: 'Failed to cancel ride', error: errorMessage }, { status: 500 });
   }
 }

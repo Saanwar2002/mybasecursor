@@ -1,8 +1,9 @@
-
 "use client";
 
+import { LoginForm } from "@/components/auth/login-form-test";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoginForm } from "@/components/auth/login-form"; 
+import { Separator } from "@/components/ui/separator";
+import Image from "next/image";
 import { LogIn } from "lucide-react";
 
 export default function LoginPage() {

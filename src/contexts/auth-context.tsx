@@ -1,13 +1,13 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, db } from '@/lib/firebase'; 
-import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut } from 'firebase/auth'; 
-import { doc, getDoc, Timestamp } from 'firebase/firestore'; 
+import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut, signInAnonymously } from 'firebase/auth'; 
+import { doc, getDoc, Timestamp, setDoc } from 'firebase/firestore'; 
 import { useToast } from '@/hooks/use-toast'; 
+import { Firestore } from 'firebase/firestore';
 
 export type UserRole = 'passenger' | 'driver' | 'operator' | 'admin';
 
@@ -50,8 +50,9 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  loginWithEmail: (email: string, pass: string) => Promise<void>; 
-  loginAsGuest: (role: UserRole) => Promise<void>; 
+  db: Firestore | null;
+  login: (email: string, pass: string) => Promise<void>; 
+  loginAsGuest: (role: UserRole) => Promise<User>; 
   logout: () => void;
   loading: boolean;
   updateUserProfileInContext: (updatedProfileData: Partial<User>) => void;
@@ -214,82 +215,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const loginAsGuest = async (role: UserRole) => {
-    console.log(`AuthContext: loginAsGuest called for role: ${role}`);
+  const loginAsGuest = async (role: UserRole): Promise<User> => {
     setLoading(true);
-    if (auth) {
-      try {
-        await signOut(auth);
-        console.log("AuthContext.loginAsGuest: Signed out any existing Firebase user.");
-      } catch (e) {
-        console.warn("AuthContext.loginAsGuest: Error signing out Firebase user before guest login", e);
-      }
+    if (!auth || !db) {
+      const error = new Error("Authentication service not ready.");
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setLoading(false);
+      throw error;
     }
 
-    let guestUser: User | null = null;
-    const baseGuestData = {
-      id: `guest-${role}-${Date.now().toString().slice(-6)}`, 
-      email: `guest.${role}@example.com`,
-      phoneVerified: true,
-      status: 'Active' as 'Active',
-      phoneVerificationDeadline: null,
-      phoneNumber: `+155501${Math.floor(Math.random()*90)+10}`,
-      avatarUrl: null,
-    };
+    try {
+      await signOut(auth);
+      const userCredential = await signInAnonymously(auth);
+      const firebaseUser = userCredential.user;
+      
+      const guestUserData: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email || `guest-${firebaseUser.uid.slice(0,5)}@example.com`,
+        name: `Guest ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+        role: role,
+        status: 'Active',
+        phoneVerified: true,
+      };
 
-    switch (role) {
-      case 'passenger':
-        guestUser = { ...baseGuestData, name: 'Guest Passenger', role: 'passenger', preferredPaymentMethod: 'card' };
-        break;
-      case 'driver':
-        const isMyBaseDriver = Math.random() < 0.3;
-        const guestOperatorCode = isMyBaseDriver ? PLATFORM_OPERATOR_CODE : `OP-GUEST-${Math.floor(Math.random()*900)+100}`;
-        guestUser = {
-          ...baseGuestData,
-          name: `Guest Driver (${guestOperatorCode})`,
-          role: 'driver',
-          operatorCode: guestOperatorCode,
-          driverIdentifier: `DR-GUEST-${Math.floor(Math.random()*9000)+1000}`,
-          vehicleCategory: 'car',
-          customId: `DR-GUEST-${Math.floor(Math.random()*9000)+1000}`, 
-          acceptsPetFriendlyJobs: Math.random() < 0.5,
-          acceptsPlatformJobs: guestOperatorCode === PLATFORM_OPERATOR_CODE ? true : Math.random() < 0.7,
-          maxJourneyDistance: "no_limit", 
-          acceptsAccountJobs: true, 
-          vehicleMakeModel: 'Toyota Prius (Guest)',
-          vehicleRegistration: 'GUEST123',
-          vehicleColor: 'Silver',
-          insurancePolicyNumber: 'POL-GUEST-123',
-          insuranceExpiryDate: '2025-12-31',
-          motExpiryDate: '2025-06-30',
-          taxiLicenseNumber: 'PLATE-GUEST-789',
-          taxiLicenseExpiryDate: '2026-03-31',
-        };
-        break;
-      case 'operator':
-        guestUser = {
-          ...baseGuestData,
-          name: 'Guest Operator',
-          role: 'operator',
-          customId: `OP-GUEST-${Math.floor(Math.random()*900)+100}`, 
-          operatorCode: `OP-GUEST-${Math.floor(Math.random()*900)+100}`,
-          dispatchMode: 'auto', 
-        };
-        break;
-      case 'admin':
-        guestUser = { ...baseGuestData, name: 'Guest Admin', role: 'admin', operatorCode: PLATFORM_OPERATOR_CODE };
-        break;
-      default:
-        toast({ title: "Error", description: "Invalid guest role specified.", variant: "destructive" });
-        setLoading(false);
-        return;
-    }
+      // Create a basic user document in Firestore for the guest
+      await setDoc(doc(db, "users", firebaseUser.uid), {
+        name: guestUserData.name,
+        email: guestUserData.email,
+        role: guestUserData.role,
+        createdAt: Timestamp.now(),
+      });
 
-    if (guestUser) {
-      setUser(guestUser); 
-      toast({ title: "Guest Login Successful", description: `Logged in as ${guestUser.name} (${guestUser.role})` });
+      setUser(guestUserData);
+      setLoading(false);
+      return guestUserData;
+
+    } catch (error: any) {
+      console.error("Error during guest login:", error);
+      const errorMessage = error.message || "Could not sign in as guest.";
+      toast({ title: "Guest Login Failed", description: errorMessage, variant: "destructive" });
+      setLoading(false);
+      throw error;
     }
-    setLoading(false); 
   };
 
   const logout = async () => {
@@ -337,7 +304,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
   
-  const publicPaths = ['/login', '/register', '/forgot-password'];
+  const publicPaths = ['/login', '/register', '/forgot-password', '/test-marketing-layout'];
 
   useEffect(() => {
     if (loading) return; 
@@ -365,12 +332,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, loading, router, pathname]);
 
+  const value = {
+    user,
+    db,
+    loading,
+    login: loginWithEmail,
+    loginAsGuest,
+    logout,
+    updateUserProfileInContext,
+  };
 
-  return (
-    <AuthContext.Provider value={{ user, loginWithEmail, loginAsGuest, logout, loading, updateUserProfileInContext }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

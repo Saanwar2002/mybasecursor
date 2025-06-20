@@ -1,6 +1,5 @@
-
 import type { UserRole } from '@/contexts/auth-context';
-import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart, ServerCog, FileText, ShieldCheck, Leaf, SlidersHorizontal } from 'lucide-react'; // Added Leaf, SlidersHorizontal
+import { LayoutDashboard, Car, Sparkles, MessageCircle, History, UserCircle, Settings, DollarSign, Briefcase, BarChart3, Users, Star, MapPin, Contact, Send, Bot, Building, Shield, UserCog, UserCheck, UserX, UserSearch, BrainCircuit, Activity, CalendarClock, HelpCircle, MessageSquareWarning, CreditCard, Award, ThumbsUp, MessageSquareHeart, ServerCog, FileText, ShieldCheck, Leaf, SlidersHorizontal, User } from 'lucide-react'; // Added Leaf, SlidersHorizontal, User
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -23,6 +22,7 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/favorite-drivers', label: 'Favorite Drivers', icon: ThumbsUp, roles: ['passenger'] },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle, roles: ['passenger'] },
   { href: '/dashboard/help-support', label: 'Help & Support', icon: HelpCircle, roles: ['passenger'] },
+  { href: '/dashboard/guest-passenger', label: 'Guest Passenger', icon: User, roles: ['passenger'] },
   
   // Driver
   { href: '/driver', label: 'Driver Dashboard', icon: LayoutDashboard, roles: ['driver'] },
@@ -71,7 +71,7 @@ export const navItems: NavItem[] = [
     icon: Activity, 
     roles: ['admin'],
     subItems: [
-      { href: '/admin/user-feedback/list', label: 'User Feedback', icon: MessageSquareHeart, roles: ['admin'] },
+      { href: '/admin/user-feedback/list', label: 'User Feedback', icon: ThumbsUp, roles: ['admin'] },
       { href: '/admin/driver-incentives', label: 'Driver Incentives (Platform)', icon: Award, roles: ['admin'] }, 
       { href: '/admin/loyalty-program', label: 'Loyalty Program', icon: Star, roles: ['admin'] },
       { href: '/admin/server-monitoring', label: 'Server Monitoring', icon: ServerCog, roles: ['admin'] },

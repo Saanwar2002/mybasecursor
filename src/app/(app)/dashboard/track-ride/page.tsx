@@ -1,49 +1,16 @@
 "use client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, TimerIcon, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { MapPin, Car, Loader2, AlertTriangle, RefreshCw, Edit, X } from "lucide-react";
 import dynamic from 'next/dynamic';
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts/auth-context';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
-import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from "@/components/ui/separator";
-import Image from 'next/image';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescriptionDialog, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Renamed DialogDescription
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
-import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from '@/components/ui/scroll-area';
-import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
-import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
-import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
-import { formatAddressForMapLabel } from '@/lib/utils';
-import { doc as firestoreDoc, onSnapshot } from 'firebase/firestore';
+import { doc as firestoreDoc, onSnapshot, query, where, collection, limit, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Loader } from '@googlemaps/js-api-loader';
-
+import { useGoogleMaps } from '@/contexts/google-maps/google-maps-provider';
+import { useToast } from '@/hooks/use-toast';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -53,1367 +20,334 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 const carIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#2563EB" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(carIconSvg)}` : '';
 
-
 interface LocationPoint {
-  address: string;
   latitude: number;
   longitude: number;
-  doorOrFlat?: string;
-}
-
-interface SerializedTimestamp {
-  _seconds: number;
-  _nanoseconds: number;
+  address?: string;
 }
 
 interface ActiveRide {
   id: string;
   displayBookingId?: string;
-  originatingOperatorId?: string;
-  passengerName: string;
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
-  stops?: LocationPoint[];
-  vehicleType: string;
-  passengers: number;
-  driverId?: string;
-  fareEstimate: number;
-  status: string;
-  driver?: string;
-  driverAvatar?: string;
-  driverVehicleDetails?: string;
-  isPriorityPickup?: boolean;
-  priorityFeeAmount?: number;
-  isSurgeApplied?: boolean;
-  paymentMethod?: "card" | "cash" | "account";
-  bookingTimestamp?: SerializedTimestamp | null;
-  scheduledPickupAt?: string | null;
-  notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
-  passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
-  rideStartedAt?: SerializedTimestamp | string | null;
   driverCurrentLocation?: { lat: number; lng: number, heading?: number | null };
-  driverEtaMinutes?: number;
-  waitAndReturn?: boolean;
-  estimatedAdditionalWaitTimeMinutes?: number;
-  accountJobPin?: string;
-  driverCurrentLegIndex?: number; 
-  currentLegEntryTimestamp?: SerializedTimestamp | string | null; 
-  completedStopWaitCharges?: Record<number, number>;
+  driverName?: string;
+  driverVehicleDetails?: string;
+  status: string;
+  fareEstimate?: number;
+  vehicleType?: string;
+  paymentMethod?: 'card' | 'cash' | 'account';
+  bookingTimestamp?: { seconds: number; nanoseconds: number };
+  scheduledPickupAt?: string | null;
 }
-
-const formatDate = (timestamp?: SerializedTimestamp | string | null, isoString?: string | null): string => {
-  if (isoString) {
-    try {
-      const date = parseISO(isoString);
-      if (!isValid(date)) return 'Scheduled N/A';
-      return format(date, "MMM do, yyyy 'at' p");
-    } catch (e) { return 'Scheduled N/A'; }
-  }
-   if (!timestamp) return 'N/A';
-  if (typeof timestamp === 'string') {
-    try {
-      const date = new Date(timestamp);
-      return isNaN(date.getTime()) ? 'N/A (Invalid ISO str)' : format(date, "MMM do, yyyy 'at' p");
-    } catch (e) { return 'N/A (ISO Parse Err)';}
-  }
-  if (typeof timestamp === 'object' && '_seconds' in timestamp && '_nanoseconds' in timestamp) {
-     try {
-      const date = new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
-      if (!isValid(date)) return 'Invalid Date Obj';
-      return format(date, "MMM do, yyyy 'at' p");
-    } catch (e) { return 'Date Conversion Err'; }
-  }
-  return 'N/A (Unknown format)';
-};
-
-const editDetailsFormSchema = z.object({
-  pickupDoorOrFlat: z.string().max(50).optional(),
-  pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
-  dropoffDoorOrFlat: z.string().max(50).optional(),
-  dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
-  stops: z.array(z.object({
-      doorOrFlat: z.string().max(50).optional(),
-      location: z.string().min(3, { message: "Stop location must be at least 3 characters." })
-  })).optional(),
-  desiredPickupDate: z.date().optional(),
-  desiredPickupTime: z.string().optional(),
-}).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
-  message: "If scheduling, both date and time must be provided. For ASAP, leave both empty.", path: ["desiredPickupTime"],
-});
-
-type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
-type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
-
-const PASSENGER_PICKUP_FREE_WAITING_SECONDS = 3 * 60; 
-const PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS = 30; 
-const PASSENGER_WAITING_CHARGE_PER_MINUTE = 0.20; 
-const PASSENGER_STOP_FREE_WAITING_SECONDS = 1 * 60; 
-const PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE = 0.25; 
-
-const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR = 10;
-
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
-const blueDotSvg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="#FFFFFF" stroke-width="2"/>
-    <circle cx="12" cy="12" r="10" fill="#4285F4" fill-opacity="0.3"/>
-  </svg>
-`;
-const blueDotSvgDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(blueDotSvg)}` : '';
-
-
-const parseTimestampToDatePassenger = (timestamp: SerializedTimestamp | string | null | undefined): Date | null => {
-  if (!timestamp) return null;
-  if (typeof timestamp === 'string') {
-    const date = new Date(timestamp);
-    return isNaN(date.getTime()) ? null : date;
-  }
-  if (typeof timestamp === 'object' && ('_seconds' in timestamp) && ('_nanoseconds' in timestamp)) {
-    return new Date(timestamp._seconds * 1000 + timestamp._nanoseconds / 1000000);
-  }
-  return null;
-};
-
-const formatTimerPassenger = (totalSeconds: number): string => {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-};
-
-
-const BASE_FARE = 0.00;
-const PER_MILE_RATE = 1.00;
-const FIRST_MILE_SURCHARGE = 1.99;
-const PER_MINUTE_RATE = 0.10;
-const AVERAGE_SPEED_MPH = 15;
-const BOOKING_FEE = 0.75;
-const MINIMUM_FARE = 4.00;
-const PER_STOP_SURCHARGE = 0.50;
-const PET_FRIENDLY_SURCHARGE = 2.00;
-
-function deg2rad(deg: number): number { return deg * (Math.PI / 180); }
-function getDistanceInMiles(coords1: google.maps.LatLngLiteral | null, coords2: google.maps.LatLngLiteral | null): number {
-  if (!coords1 || !coords2) return 0;
-  const R = 6371;
-  const dLat = deg2rad(coords2.lat - coords1.lat);
-  const dLon = deg2rad(coords2.lng - coords1.lng);
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(coords1.lat)) * Math.cos(deg2rad(coords2.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c;
-  return d * 0.621371;
-}
-
-
 export default function MyActiveRidePage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isLoaded: isGoogleMapsLoaded, google } = useGoogleMaps();
   const { toast } = useToast();
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [routePolyline, setRoutePolyline] = useState<google.maps.LatLngLiteral[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
 
-  const [rideToEditDetails, setRideToEditDetails] = useState<ActiveRide | null>(null);
-  const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
-  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
-
-  const [dialogPickupInputValue, setDialogPickupInputValue] = useState("");
-  const [dialogPickupSuggestions, setDialogPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [showDialogPickupSuggestions, setShowDialogPickupSuggestions] = useState(false);
-  const [isFetchingDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions] = useState(false);
-  const [isFetchingDialogPickupDetails, setIsFetchingDialogPickupDetails] = useState(false);
-  const [dialogPickupCoords, setDialogPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
-
-  const [dialogDropoffInputValue, setDialogDropoffInputValue] = useState("");
-  const [dialogDropoffSuggestions, setDialogDropoffSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [showDialogDropoffSuggestions, setShowDialogDropoffSuggestions] = useState(false);
-  const [isFetchingDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions] = useState(false);
-  const [isFetchingDialogDropoffDetails, setIsFetchingDialogDropoffDetails] = useState(false);
-  const [dialogDropoffCoords, setDialogDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
-
-  const [dialogStopAutocompleteData, setDialogStopAutocompleteData] = useState<DialogAutocompleteData[]>([]);
-  const [dialogFareEstimate, setDialogFareEstimate] = useState<number | null>(null);
-
-
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
-  const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
-  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
-
-  const driverLocation = useMemo(() => activeRide?.driverCurrentLocation || huddersfieldCenterGoogle, [activeRide?.driverCurrentLocation]);
-
-  const [passengerAckWindowSecondsLeft, setPassengerAckWindowSecondsLeft] = useState<number | null>(null);
-  const [passengerFreeWaitingSecondsLeft, setPassengerFreeWaitingSecondsLeft] = useState<number | null>(null);
-  const [isPassengerBeyondFreeWaitingPickup, setIsPassengerBeyondFreeWaitingPickup] = useState<boolean>(false);
-  const [passengerExtraWaitingSecondsPickup, setPassengerExtraWaitingSecondsPickup] = useState<number | null>(null);
-  const [currentPassengerWaitingChargePickup, setCurrentPassengerWaitingChargePickup] = useState<number>(0);
-  const passengerWaitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const [currentPassengerStopTimerDisplay, setCurrentPassengerStopTimerDisplay] = useState<{ stopDataIndex: number; freeSecondsLeft: number | null; extraSeconds: number | null; charge: number; } | null>(null);
-  const passengerStopTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [isRequestingWR, setIsRequestingWR] = useState(false);
-  const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
-  const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
-
-  const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
-
-  const [showEndOfRideReminder, setShowEndOfRideReminder] = useState(false);
-  const endOfRideReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [rideIdToCancel, setRideIdToCancel] = useState<string | null>(null);
-  const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
-  const [cancellationSuccess, setCancellationSuccess] = useState(false);
-
-  const [liveDriverLocation, setLiveDriverLocation] = useState<google.maps.LatLngLiteral | null>(null);
-
-  const editDetailsForm = useForm<EditDetailsFormValues>({
-    resolver: zodResolver(editDetailsFormSchema),
-    defaultValues: { pickupDoorOrFlat: "", pickupLocation: "", dropoffDoorOrFlat: "", dropoffLocation: "", stops: [], desiredPickupDate: undefined, desiredPickupTime: "" },
-  });
-
-  const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
-  const previousEditStopsLengthRef = useRef(editStopsFields.length);
-
-  const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
-  
   useEffect(() => {
-    if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
-      if (!autocompleteServiceRef.current && window.google.maps.places) {
-        autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-      }
-      if (!placesServiceRef.current && window.google.maps.places) {
-        const dummyDiv = document.createElement('div'); 
-        placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
-      }
-      if (!autocompleteSessionTokenRef.current && window.google.maps.places) {
-        autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
-      }
+    if (authLoading) {
+      return; 
     }
-  }, [isMapSdkLoaded]);
 
-
-  useEffect(() => {
-    if (isEditDetailsDialogOpen) {
-        editDetailsForm.setFocus('pickupLocation');
-    }
-  }, [isEditDetailsDialogOpen, editDetailsForm]);
-
-  useEffect(() => {
-    if (editStopsFields.length > previousEditStopsLengthRef.current) {
-      const newStopIndex = editStopsFields.length - 1;
-      setTimeout(() => {
-        editDetailsForm.setFocus(`stops.${newStopIndex}.location`);
-      }, 100);
-    }
-    previousEditStopsLengthRef.current = editStopsFields.length;
-  }, [editStopsFields, editDetailsForm]);
-
-
-  const fetchActiveRide = useCallback(async () => {
-    if (!user) return;
-    setError(null);
-    try {
-      const response = await fetch(`/api/bookings/my-active-ride?passengerId=${user.id}`);
-      if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`})); throw new Error(errorData.details || errorData.message); }
-      const data: ActiveRide | null = await response.json();
-      setActiveRide(data);
-    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; setError(message); toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" });
-    } finally { setIsLoading(false); }
-  }, [user, toast]);
-
-  useEffect(() => {
-    if (user) {
-      fetchActiveRide();
-      const rideRefreshInterval = setInterval(fetchActiveRide, 30000);
-      return () => clearInterval(rideRefreshInterval);
-    } else {
+    if (!user?.id) {
       setIsLoading(false);
-    }
-  }, [user, fetchActiveRide]);
-
-  useEffect(() => {
-    if (activeRide && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup')) {
-      const interval = setInterval(() => {
-        setActiveRide(prev => {
-          if (!prev) return null;
-          let newEta = prev.driverEtaMinutes ? Math.max(0, prev.driverEtaMinutes - 1) : (Math.floor(Math.random() * 5) + 2);
-          if (prev.status === 'arrived_at_pickup') newEta = 0;
-          return { ...prev, driverEtaMinutes: newEta };
-        });
-      }, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [activeRide]);
-
- useEffect(() => {
-    if (passengerWaitingTimerIntervalRef.current) {
-      clearInterval(passengerWaitingTimerIntervalRef.current);
-      passengerWaitingTimerIntervalRef.current = null;
-    }
-
-    const notifiedTime = parseTimestampToDatePassenger(activeRide?.notifiedPassengerArrivalTimestamp);
-    const ackTime = parseTimestampToDatePassenger(activeRide?.passengerAcknowledgedArrivalTimestamp);
-
-    if (activeRide?.status === 'arrived_at_pickup' && notifiedTime) {
-      const updateTimers = () => {
-        const now = new Date();
-        const secondsSinceNotified = Math.floor((now.getTime() - notifiedTime.getTime()) / 1000);
-
-        if (!ackTime) {
-          if (secondsSinceNotified < PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS) {
-            setPassengerAckWindowSecondsLeft(PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS - secondsSinceNotified);
-            setPassengerFreeWaitingSecondsLeft(PASSENGER_PICKUP_FREE_WAITING_SECONDS);
-            setIsPassengerBeyondFreeWaitingPickup(false);
-            setPassengerExtraWaitingSecondsPickup(null);
-            setCurrentPassengerWaitingChargePickup(0);
-          } else {
-            setPassengerAckWindowSecondsLeft(0);
-            const effectiveFreeWaitStartTime = addMinutes(notifiedTime, PASSENGER_ACKNOWLEDGMENT_WINDOW_SECONDS / 60);
-            const secondsSinceEffectiveFreeWaitStart = Math.floor((now.getTime() - effectiveFreeWaitStartTime.getTime()) / 1000);
-
-            if (secondsSinceEffectiveFreeWaitStart < PASSENGER_PICKUP_FREE_WAITING_SECONDS) {
-              setPassengerFreeWaitingSecondsLeft(PASSENGER_PICKUP_FREE_WAITING_SECONDS - secondsSinceEffectiveFreeWaitStart);
-              setIsPassengerBeyondFreeWaitingPickup(false);
-              setPassengerExtraWaitingSecondsPickup(null);
-              setCurrentPassengerWaitingChargePickup(0);
-            } else {
-              setPassengerFreeWaitingSecondsLeft(0);
-              setIsPassengerBeyondFreeWaitingPickup(true);
-              const currentExtra = secondsSinceEffectiveFreeWaitStart - PASSENGER_PICKUP_FREE_WAITING_SECONDS;
-              setPassengerExtraWaitingSecondsPickup(currentExtra);
-              setCurrentPassengerWaitingChargePickup(Math.floor(currentExtra / 60) * PASSENGER_WAITING_CHARGE_PER_MINUTE);
-            }
-          }
-        } else { 
-          setPassengerAckWindowSecondsLeft(null);
-          const secondsSinceAck = Math.floor((now.getTime() - ackTime.getTime()) / 1000);
-          if (secondsSinceAck < PASSENGER_PICKUP_FREE_WAITING_SECONDS) {
-            setPassengerFreeWaitingSecondsLeft(PASSENGER_PICKUP_FREE_WAITING_SECONDS - secondsSinceAck);
-            setIsPassengerBeyondFreeWaitingPickup(false);
-            setPassengerExtraWaitingSecondsPickup(null);
-            setCurrentPassengerWaitingChargePickup(0);
-          } else {
-            setPassengerFreeWaitingSecondsLeft(0);
-            setIsPassengerBeyondFreeWaitingPickup(true);
-            const currentExtra = secondsSinceAck - PASSENGER_PICKUP_FREE_WAITING_SECONDS;
-            setPassengerExtraWaitingSecondsPickup(currentExtra);
-            setCurrentPassengerWaitingChargePickup(Math.floor(currentExtra / 60) * PASSENGER_WAITING_CHARGE_PER_MINUTE);
-          }
-        }
-      };
-      updateTimers();
-      passengerWaitingTimerIntervalRef.current = setInterval(updateTimers, 1000);
-    } else {
-      setPassengerAckWindowSecondsLeft(null);
-      setPassengerFreeWaitingSecondsLeft(null);
-      setIsPassengerBeyondFreeWaitingPickup(false);
-      setPassengerExtraWaitingSecondsPickup(null);
-      setCurrentPassengerWaitingChargePickup(0);
-    }
-    return () => {
-      if (passengerWaitingTimerIntervalRef.current) {
-        clearInterval(passengerWaitingTimerIntervalRef.current);
-      }
-    };
-  }, [activeRide?.status, activeRide?.notifiedPassengerArrivalTimestamp, activeRide?.passengerAcknowledgedArrivalTimestamp]);
-
-
-  useEffect(() => {
-    if (passengerStopTimerIntervalRef.current) {
-        clearInterval(passengerStopTimerIntervalRef.current);
-        passengerStopTimerIntervalRef.current = null;
-    }
-    const currentLegIndex = activeRide?.driverCurrentLegIndex;
-    const legEntryTime = parseTimestampToDatePassenger(activeRide?.currentLegEntryTimestamp);
-    const isAtIntermediateStop = activeRide &&
-                                 (activeRide.status === 'in_progress' || activeRide.status === 'in_progress_wait_and_return') &&
-                                 currentLegIndex !== undefined &&
-                                 legEntryTime &&
-                                 currentLegIndex > 0 && 
-                                 currentLegIndex < ((activeRide.stops?.length || 0) + 1); 
-
-    if (isAtIntermediateStop) {
-        const stopDataIndex = currentLegIndex! -1; 
-        const updateStopTimer = () => {
-            const now = new Date();
-            const secondsSinceStopArrival = Math.floor((now.getTime() - legEntryTime!.getTime()) / 1000);
-            let freeSeconds = PASSENGER_STOP_FREE_WAITING_SECONDS - secondsSinceStopArrival;
-            let extraSeconds = 0;
-            let charge = 0;
-            if (freeSeconds < 0) {
-                extraSeconds = -freeSeconds;
-                freeSeconds = 0;
-                charge = Math.floor(extraSeconds / 60) * PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE;
-            }
-            setCurrentPassengerStopTimerDisplay({ stopDataIndex, freeSecondsLeft: freeSeconds, extraSeconds, charge });
-        };
-        updateStopTimer();
-        passengerStopTimerIntervalRef.current = setInterval(updateStopTimer, 1000);
-    } else {
-        setCurrentPassengerStopTimerDisplay(null);
-    }
-    return () => { if (passengerStopTimerIntervalRef.current) clearInterval(passengerStopTimerIntervalRef.current); };
-  }, [activeRide?.status, activeRide?.driverCurrentLegIndex, activeRide?.currentLegEntryTimestamp, activeRide?.stops]);
-
-
-  useEffect(() => {
-    if (endOfRideReminderTimerRef.current) {
-      clearTimeout(endOfRideReminderTimerRef.current);
-    }
-    if (activeRide?.status === 'in_progress') {
-      setShowEndOfRideReminder(false); 
-      endOfRideReminderTimerRef.current = setTimeout(() => {
-        setShowEndOfRideReminder(true);
-      }, 8000); 
-    } else {
-      setShowEndOfRideReminder(false); 
-    }
-    return () => {
-      if (endOfRideReminderTimerRef.current) {
-        clearTimeout(endOfRideReminderTimerRef.current);
-      }
-    };
-  }, [activeRide?.status]);
-
-  useEffect(() => {
-    if (!db || !activeRide?.id) return;
-    const rideDocRef = firestoreDoc(db, 'bookings', activeRide.id);
-    const unsubscribe = onSnapshot(rideDocRef, (docSnap) => {
-      const data = docSnap.data();
-      if (data && data.driverCurrentLocation) {
-        setLiveDriverLocation(data.driverCurrentLocation);
-      }
-    });
-    return () => unsubscribe();
-  }, [db, activeRide?.id]);
-
-  const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
-    setRideToEditDetails(ride);
-    editDetailsForm.reset({
-        pickupDoorOrFlat: ride.pickupLocation?.doorOrFlat || "", pickupLocation: ride.pickupLocation?.address || "",
-        dropoffDoorOrFlat: ride.dropoffLocation?.doorOrFlat || "", dropoffLocation: ride.dropoffLocation?.address || "",
-        stops: ride.stops?.map(s => ({ location: s.address, doorOrFlat: s.doorOrFlat || ""})) || [],
-        desiredPickupDate: ride.scheduledPickupAt ? parseISO(ride.scheduledPickupAt) : undefined,
-        desiredPickupTime: ride.scheduledPickupAt ? format(parseISO(ride.scheduledPickupAt), "HH:mm") : "",
-    });
-    setDialogPickupInputValue(ride.pickupLocation?.address || ""); setDialogPickupCoords(ride.pickupLocation ? { lat: ride.pickupLocation.latitude, lng: ride.pickupLocation.longitude } : null);
-    setDialogDropoffInputValue(ride.dropoffLocation?.address || ""); setDialogDropoffCoords(ride.dropoffLocation ? { lat: ride.dropoffLocation.latitude, lng: ride.dropoffLocation.longitude } : null);
-    const initialStopData: DialogAutocompleteData[] = (ride.stops || []).map((stop, index) => ({ fieldId: `dialog-stop-${index}-${Date.now()}`, inputValue: stop.address, coords: { lat: stop.latitude, lng: stop.longitude }, suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, }));
-    setDialogStopAutocompleteData(initialStopData); setIsEditDetailsDialogOpen(true);
-  };
-
-  const fetchAddressSuggestions = useCallback(
-    (
-      inputValue: string,
-      setSuggestionsFunc: (suggestions: google.maps.places.AutocompletePrediction[]) => void,
-      setIsFetchingFunc: (isFetching: boolean) => void
-    ) => {
-      if (!isMapSdkLoaded || !autocompleteServiceRef.current || inputValue.length < 2) {
-        setSuggestionsFunc([]);
-        setIsFetchingFunc(false);
-        return;
-      }
-      setIsFetchingFunc(true);
-      console.log(`[EditDialog] Fetching predictions for (from fetchAddressSuggestions): "${inputValue}"`);
-      autocompleteServiceRef.current.getPlacePredictions(
-        {
-          input: inputValue,
-          sessionToken: autocompleteSessionTokenRef.current,
-          componentRestrictions: { country: 'gb' },
-        },
-        (predictions, status) => {
-          setIsFetchingFunc(false);
-          console.log(`[EditDialog] getPlacePredictions for "${inputValue}": Status - ${status}`, predictions);
-          setSuggestionsFunc(status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []);
-        }
-      );
-    },
-    [isMapSdkLoaded] 
-  );
-
-  const handleEditAddressInputChangeFactory = useCallback((
-    formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number
-  ) => (
-    inputValue: string,
-    formOnChange: (value: string) => void,
-  ) => {
-    formOnChange(inputValue); 
-    setDialogFareEstimate(null);
-    
-    let setSuggestionsFunc: (s: google.maps.places.AutocompletePrediction[]) => void;
-    let setIsFetchingSuggFunc: (f: boolean) => void;
-    let setShowSuggFunc: (s: boolean) => void;
-    let setCoordsFunc: (c: google.maps.LatLngLiteral | null) => void;
-    let setInputValFunc: (v: string) => void;
-
-    if (typeof formFieldNameOrStopIndex === 'number') {
-        setInputValFunc = (val) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, inputValue: val } : item));
-        setCoordsFunc = (coords) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, coords: coords } : item));
-        setShowSuggFunc = (show) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, showSuggestions: show } : item));
-        setIsFetchingSuggFunc = (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch } : item));
-        setSuggestionsFunc = (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === formFieldNameOrStopIndex ? {...item, suggestions: sugg } : item));
-    } else if (formFieldNameOrStopIndex === 'pickupLocation') {
-        setInputValFunc = setDialogPickupInputValue; setCoordsFunc = setDialogPickupCoords; setShowSuggFunc = setShowDialogPickupSuggestions; setIsFetchingSuggFunc = setIsFetchingDialogPickupSuggestions; setSuggestionsFunc = setDialogPickupSuggestions;
-    } else {
-        setInputValFunc = setDialogDropoffInputValue; setCoordsFunc = setDialogDropoffCoords; setShowSuggFunc = setShowDialogDropoffSuggestions; setIsFetchingSuggFunc = setIsFetchingDialogDropoffSuggestions; setSuggestionsFunc = setDialogDropoffSuggestions;
-    }
-    
-    setInputValFunc(inputValue);
-    setCoordsFunc(null);
-    setShowSuggFunc(inputValue.length >=2);
-
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    if (inputValue.length < 2) { setIsFetchingSuggFunc(false); setSuggestionsFunc([]); return; }
-    
-    setIsFetchingSuggFunc(true); 
-    setSuggestionsFunc([]);
-    console.log(`[EditDialog] Debounced: Fetching predictions for: "${inputValue}"`);
-    debounceTimeoutRef.current = setTimeout(() => {
-      fetchAddressSuggestions(inputValue, setSuggestionsFunc, setIsFetchingSuggFunc);
-    }, 300);
-  }, [isMapSdkLoaded, fetchAddressSuggestions]);
-
-
- const handleEditSuggestionClickFactory = useCallback((formFieldNameOrStopIndex: 'pickupLocation' | 'dropoffLocation' | number) => (suggestion: google.maps.places.AutocompletePrediction, formOnChange: (value: string) => void) => {
-    const addressText = suggestion?.description; 
-    if (!isMapSdkLoaded || !placesServiceRef.current || !autocompleteSessionTokenRef.current || !addressText || !suggestion.place_id) {
-        console.warn(`[EditDialog] Places service, token, address, or place_id NOT READY for suggestion click. isMapSdkLoaded: ${isMapSdkLoaded}`);
-        if (addressText) formOnChange(addressText); 
-        return;
-    }
-    
-    const setIsFetchingDetailsFunc = (isFetching: boolean) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, isFetchingDetails: isFetching } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') setIsFetchingDialogPickupDetails(isFetching);
-        else setIsFetchingDialogDropoffDetails(isFetching);
-    };
-    const setCoordsFunc = (coords: google.maps.LatLngLiteral | null, finalAddress: string) => {
-        if (typeof formFieldNameOrStopIndex === 'number') setDialogStopAutocompleteData(prev => prev.map((item, idx) => idx === formFieldNameOrStopIndex ? { ...item, coords, inputValue: finalAddress, showSuggestions: false } : item));
-        else if (formFieldNameOrStopIndex === 'pickupLocation') { setDialogPickupCoords(coords); setDialogPickupInputValue(finalAddress); setShowDialogPickupSuggestions(false); }
-        else { setDialogDropoffCoords(coords); setDialogDropoffInputValue(finalAddress); setShowDialogDropoffSuggestions(false); }
-    };
-
-    setIsFetchingDetailsFunc(true);
-    placesServiceRef.current.getDetails(
-        { placeId: suggestion.place_id, fields: ['geometry.location', 'formatted_address', 'address_components'], sessionToken: autocompleteSessionTokenRef.current }, 
-        (place, status) => {
-            setIsFetchingDetailsFunc(false);
-            const finalAddressToSet = place?.formatted_address || addressText;
-            formOnChange(finalAddressToSet); 
-
-            if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-                setCoordsFunc({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() }, finalAddressToSet);
-                toast({ title: "Location Updated", description: `${finalAddressToSet} selected.`});
-            } else { 
-                setCoordsFunc(null, finalAddressToSet); 
-                toast({title: "Geocoding Error", description: "Could not get coordinates for selection.", variant: "destructive"});
-            }
-            if (typeof window !== 'undefined' && window.google && window.google.maps && window.google.maps.places) {
-                 autocompleteSessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken(); 
-            } else {
-                console.warn("[EditDialog] Google Places API not fully available to refresh session token.");
-            }
-        }
-    );
-  }, [isMapSdkLoaded, toast]);
-
-
-  const handleEditFocusFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
-    if (typeof fieldNameOrIndex === 'number') {
-      const stop = dialogStopAutocompleteData[fieldNameOrIndex];
-      if (stop?.inputValue.length >= 2) { 
-        setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: true} : item));
-        if (!stop.suggestions?.length && !stop.isFetchingSuggestions && isMapSdkLoaded) { 
-            fetchAddressSuggestions(stop.inputValue, 
-                (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, suggestions: sugg} : item)),
-                (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, isFetchingSuggestions: fetch} : item))
-            );
-        }
-      }
-    } else if (fieldNameOrIndex === 'pickupLocation') {
-      if (dialogPickupInputValue.length >= 2 && isMapSdkLoaded) {
-        setShowDialogPickupSuggestions(true);
-        if (!dialogPickupSuggestions?.length && !isFetchingDialogPickupSuggestions) {
-            fetchAddressSuggestions(dialogPickupInputValue, setDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions);
-        }
-      }
-    } else if (fieldNameOrIndex === 'dropoffLocation') {
-      if (dialogDropoffInputValue.length >= 2 && isMapSdkLoaded) {
-        setShowDialogDropoffSuggestions(true);
-        if (!dialogDropoffSuggestions?.length && !isFetchingDialogDropoffSuggestions) {
-            fetchAddressSuggestions(dialogDropoffInputValue, setDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions);
-        }
-      }
-    }
-  };
-  const handleEditBlurFactory = (fieldNameOrIndex: 'pickupLocation' | 'dropoffLocation' | number) => () => {
-    setTimeout(() => { 
-        if (typeof fieldNameOrIndex === 'number') setDialogStopAutocompleteData(p => p.map((item, i) => i === fieldNameOrIndex ? {...item, showSuggestions: false} : item)); 
-        else if (fieldNameOrIndex === 'pickupLocation') setShowDialogPickupSuggestions(false); 
-        else setShowDialogDropoffSuggestions(false); 
-    }, 500); 
-  };
-
-  const onEditDetailsSubmit = async (values: EditDetailsFormValues) => {
-    if (!rideToEditDetails || !user || !dialogPickupCoords || !dialogDropoffCoords) { toast({ title: "Error", description: "Missing ride data or user session.", variant: "destructive" }); return; }
-    const validStopsData = [];
-    for (let i = 0; i < (values.stops?.length || 0); i++) { const stopValue = values.stops?.[i]; const stopCoordsData = dialogStopAutocompleteData[i]; if (stopValue?.location && stopValue.location.trim() !== "" && !stopCoordsData?.coords) { toast({ title: `Stop ${i + 1} Incomplete`, description: `Please ensure Stop ${i + 1} has coordinates by selecting from suggestions.`, variant: "destructive" }); return; } if (stopValue?.location && stopValue.location.trim() !== "" && stopCoordsData?.coords) { validStopsData.push({ address: stopValue.location, latitude: stopCoordsData.coords.lat, longitude: stopCoordsData.coords.lng, doorOrFlat: stopValue.doorOrFlat }); } }
-    setIsUpdatingDetails(true); let scheduledAtISO: string | null = null;
-    if (values.desiredPickupDate && values.desiredPickupTime) { const [hours, minutes] = values.desiredPickupTime.split(':').map(Number); const combinedDateTime = new Date(values.desiredPickupDate); combinedDateTime.setHours(hours, minutes, 0, 0); scheduledAtISO = combinedDateTime.toISOString(); }
-    
-    const payload: any = {  
-        bookingId: rideToEditDetails.id, 
-        passengerId: user.id, 
-        pickupLocation: { address: values.pickupLocation, latitude: dialogPickupCoords.lat, longitude: dialogPickupCoords.lng, doorOrFlat: values.pickupDoorOrFlat }, 
-        dropoffLocation: { address: values.dropoffLocation, latitude: dialogDropoffCoords.lat, longitude: dialogDropoffCoords.lng, doorOrFlat: values.dropoffDoorOrFlat }, 
-        stops: validStopsData, 
-        scheduledPickupAt: scheduledAtISO, 
-        fareEstimate: dialogFareEstimate !== null ? dialogFareEstimate : undefined,
-    };
-
-
-    try {
-        const response = await fetch(`/api/bookings/update-details`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)});
-        if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to update booking.'); }
-        const updatedRideDataFromServer = await response.json();
-        
-        setActiveRide(prev => prev ? { 
-            ...prev,  
-            pickupLocation: updatedRideDataFromServer.pickupLocation, 
-            dropoffLocation: updatedRideDataFromServer.dropoffLocation, 
-            stops: updatedRideDataFromServer.stops, 
-            scheduledPickupAt: updatedRideDataFromServer.scheduledPickupAt,
-            fareEstimate: updatedRideDataFromServer.fareEstimate !== undefined ? updatedRideDataFromServer.fareEstimate : prev.fareEstimate,
-        } : null );
-
-        toast({ title: "Booking Updated", description: "Your ride details have been successfully changed." }); setIsEditDetailsDialogOpen(false);
-    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error."; toast({ title: "Update Failed", description: message, variant: "destructive" });
-    } finally { setIsUpdatingDetails(false); }
-  };
-
-  const handleAcknowledgeArrival = async (rideId: string) => {
-    if (!user || !activeRide) return;
-    try {
-      const response = await fetch(`/api/operator/bookings/${rideId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'acknowledge_arrival' }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to acknowledge arrival.");
-      }
-      const updatedBooking = await response.json();
-      setActiveRide(prev => prev ? { ...prev, passengerAcknowledgedArrivalTimestamp: updatedBooking.booking.passengerAcknowledgedArrivalTimestamp, status: 'arrived_at_pickup' } : null);
-      toast({title: "Arrival Acknowledged!", description: "Your driver has been notified you are aware they have arrived."});
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error.";
-      toast({ title: "Acknowledgement Failed", description: message, variant: "destructive" });
-    }
-  };
-
-  const handleRequestWaitAndReturn = async () => {
-    if (!activeRide || !user) return;
-    const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
-    if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
-      toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
+      setActiveRide(null);
       return;
     }
-    setIsRequestingWR(true);
-    try {
-      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'request_wait_and_return', 
-          estimatedAdditionalWaitTimeMinutes: waitTimeMinutes 
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to request Wait & Return.");
+
+    if (!db) {
+        setError("Database connection is not available.");
+        setIsLoading(false);
+        return;
+    }
+    
+    setIsLoading(true);
+    const activeRideQuery = query(
+      collection(db, 'rides'),
+      where('passengerId', '==', user.id),
+      where('status', 'in', ['searching', 'driver_assigned', 'arrived_at_pickup', 'in_progress']),
+      limit(1)
+    );
+
+    const unsubscribe = onSnapshot(activeRideQuery, (snapshot) => {
+      if (snapshot.empty) {
+        setActiveRide(null);
+        setError(null);
+      } else {
+        const rideData = snapshot.docs[0].data();
+        const rideId = snapshot.docs[0].id;
+        setActiveRide({ ...rideData, id: rideId } as ActiveRide);
       }
-      const updatedBooking = await response.json();
-      setActiveRide(updatedBooking.booking); 
-      toast({ title: "Wait & Return Requested", description: "Your request has been sent to the driver for confirmation." });
-      setIsWRRequestDialogOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error.";
-      toast({ title: "Request Failed", description: message, variant: "destructive" });
-    } finally {
-      setIsRequestingWR(false);
-    }
-  };
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Error listening to active ride:", err);
+      setError("Failed to listen for ride updates.");
+      setIsLoading(false);
+    });
 
-  const handleConfirmCancel = async () => {
-    if (!rideIdToCancel || !user) return;
-    const currentRideId = rideIdToCancel;
-    setActionLoading(prev => ({ ...prev, [currentRideId]: true }));
-    try {
-      const response = await fetch('/api/bookings/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: currentRideId, passengerId: user.id }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to cancel ride.');
+    return () => unsubscribe();
+  }, [authLoading, user]);
+
+  const directionsCallback = useCallback((response: google.maps.DirectionsResult | null, status: google.maps.DirectionsStatus) => {
+    if (status === 'OK' && response) {
+      const route = response.routes[0];
+      if (route?.overview_path) {
+        const points = route.overview_path.map(p => p.toJSON());
+        setRoutePolyline(points);
       }
-      toast({ title: "Ride Cancelled", description: `Your ride ${activeRide?.displayBookingId || currentRideId} has been cancelled.` });
-      setCancellationSuccess(true); 
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
-      toast({ title: "Cancellation Failed", description: message, variant: "destructive" });
-      setCancellationSuccess(false);
-    } finally {
-       setActionLoading(prev => ({ ...prev, [currentRideId]: false }));
-       setShowCancelConfirmationDialog(false);
+    } else {
+      console.error(`Directions request failed due to ${status}`);
     }
-  };
+  }, []);
 
-  const getStatusMessage = (ride: ActiveRide | null) => {
-    if (!ride || !ride.status) return "Loading status...";
-    switch (ride.status.toLowerCase()) {
-        case 'pending_assignment': return "Finding you a driver...";
-        case 'driver_assigned': return `Driver ${ride.driver || 'N/A'} is en route. ETA: ${ride.driverEtaMinutes ?? 'calculating...'} min.`;
-        case 'arrived_at_pickup': return `Driver ${ride.driver || 'N/A'} has arrived at your pickup location.`;
-        case 'in_progress': return "Your ride is in progress. Enjoy!";
-        case 'pending_driver_wait_and_return_approval': return `Wait & Return requested for an additional ${ride.estimatedAdditionalWaitTimeMinutes || 0} mins. Awaiting driver confirmation.`;
-        case 'in_progress_wait_and_return': return `Ride in progress (Wait & Return). Driver will wait ~${ride.estimatedAdditionalWaitTimeMinutes || 0} mins at dropoff.`;
-        default: return `Status: ${ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+  useEffect(() => {
+    if (activeRide && isGoogleMapsLoaded && google) {
+      const directionsService = new google.maps.DirectionsService();
+      directionsService.route({
+        origin: new google.maps.LatLng(activeRide.pickupLocation.latitude, activeRide.pickupLocation.longitude),
+        destination: new google.maps.LatLng(activeRide.dropoffLocation.latitude, activeRide.dropoffLocation.longitude),
+        travelMode: google.maps.TravelMode.DRIVING,
+      }, directionsCallback);
     }
-  };
+  }, [activeRide, isGoogleMapsLoaded, google, directionsCallback]);
 
-  const getStatusBadgeVariant = (status: string | undefined) => {
-    if (!status) return 'secondary';
-    switch (status.toLowerCase()) {
-        case 'pending_assignment': return 'secondary';
-        case 'driver_assigned': return 'default';
-        case 'arrived_at_pickup': return 'outline';
-        case 'in_progress': return 'default';
-        case 'pending_driver_wait_and_return_approval': return 'secondary';
-        case 'in_progress_wait_and_return': return 'default';
-        default: return 'secondary';
-    }
-  };
-
-  const getStatusBadgeClass = (status: string | undefined) => {
-    if (!status) return '';
-    switch (status.toLowerCase()) {
-        case 'pending_assignment': return 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70';
-        case 'driver_assigned': return 'bg-blue-500 text-white hover:bg-blue-600';
-        case 'arrived_at_pickup': return 'border-blue-500 text-blue-500 hover:bg-blue-500/10';
-        case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
-        case 'pending_driver_wait_and_return_approval': return 'bg-purple-400/80 text-purple-900 hover:bg-purple-400/70';
-        case 'in_progress_wait_and_return': return 'bg-teal-500 text-white hover:bg-teal-600';
-        default: return '';
-    }
-  };
-
-  const mapElements = useMemo(() => {
-    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
-    const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-
-    if (!activeRide) return { markers, labels };
-    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
-
+  const mapMarkers = useMemo(() => {
+    if (!activeRide || !google) return [];
+    
+    const markers: Array<{
+      id: string;
+      position: google.maps.LatLngLiteral;
+      label: string;
+      iconUrl?: string;
+      iconScaledSize?: { width: number, height: number };
+    }> = [
+      { id: 'pickup', position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude }, label: 'Pickup' },
+      { id: 'dropoff', position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude }, label: 'Drop-off' }
+    ];
 
     if (activeRide.driverCurrentLocation) {
-        markers.push({ 
-            position: activeRide.driverCurrentLocation, 
-            title: "Your Driver", 
-            iconUrl: driverCarIconDataUrl,
-            iconScaledSize: { width: 32, height: 32 }
-        });
-    }
-
-    if (activeRide.pickupLocation) {
       markers.push({
-        position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
-        title: `Pickup: ${activeRide.pickupLocation.address}`,
-        label: { text: "P", color: "white", fontWeight: "bold"}
-      });
-      labels.push({
-        position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-        content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
-        type: 'pickup'
+        id: 'driver',
+        position: activeRide.driverCurrentLocation,
+        label: 'Driver',
+        iconUrl: driverCarIconDataUrl,
+        iconScaledSize: { width: 32, height: 32 },
       });
     }
-    if (activeRide.dropoffLocation && isActiveRideState) {
-      markers.push({
-        position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
-        title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-        label: { text: "D", color: "white", fontWeight: "bold" }
-      });
-       labels.push({
-        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-        type: 'dropoff'
-      });
-    }
-    activeRide.stops?.forEach((stop, index) => {
-      if(stop.latitude && stop.longitude && isActiveRideState) { 
-        markers.push({
-          position: {lat: stop.latitude, lng: stop.longitude},
-          title: `Stop ${index+1}: ${stop.address}`,
-          label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
-        });
-        labels.push({
-            position: { lat: stop.latitude, lng: stop.longitude },
-            content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
-            type: 'stop'
-        });
-      }
-    });
-    return { markers, labels };
-  }, [activeRide]);
+    return markers;
+  }, [activeRide, google]);
 
   const mapCenter = useMemo(() => {
     if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
-    if (activeRide?.status === 'driver_assigned' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
-    if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
-    if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    return driverLocation || huddersfieldCenterGoogle;
-  }, [activeRide, driverLocation]);
+    if (activeRide?.pickupLocation) return { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
+    return huddersfieldCenterGoogle;
+  }, [activeRide]);
 
-  useEffect(() => {
-    if (!isEditDetailsDialogOpen || !rideToEditDetails) {
-      setDialogFareEstimate(null);
-      return;
-    }
+  const bookingTime = useMemo(() => {
+    if (!activeRide?.bookingTimestamp) return null;
+    const date = new Date(activeRide.bookingTimestamp.seconds * 1000);
+    return date.toLocaleString('en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  }, [activeRide?.bookingTimestamp]);
 
-    if (dialogPickupCoords && dialogDropoffCoords) {
-      let oneWayDistanceMiles = 0;
-      let currentPoint = dialogPickupCoords;
-
-      const validStopsForFare = dialogStopAutocompleteData.filter((stopData, index) => {
-        const formStopValue = editDetailsForm.getValues(`stops.${index}.location`);
-        return stopData.coords && formStopValue && formStopValue.trim() !== "";
+  const handleCancelRide = async () => {
+    if (!activeRide || !user?.id) return;
+    
+    setIsCanceling(true);
+    try {
+      const response = await fetch(`/api/bookings/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rideId: activeRide.id,
+          passengerId: user.id,
+        }),
       });
 
-      for (const stopData of validStopsForFare) {
-        if (stopData.coords) {
-          oneWayDistanceMiles += getDistanceInMiles(currentPoint, stopData.coords);
-          currentPoint = stopData.coords;
-        }
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Ride Cancelled",
+          description: "Your ride has been cancelled successfully.",
+        });
+      } else {
+        toast({
+          title: "Error Cancelling Ride",
+          description: data.message || "Failed to cancel ride",
+          variant: "destructive",
+        });
       }
-      oneWayDistanceMiles += getDistanceInMiles(currentPoint, dialogDropoffCoords);
-      
-      const oneWayDurationMinutes = (oneWayDistanceMiles / AVERAGE_SPEED_MPH) * 60;
-      
-      let calculatedFare = 0;
-      if (oneWayDistanceMiles > 0) {
-        const timeFareOneWay = oneWayDurationMinutes * PER_MINUTE_RATE;
-        const distanceBasedFareOneWay = (oneWayDistanceMiles * PER_MILE_RATE) + FIRST_MILE_SURCHARGE;
-        const stopSurchargeAmount = validStopsForFare.length * PER_STOP_SURCHARGE;
-        calculatedFare = BASE_FARE + timeFareOneWay + distanceBasedFareOneWay + stopSurchargeAmount + BOOKING_FEE;
-
-        let vehicleMultiplier = 1.0;
-        if (rideToEditDetails.vehicleType === "estate") vehicleMultiplier = 1.2;
-        else if (rideToEditDetails.vehicleType === "minibus_6" || rideToEditDetails.vehicleType === "minibus_6_pet_friendly") vehicleMultiplier = 1.5;
-        else if (rideToEditDetails.vehicleType === "minibus_8" || rideToEditDetails.vehicleType === "minibus_8_pet_friendly") vehicleMultiplier = 1.6;
-        else if (rideToEditDetails.vehicleType === "disable_wheelchair_access") vehicleMultiplier = 2.0;
-        
-        const passengerCount = Number(rideToEditDetails.passengers) || 1;
-        const passengerAdjustment = 1 + (Math.max(0, passengerCount - 1)) * 0.1;
-        
-        calculatedFare = calculatedFare * vehicleMultiplier * passengerAdjustment;
-        
-        if (rideToEditDetails.vehicleType === "pet_friendly_car" || rideToEditDetails.vehicleType === "minibus_6_pet_friendly" || rideToEditDetails.vehicleType === "minibus_8_pet_friendly") {
-            calculatedFare += PET_FRIENDLY_SURCHARGE;
-        }
-        calculatedFare = Math.max(calculatedFare, MINIMUM_FARE);
-      }
-      const newFareEstimate = calculatedFare;
-      console.log("[EditDialog FareCalc] Recalculated dialog fare:", newFareEstimate);
-      setDialogFareEstimate(newFareEstimate > 0 ? parseFloat(newFareEstimate.toFixed(2)) : null);
-    } else {
-      setDialogFareEstimate(null);
+    } catch (error) {
+      console.error('Error cancelling ride:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel ride. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCanceling(false);
     }
-  }, [isEditDetailsDialogOpen, dialogPickupCoords, dialogDropoffCoords, dialogStopAutocompleteData, rideToEditDetails, editDetailsForm]);
+  };
 
-
-  // All hooks, including useEffect for cancellation, come first
-  React.useEffect(() => {
-    if (!showCancelConfirmationDialog && cancellationSuccess) {
-      setActiveRide(null);
-      setCancellationSuccess(false);
-    }
-  }, [showCancelConfirmationDialog, cancellationSuccess]);
-
-  // Now place the early returns after all hooks
-  if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
-
-  const renderAutocompleteSuggestions = ( suggestions: google.maps.places.AutocompletePrediction[], isFetchingSugg: boolean, isFetchingDet: boolean, inputValue: string, onSuggClick: (suggestion: google.maps.places.AutocompletePrediction) => void, fieldKey: string ) => ( <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60"> <div className="space-y-1 p-1"> {isFetchingSugg && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</div>} {isFetchingDet && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</div>} {!isFetchingSugg && !isFetchingDet && suggestions.length === 0 && inputValue.length >= 2 && <div className="p-2 text-sm text-muted-foreground">No suggestions.</div>} {!isFetchingSugg && !isFetchingDet && suggestions.map((s) => { console.log(`[RenderSuggestions DEBUG for ${fieldKey}] Rendering suggestion: ${s.description}`); return( <div key={`${fieldKey}-${s.place_id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm" onMouseDown={() => onSuggClick(s)}>{s.description}</div> );})} </div> </ScrollArea> );
-  const vehicleTypeDisplay = activeRide?.vehicleType ? activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ')  : 'Vehicle N/A';
-  const statusDisplay = activeRide?.status ? activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Status N/A';
-  const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
-  const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
-  
-  let baseFareWithWRSurcharge = activeRide?.fareEstimate || 0;
-  let finalFareDisplay = "";
-  let finalFareSuffix = "";
-
-  if (activeRide) {
-    if (activeRide.waitAndReturn) {
-      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
-      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE;
-      baseFareWithWRSurcharge = wrBaseFare + additionalWaitCharge;
-      finalFareSuffix = " (Base + W&R)";
-    }
-
-    const totalIncludingPriority = baseFareWithWRSurcharge + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0) + currentPassengerWaitingChargePickup + (currentPassengerStopTimerDisplay?.charge || 0);
-    finalFareDisplay = `£${totalIncludingPriority.toFixed(2)}`;
-  } else {
-    finalFareDisplay = "£0.00";
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-4 md:p-8">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-48 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
-
-  const paymentMethodDisplay = 
-    activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)' 
-    : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
-    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
-    : 'Payment N/A';
-
-  const isEditingDisabled = activeRide?.status !== 'pending_assignment';
-  
-  const journeyLegCount = (activeRide?.stops?.length || 0) + 2; 
-
-  const mapDisplayElements = useMemo(() => {
-    const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
-
-    if (!activeRide) return { markers, labels };
-    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
-
-    if (liveDriverLocation) {
-      markers.push({
-        position: liveDriverLocation,
-        title: 'Your Driver',
-        iconUrl: driverCarIconDataUrl,
-        iconScaledSize: { width: 30, height: 45 },
-      });
-    }
-
-    if (activeRide.pickupLocation) {
-      markers.push({
-        position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
-        title: `Pickup: ${activeRide.pickupLocation.address}`,
-        label: { text: "P", color: "white", fontWeight: "bold"}
-      });
-      labels.push({
-        position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-        content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
-        type: 'pickup'
-      });
-    }
-    if (activeRide.dropoffLocation && isActiveRideState) {
-      markers.push({
-        position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
-        title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-        label: { text: "D", color: "white", fontWeight: "bold" }
-      });
-       labels.push({
-        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-        type: 'dropoff'
-      });
-    }
-    activeRide.stops?.forEach((stop, index) => {
-      if(stop.latitude && stop.longitude && isActiveRideState) { 
-        markers.push({
-          position: {lat: stop.latitude, lng: stop.longitude},
-          title: `Stop ${index+1}: ${stop.address}`,
-          label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
-        });
-        labels.push({
-            position: { lat: stop.latitude, lng: stop.longitude },
-            content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
-            type: 'stop'
-        });
-      }
-    });
-    return { markers, labels };
-  }, [activeRide, liveDriverLocation]);
-
-  useEffect(() => {
-    if (!activeRide || !activeRide.driverCurrentLocation || !isMapSdkLoaded) {
-      return;
-    }
-
-    const directionsService = new google.maps.DirectionsService();
-
-    const destination =
-      activeRide.status === "in_progress"
-        ? activeRide.dropoffLocation
-        : activeRide.pickupLocation;
-
-    directionsService.route(
-      {
-        origin: activeRide.driverCurrentLocation,
-        destination: {
-          lat: destination.latitude,
-          lng: destination.longitude,
-        },
-        travelMode: google.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === google.maps.DirectionsStatus.OK && result?.routes[0]) {
-          const route = result.routes[0];
-          setRoutePolyline(route.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() })));
-          if (route.legs[0] && route.legs[0].distance && route.legs[0].duration) {
-            setRouteInfo({
-              distance: route.legs[0].distance.text,
-              duration: route.legs[0].duration.text,
-            });
-          }
-        }
-      }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+        <Card className="w-full max-w-md p-8">
+          <CardHeader className="items-center">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
+            <CardTitle>Oops! Something went wrong.</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()} variant="outline" className="mt-4">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
-  }, [activeRide, isMapSdkLoaded]);
+  }
 
-  useEffect(() => {
-    let isMounted = true;
-    const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    const apiKeyToUse = googleMapsApiKey || "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; // Fallback
-
-    const loader = new Loader({
-      apiKey: apiKeyToUse,
-      version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"],
-    });
-
-    loader.load().then((google) => {
-      if (isMounted && google && google.maps) {
-        CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(google.maps);
-        if (!autocompleteServiceRef.current) autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-        if (!placesServiceRef.current) placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
-        if (!directionsServiceRef.current) directionsServiceRef.current = new google.maps.DirectionsService();
-        if (autocompleteSessionTokenRef.current === undefined) autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
-        setIsMapSdkLoaded(true);
-      }
-    }).catch(e => {
-      console.error("Failed to load Google Maps SDK for track-ride page:", e);
-    });
-
-    return () => { isMounted = false; };
-  }, []);
+  if (!activeRide) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+        <Card className="w-full max-w-md p-8">
+          <CardHeader>
+            <CardTitle>No Active Rides</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4 text-muted-foreground">You have no active rides at the moment.</p>
+            <Button asChild>
+              <Link href="/dashboard/book-ride">Book a New Ride</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live. Ride ID: {activeRide?.displayBookingId || activeRide?.id || "N/A"}</CardDescription> </CardHeader> </Card>
-      {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride">Book a New Ride</Link> </Button> </CardContent> </Card> )}
-      {activeRide && (
-        <>
-          <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
-            <GoogleMapDisplay 
-              center={mapCenter} 
-              zoom={14} 
-              markers={mapDisplayElements.markers} 
-              customMapLabels={mapDisplayElements.labels}
-              className="h-full w-full" 
-              disableDefaultUI={true} 
-              fitBoundsToMarkers={true}
-              onSdkLoaded={setIsMapSdkLoaded} 
-              mapId="e9d24f2b3e5d0f1"
-              disableDefaultUI={true}
-              fitBoundsToMarkers={!activeRide?.driverCurrentLocation}
-              polylines={routePolyline.length > 0 ? [{ path: routePolyline, color: '#1a73e8', weight: 5 }] : undefined}
-              driverIconRotation={activeRide?.driverCurrentLocation?.heading ?? undefined}
-            />
-          </div>
-
-          {showEndOfRideReminder && activeRide.status === 'in_progress' && (
-            <Alert variant="default" className="bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700">
-              <CheckCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-              <ShadAlertTitle className="font-semibold text-green-700 dark:text-green-300">Enjoying Your Ride?</ShadAlertTitle>
-              <ShadAlertDescriptionForAlert className="text-sm text-green-600 dark:text-green-400">
-                Ride nearing destination! Please remember to rate your experience and appreciate your driver after completion. Have a great day!
-              </ShadAlertDescriptionForAlert>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowEndOfRideReminder(false)}
-                className="absolute top-2 right-2 p-1 h-auto text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+    <div className="container mx-auto p-4 md:p-8">
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>Track Your Ride</CardTitle>
+              <CardDescription>Status: <span className="font-semibold capitalize">{activeRide.status.replace(/_/g, ' ')}</span></CardDescription>
+            </div>
+            <div className="flex gap-2">
+              {activeRide.scheduledPickupAt && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
                 >
-                <XCircle className="w-4 h-4"/>
-              </Button>
-            </Alert>
-          )}
-
-          <Card className="shadow-md">
-            <CardHeader className="flex flex-row justify-between items-start gap-2">
-                <div> <CardTitle className="text-xl flex items-center gap-2"> <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay} </CardTitle> <CardDescription className="text-xs">{activeRide.scheduledPickupAt ? `Scheduled: ${formatDate(null, activeRide.scheduledPickupAt)}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}</CardDescription> </div>
-                <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("text-xs sm:text-sm", getStatusBadgeClass(activeRide.status))}> {statusDisplay} </Badge>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <p className="text-base text-muted-foreground">{getStatusMessage(activeRide)}</p>
-                
-                {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
-                  <div className="my-2 p-2.5 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center shadow-sm">
-                    <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                      Your One Time PIN for Driver: <strong className="text-lg font-bold tracking-wider text-purple-800 dark:text-purple-200">{activeRide.accountJobPin}</strong>
-                    </span>
-                  </div>
-                )}
-
-                {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && passengerAckWindowSecondsLeft !== null && passengerAckWindowSecondsLeft > 0 && (
-                  <Alert variant="default" className="bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
-                    <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-1">
-                            <Info className="h-3.5 w-3.5 text-current" />
-                            <span className="font-semibold text-current">Driver Has Arrived! Ack. within:</span>
-                        </div>
-                        <span className="font-bold text-white bg-pink-600 dark:bg-pink-700 px-1.5 py-0.5 rounded text-xs font-mono tracking-wider">
-                            {formatTimerPassenger(passengerAckWindowSecondsLeft)}
-                        </span>
-                    </div>
-                  </Alert>
-                )}
-
-                {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && passengerAckWindowSecondsLeft === 0 && passengerFreeWaitingSecondsLeft !== null && (
-                    <Alert variant="default" className={cn("my-2 p-1.5 text-xs", isPassengerBeyondFreeWaitingPickup ? "bg-red-100 dark:bg-red-800/30 border-red-400 dark:border-red-600 text-red-700 dark:text-red-300" : "bg-yellow-100 dark:bg-yellow-800/30 border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300")}>
-                      <TimerIcon className="h-4 w-4 text-current" />
-                      <div className="flex justify-between items-center w-full">
-                        <span className="font-semibold text-current">
-                          {isPassengerBeyondFreeWaitingPickup ? 'Extra Waiting Period' : 'Free Waiting Period'}
-                        </span>
-                        <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent text-white" : "bg-accent text-white")}>
-                          {passengerFreeWaitingSecondsLeft > 0 ? formatTimerPassenger(passengerFreeWaitingSecondsLeft) : formatTimerPassenger(passengerExtraWaitingSecondsPickup || 0)}
-                        </span>
-                      </div>
-                      <ShadAlertDescriptionForAlert className={cn("text-xs pl-[calc(1rem+0.375rem)] -mt-1", isPassengerBeyondFreeWaitingPickup ? "text-red-700/80 dark:text-red-300/80" : "text-yellow-700/80 dark:text-yellow-300/80")}>
-                        {isPassengerBeyondFreeWaitingPickup
-                          ? `Charges accumulating: £${currentPassengerWaitingChargePickup.toFixed(2)}`
-                          : 'Ack. window expired. Waiting charges apply after this free period.'}
-                      </ShadAlertDescriptionForAlert>
-                    </Alert>
-                )}
-
-                {activeRide.status === 'arrived_at_pickup' && activeRide.passengerAcknowledgedArrivalTimestamp && passengerFreeWaitingSecondsLeft !== null && (
-                  <Alert variant="default" className={cn("my-2 p-1.5 text-xs",
-                    isPassengerBeyondFreeWaitingPickup ? "bg-red-100 dark:bg-red-700/40 border-red-400 dark:border-red-600 text-red-700 dark:text-red-200"
-                                         : "bg-green-100 dark:bg-green-700/40 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300"
-                  )}>
-                    <TimerIcon className="h-4 w-4 text-current" />
-                    <div className="flex justify-between items-center w-full">
-                      <span className="font-semibold text-current">
-                        {isPassengerBeyondFreeWaitingPickup ? "Extra Waiting" : "Free Waiting"}
-                      </span>
-                      <span className={cn("font-bold px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", isPassengerBeyondFreeWaitingPickup ? "bg-accent text-white" : "bg-green-600 text-white")}>
-                        {isPassengerBeyondFreeWaitingPickup
-                          ? `${formatTimerPassenger(passengerExtraWaitingSecondsPickup || 0)} (+£${currentPassengerWaitingChargePickup.toFixed(2)})`
-                          : formatTimerPassenger(passengerFreeWaitingSecondsLeft)}
-                      </span>
-                    </div>
-                     {passengerFreeWaitingSecondsLeft > 0 && !isPassengerBeyondFreeWaitingPickup && (
-                        <ShadAlertDescriptionForAlert className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">Arrival Acknowledged.</ShadAlertDescriptionForAlert>
-                    )}
-                    {passengerFreeWaitingSecondsLeft === 0 && !isPassengerBeyondFreeWaitingPickup && <ShadAlertDescriptionForAlert className="text-xs text-current/80 pl-[calc(1rem+0.375rem)] -mt-1">Free time expired. Charges apply.</ShadAlertDescriptionForAlert>}
-                  </Alert>
-                )}
-
-                {currentPassengerStopTimerDisplay && activeRide.driverCurrentLegIndex !== undefined && activeRide.driverCurrentLegIndex > 0 && activeRide.driverCurrentLegIndex < journeyLegCount -1 && (
-                  <Alert variant="default" className={cn("my-1 p-1.5", 
-                    currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-red-100 dark:bg-red-700/80 border-red-500 dark:border-red-600 text-red-900 dark:text-red-100" : "bg-sky-100 dark:bg-sky-800/70 border-sky-300 dark:border-sky-600 text-sky-800 dark:text-sky-200"
-                  )}>
-                    <TimerIcon className="h-4 w-4 text-current" />
-                    <ShadAlertTitle className="font-bold text-current text-xs">
-                        <span>
-                          {currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0
-                            ? `Extra Waiting at Stop ${currentPassengerStopTimerDisplay.stopDataIndex + 1}`
-                            : `Free Waiting at Stop ${currentPassengerStopTimerDisplay.stopDataIndex + 1}`}
-                        </span>
-                    </ShadAlertTitle>
-                    <ShadAlertDescriptionForAlert className="font-bold text-current text-[10px] flex justify-between items-center">
-                      <span>
-                        {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 && "Free time remaining:"}
-                        {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && "Extra waiting time:"}
-                      </span>
-                      <span className={cn("px-1.5 py-0.5 rounded-sm inline-block font-mono tracking-wider", currentPassengerStopTimerDisplay.extraSeconds && currentPassengerStopTimerDisplay.extraSeconds > 0 ? "bg-accent text-white" : "bg-accent text-white")}>
-                          {currentPassengerStopTimerDisplay.freeSecondsLeft !== null && currentPassengerStopTimerDisplay.freeSecondsLeft > 0 ? formatTimerPassenger(currentPassengerStopTimerDisplay.freeSecondsLeft) : formatTimerPassenger(currentPassengerStopTimerDisplay.extraSeconds || 0)}
-                      </span>
-                      {currentPassengerStopTimerDisplay.extraSeconds !== null && currentPassengerStopTimerDisplay.extraSeconds > 0 && currentPassengerStopTimerDisplay.freeSecondsLeft === 0 && (
-                         <span className="ml-1">Current Charge: £{currentPassengerStopTimerDisplay.charge.toFixed(2)}</span>
-                      )}
-                    </ShadAlertDescriptionForAlert>
-                  </Alert>
-                )}
-                
-                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
-                <Separator />
-                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> 
-                  
-                  <div className="flex items-center gap-1.5 bg-green-600 text-white font-bold text-lg rounded-md px-3 py-1.5">
-                    <DollarSign className="w-5 h-5 text-white" />
-                    <span>Fare: {finalFareDisplay}</span>
-                    {activeRide.isSurgeApplied && (
-                      <Badge variant="outline" className="ml-1.5 border-orange-300 text-orange-100 bg-orange-500/50">Surge</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-5">Booking ID: {activeRide.displayBookingId || activeRide.id}</p>
-
-                <div className="bg-primary/10 p-2 rounded-md border border-black/70 flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
-                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
-            </CardContent>
-             {activeRide.status === 'pending_assignment' && (
-                <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2 bg-primary/10 p-3 rounded-md border-black/70 mt-3">
-                  <Button variant="outline" onClick={() => handleOpenEditDetailsDialog(activeRide)} className="w-full sm:w-auto" disabled={isUpdatingDetails || isEditingDisabled}>
-                    <Edit className="mr-2 h-4 w-4" /> Edit Details
-                  </Button>
-                  {isEditingDisabled && (
-                    <Alert variant="default" className="w-full text-xs p-2 bg-yellow-50 border-yellow-400 dark:bg-yellow-800/30 dark:border-yellow-700">
-                      <AlertTriangle className="h-4 w-4 !text-yellow-600 dark:!text-yellow-400" />
-                      <ShadAlertTitle className="text-yellow-700 dark:text-yellow-300 font-semibold">Editing Disabled</ShadAlertTitle>
-                      <ShadAlertDescriptionForAlert className="text-yellow-600 dark:text-yellow-400">
-                        Ride details cannot be changed once a driver is assigned or the ride is in progress. Please cancel and rebook if major changes are needed.
-                      </ShadAlertDescriptionForAlert>
-                    </Alert>
-                  )}
-                </CardFooter>
-            )}
-          </Card>
-        </>
-      )}
-      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen) { setRideIdToCancel(null); if (cancellationSuccess) { setActiveRide(null); setCancellationSuccess(false); } } }}>
-        {activeRide && activeRide.status === 'pending_assignment' && (
-           <AlertDialogTrigger asChild>
-            <Button
-              variant="destructive"
-              className="w-full sm:w-auto mt-2"
-              onClick={() => {
-                if (activeRide) {
-                    setRideIdToCancel(activeRide.id);
-                    setCancellationSuccess(false); 
-                    setShowCancelConfirmationDialog(true);
-                }
-              }}
-              disabled={!!actionLoading[activeRide?.id || '']}
-            >
-              <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
-            </Button>
-          </AlertDialogTrigger>
-        )}
-        <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will cancel your ride request (ID: {activeRide?.displayBookingId || rideIdToCancel || 'N/A'}). This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel
-                  disabled={actionLoading[rideIdToCancel || '']}
-                >
-                  Keep Ride
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleConfirmCancel}
-                  disabled={!rideIdToCancel || (actionLoading[rideIdToCancel || ''] || false)}
-                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                >
-                    {actionLoading[rideIdToCancel || ''] ? (
-                        <><Loader2 key="loader-cancel" className="animate-spin mr-2 h-4 w-4" />Cancelling...</>
-                    ) : (
-                        <><ShieldX key="icon-cancel" className="mr-2 h-4 w-4" />Confirm Cancel</>
-                    )}
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <Dialog open={isEditDetailsDialogOpen} onOpenChange={(open) => { if(!open) {setRideToEditDetails(null); setIsEditDetailsDialogOpen(false); editDetailsForm.reset(); setDialogFareEstimate(null);}}}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] p-0">
-          <DialogHeader className="p-6 pb-0"> <ShadDialogTitle>Edit Booking Details (ID: {activeRide?.displayBookingId || activeRide?.id || "N/A"})</ShadDialogTitle> <ShadDialogDescriptionDialog>Modify your ride details. Changes only apply if driver not yet assigned.</ShadDialogDescriptionDialog> </DialogHeader>
-          <ScrollArea className="overflow-y-auto"> <div className="px-6 py-4"> <Form {...editDetailsForm}> <form id="edit-details-form-actual" onSubmit={editDetailsForm.handleSubmit(onEditDetailsSubmit)} className="space-y-4">
-          <FormField control={editDetailsForm.control} name="pickupDoorOrFlat" render={({ field }) => (<FormItem><FormLabel>Pickup Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-          <FormField control={editDetailsForm.control} name="pickupLocation" render={({ field }) => ( <FormItem><FormLabel>Pickup Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search pickup" {...field} value={dialogPickupInputValue} onChange={(e) => handleEditAddressInputChangeFactory('pickupLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('pickupLocation')} onBlur={() => handleEditBlurFactory('pickupLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogPickupSuggestions && renderAutocompleteSuggestions(dialogPickupSuggestions, isFetchingDialogPickupSuggestions, isFetchingDialogPickupDetails, dialogPickupInputValue, (sugg) => handleEditSuggestionClickFactory('pickupLocation')(sugg, field.onChange), "dialog-pickup")}</div><FormMessage /></FormItem> )} />
-                  {editStopsFields.map((stopField, index) => ( <div key={stopField.id} className="space-y-1 p-2 border rounded-md bg-muted/50"> <div className="flex justify-between items-center"> <FormLabel className="text-sm">Stop {index + 1}</FormLabel> <Button type="button" variant="ghost" size="sm" onClick={() => removeEditStop(index)} className="text-destructive hover:text-destructive-foreground h-7 px-1.5 text-xs"><XCircle className="mr-1 h-3.5 w-3.5" /> Remove</Button> </div> <FormField control={editDetailsForm.control} name={`stops.${index}.doorOrFlat`} render={({ field }) => (<FormItem><FormLabel className="text-xs">Stop Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} /> <FormField control={editDetailsForm.control} name={`stops.${index}.location`} render={({ field }) => { const currentStopData = dialogStopAutocompleteData[index] || { fieldId: `default-stop-${index}`, inputValue: field.value || "", suggestions: [], showSuggestions: false, coords: null, isFetchingDetails: false, isFetchingSuggestions: false };
-                        console.log(`[EditDialog Stop ${index}] Rendering. showSuggestions: ${currentStopData.showSuggestions}, inputValue: "${currentStopData.inputValue}", suggestions count: ${currentStopData.suggestions.length}`);
-                        return (<FormItem><FormLabel className="text-xs">Stop Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search stop address" {...field} value={currentStopData.inputValue} onChange={(e) => handleEditAddressInputChangeFactory(index)(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory(index)} onBlur={() => handleEditBlurFactory(index)} autoComplete="off" className="pr-8 h-9"/></FormControl> {currentStopData.showSuggestions && renderAutocompleteSuggestions(currentStopData.suggestions, currentStopData.isFetchingSuggestions, currentStopData.isFetchingDetails, currentStopData.inputValue, (sugg) => handleEditSuggestionClickFactory(index)(sugg, field.onChange), `dialog-stop-${index}`)}</div><FormMessage /></FormItem>); }} /> </div> ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => {appendEditStop({location: "", doorOrFlat: ""}); setDialogStopAutocompleteData(prev => [...prev, {fieldId: `new-stop-${Date.now()}`, inputValue: "", suggestions: [], showSuggestions: false, isFetchingSuggestions: false, isFetchingDetails: false, coords: null}])}} className="w-full text-accent border-accent hover:bg-accent/10"><PlusCircle className="mr-2 h-4 w-4"/>Add Stop</Button>
-                  <FormField control={editDetailsForm.control} name="dropoffDoorOrFlat" render={({ field }) => (<FormItem><FormLabel className="text-xs">Dropoff Door/Flat</FormLabel><FormControl><Input placeholder="Optional" {...field} className="h-8 text-sm" /></FormControl><FormMessage className="text-xs"/></FormItem>)} />
-                  <FormField control={editDetailsForm.control} name="dropoffLocation" render={({ field }) => ( <FormItem><FormLabel>Dropoff Address</FormLabel><div className="relative"><FormControl><Input placeholder="Search dropoff" {...field} value={dialogDropoffInputValue} onChange={(e) => handleEditAddressInputChangeFactory('dropoffLocation')(e.target.value, field.onChange)} onFocus={() => handleEditFocusFactory('dropoffLocation')} onBlur={() => handleEditBlurFactory('dropoffLocation')} autoComplete="off" className="pr-8 h-9" /></FormControl> {showDialogDropoffSuggestions && renderAutocompleteSuggestions(dialogDropoffSuggestions, isFetchingDialogDropoffSuggestions, isFetchingDialogDropoffDetails, dialogDropoffInputValue, (sugg) => handleEditSuggestionClickFactory('dropoffLocation')(sugg, field.onChange), "dialog-dropoff")}</div><FormMessage /></FormItem> )} />
-                  <div className="grid grid-cols-2 gap-4"> <FormField control={editDetailsForm.control} name="desiredPickupDate" render={({ field }) => ( <FormItem><FormLabel>Pickup Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal h-9", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>ASAP (Pick Date)</span>}<CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} /> <FormField control={editDetailsForm.control} name="desiredPickupTime" render={({ field }) => ( <FormItem><FormLabel>Pickup Time</FormLabel><FormControl><Input type="time" {...field} className="h-9" disabled={!editDetailsForm.watch('desiredPickupDate')} /></FormControl><FormMessage /></FormItem> )} /> </div>
-                  {!editDetailsForm.watch('desiredPickupDate') && <p className="text-xs text-muted-foreground text-center">Leave date/time blank for ASAP booking.</p>}
-                  
-                  {dialogFareEstimate !== null && (
-                    <div className="mt-2 p-2 border rounded-md bg-muted/20 text-center">
-                      <p className="text-sm text-muted-foreground">New Est. Fare (Route Only): <span className="font-semibold text-primary">£{dialogFareEstimate.toFixed(2)}</span></p>
-                      <p className="text-xs text-muted-foreground">(Other factors like priority/surge from original booking may still apply)</p>
-                    </div>
-                  )}
-
-                </form> </Form> </div> </ScrollArea>
-          <DialogFooter className="p-6 pt-4 border-t"> <DialogClose asChild><Button type="button" variant="outline" disabled={isUpdatingDetails}>Cancel</Button></DialogClose>
-            <Button type="submit" form="edit-details-form-actual" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isUpdatingDetails || !dialogPickupCoords || !dialogDropoffCoords}>
-              {isUpdatingDetails ? (
-                <React.Fragment>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </React.Fragment>
-              ) : (
-                <React.Fragment>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Save Changes
-                </React.Fragment>
+                  <Link href={`/dashboard/scheduled-rides/edit/${activeRide.id}`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Link>
+                </Button>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-       <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <ShadDialogTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> Request Wait & Return</ShadDialogTitle>
-            <ShadDialogDescriptionDialog>
-              Estimate additional waiting time at current drop-off. 10 mins free, then £0.25/min. Passenger must approve.
-            </ShadDialogDescriptionDialog>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="wr-wait-time-input">Additional Wait Time (minutes)</Label>
-            <Input
-              id="wr-wait-time-input"
-              type="number"
-              min="0"
-              value={wrRequestDialogMinutes}
-              onChange={(e) => setWrRequestDialogMinutes(e.target.value)}
-              placeholder="e.g., 15"
-              disabled={isRequestingWR}
-            />
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleCancelRide}
+                disabled={isCanceling || activeRide.status === 'cancelled'}
+              >
+                {isCanceling ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="mr-2 h-4 w-4" />
+                )}
+                Cancel
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleRequestWaitAndReturn} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
-              {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <CardFooter className="flex justify-between items-center bg-muted/40 px-6 py-3">
-        <div className="text-sm font-semibold">
-          {routeInfo ? (
-            <span>
-              {routeInfo.duration} ({routeInfo.distance})
-            </span>
-          ) : (
-            <span>Calculating route...</span>
-          )}
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchActiveRide}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
-      </CardFooter>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              
+              <div>
+                <h3 className="font-semibold flex items-center mb-2 text-lg"><Car className="mr-2 h-5 w-5 text-primary" /> Driver Details</h3>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm pl-7">
+                    <span className="text-muted-foreground">Name:</span>
+                    <span>{activeRide.driverName || 'Assigning...'}</span>
+                    <span className="text-muted-foreground">Vehicle:</span>
+                    <span>{activeRide.driverVehicleDetails || 'N/A'}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                 <h3 className="font-semibold flex items-center mb-2 text-lg"><MapPin className="mr-2 h-5 w-5 text-primary" /> Trip Details</h3>
+                 <div className="pl-7 space-y-2 text-sm">
+                    <p><strong>From:</strong> {activeRide.pickupLocation.address || `${activeRide.pickupLocation.latitude.toFixed(4)}, ${activeRide.pickupLocation.longitude.toFixed(4)}`}</p>
+                    <p><strong>To:</strong> {activeRide.dropoffLocation.address || `${activeRide.dropoffLocation.latitude.toFixed(4)}, ${activeRide.dropoffLocation.longitude.toFixed(4)}`}</p>
+                 </div>
+              </div>
+              
+               <div>
+                <h3 className="font-semibold flex items-center mb-2 text-lg"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-5 w-5 text-primary"><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l10-10a1 1 0 0 0 0-1.41L12 2z"></path><path d="M7 7h.01"></path></svg> Booking Details</h3>
+                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm pl-7">
+                    <span className="text-muted-foreground">Booking ID:</span>
+                    <span>{activeRide.displayBookingId || 'N/A'}</span>
+                    <span className="text-muted-foreground">Fare:</span>
+                    <span>{activeRide.fareEstimate ? `~£${activeRide.fareEstimate.toFixed(2)}` : 'N/A'}</span>
+                     <span className="text-muted-foreground">Vehicle:</span>
+                    <span className="capitalize">{activeRide.vehicleType || 'Any'}</span>
+                    <span className="text-muted-foreground">Payment:</span>
+                    <span className="capitalize">{activeRide.paymentMethod || 'N/A'}</span>
+                    <span className="text-muted-foreground">Booked At:</span>
+                    <span>{bookingTime || 'N/A'}</span>
+                 </div>
+              </div>
+
+            </div>
+            <div className="h-80 md:h-full w-full rounded-md overflow-hidden border">
+              {isGoogleMapsLoaded ? (
+                <GoogleMapDisplay
+                  center={mapCenter}
+                  zoom={14}
+                  markers={mapMarkers}
+                  polylines={[{ path: routePolyline, color: '#2563EB', weight: 5 }]}
+                />
+              ) : <Skeleton className="w-full h-full" />}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
