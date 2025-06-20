@@ -1,4 +1,3 @@
-
 "use client"; 
 
 import Link from 'next/link';
@@ -13,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { PassengerAccountHealthCard } from '@/components/ui/PassengerAccountHealthCard';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -178,6 +178,8 @@ export default function PassengerDashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <PassengerAccountHealthCard />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <FeatureCard

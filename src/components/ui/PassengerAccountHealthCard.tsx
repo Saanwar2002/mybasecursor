@@ -3,12 +3,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone, ThumbsUp, AlertCircle as AlertCircleIcon } from "lucide-react"; // Added ThumbsUp, AlertCircleIcon
+import { Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, UserX, ThumbsUp, AlertCircle as AlertCircleIcon, Clock, Smile } from "lucide-react";
 import { Progress } from "@/components/ui/progress"; 
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import ShadCN Alert components
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-
 
 interface HealthMetricProps {
   label: string;
@@ -37,15 +35,15 @@ const HealthMetric: React.FC<HealthMetricProps> = ({ label, value, icon: Icon, u
   );
 };
 
-export function DriverAccountHealthCard() {
-  const overallHealth = { status: "Good", score: 85 }; 
-  const averageRating = 4.7;
-  const completionRate = 92; 
-  const acceptanceRate = 88; 
-  const safetyScore = "98/100";
-  const passengerBlocks = 1; 
-  const positiveFeedback = "Passengers consistently praise your friendly demeanor and safe driving.";
-  const areaForImprovement = "Consider reducing waiting times at pickup locations where possible.";
+export function PassengerAccountHealthCard() {
+  // Example metrics for a passenger
+  const overallHealth = { status: "Active", score: 90 };
+  const averageRating = 4.9; // Avg. rating given by drivers
+  const completionRate = 98; // % of rides completed
+  const onTimeRate = 95; // % of times passenger was on time
+  const blocks = 0; // Number of drivers who blocked this passenger
+  const positiveFeedback = "Drivers appreciate your punctuality and courtesy.";
+  const areaForImprovement = "Remember to rate your rides to help improve the service.";
 
   const getHealthStatusColor = () => {
     if (overallHealth.score >= 80) return "text-green-600 dark:text-green-400";
@@ -55,7 +53,7 @@ export function DriverAccountHealthCard() {
   
   const getHealthStatusIcon = () => {
     if (overallHealth.score >= 80) return <CheckCircle className="w-5 h-5 text-green-500" />;
-    if (overallHealth.score >= 60) return <Activity className="w-5 h-5 text-yellow-500" />;
+    if (overallHealth.score >= 60) return <Smile className="w-5 h-5 text-yellow-500" />;
     return <AlertTriangle className="w-5 h-5 text-red-500" />;
   }
 
@@ -64,7 +62,7 @@ export function DriverAccountHealthCard() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-headline flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
+            <Smile className="w-5 h-5 text-primary" />
             Your Account Health
             </CardTitle>
             <Badge variant={overallHealth.score >= 80 ? "default" : overallHealth.score >= 60 ? "secondary" : "destructive"} className={cn(
@@ -88,11 +86,10 @@ export function DriverAccountHealthCard() {
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 border p-2 rounded-md bg-muted/30">
-            <HealthMetric label="Avg. Rating" value={`${averageRating.toFixed(1)}/5`} icon={Star} variant={averageRating >= 4.5 ? "positive" : averageRating >= 4.0 ? "neutral" : "negative"} />
-            <HealthMetric label="Completion" value={completionRate} unit="%" icon={TrendingUp} variant={completionRate >= 90 ? "positive" : completionRate >= 80 ? "neutral" : "negative"}/>
-            <HealthMetric label="Acceptance" value={acceptanceRate} unit="%" icon={CheckCircle} variant={acceptanceRate >= 85 ? "positive" : "neutral"}/>
-            <HealthMetric label="Safety Score" value={safetyScore} icon={ShieldCheck} variant={safetyScore === "100/100" || safetyScore === "99/100" || safetyScore === "98/100" ? "positive" : "neutral"} />
-            <HealthMetric label="Blocked By" value={passengerBlocks} icon={UserX} variant={passengerBlocks === 0 ? "positive" : passengerBlocks <= 2 ? "neutral" : "negative"} />
+            <HealthMetric label="Avg. Rating by Drivers" value={`${averageRating.toFixed(1)}/5`} icon={Star} variant={averageRating >= 4.5 ? "positive" : averageRating >= 4.0 ? "neutral" : "negative"} />
+            <HealthMetric label="Completion Rate" value={completionRate} unit="%" icon={TrendingUp} variant={completionRate >= 95 ? "positive" : completionRate >= 85 ? "neutral" : "negative"}/>
+            <HealthMetric label="On-Time Rate" value={onTimeRate} unit="%" icon={Clock} variant={onTimeRate >= 90 ? "positive" : onTimeRate >= 80 ? "neutral" : "negative"}/>
+            <HealthMetric label="Blocked By Drivers" value={blocks} icon={UserX} variant={blocks === 0 ? "positive" : blocks <= 2 ? "neutral" : "negative"} />
         </div>
         
         {positiveFeedback && (
@@ -117,10 +114,10 @@ export function DriverAccountHealthCard() {
       </CardContent>
       <CardFooter className="pt-2">
         <Button variant="outline" size="sm" className="w-full text-xs h-8" disabled>
-          View Full Performance Report (Soon)
+          View Full Account Report (Soon)
           <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
         </Button>
       </CardFooter>
     </Card>
   );
-}
+} 

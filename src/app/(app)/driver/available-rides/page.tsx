@@ -46,6 +46,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
 import { formatAddressForMapLabel, formatAddressForDisplay } from '@/lib/utils';
+import { PauseCircle, PlayCircle } from 'lucide-react';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -331,6 +332,7 @@ export default function AvailableRidesPage() {
 
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
   const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
+  const [isPaused, setIsPaused] = useState(false);
 
 
   const journeyPoints = useMemo(() => {
@@ -1704,6 +1706,24 @@ export default function AvailableRidesPage() {
                     JOB DETAIL <ChevronUp className="ml-1 h-3 w-3"/>
                 </Button>
             )}
+            {/* Pause Ride Offers Toggle */}
+            {activeRide && !isRideTerminated(activeRide.status) && (
+                <div className="flex items-center gap-2 w-full mt-1">
+                    <Switch
+                        id="pause-ride-offers-switch"
+                        checked={isPaused}
+                        onCheckedChange={handlePauseToggle}
+                        className="data-[state=checked]:bg-yellow-500 data-[state=unchecked]:bg-muted shrink-0 h-5 w-9"
+                    />
+                    <span className="text-xs font-medium text-muted-foreground select-none">
+                        {isPaused ? (
+                            <span className="flex items-center gap-1 text-yellow-700"><PauseCircle className="w-3.5 h-3.5" />Paused</span>
+                        ) : (
+                            <span className="flex items-center gap-1 text-green-700"><PlayCircle className="w-3.5 h-3.5" />Active</span>
+                        )}
+                    </span>
+                </div>
+            )}
         </div>
       </div>
     );
@@ -1858,6 +1878,22 @@ export default function AvailableRidesPage() {
     currentPriorityAmount = hasPriority ? activeRide.priorityFeeAmount! : 0;
     basePlusWRFare = numericGrandTotal - currentPriorityAmount;
   }
+
+  const handlePauseToggle = async (checked: boolean) => {
+    setIsPaused(checked);
+    try {
+      const res = await fetch('/api/driver/pause-offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paused: checked }),
+      });
+      if (!res.ok) throw new Error('Failed to update pause state');
+      toast({ title: checked ? 'Ride Offers Paused' : 'Ride Offers Active', description: checked ? 'You will not receive new ride offers.' : 'You will now receive ride offers.' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Could not update pause state', variant: 'destructive' });
+      setIsPaused(!checked); // revert
+    }
+  };
 
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">

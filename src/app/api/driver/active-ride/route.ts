@@ -1,9 +1,9 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import type { RideOffer } from '@/components/driver/ride-offer-modal';
+import { driverPauseState, GUEST_DRIVER_ID } from '../../driver/pause-offers/route';
 
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
   if (!timestamp) return null;
@@ -83,6 +83,10 @@ export async function GET(request: NextRequest) {
 
   if (!driverId) {
     return NextResponse.json({ message: 'driverId query parameter is required.' }, { status: 400 });
+  }
+
+  if (driverId === GUEST_DRIVER_ID && driverPauseState[GUEST_DRIVER_ID]) {
+    return NextResponse.json({ message: 'Ride offers are paused for this driver.' }, { status: 403 });
   }
 
   try {
