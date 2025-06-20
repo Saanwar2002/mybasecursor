@@ -1,19 +1,16 @@
-
 import type { Metadata } from "next";
-import { PT_Sans } from "next/font/google"; // Changed from Inter to PT_Sans
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/contexts/auth-context";
 import { ThemeInitializer } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/contexts/auth-context';
+import { GoogleMapsProvider } from '@/contexts/google-maps/google-maps-provider';
 
-const ptSans = PT_Sans({ // Initialize PT Sans
-  subsets: ["latin"],
-  weight: ["400", "700"] // Include weights you need
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MyBase App", // Corrected App Name if necessary
-  description: "The ultimate taxi app solution.",
+  title: "MyBase - TaxiNow",
+  description: "The all-in-one taxi platform for passengers, drivers, and operators.",
 };
 
 export default function RootLayout({
@@ -23,12 +20,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={ptSans.className}> {/* Apply PT Sans class */}
+      <body className={inter.className}>
         <AuthProvider>
-          <ThemeInitializer>
-            <Toaster />
-            {children}
-          </ThemeInitializer>
+          <GoogleMapsProvider>
+            <ThemeInitializer>
+              <Toaster />
+              {children}
+            </ThemeInitializer>
+          </GoogleMapsProvider>
         </AuthProvider>
       </body>
     </html>

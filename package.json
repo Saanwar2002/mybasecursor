@@ -1,16 +1,17 @@
-
 {
   "name": "nextn",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "HOSTNAME=9004-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev next dev -H 0.0.0.0 -p 9004",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "dev:firebase": "HOSTNAME=9004-firebase-studio-1748687301287.cluster-ombtxv25tbd6yrjpp3lukp6zhc.cloudworkstations.dev next dev -H 0.0.0.0 -p 9004",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed": "node scripts/seed-data.js"
   },
   "dependencies": {
     "@genkit-ai/googleai": "1.8.0",
