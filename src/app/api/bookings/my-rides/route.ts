@@ -1,4 +1,3 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -57,11 +56,10 @@ export async function GET(request: NextRequest) {
     console.log(`API /my-rides: Received request for passengerId: ${passengerId}`);
 
     try {
-      const bookingsRef = collection(db, 'bookings');
+      const bookingsRef = collection(db, 'rides');
       const q = query(
         bookingsRef,
-        where('passengerId', '==', passengerId),
-        orderBy('bookingTimestamp', 'desc')
+        where('passengerId', '==', passengerId)
       );
 
       const querySnapshot = await getDocs(q);
@@ -99,6 +97,12 @@ export async function GET(request: NextRequest) {
           originatingOperatorId: rideOriginatingOperatorId,
           bookingTimestamp: serializeTimestamp(processedTimestamp),
         });
+      });
+
+      // Manually sort by booking timestamp descending after fetching
+      rides.sort((a, b) => {
+        if (!a.bookingTimestamp || !b.bookingTimestamp) return 0;
+        return b.bookingTimestamp._seconds - a.bookingTimestamp._seconds;
       });
 
       return NextResponse.json(rides, { status: 200 });
