@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send, MessageCircle, X } from "lucide-react"; // Added X icon
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/contexts/auth-context';
+import { db } from '@/lib/firebase';
+import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 
 interface ChatUser {
   id: string;
@@ -24,160 +26,76 @@ interface Message {
   timestamp: string;
 }
 
-const initialMockChatUsers: ChatUser[] = [
-  { id: 'driver1', name: 'Driver John D.', avatar: 'https://placehold.co/40x40.png?text=JD', lastMessage: "I'm arriving in 2 minutes.", timestamp: "10:30 AM", unread: 1 },
-  { id: 'driver2', name: 'Driver Jane S.', avatar: 'https://placehold.co/40x40.png?text=JS', lastMessage: "Okay, see you soon!", timestamp: "Yesterday" },
-  { id: 'support', name: 'TaxiNow Support', avatar: 'https://placehold.co/40x40.png?text=TN', lastMessage: "How can we help you today?", timestamp: "Mon" },
-];
-
-const initialMockMessages: { [key: string]: Message[] } = {
-  driver1: [
-    { id: 'm1', sender: 'other', text: "Hello! I'm your driver, John. I'm on my way.", timestamp: "10:25 AM" },
-    { id: 'm2', sender: 'user', text: "Great, thank you!", timestamp: "10:26 AM" },
-    { id: 'm3', sender: 'other', text: "I'm arriving in 2 minutes.", timestamp: "10:30 AM" },
-  ],
-  driver2: [
-     { id: 'm4', sender: 'other', text: "Okay, see you soon!", timestamp: "Yesterday" },
-  ],
-  support: [
-     { id: 'm5', sender: 'other', text: "How can we help you today?", timestamp: "Mon" },
-  ]
-};
-
 export default function ChatPage() {
-  const [chatUsersList, setChatUsersList] = useState<ChatUser[]>(initialMockChatUsers);
-  const [selectedChat, setSelectedChat] = useState<ChatUser | null>(initialMockChatUsers[0]);
-  const [messages, setMessages] = useState<Message[]>(initialMockMessages[initialMockChatUsers[0].id]);
-  const [messagesData, setMessagesData] = useState<{ [key: string]: Message[] }>(initialMockMessages);
+  const { user } = useAuth();
+  const [activeRide, setActiveRide] = useState<any | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(scrollToBottom, [messages]);
+  useEffect(() => {
+    if (user?.id) {
+      // Fetch active ride to get rideId and driver details
+      // This is a placeholder, replace with your actual API call
+      fetch(`/api/bookings/my-active-ride?passengerId=${user.id}`)
+        .then(res => res.json())
+        .then(data => setActiveRide(data));
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (selectedChat) {
-      setMessages(messagesData[selectedChat.id] || []);
-    }
-  }, [selectedChat, messagesData]);
+    if (!activeRide?.id || !db) return;
 
-  const handleSelectChat = (user: ChatUser) => {
-    setSelectedChat(user);
-    setChatUsersList(prevUsers => 
-      prevUsers.map(u => u.id === user.id ? {...u, unread: 0} : u)
-    );
-  };
+    const rideMessagesRef = collection(db, 'chats', activeRide.id, 'messages');
+    const q = query(rideMessagesRef, orderBy('timestamp', 'asc'));
 
-  const handleSendMessage = (e: React.FormEvent) => {
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const newMessages = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          sender: (data.senderId === user?.id ? 'user' : 'other') as 'user' | 'other',
+          text: data.text,
+          timestamp: data.timestamp?.toDate().toLocaleTimeString() || '',
+        };
+      });
+      setMessages(newMessages);
+    });
+
+    return () => unsubscribe();
+  }, [activeRide, user?.id]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === "" || !selectedChat) return;
+    if (newMessage.trim() === '' || !activeRide || !user) return;
 
-    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      text: newMessage,
-      timestamp: currentTime,
-    };
+    await fetch('/api/chat/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rideId: activeRide.id,
+        senderId: user.id,
+        text: newMessage,
+      }),
+    });
 
-    setMessages(prev => [...prev, userMsg]);
-    
-    const updatedMessagesForSelectedChat = [...(messagesData[selectedChat.id] || []), userMsg];
-    setMessagesData(prevData => ({
-      ...prevData,
-      [selectedChat.id]: updatedMessagesForSelectedChat,
-    }));
-
-    setChatUsersList(prevUsers => 
-      prevUsers.map(u => 
-        u.id === selectedChat.id ? { ...u, lastMessage: newMessage, timestamp: currentTime, unread: 0 } : u
-      )
-    );
-    setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: newMessage, timestamp: currentTime, unread: 0} : null);
-
-
-    const replyText = `Roger that! "${newMessage.substring(0, 20)}${newMessage.length > 20 ? '...' : ''}"`;
-    setNewMessage(""); // Clear input after capturing its value
-
-    setTimeout(() => {
-      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const replyMsg: Message = {
-        id: `other-${Date.now()}`,
-        sender: 'other',
-        text: replyText,
-        timestamp: replyTime,
-      };
-      setMessages(prev => [...prev, replyMsg]);
-      
-      const finalMessagesForChat = [...updatedMessagesForSelectedChat, replyMsg];
-       setMessagesData(prevData => ({
-        ...prevData,
-        [selectedChat.id]: finalMessagesForChat,
-      }));
-
-      setChatUsersList(prevUsers => 
-        prevUsers.map(u => 
-          u.id === selectedChat.id ? { ...u, lastMessage: replyText, timestamp: replyTime } : u
-        )
-      );
-      setSelectedChat(prevSel => prevSel ? {...prevSel, lastMessage: replyText, timestamp: replyTime} : null);
-
-    }, 1200);
+    setNewMessage('');
   };
 
   return (
-    <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-7rem)]"> {/* Adjusted height */}
-      <Card className="w-1/3 border-r-0 rounded-r-none shadow-lg">
-        <CardHeader className="border-b p-4">
-          <CardTitle className="text-xl font-headline flex items-center gap-2">
-            <MessageCircle className="w-6 h-6 text-primary" /> Chats
-          </CardTitle>
-        </CardHeader>
-        <ScrollArea className="h-[calc(100%-4.5rem)]"> {/* Adjusted height */}
-          <CardContent className="p-0">
-            {chatUsersList.map(user => (
-              <div
-                key={user.id}
-                className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 ${selectedChat?.id === user.id ? 'bg-muted' : ''}`}
-                onClick={() => handleSelectChat(user)}
-              >
-                <Avatar>
-                  <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="avatar profile" />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="font-semibold">{user.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user.lastMessage}</p>
-                </div>
-                <div className="text-xs text-muted-foreground text-right">
-                  <p>{user.timestamp}</p>
-                  {user.unread && user.unread > 0 && (
-                    <span className="mt-1 inline-block bg-accent text-accent-foreground text-xs font-bold px-1.5 py-0.5 rounded-full">
-                      {user.unread}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </ScrollArea>
-      </Card>
-
+    <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-7rem)]">
       <Card className="flex-1 flex flex-col rounded-l-none shadow-lg">
-        {selectedChat ? (
+        {activeRide ? (
           <>
             <CardHeader className="border-b p-4 flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarImage src={selectedChat.avatar} alt={selectedChat.name} data-ai-hint="avatar profile" />
-                  <AvatarFallback>{selectedChat.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={activeRide.driverAvatar} alt={activeRide.driverName} data-ai-hint="avatar profile" />
+                  <AvatarFallback>{activeRide.driverName.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <CardTitle className="text-xl font-headline">{selectedChat.name}</CardTitle>
+                <CardTitle className="text-xl font-headline">{activeRide.driverName}</CardTitle>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)} className="text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="icon" onClick={() => setActiveRide(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
                 <span className="sr-only">Close chat</span>
               </Button>
@@ -211,8 +129,8 @@ export default function ChatPage() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-4">
             <MessageCircle className="w-16 h-16 mb-4" />
-            <p className="text-lg">Select a chat to start messaging</p>
-            <p className="text-sm">Communicate with drivers or support here.</p>
+            <p className="text-lg">You have no active ride.</p>
+            <p className="text-sm">Chat will be available here when you are on a ride.</p>
           </div>
         )}
       </Card>
