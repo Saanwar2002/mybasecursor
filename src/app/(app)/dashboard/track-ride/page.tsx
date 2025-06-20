@@ -40,6 +40,9 @@ import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescr
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { formatAddressForMapLabel } from '@/lib/utils';
+import { doc as firestoreDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Loader } from '@googlemaps/js-api-loader';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -88,7 +91,7 @@ interface ActiveRide {
   notifiedPassengerArrivalTimestamp?: SerializedTimestamp | string | null;
   passengerAcknowledgedArrivalTimestamp?: SerializedTimestamp | string | null;
   rideStartedAt?: SerializedTimestamp | string | null;
-  driverCurrentLocation?: { lat: number; lng: number };
+  driverCurrentLocation?: { lat: number; lng: number, heading?: number | null };
   driverEtaMinutes?: number;
   waitAndReturn?: boolean;
   estimatedAdditionalWaitTimeMinutes?: number;
@@ -209,6 +212,8 @@ export default function MyActiveRidePage() {
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [routePolyline, setRoutePolyline] = useState<google.maps.LatLngLiteral[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 
   const [rideToEditDetails, setRideToEditDetails] = useState<ActiveRide | null>(null);
   const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
@@ -237,6 +242,7 @@ export default function MyActiveRidePage() {
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
 
   const driverLocation = useMemo(() => activeRide?.driverCurrentLocation || huddersfieldCenterGoogle, [activeRide?.driverCurrentLocation]);
 
@@ -263,6 +269,7 @@ export default function MyActiveRidePage() {
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
+  const [liveDriverLocation, setLiveDriverLocation] = useState<google.maps.LatLngLiteral | null>(null);
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
     resolver: zodResolver(editDetailsFormSchema),
@@ -272,6 +279,8 @@ export default function MyActiveRidePage() {
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop, replace: replaceEditStops } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
   const previousEditStopsLengthRef = useRef(editStopsFields.length);
 
+  const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
+  
   useEffect(() => {
     if (isMapSdkLoaded && typeof window.google !== 'undefined' && window.google.maps) {
       if (!autocompleteServiceRef.current && window.google.maps.places) {
@@ -471,6 +480,17 @@ export default function MyActiveRidePage() {
     };
   }, [activeRide?.status]);
 
+  useEffect(() => {
+    if (!db || !activeRide?.id) return;
+    const rideDocRef = firestoreDoc(db, 'bookings', activeRide.id);
+    const unsubscribe = onSnapshot(rideDocRef, (docSnap) => {
+      const data = docSnap.data();
+      if (data && data.driverCurrentLocation) {
+        setLiveDriverLocation(data.driverCurrentLocation);
+      }
+    });
+    return () => unsubscribe();
+  }, [db, activeRide?.id]);
 
   const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
     setRideToEditDetails(ride);
@@ -966,6 +986,126 @@ export default function MyActiveRidePage() {
   
   const journeyLegCount = (activeRide?.stops?.length || 0) + 2; 
 
+  const mapDisplayElements = useMemo(() => {
+    const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
+    const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
+
+    if (!activeRide) return { markers, labels };
+    const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
+
+    if (liveDriverLocation) {
+      markers.push({
+        position: liveDriverLocation,
+        title: 'Your Driver',
+        iconUrl: driverCarIconDataUrl,
+        iconScaledSize: { width: 30, height: 45 },
+      });
+    }
+
+    if (activeRide.pickupLocation) {
+      markers.push({
+        position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
+        title: `Pickup: ${activeRide.pickupLocation.address}`,
+        label: { text: "P", color: "white", fontWeight: "bold"}
+      });
+      labels.push({
+        position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
+        content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+        type: 'pickup'
+      });
+    }
+    if (activeRide.dropoffLocation && isActiveRideState) {
+      markers.push({
+        position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
+        title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+        label: { text: "D", color: "white", fontWeight: "bold" }
+      });
+       labels.push({
+        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+        type: 'dropoff'
+      });
+    }
+    activeRide.stops?.forEach((stop, index) => {
+      if(stop.latitude && stop.longitude && isActiveRideState) { 
+        markers.push({
+          position: {lat: stop.latitude, lng: stop.longitude},
+          title: `Stop ${index+1}: ${stop.address}`,
+          label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+        });
+        labels.push({
+            position: { lat: stop.latitude, lng: stop.longitude },
+            content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
+            type: 'stop'
+        });
+      }
+    });
+    return { markers, labels };
+  }, [activeRide, liveDriverLocation]);
+
+  useEffect(() => {
+    if (!activeRide || !activeRide.driverCurrentLocation || !isMapSdkLoaded) {
+      return;
+    }
+
+    const directionsService = new google.maps.DirectionsService();
+
+    const destination =
+      activeRide.status === "in_progress"
+        ? activeRide.dropoffLocation
+        : activeRide.pickupLocation;
+
+    directionsService.route(
+      {
+        origin: activeRide.driverCurrentLocation,
+        destination: {
+          lat: destination.latitude,
+          lng: destination.longitude,
+        },
+        travelMode: google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result?.routes[0]) {
+          const route = result.routes[0];
+          setRoutePolyline(route.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() })));
+          if (route.legs[0] && route.legs[0].distance && route.legs[0].duration) {
+            setRouteInfo({
+              distance: route.legs[0].distance.text,
+              duration: route.legs[0].duration.text,
+            });
+          }
+        }
+      }
+    );
+  }, [activeRide, isMapSdkLoaded]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const apiKeyToUse = googleMapsApiKey || "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4"; // Fallback
+
+    const loader = new Loader({
+      apiKey: apiKeyToUse,
+      version: "weekly",
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"],
+    });
+
+    loader.load().then((google) => {
+      if (isMounted && google && google.maps) {
+        CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(google.maps);
+        if (!autocompleteServiceRef.current) autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+        if (!placesServiceRef.current) placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'));
+        if (!directionsServiceRef.current) directionsServiceRef.current = new google.maps.DirectionsService();
+        if (autocompleteSessionTokenRef.current === undefined) autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+        setIsMapSdkLoaded(true);
+      }
+    }).catch(e => {
+      console.error("Failed to load Google Maps SDK for track-ride page:", e);
+    });
+
+    return () => { isMounted = false; };
+  }, []);
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live. Ride ID: {activeRide?.displayBookingId || activeRide?.id || "N/A"}</CardDescription> </CardHeader> </Card>
@@ -976,12 +1116,17 @@ export default function MyActiveRidePage() {
             <GoogleMapDisplay 
               center={mapCenter} 
               zoom={14} 
-              markers={mapElements.markers} 
-              customMapLabels={mapElements.labels}
+              markers={mapDisplayElements.markers} 
+              customMapLabels={mapDisplayElements.labels}
               className="h-full w-full" 
               disableDefaultUI={true} 
               fitBoundsToMarkers={true}
               onSdkLoaded={setIsMapSdkLoaded} 
+              mapId="e9d24f2b3e5d0f1"
+              disableDefaultUI={true}
+              fitBoundsToMarkers={!activeRide?.driverCurrentLocation}
+              polylines={routePolyline.length > 0 ? [{ path: routePolyline, color: '#1a73e8', weight: 5 }] : undefined}
+              driverIconRotation={activeRide?.driverCurrentLocation?.heading ?? undefined}
             />
           </div>
 
@@ -1254,6 +1399,21 @@ export default function MyActiveRidePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CardFooter className="flex justify-between items-center bg-muted/40 px-6 py-3">
+        <div className="text-sm font-semibold">
+          {routeInfo ? (
+            <span>
+              {routeInfo.duration} ({routeInfo.distance})
+            </span>
+          ) : (
+            <span>Calculating route...</span>
+          )}
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchActiveRide}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </CardFooter>
     </div>
   );
 }

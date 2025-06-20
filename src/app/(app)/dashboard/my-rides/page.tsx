@@ -1,9 +1,8 @@
-
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX } from "lucide-react";
+import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX, ThumbsUp } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
@@ -111,6 +110,7 @@ export default function MyRidesPage() {
 
   const [selectedRideForRating, setSelectedRideForRating] = useState<Ride | null>(null);
   const [currentRating, setCurrentRating] = useState(0);
+  const [favoritingDriverId, setFavoritingDriverId] = useState<string | null>(null);
 
   const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -243,6 +243,34 @@ export default function MyRidesPage() {
     }
   };
 
+  const handleFavoriteDriver = async (rideToFavorite: Ride) => {
+    if (!user || !rideToFavorite.driverId || !rideToFavorite.driver) {
+      toast({ title: "Cannot Favorite", description: "Driver information is missing for this ride.", variant: "destructive" });
+      return;
+    }
+    setFavoritingDriverId(rideToFavorite.driverId);
+    try {
+      const response = await fetch('/api/users/favorite-drivers/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: rideToFavorite.driverId,
+          driverName: rideToFavorite.driver,
+          vehicleInfo: `${rideToFavorite.vehicleType}`,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || `Failed to favorite driver. Status: ${response.status}`);
+      }
+      toast({ title: "Driver Favorited", description: `${rideToFavorite.driver} has been added to your favorites list.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error while favoriting driver.";
+      toast({ title: "Favoriting Failed", description: message, variant: "destructive" });
+    } finally {
+      setFavoritingDriverId(null);
+    }
+  };
 
   if (isLoading) return ( <div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>Loading your past rides...</CardDescription></CardHeader></Card><div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div></div> );
   if (error && displayedRides.length === 0) return ( <div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>View past completed or cancelled rides.</CardDescription></CardHeader></Card><Card className="border-destructive bg-destructive/10"><CardContent className="pt-6 text-center text-destructive"><AlertTriangle className="w-12 h-12 mx-auto mb-2" /><p className="font-semibold">Could not load rides history.</p><p className="text-sm">{error}</p><Button variant="outline" onClick={() => window.location.reload()} className="mt-4">Try Again</Button></CardContent></Card></div> );
@@ -278,7 +306,22 @@ export default function MyRidesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {ride.driver && (<div className="flex items-center gap-2"><Image src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver.charAt(0)}`} alt={ride.driver} width={40} height={40} className="rounded-full" data-ai-hint="driver avatar" /><div><p className="font-medium">{ride.driver}</p><p className="text-xs text-muted-foreground">Driver</p></div></div>)}
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <Image src={ride.driverAvatar || `https://placehold.co/48x48.png?text=${ride.driver?.charAt(0) || 'D'}`} alt="Driver" width={48} height={48} className="rounded-full" />
+                  <div>
+                    <p className="text-sm font-medium">{ride.driver}</p>
+                    <p className="text-xs text-muted-foreground">{ride.vehicleType}</p>
+                  </div>
+                </div>
+                {ride.status === 'completed' && (
+                   <div className="flex items-center gap-2">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star key={i} className={`cursor-pointer ${i < (ride.rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} onClick={() => handleRateRide(ride)} />
+                    ))}
+                   </div>
+                )}
+              </div>
               {ride.scheduledPickupAt && (<div className="mt-2"><p className="text-xs font-medium text-muted-foreground mb-1">Originally Scheduled For:</p><div className="flex items-center gap-2 text-sm bg-muted/50 border border-muted px-3 py-1.5 rounded-lg shadow-sm"><Clock className="w-5 h-5" /> <span className="font-semibold">{formatDate(null, ride.scheduledPickupAt)}</span></div></div>)}
               <Separator />
               <div className="text-sm space-y-1">
@@ -293,31 +336,65 @@ export default function MyRidesPage() {
                   </div>
                 )}
               </div>
-              <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
-                {ride.status === 'completed' && (ride.rating ? (<div className="flex items-center"><p className="text-sm mr-2">Your Rating:</p>{[...Array(5)].map((_, i) => (<Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />))}</div>) : (<Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>))}
-                {ride.status === 'completed' && ride.driverId && ride.driver && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" className="bg-destructive/80 hover:bg-destructive text-destructive-foreground" disabled={actionLoading[`block-${ride.driverId}`]}>
-                        {actionLoading[`block-${ride.driverId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
-                        Block Driver
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Block {ride.driver}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to block this driver? You will not be matched with them for future rides. This action can be undone in your profile settings.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleBlockDriver(ride)} className="bg-destructive hover:bg-destructive/90">Block Driver</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+              <CardFooter className="flex flex-wrap gap-2 pt-4 border-t">
+                {ride.status === 'completed' && (
+                  <Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>
+                    <Star className="mr-2 h-4 w-4" /> Rate Ride
+                  </Button>
                 )}
-              </div>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                     <Button 
+                      variant="outline" 
+                      size="sm"
+                      disabled={!ride.driverId || actionLoading[`block-${ride.driverId}`]}
+                      className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      {actionLoading[`block-${ride.driverId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
+                      Block Driver
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Block {ride.driver || 'this driver'}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to block this driver? You will not be matched with them for future rides. This can be undone in your profile settings.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleBlockDriver(ride)} className={buttonVariants({ variant: "destructive" })}>Confirm Block</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                {ride.status === 'completed' && ride.driverId && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleFavoriteDriver(ride)}
+                    disabled={favoritingDriverId === ride.driverId}
+                  >
+                    {favoritingDriverId === ride.driverId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
+                    Favorite Driver
+                  </Button>
+                )}
+
+                {ride.status === 'pending' && (
+                   <Button variant="outline" size="sm" onClick={() => handleOpenEditDetailsDialog(ride)}><Edit className="mr-2 h-4 w-4"/> Edit Details</Button>
+                )}
+
+                {ride.status === 'pending' && (
+                   <Button variant="destructive" size="sm" onClick={() => handleOpenCancelDialog(ride)}><XCircle className="mr-2 h-4 w-4" /> Cancel Booking</Button>
+                )}
+                 
+                {ride.status === 'driver_assigned' && ride.notifiedPassengerArrivalTimestamp && !ride.passengerAcknowledgedArrivalTimestamp && (
+                  <Button size="sm" onClick={() => handleAcknowledgeArrival(ride.id)} className="bg-green-600 hover:bg-green-700">
+                    <CheckCheck className="mr-2 h-4 w-4" /> Acknowledge Driver Arrival
+                  </Button>
+                )}
+              </CardFooter>
             </CardContent>
           </Card>
         ))}

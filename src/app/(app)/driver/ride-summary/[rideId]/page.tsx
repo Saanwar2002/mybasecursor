@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
@@ -13,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input"; // Added Input
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 interface LocationPointSummary {
   address: string;
@@ -61,6 +61,10 @@ export default function RideSummaryPage() {
   const [adjustedFareAmount, setAdjustedFareAmount] = useState<number | null>(null);
   const [isSubmittingFareProposal, setIsSubmittingFareProposal] = useState(false);
 
+  // Add state for modal and reason
+  const [isFareProposalModalOpen, setIsFareProposalModalOpen] = useState(false);
+  const [fareProposalReason, setFareProposalReason] = useState('');
+  const [fareProposalPending, setFareProposalPending] = useState(false);
 
   const fetchRideDetails = useCallback(async () => {
     if (!rideId) {
@@ -171,39 +175,34 @@ export default function RideSummaryPage() {
     router.push('/driver/available-rides'); 
   };
 
-  const handleSendFareProposal = async () => {
-    if (!rideDetails) return;
+  const handleSubmitFareProposal = async () => {
+    if (!rideDetails || !driverUser) return;
     const newProposed = parseFloat(proposedFareInput);
     if (isNaN(newProposed) || newProposed <= 0) {
-        toast({ title: "Invalid Fare Amount", description: "Please enter a valid positive number for the fare.", variant: "destructive"});
-        return;
+      toast({ title: 'Invalid Fare Amount', description: 'Please enter a valid positive number for the fare.', variant: 'destructive' });
+      return;
     }
-    if (newProposed === rideDetails.finalCalculatedFare) {
-        toast({ title: "No Change", description: "Proposed fare is the same as the current fare.", variant: "default"});
-        setIsEditingFare(false);
-        return;
+    if (!fareProposalReason.trim()) {
+      toast({ title: 'Reason Required', description: 'Please provide a reason for the fare adjustment.', variant: 'destructive' });
+      return;
     }
-
     setIsSubmittingFareProposal(true);
-    console.log(`Mock: Driver proposed new fare of £${newProposed.toFixed(2)} for ride ${rideDetails.id}`);
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
-
-    const passengerResponse: 'approved' | 'declined' = Math.random() > 0.3 ? 'approved' : 'declined'; // Higher chance of approval for demo
-    
-    if (passengerResponse === 'approved') {
-      setAdjustedFareAmount(newProposed);
-      setFareAdjustmentStatus('approved');
-      setRideDetails(prevDetails => prevDetails ? { ...prevDetails, finalCalculatedFare: newProposed } : null);
-      toast({ title: "Fare Adjustment Approved!", description: `Passenger approved new fare: £${newProposed.toFixed(2)}` });
-    } else {
-      setFareAdjustmentStatus('declined');
-      toast({ title: "Fare Adjustment Declined", description: `Passenger declined the proposed fare. Original fare applies.`, variant: "default" });
+    try {
+      const res = await fetch(`/api/bookings/${rideDetails.id}/fare-proposal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposedAmount: newProposed, reason: fareProposalReason, proposedBy: driverUser.id }),
+      });
+      if (!res.ok) throw new Error('Failed to submit fare proposal');
+      toast({ title: 'Fare Proposal Sent', description: 'Waiting for passenger approval.' });
+      setFareProposalPending(true);
+      setIsFareProposalModalOpen(false);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Could not submit fare proposal', variant: 'destructive' });
+    } finally {
+      setIsSubmittingFareProposal(false);
     }
-
-    setIsEditingFare(false);
-    setIsSubmittingFareProposal(false);
   };
-
 
   if (isLoadingDetails) {
     return ( <div className="flex flex-col items-center justify-center h-full p-4"> <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> <p className="text-muted-foreground">Loading ride summary...</p> </div> );
@@ -293,6 +292,17 @@ export default function RideSummaryPage() {
           {/* Fare Adjustment Section */}
           <div>
             <Label className="text-md font-semibold">Fare Adjustment</Label>
+            {rideDetails && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setIsFareProposalModalOpen(true)}
+                disabled={fareProposalPending}
+              >
+                Propose Fare Adjustment
+              </Button>
+            )}
             {fareAdjustmentStatus === 'idle' && !isEditingFare && (
               <Button variant="outline" size="sm" className="mt-2 w-full border-accent text-accent hover:bg-accent/10" onClick={() => { setProposedFareInput(rideDetails.finalCalculatedFare.toFixed(2)); setIsEditingFare(true); }} >
                 Propose Fare Adjustment
@@ -303,7 +313,7 @@ export default function RideSummaryPage() {
                 <Label htmlFor="proposed-fare-input" className="text-sm">New Proposed Total Fare (£)</Label>
                 <Input id="proposed-fare-input" type="number" step="0.01" value={proposedFareInput} onChange={(e) => setProposedFareInput(e.target.value)} placeholder={rideDetails.finalCalculatedFare.toFixed(2)} disabled={isSubmittingFareProposal} className="h-9"/>
                 <div className="flex gap-2 pt-1">
-                  <Button onClick={handleSendFareProposal} disabled={isSubmittingFareProposal || !proposedFareInput || parseFloat(proposedFareInput) <= 0} size="sm" className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-8">
+                  <Button onClick={handleSubmitFareProposal} disabled={isSubmittingFareProposal || !proposedFareInput || parseFloat(proposedFareInput) <= 0} size="sm" className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground h-8">
                     {isSubmittingFareProposal ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-2 h-3.5 w-3.5" />}
                     Send Proposal
                   </Button>
@@ -346,6 +356,40 @@ export default function RideSummaryPage() {
           </Button>
         </CardFooter>
       </Card>
+      <Dialog open={isFareProposalModalOpen} onOpenChange={setIsFareProposalModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Propose Fare Adjustment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="proposed-fare">New Fare (£)</Label>
+            <Input
+              id="proposed-fare"
+              type="number"
+              min="0"
+              value={proposedFareInput}
+              onChange={e => setProposedFareInput(e.target.value)}
+              disabled={isSubmittingFareProposal}
+            />
+            <Label htmlFor="fare-reason">Reason</Label>
+            <Input
+              id="fare-reason"
+              value={fareProposalReason}
+              onChange={e => setFareProposalReason(e.target.value)}
+              disabled={isSubmittingFareProposal}
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSubmitFareProposal} disabled={isSubmittingFareProposal}>
+              {isSubmittingFareProposal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Submit Proposal
+            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

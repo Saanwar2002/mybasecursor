@@ -1,4 +1,3 @@
-
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -22,27 +21,22 @@ export default function AdminDashboardPage() {
       setIsLoadingTasks(true);
       setTasksError(null);
       try {
-        // Mock input data for the AI flow
-        const mockInput: AdminActionItemsInput = {
-          pendingOperatorApprovals: Math.floor(Math.random() * 5), // 0 to 4
-          activeSystemAlerts: Math.floor(Math.random() * 3),       // 0 to 2
-          unresolvedSupportTickets: Math.floor(Math.random() * 10), // 0 to 9
-          recentFeatureFeedbackCount: Math.floor(Math.random() * 25),// 0 to 24
-          platformLoadPercentage: Math.floor(Math.random() * 70) + 20, // 20 to 89
-        };
-        setPendingOperatorCount(mockInput.pendingOperatorApprovals); 
-        const result = await getAdminActionItems(mockInput);
-        setAdminActionItems(result.actionItems || []);
+        const res = await fetch('/api/admin/action-items');
+        if (!res.ok) throw new Error('Failed to fetch action items');
+        const data = await res.json();
+        setAdminActionItems(data.items || []);
+        // Optionally, update pendingOperatorCount if available in the items
+        const pendingOps = data.items?.find(item => item.id?.includes('operator'))?.count || 0;
+        setPendingOperatorCount(pendingOps);
       } catch (error) {
-        console.error("Failed to fetch admin action items:", error);
-        setTasksError(error instanceof Error ? error.message : "An unknown error occurred while fetching tasks.");
+        console.error('Failed to fetch admin action items:', error);
+        setTasksError(error instanceof Error ? error.message : 'An unknown error occurred while fetching tasks.');
         setAdminActionItems([]);
         setPendingOperatorCount(0);
       } finally {
         setIsLoadingTasks(false);
       }
     };
-
     fetchTasks();
   }, []);
 

@@ -1,43 +1,164 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThumbsUp, Trash2, Car, Info, Loader2 } from "lucide-react";
+import { ThumbsUp, Trash2, Car, Info, Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface FavoriteDriver {
   id: string;
   name: string;
-  avatarText: string; // For placeholder
-  vehicleInfo: string; // e.g., "Toyota Prius - AB12 CDE"
+  avatarText: string;
+  vehicleInfo: string;
 }
-
-const mockFavoriteDrivers: FavoriteDriver[] = [
-  { id: "driver_fav_1", name: "John Smith", avatarText: "JS", vehicleInfo: "Silver Toyota Camry - LS67 FGE" },
-  { id: "driver_fav_2", name: "Maria Garcia", avatarText: "MG", vehicleInfo: "Black Mercedes E-Class - MV20 XYZ" },
-  { id: "driver_fav_3", name: "David Wilson", avatarText: "DW", vehicleInfo: "Blue Ford Mondeo Estate - DW21 ABC" },
-];
 
 export default function FavoriteDriversPage() {
   const { toast } = useToast();
-  const [favoriteDrivers, setFavoriteDrivers] = useState<FavoriteDriver[]>(mockFavoriteDrivers);
+  const [favoriteDrivers, setFavoriteDrivers] = useState<FavoriteDriver[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [removingDriverId, setRemovingDriverId] = useState<string | null>(null);
 
-  const handleRemoveFavorite = (driverId: string) => {
+  useEffect(() => {
+    const fetchFavoriteDrivers = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await fetch('/api/users/favorite-drivers/list');
+        if (!response.ok) {
+          throw new Error('Failed to fetch favorite drivers.');
+        }
+        const data = await response.json();
+        setFavoriteDrivers(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        toast({
+          title: "Error",
+          description: "Could not load your favorite drivers.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFavoriteDrivers();
+  }, [toast]);
+
+  const handleRemoveFavorite = async (driverId: string) => {
     setRemovingDriverId(driverId);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/users/favorite-drivers/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driverId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove driver.');
+      }
+      
       setFavoriteDrivers(prev => prev.filter(driver => driver.id !== driverId));
       toast({
-        title: "Driver Removed (Mock)",
+        title: "Driver Removed",
         description: "The driver has been removed from your favorites.",
       });
+
+    } catch (error) {
+       toast({
+        title: "Error",
+        description: "Could not remove the driver from your favorites.",
+        variant: "destructive"
+      });
+    } finally {
       setRemovingDriverId(null);
-    }, 1000);
+    }
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="shadow-md">
+              <CardHeader className="flex flex-row items-center gap-4 pb-3">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-[150px]" />
+                  <Skeleton className="h-4 w-[200px]" />
+                </div>
+              </CardHeader>
+              <CardFooter className="pt-3 border-t">
+                 <Skeleton className="h-10 w-full" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+
+    if (error) {
+       return (
+         <Alert variant="destructive">
+           <AlertCircle className="h-4 w-4" />
+           <AlertTitle>Error</AlertTitle>
+           <AlertDescription>
+             {error} Please try refreshing the page.
+           </AlertDescription>
+         </Alert>
+       );
+    }
+    
+    if (favoriteDrivers.length === 0) {
+      return (
+        <Card>
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            <p>You haven't added any favorite drivers yet.</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {favoriteDrivers.map(driver => (
+          <Card key={driver.id} className="shadow-md hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center gap-4 pb-3">
+              <Avatar className="h-12 w-12">
+                <AvatarImage src={`https://placehold.co/48x48.png?text=${driver.avatarText}`} alt={driver.name} data-ai-hint="driver avatar" />
+                <AvatarFallback>{driver.avatarText}</AvatarFallback>
+              </Avatar>
+              <div>
+                <CardTitle className="text-lg">{driver.name}</CardTitle>
+                <CardDescription className="text-xs flex items-center gap-1">
+                  <Car className="w-3 h-3"/> {driver.vehicleInfo}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardFooter className="pt-3 border-t">
+              <Button
+                variant="destructive"
+                size="sm"
+                className="w-full bg-destructive/90 hover:bg-destructive"
+                onClick={() => handleRemoveFavorite(driver.id)}
+                disabled={removingDriverId === driver.id}
+              >
+                {removingDriverId === driver.id ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Remove from Favorites
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -62,48 +183,7 @@ export default function FavoriteDriversPage() {
         </AlertDescription>
       </Alert>
 
-      {favoriteDrivers.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            <p>You haven't added any favorite drivers yet.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {favoriteDrivers.map(driver => (
-            <Card key={driver.id} className="shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-4 pb-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={`https://placehold.co/48x48.png?text=${driver.avatarText}`} alt={driver.name} data-ai-hint="driver avatar" />
-                  <AvatarFallback>{driver.avatarText}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle className="text-lg">{driver.name}</CardTitle>
-                  <CardDescription className="text-xs flex items-center gap-1">
-                    <Car className="w-3 h-3"/> {driver.vehicleInfo}
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardFooter className="pt-3 border-t">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="w-full bg-destructive/90 hover:bg-destructive"
-                  onClick={() => handleRemoveFavorite(driver.id)}
-                  disabled={removingDriverId === driver.id}
-                >
-                  {removingDriverId === driver.id ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="mr-2 h-4 w-4" />
-                  )}
-                  Remove from Favorites
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
+      {renderContent()}
     </div>
   );
 }

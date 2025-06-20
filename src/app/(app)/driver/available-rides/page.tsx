@@ -248,6 +248,12 @@ const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;
 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 
+// Add this type above the component
+interface DriverLocation {
+  lat: number;
+  lng: number;
+  heading?: number | null;
+}
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
@@ -258,7 +264,7 @@ export default function AvailableRidesPage() {
   const { toast } = useToast();
   const { user: driverUser } = useAuth();
   const router = useRouter();
-  const [driverLocation, setDriverLocation] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
+  const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
@@ -537,6 +543,7 @@ export default function AvailableRidesPage() {
           setDriverLocation({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
+            heading: typeof position.coords.heading === 'number' ? position.coords.heading : null,
           });
           setGeolocationError(null);
         },
@@ -1074,7 +1081,7 @@ export default function AvailableRidesPage() {
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
-        driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null,
+        driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng, ...(driverLocation.heading !== undefined ? { heading: driverLocation.heading } : {}) } : null,
         accountJobPin: offerToAccept.accountJobPin,
       };
     console.log(`[handleAcceptOffer] Sending accept payload for ${currentActionRideId}:`, JSON.stringify(updatePayload, null, 2));
@@ -1894,6 +1901,29 @@ export default function AvailableRidesPage() {
       setIsPaused(!checked); // revert
     }
   };
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    if (activeRide && isDriverOnline && driverLocation && driverUser?.id) {
+      // Immediately send location once
+      fetch('/api/driver/active-ride/location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driverId: driverUser.id, latitude: driverLocation.lat, longitude: driverLocation.lng, heading: driverLocation.heading }),
+      });
+      // Then send every 7 seconds
+      intervalId = setInterval(() => {
+        fetch('/api/driver/active-ride/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driverId: driverUser.id, latitude: driverLocation.lat, longitude: driverLocation.lng, heading: driverLocation.heading }),
+        });
+      }, 7000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [activeRide, isDriverOnline, driverLocation, driverUser?.id]);
 
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
