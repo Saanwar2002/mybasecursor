@@ -1,4 +1,3 @@
-
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -920,6 +919,15 @@ export default function MyActiveRidePage() {
   }, [isEditDetailsDialogOpen, dialogPickupCoords, dialogDropoffCoords, dialogStopAutocompleteData, rideToEditDetails, editDetailsForm]);
 
 
+  // All hooks, including useEffect for cancellation, come first
+  React.useEffect(() => {
+    if (!showCancelConfirmationDialog && cancellationSuccess) {
+      setActiveRide(null);
+      setCancellationSuccess(false);
+    }
+  }, [showCancelConfirmationDialog, cancellationSuccess]);
+
+  // Now place the early returns after all hooks
   if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
 
@@ -957,7 +965,6 @@ export default function MyActiveRidePage() {
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
   
   const journeyLegCount = (activeRide?.stops?.length || 0) + 2; 
-
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -1904,30 +1903,32 @@ export default function AvailableRidesPage() {
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent className="sm:max-w-md">
-                  <AlertDialogHeader>
-                    <ShadAlertDialogTitleForDialog className="font-bold text-2xl flex items-center gap-2">
-                      <AlertTriangle className="w-7 h-7 text-destructive" /><span>Confirm Emergency Alert</span>
-                    </ShadAlertDialogTitleForDialog>
-                    <ShadAlertDialogDescriptionForDialog className="text-base py-2">
-                      <span>Select a quick alert or send a general emergency notification. Your operator has been notified immediately.</span>
-                      <strong className="block mt-1">Use this for genuine emergencies only.</strong>
-                    </ShadAlertDialogDescriptionForDialog>
-                  </AlertDialogHeader>
-                  <div className="grid grid-cols-2 gap-2 my-3">
+                  <div>
+                    <AlertDialogHeader>
+                      <ShadAlertDialogTitleForDialog className="font-bold text-2xl flex items-center gap-2">
+                        <AlertTriangle className="w-7 h-7 text-destructive" /><span>Confirm Emergency Alert</span>
+                      </ShadAlertDialogTitleForDialog>
+                      <ShadAlertDialogDescriptionForDialog className="text-base py-2">
+                        <span>Select a quick alert or send a general emergency notification. Your operator has been notified immediately.</span>
+                        <strong className="block mt-1">Use this for genuine emergencies only.</strong>
+                      </ShadAlertDialogDescriptionForDialog>
+                    </AlertDialogHeader>
+                    <div className="grid grid-cols-2 gap-2 my-3">
                       <Button onClick={() => handleQuickSOSAlert("Emergency")} className="font-bold bg-red-500 hover:bg-red-600 text-white border border-black" size="sm"><span>Emergency</span></Button>
                       <Button onClick={() => handleQuickSOSAlert("Car Broken Down")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm"><span>Car Broken Down</span></Button>
                       <Button onClick={() => handleQuickSOSAlert("Customer Aggressive")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm"><span>Customer Aggressive</span></Button>
                       <Button onClick={() => handleQuickSOSAlert("Call Me Back")} className="font-bold bg-yellow-400 hover:bg-yellow-500 text-black border border-black" size="sm"><span>Call Me Back</span></Button>
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel><span>Cancel</span></AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleConfirmEmergency}
+                        className="font-bold bg-destructive hover:bg-destructive/90"
+                      >
+                        <span>Send General Alert Now</span>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
                   </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel><span>Cancel</span></AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleConfirmEmergency}
-                      className="font-bold bg-destructive hover:bg-destructive/90"
-                    >
-                      <span>Send General Alert Now</span>
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             )}
@@ -1949,28 +1950,30 @@ export default function AvailableRidesPage() {
                     </Button>
                 </AlertDialogTrigger>
                  <AlertDialogContent className="sm:max-w-md">
-                  <AlertDialogHeader>
-                    <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/><span>Add a map report</span></ShadAlertDialogTitleForDialog>
-                    <ShadAlertDialogDescriptionForDialog><span>Select the type of hazard or observation you want to report at your current location.</span></ShadAlertDialogDescriptionForDialog>
-                  </AlertDialogHeader>
-                  <div className="py-4 grid grid-cols-2 gap-3">
-                    {hazardTypes.map((hazard) => (
-                      <Button
-                        key={hazard.id}
-                        variant="outline"
-                        className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
-                        onClick={() => handleReportHazard(hazard.label)}
-                      >
-                        <hazard.icon className="w-6 h-6 mb-1" />
-                        <span>{hazard.label}</span>
-                      </Button>
-                    ))}
+                  <div>
+                    <AlertDialogHeader>
+                      <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><TrafficCone className="w-6 h-6 text-yellow-500"/><span>Add a map report</span></ShadAlertDialogTitleForDialog>
+                      <ShadAlertDialogDescriptionForDialog><span>Select the type of hazard or observation you want to report at your current location.</span></ShadAlertDialogDescriptionForDialog>
+                    </AlertDialogHeader>
+                    <div className="py-4 grid grid-cols-2 gap-3">
+                      {hazardTypes.map((hazard) => (
+                        <Button
+                          key={hazard.id}
+                          variant="outline"
+                          className={cn("h-auto py-3 flex flex-col items-center gap-1.5 text-xs font-bold", hazard.className)}
+                          onClick={() => handleReportHazard(hazard.label)}
+                        >
+                          <hazard.icon className="w-6 h-6 mb-1" />
+                          <span>{hazard.label}</span>
+                        </Button>
+                      ))}
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel asChild>
+                        <Button type="button" variant="outline"><span>Cancel</span></Button>
+                      </AlertDialogCancel>
+                    </AlertDialogFooter>
                   </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel asChild>
-                      <Button type="button" variant="outline"><span>Cancel</span></Button>
-                    </AlertDialogCancel>
-                  </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
             {activeRide && !isRideTerminated(activeRide.status) && <CurrentNavigationLegBar />}

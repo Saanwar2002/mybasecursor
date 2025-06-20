@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -445,20 +444,22 @@ export default function OperatorManageRidesPage() {
                               <Users className="mr-1 h-3 w-3" /> Assign
                             </Button>
                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm" className="h-8" disabled={isAssigning || !!isCancellingRideId}>
-                                        <XCircle className="mr-1 h-3 w-3" /> Cancel
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Confirm Cancellation</AlertDialogTitle><AlertDialogDescription>Are you sure you want to cancel this pending ride for {ride.passengerName} (ID: {ride.displayBookingId || ride.id})?</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Keep Ride</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleOperatorCancelRide(ride.id)} className="bg-destructive hover:bg-destructive/90">
-                                            {isCancellingRideId === ride.id ? <Loader2 className="h-4 w-4 animate-spin"/> : "Confirm Cancel"}
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm" className="h-8" disabled={isAssigning || !!isCancellingRideId}>
+                                  <XCircle className="mr-1 h-3 w-3" /> Cancel
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <div>
+                                  <AlertDialogHeader><AlertDialogTitle>Confirm Cancellation</AlertDialogTitle><AlertDialogDescription>Are you sure you want to cancel this pending ride for {ride.passengerName} (ID: {ride.displayBookingId || ride.id})?</AlertDialogDescription></AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Keep Ride</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleOperatorCancelRide(ride.id)} className="bg-destructive hover:bg-destructive/90">
+                                      {isCancellingRideId === ride.id ? <Loader2 className="h-4 w-4 animate-spin"/> : "Confirm Cancel"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </div>
+                              </AlertDialogContent>
                             </AlertDialog>
                           </>
                         )}
