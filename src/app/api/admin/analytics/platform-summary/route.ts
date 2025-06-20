@@ -1,6 +1,6 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { withAdminAuth } from '@/lib/auth-middleware';
 // import { db } from '@/lib/firebase'; // Uncomment when using real data
 // import { collection, getCountFromServer, where, query } from 'firebase/firestore';
 
@@ -14,7 +14,7 @@ interface PlatformSummaryStats {
   totalRevenueLast30Days: number; // Mocked
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAdminAuth(async (req) => {
   // TODO: Implement authentication/authorization for admin role
   // TODO: Replace mock data with actual Firestore queries
 
@@ -65,6 +65,6 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch platform summary statistics', details: errorMessage }, { status: 500 });
   }
-}
+});
 
     

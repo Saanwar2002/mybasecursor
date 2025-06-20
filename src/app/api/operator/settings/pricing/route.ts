@@ -1,9 +1,9 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
+import { withOperatorAuth } from '@/lib/auth-middleware';
 
 interface PricingSettings {
   enableSurgePricing: boolean;
@@ -25,10 +25,11 @@ const pricingSettingsUpdateSchema = z.object({
   message: "At least one setting (enableSurgePricing or operatorSurgePercentage) must be provided.",
 });
 
-
 // GET handler to fetch current pricing settings
-export async function GET(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export const GET = withOperatorAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   try {
     const docSnap = await getDoc(settingsDocRef);
     if (docSnap.exists()) {
@@ -50,13 +51,15 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch pricing settings', details: errorMessage }, { status: 500 });
   }
-}
+});
 
 // POST handler to update pricing settings
-export async function POST(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export const POST = withOperatorAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   try {
-    const body = await request.json();
+    const body = await req.json();
     const parsedBody = pricingSettingsUpdateSchema.safeParse(body);
 
     if (!parsedBody.success) {
@@ -93,5 +96,5 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to update pricing settings', details: errorMessage }, { status: 500 });
   }
-}
+});
 

@@ -1,10 +1,10 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 // import { db } from '@/lib/firebase'; // Uncomment when using real data
 // import { collection, query, where, Timestamp, getCountFromServer } from 'firebase/firestore';
 import { z } from 'zod';
 import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 const querySchema = z.object({
   months: z.coerce.number().int().min(1).max(24).optional().default(6),
@@ -18,11 +18,11 @@ interface MonthlyUserRegistrationData {
   // admins: number; // Optional: if you want to track admin registrations
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAdminAuth(async (req) => {
   // TODO: Implement authentication/authorization for admin role
   // TODO: Replace mock data with actual Firestore queries
 
-  const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
   const params = Object.fromEntries(searchParams.entries());
   const parsedQuery = querySchema.safeParse(params);
 
@@ -83,6 +83,6 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch monthly user registrations', details: errorMessage }, { status: 500 });
   }
-}
+});
 
     

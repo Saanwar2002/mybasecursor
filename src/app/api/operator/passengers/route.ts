@@ -1,7 +1,7 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withOperatorAuth } from '@/lib/auth-middleware';
 import {
   collection,
   query,
@@ -49,15 +49,12 @@ interface Passenger {
   // Add other relevant passenger fields if any
 }
 
-export async function GET(request: NextRequest) {
-  // TODO: Implement authentication/authorization to ensure only operators can access this.
-  // For example:
-  // const operator = await getAuthenticatedOperator(request); // Implement this function
-  // if (!operator) {
-  //   return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  // }
+export const GET = withOperatorAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
 
-  const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
   const params = Object.fromEntries(searchParams.entries());
 
   const parsedQuery = querySchema.safeParse(params);
@@ -159,5 +156,5 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ message: 'Failed to fetch passengers', details: errorMessage }, { status: 500 });
   }
-}
+});
     

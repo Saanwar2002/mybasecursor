@@ -1,86 +1,46 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  Timestamp,
-  getDocs,
-} from 'firebase/firestore';
-import { z } from 'zod';
-import { format, startOfDay, endOfDay, parseISO, setHours, getHours } from 'date-fns';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { withOperatorAuth } from '@/lib/auth-middleware';
+import { subDays, startOfDay, endOfDay, getHours } from 'date-fns';
 
-// Zod schema for query parameters
-const querySchema = z.object({
-  date: z.string().refine((val) => {
-    try {
-      return !!parseISO(val);
-    } catch (e) {
-      return false;
-    }
-  }, { message: "Invalid date format, expected YYYY-MM-DD" }).optional(),
-});
-
-interface HourlyRideData {
-  hour: string; // HH:00
-  rides: number;
+interface HourlyData {
+    hour: number;
+    rides: number;
 }
 
-export async function GET(request: NextRequest) {
-  // TODO: Implement authentication/authorization for operator role
-
-  const { searchParams } = new URL(request.url);
-  const params = Object.fromEntries(searchParams.entries());
-  const parsedQuery = querySchema.safeParse(params);
-
-  if (!parsedQuery.success) {
-    return NextResponse.json({ message: 'Invalid query parameters', errors: parsedQuery.error.format() }, { status: 400 });
+export const GET = withOperatorAuth(async (req, { user }) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
   }
-
-  const targetDateStr = parsedQuery.data.date || format(new Date(), 'yyyy-MM-dd');
-  let targetDate: Date;
-  try {
-    targetDate = parseISO(targetDateStr);
-  } catch (e) {
-    return NextResponse.json({ message: 'Invalid date format for query.' }, { status: 400 });
-  }
-
-  const hourlyActivity: HourlyRideData[] = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${String(i).padStart(2, '0')}:00`,
-    rides: 0,
-  }));
 
   try {
     const bookingsRef = collection(db, 'bookings');
-    const startOfTargetDay = startOfDay(targetDate);
-    const endOfTargetDay = endOfDay(targetDate);
-    
+    const today = new Date();
+    const startOfLookback = startOfDay(subDays(today, 6)); // Last 7 days including today
+
     const q = query(
-      bookingsRef,
-      where('status', '==', 'Completed'), // Assuming 'Completed' is the correct status string
-      where('bookingTimestamp', '>=', Timestamp.fromDate(startOfTargetDay)),
-      where('bookingTimestamp', '<=', Timestamp.fromDate(endOfTargetDay))
+        bookingsRef,
+        where('operatorId', '==', user.uid),
+        where('status', '==', 'Completed'),
+        where('bookingTimestamp', '>=', Timestamp.fromDate(startOfLookback))
     );
-    
+
     const querySnapshot = await getDocs(q);
-
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.bookingTimestamp instanceof Timestamp) {
-        const bookingDate = data.bookingTimestamp.toDate();
-        const hour = getHours(bookingDate);
-        if (hourlyActivity[hour]) {
-          hourlyActivity[hour].rides++;
-        }
-      }
+    
+    const hourlyCounts = new Array(24).fill(0);
+    querySnapshot.forEach(doc => {
+        const timestamp = doc.data().bookingTimestamp.toDate();
+        const hour = getHours(timestamp);
+        hourlyCounts[hour]++;
     });
+    
+    const hourlyData: HourlyData[] = hourlyCounts.map((rides, hour) => ({ hour, rides }));
 
-    return NextResponse.json({ hourlyActivity }, { status: 200 });
-
+    return NextResponse.json({ hourlyData }, { status: 200 });
+    
   } catch (error) {
-    console.error('Error fetching hourly ride activity:', error);
+    console.error('Error fetching hourly ride data:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     if (error instanceof Error && (error as any).code === 'failed-precondition') {
         return NextResponse.json({
@@ -88,6 +48,6 @@ export async function GET(request: NextRequest) {
             details: errorMessage
         }, { status: 500});
     }
-    return NextResponse.json({ message: 'Failed to fetch hourly ride activity', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ message: 'Failed to fetch hourly ride data', details: errorMessage }, { status: 500 });
   }
-}
+});

@@ -1,4 +1,3 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -11,22 +10,25 @@ import {
 } from 'firebase/firestore';
 import { z } from 'zod';
 import { subDays, format, startOfDay, endOfDay } from 'date-fns';
+import { withOperatorAuth } from '@/lib/auth-middleware';
 
 // Zod schema for query parameters
 const querySchema = z.object({
-  days: z.coerce.number().int().min(1).max(90).optional().default(7),
+  days: z.coerce.number().int().min(1).max(90).default(30), // Coerce to number, default 30 days
 });
 
 interface DailyRideCount {
-  date: string; // YYYY-MM-DD
-  name: string; // Short day name e.g., "Mon"
+  date: string; // "YYYY-MM-DD"
+  name: string; // "Mon", "Tue", etc.
   rides: number;
 }
 
-export async function GET(request: NextRequest) {
-  // TODO: Implement authentication/authorization for operator role
+export const GET = withOperatorAuth(async (req, { user }) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
 
-  const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
   const params = Object.fromEntries(searchParams.entries());
   const parsedQuery = querySchema.safeParse(params);
 
@@ -51,7 +53,8 @@ export async function GET(request: NextRequest) {
       
       const q = query(
         bookingsRef,
-        where('status', '==', 'Completed'), // Assuming 'Completed' is the correct status string
+        where('operatorId', '==', user.uid), // Secure: filter by authenticated operator
+        where('status', '==', 'Completed'),
         where('bookingTimestamp', '>=', Timestamp.fromDate(startOfTargetDay)),
         where('bookingTimestamp', '<=', Timestamp.fromDate(endOfTargetDay))
       );
@@ -64,7 +67,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // The results will be from today backwards, reverse to have oldest first for typical chart display
     return NextResponse.json({ dailyRideCounts: dailyRideCounts.reverse() }, { status: 200 });
 
   } catch (error) {
@@ -78,4 +80,4 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ message: 'Failed to fetch daily ride counts', details: errorMessage }, { status: 500 });
   }
-}
+});

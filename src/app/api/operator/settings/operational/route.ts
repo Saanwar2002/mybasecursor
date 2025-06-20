@@ -1,9 +1,9 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
+import { withOperatorAuth } from '@/lib/auth-middleware';
 
 interface OperationalSettings {
   enableSurgePricing: boolean;
@@ -12,8 +12,8 @@ interface OperationalSettings {
   lastUpdated?: Timestamp;
 }
 
-// Using the same document for simplicity, but fields are expanded.
-const settingsDocRef = doc(db, 'companySettings', 'pricing'); 
+// This would typically be dynamic, e.g., `operators/${operatorId}/settings/operational`
+const settingsDocRef = db ? doc(db, 'operatorSettings', 'defaultOperational') : null;
 
 const operationalSettingsResponseSchema = z.object({
   enableSurgePricing: z.boolean().default(false),
@@ -29,10 +29,10 @@ const operationalSettingsUpdateSchema = z.object({
   message: "At least one setting must be provided.",
 });
 
-
-// GET handler to fetch current operational settings
-export async function GET(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export const GET = withOperatorAuth(async (req) => {
+  if (!db || !settingsDocRef) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   try {
     const docSnap = await getDoc(settingsDocRef);
     if (docSnap.exists()) {
@@ -56,13 +56,14 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch operational settings', details: errorMessage }, { status: 500 });
   }
-}
+});
 
-// POST handler to update operational settings
-export async function POST(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export const POST = withOperatorAuth(async (req) => {
+  if (!db || !settingsDocRef) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   try {
-    const body = await request.json();
+    const body = await req.json();
     const parsedBody = operationalSettingsUpdateSchema.safeParse(body);
 
     if (!parsedBody.success) {
@@ -102,4 +103,4 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to update operational settings', details: errorMessage }, { status: 500 });
   }
-}
+});

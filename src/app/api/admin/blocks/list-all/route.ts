@@ -1,7 +1,7 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withAdminAuth } from '@/lib/auth-middleware';
 import {
   collection,
   query,
@@ -25,8 +25,10 @@ interface UserBlock {
 }
 
 // This is a simplified version. In a real app, you'd implement pagination.
-export async function GET(request: NextRequest) {
-  // TODO: Implement robust admin authentication/authorization here.
+export const GET = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
 
   try {
     const blocksRef = collection(db, 'userBlocks');
@@ -87,5 +89,5 @@ export async function GET(request: NextRequest) {
     // Removed check for 'failed-precondition' as orderBy is removed
     return NextResponse.json({ message: 'Failed to fetch all user blocks', details: errorMessage }, { status: 500 });
   }
-}
+});
 

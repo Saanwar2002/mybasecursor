@@ -1,8 +1,8 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { withOperatorAuth } from '@/lib/auth-middleware';
 
 // Helper to convert Firestore Timestamp to a serializable format
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -31,14 +31,12 @@ interface GetContext {
   };
 }
 
-export async function GET(request: NextRequest, context: GetContext) {
-  // TODO: Implement authentication/authorization for operator role.
-  // const operator = await getAuthenticatedOperator(request);
-  // if (!operator) {
-  //   return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  // }
+export const GET = withOperatorAuth(async (req, { params }) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
 
-  const { passengerId } = context.params;
+  const { passengerId } = params;
 
   if (!passengerId || typeof passengerId !== 'string' || passengerId.trim() === '') {
     return NextResponse.json({ message: 'A valid Passenger ID path parameter is required.' }, { status: 400 });
@@ -75,4 +73,4 @@ export async function GET(request: NextRequest, context: GetContext) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: `Failed to fetch passenger ${passengerId}`, details: errorMessage }, { status: 500 });
   }
-}
+});

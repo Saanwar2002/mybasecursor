@@ -1,7 +1,8 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { formatISO } from 'date-fns';
+import { db } from '@/lib/firebase';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 interface SupportTicket {
   id: string;
@@ -27,9 +28,11 @@ let serverMockTickets: SupportTicket[] = [
   { id: 'TICKET005', submitterId: 'driverW5', submitterName: 'Will Byers', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'Safety Concern', details: 'Street lighting on Elm St is very poor, making night pickups difficult.', submittedAt: new Date(Date.now() - 86400000 * 0.5).toISOString(), status: 'Pending' },
 ];
 
-export async function GET(request: NextRequest) {
-  // TODO: Implement admin authentication
-  // For now, directly return the mock tickets
+export const GET = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
+  // TODO: Implement admin authentication - Handled by middleware
   try {
     // Simulate some delay
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -38,10 +41,26 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching support tickets:", error);
     return NextResponse.json({ message: "Failed to fetch tickets", details: (error as Error).message }, { status: 500 });
   }
-}
+});
 
-// POST could be used to create new tickets in a real scenario
-// export async function POST(request: NextRequest) {
-//   // ... implementation ...
-// }
+export const POST = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
+  
+  try {
+    const newTicketData = await req.json();
+    // Add server-side validation here (e.g., using Zod)
+    const newTicket: SupportTicket = {
+      id: `TICKET-${Date.now()}`,
+      ...newTicketData,
+      createdAt: formatISO(new Date()),
+      status: 'Open', // Ensure new tickets are always open initially
+    };
+    serverMockTickets.push(newTicket); // In real app, add to Firestore
+    return NextResponse.json(newTicket, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ message: "Failed to create ticket", details: (error as Error).message }, { status: 500 });
+  }
+});
     

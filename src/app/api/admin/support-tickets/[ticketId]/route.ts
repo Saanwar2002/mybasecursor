@@ -1,7 +1,7 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { formatISO } from 'date-fns';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 interface SupportTicket {
   id: string;
@@ -37,54 +37,58 @@ interface UpdateContext {
   };
 }
 
-export async function PUT(request: NextRequest, context: UpdateContext) {
-  const { ticketId } = context.params;
-  // TODO: Implement admin authentication
-  try {
-    const { status } = await request.json() as { status: SupportTicket['status'] };
-    if (!status || !['Pending', 'In Progress', 'Resolved', 'Closed'].includes(status)) {
-      return NextResponse.json({ message: 'Invalid status provided.' }, { status: 400 });
+const findTicket = (ticketId: string) => serverMockTickets.find(t => t.id === ticketId);
+
+export const GET = withAdminAuth(async (req, { params }) => {
+    try {
+        const ticket = findTicket(params.ticketId);
+        if (ticket) {
+            return NextResponse.json(ticket);
+        }
+        return NextResponse.json({ message: "Ticket not found" }, { status: 404 });
+    } catch (error) {
+        return NextResponse.json({ message: "Failed to fetch ticket", details: (error as Error).message }, { status: 500 });
     }
+});
 
-    const ticketIndex = serverMockTickets.findIndex(t => t.id === ticketId);
-    if (ticketIndex === -1) {
-      return NextResponse.json({ message: 'Ticket not found.' }, { status: 404 });
+export const PUT = withAdminAuth(async (req, { params }) => {
+    const { ticketId } = params;
+    // TODO: Implement admin authentication
+    try {
+        const { status } = await req.json() as { status: SupportTicket['status'] };
+        if (!status || !['Pending', 'In Progress', 'Resolved', 'Closed'].includes(status)) {
+            return NextResponse.json({ message: 'Invalid status provided.' }, { status: 400 });
+        }
+        
+        const ticketIndex = serverMockTickets.findIndex(t => t.id === ticketId);
+        if (ticketIndex === -1) {
+            return NextResponse.json({ message: 'Ticket not found.' }, { status: 404 });
+        }
+        
+        serverMockTickets[ticketIndex].status = status;
+        serverMockTickets[ticketIndex].lastUpdated = formatISO(new Date());
+
+        return NextResponse.json(serverMockTickets[ticketIndex]);
+    } catch (error) {
+        return NextResponse.json({ message: "Failed to update ticket", details: (error as Error).message }, { status: 500 });
     }
+});
 
-    serverMockTickets[ticketIndex] = {
-      ...serverMockTickets[ticketIndex],
-      status: status,
-      lastUpdated: new Date().toISOString(),
-    };
-    
-    // Simulate some delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return NextResponse.json(serverMockTickets[ticketIndex], { status: 200 });
+export const DELETE = withAdminAuth(async (req, { params }) => {
+    const { ticketId } = params;
+    // TODO: Implement admin authentication
+    try {
+        const ticketIndex = serverMockTickets.findIndex(t => t.id === ticketId);
 
-  } catch (error) {
-    console.error(`Error updating ticket ${ticketId}:`, error);
-    return NextResponse.json({ message: "Failed to update ticket", details: (error as Error).message }, { status: 500 });
-  }
-}
+        if (ticketIndex === -1) {
+            return NextResponse.json({ message: 'Ticket not found.' }, { status: 404 });
+        }
 
-export async function DELETE(request: NextRequest, context: UpdateContext) {
-  const { ticketId } = context.params;
-  // TODO: Implement admin authentication
-  try {
-    const initialLength = serverMockTickets.length;
-    serverMockTickets = serverMockTickets.filter(t => t.id !== ticketId);
-
-    if (serverMockTickets.length === initialLength) {
-      return NextResponse.json({ message: 'Ticket not found.' }, { status: 404 });
+        serverMockTickets.splice(ticketIndex, 1);
+        
+        return NextResponse.json({ message: `Ticket ${ticketId} deleted successfully.` });
+    } catch (error) {
+        return NextResponse.json({ message: "Failed to delete ticket", details: (error as Error).message }, { status: 500 });
     }
-    
-    // Simulate some delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return NextResponse.json({ message: 'Ticket deleted successfully.' }, { status: 200 });
-
-  } catch (error) {
-    console.error(`Error deleting ticket ${ticketId}:`, error);
-    return NextResponse.json({ message: "Failed to delete ticket", details: (error as Error).message }, { status: 500 });
-  }
-}
+});
     

@@ -1,10 +1,10 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 // import { db } from '@/lib/firebase'; // Uncomment when using real data
 // import { collection, query, where, Timestamp, getCountFromServer } from 'firebase/firestore';
 import { z } from 'zod';
 import { subDays, format, startOfDay, endOfDay } from 'date-fns';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 const querySchema = z.object({
   days: z.coerce.number().int().min(1).max(90).optional().default(30),
@@ -16,11 +16,11 @@ interface DailyRideData {
   rides: number;
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAdminAuth(async (req) => {
   // TODO: Implement authentication/authorization for admin role
   // TODO: Replace mock data with actual Firestore queries
 
-  const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
   const params = Object.fromEntries(searchParams.entries());
   const parsedQuery = querySchema.safeParse(params);
 
@@ -77,6 +77,6 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch daily platform ride counts', details: errorMessage }, { status: 500 });
   }
-}
+});
 
     

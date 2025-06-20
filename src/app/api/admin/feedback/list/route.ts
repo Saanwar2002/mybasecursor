@@ -1,7 +1,8 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { formatISO, subDays } from 'date-fns';
+import { db } from '@/lib/firebase';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 interface FeedbackItem {
   id: string;
@@ -70,10 +71,10 @@ const mockFeedbackItems: FeedbackItem[] = [
   },
 ];
 
-
-export async function GET(request: NextRequest) {
-  // TODO: Implement admin authentication/authorization here.
-  // For now, return mock data.
+export const GET = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
 
   try {
     // Simulate some delay for API call
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch feedback list', details: errorMessage }, { status: 500 });
   }
-}
+});
 
 // Placeholder for future PUT if admin can update status, etc.
 // export async function PUT(request: NextRequest) { /* ... */ }

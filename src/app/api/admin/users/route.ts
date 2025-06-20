@@ -1,4 +1,3 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -19,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { z } from 'zod';
 import type { UserRole } from '@/contexts/auth-context';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 // Helper to convert Firestore Timestamp to a serializable format
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -66,30 +66,36 @@ interface PlatformUser {
   customId?: string;
 }
 
-export async function GET(request: NextRequest) {
-  // TODO: Implement authentication/authorization for admin role.
-
-  const { searchParams } = new URL(request.url);
-  const params = Object.fromEntries(searchParams.entries());
-  const parsedQuery = querySchema.safeParse(params);
-
-  if (!parsedQuery.success) {
-    return NextResponse.json({ message: 'Invalid query parameters', errors: parsedQuery.error.format() }, { status: 400 });
+export const GET = withAdminAuth(async (req, { user }) => {
+  if (!db) {
+    return NextResponse.json({ message: 'Firestore not initialized' }, { status: 500 });
   }
 
-  const {
-    limit,
-    startAfter: startAfterDocId,
-    role,
-    status,
-    sortBy,
-    sortOrder,
-    searchName,
-    searchEmail,
-    searchId,
-  } = parsedQuery.data;
-
+  // The 'user' object from the decoded token is available here if needed
+  console.log(`Admin user ${user.uid} accessed user list.`);
+  
+  // TODO: Implement proper admin role check here. -> This is now handled by withAdminAuth
   try {
+    const { searchParams } = new URL(req.url);
+    const params = Object.fromEntries(searchParams.entries());
+    const parsedQuery = querySchema.safeParse(params);
+
+    if (!parsedQuery.success) {
+      return NextResponse.json({ message: 'Invalid query parameters', errors: parsedQuery.error.format() }, { status: 400 });
+    }
+
+    const {
+      limit,
+      startAfter: startAfterDocId,
+      role,
+      status,
+      sortBy,
+      sortOrder,
+      searchName,
+      searchEmail,
+      searchId,
+    } = parsedQuery.data;
+
     // If searchId is provided, perform a direct document lookup
     if (searchId && searchId.trim() !== "") {
       const userDocRef = doc(db, 'users', searchId.trim());
@@ -207,4 +213,4 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ message: 'Failed to fetch platform users', details: errorMessage }, { status: 500 });
   }
-}
+});

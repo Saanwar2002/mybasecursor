@@ -1,7 +1,8 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { db } from '@/lib/firebase';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 interface GeneralPlatformSettings {
   defaultCurrency: 'GBP' | 'USD' | 'EUR';
@@ -31,7 +32,10 @@ const generalSettingsSchema = z.object({
 });
 
 // GET handler to fetch current general settings
-export async function GET(request: NextRequest) {
+export const GET = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   // TODO: Implement admin authentication/authorization
   try {
     // Simulate a small delay
@@ -42,13 +46,16 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch general settings', details: errorMessage }, { status: 500 });
   }
-}
+});
 
 // POST handler to update general settings
-export async function POST(request: NextRequest) {
+export const POST = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   // TODO: Implement admin authentication/authorization
   try {
-    const body = await request.json();
+    const body = await req.json();
     const parsedBody = generalSettingsSchema.safeParse(body);
 
     if (!parsedBody.success) {
@@ -74,4 +81,4 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to update general settings', details: errorMessage }, { status: 500 });
   }
-}
+});

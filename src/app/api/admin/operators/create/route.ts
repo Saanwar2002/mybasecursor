@@ -1,10 +1,10 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDocs, query, where, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
+import { withAdminAuth } from '@/lib/auth-middleware';
 
 // Strong password generator (simple example)
 function generateTemporaryPassword(length = 12): string {
@@ -27,17 +27,14 @@ const createOperatorSchema = z.object({
   operatorCode: z.string().min(3, {message: "Operator Code must be at least 3 characters."}).regex(/^OP\d{3,}$/, {message: "Operator Code must be in format OPXXX (e.g. OP001)"}),
 });
 
-export async function POST(request: NextRequest) {
-  // TODO: Implement robust admin authentication/authorization here.
-  // For example, verify an admin ID token or session.
-  // const adminUser = await getAuthenticatedAdminUser(request);
-  // if (!adminUser || adminUser.id !== PLATFORM_ADMIN_UID) {
-  //   return NextResponse.json({ message: 'Unauthorized: Only platform admin can create operators.' }, { status: 403 });
-  // }
+export const POST = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
 
   let payload;
   try {
-    payload = await request.json();
+    payload = await req.json();
   } catch (e) {
     return NextResponse.json({ message: 'Invalid JSON payload.' }, { status: 400 });
   }
@@ -107,4 +104,4 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ message: errorMessage, details: String(error) }, { status: 500 });
   }
-}
+});

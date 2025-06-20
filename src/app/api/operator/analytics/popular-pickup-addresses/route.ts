@@ -1,67 +1,45 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  Timestamp,
-  getDocs,
-} from 'firebase/firestore';
-import { z } from 'zod';
-import { subDays, startOfDay } from 'date-fns';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { withOperatorAuth } from '@/lib/auth-middleware';
+import { subDays } from 'date-fns';
 
-// Zod schema for query parameters
-const querySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(50).optional().default(5),
-  days: z.coerce.number().int().min(1).max(365).optional().default(30),
-});
-
-interface PopularAddressData {
+interface PopularAddress {
   address: string;
-  rides: number;
+  count: number;
 }
 
-export async function GET(request: NextRequest) {
-  // TODO: Implement authentication/authorization for operator role
-
-  const { searchParams } = new URL(request.url);
-  const params = Object.fromEntries(searchParams.entries());
-  const parsedQuery = querySchema.safeParse(params);
-
-  if (!parsedQuery.success) {
-    return NextResponse.json({ message: 'Invalid query parameters', errors: parsedQuery.error.format() }, { status: 400 });
+export const GET = withOperatorAuth(async (req, { user }) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
   }
-
-  const { limit, days } = parsedQuery.data;
 
   try {
     const bookingsRef = collection(db, 'bookings');
-    const lookbackDate = startOfDay(subDays(new Date(), days));
-    
+    const cutoffDate = subDays(new Date(), 90); // Look at last 90 days
+
     const q = query(
       bookingsRef,
+      where('operatorId', '==', user.uid), // Secure: filter by authenticated operator
       where('status', '==', 'Completed'),
-      where('bookingTimestamp', '>=', Timestamp.fromDate(lookbackDate))
+      where('bookingTimestamp', '>=', Timestamp.fromDate(cutoffDate))
     );
-      
+
     const querySnapshot = await getDocs(q);
-    
+
     const addressCounts: Record<string, number> = {};
-    querySnapshot.forEach((doc) => {
+    querySnapshot.forEach(doc => {
       const data = doc.data();
-      if (data.pickupLocation && typeof data.pickupLocation.address === 'string') {
-        const address = data.pickupLocation.address;
+      const address = data.pickupAddress;
+      if (address) {
         addressCounts[address] = (addressCounts[address] || 0) + 1;
       }
     });
 
-    const sortedAddresses = Object.entries(addressCounts)
-      .map(([address, rides]) => ({ address, rides }))
-      .sort((a, b) => b.rides - a.rides);
-      
-    const popularAddresses = sortedAddresses.slice(0, limit);
+    const popularAddresses: PopularAddress[] = Object.entries(addressCounts)
+      .map(([address, count]) => ({ address, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10); // Return top 10
 
     return NextResponse.json({ popularAddresses }, { status: 200 });
 
@@ -74,6 +52,6 @@ export async function GET(request: NextRequest) {
             details: errorMessage
         }, { status: 500});
     }
-    return NextResponse.json({ message: 'Failed to fetch popular pickup addresses', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ message: 'Failed to fetch popular addresses', details: errorMessage }, { status: 500 });
   }
-}
+});

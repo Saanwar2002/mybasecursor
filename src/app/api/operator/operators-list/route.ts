@@ -1,7 +1,7 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withAdminAuth } from '@/lib/auth-middleware';
 import {
   collection,
   query,
@@ -49,11 +49,12 @@ interface OperatorUser {
   operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
 }
 
-export async function GET(request: NextRequest) {
-  // TODO: Add proper authentication to ensure only a super-admin/platform owner can call this.
-  // For now, assumes the caller is authorized.
+export const GET = withAdminAuth(async (req) => {
+  if (!db) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
 
-  const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
   const params = Object.fromEntries(searchParams.entries());
   const parsedQuery = querySchema.safeParse(params);
 
@@ -141,4 +142,4 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ message: 'Failed to fetch operators', details: errorMessage }, { status: 500 });
   }
-}
+});

@@ -1,9 +1,9 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
+import { withOperatorAuth } from '@/lib/auth-middleware';
 
 interface DispatchSettings {
   dispatchMode: 'auto' | 'manual';
@@ -11,15 +11,17 @@ interface DispatchSettings {
 }
 
 // TODO: In a real app, this would be dynamic per operator (e.g., `operatorSettings/${operatorId}/dispatchMode`)
-const settingsDocRef = doc(db, 'companySettings', 'dispatchMode');
+const dispatchModeDocRef = db ? doc(db, 'operatorSettings', 'dispatchMode') : null;
 
 const dispatchModeSchema = z.enum(['auto', 'manual']);
 
 // GET handler to fetch current dispatch mode
-export async function GET(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export const GET = withOperatorAuth(async (req) => {
+  if (!db || !dispatchModeDocRef) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   try {
-    const docSnap = await getDoc(settingsDocRef);
+    const docSnap = await getDoc(dispatchModeDocRef);
     if (docSnap.exists()) {
       const data = docSnap.data() as DispatchSettings;
       return NextResponse.json({ dispatchMode: data.dispatchMode || 'auto' }, { status: 200 });
@@ -32,13 +34,15 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to fetch dispatch settings', details: errorMessage }, { status: 500 });
   }
-}
+});
 
 // POST handler to update dispatch mode
-export async function POST(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export const POST = withOperatorAuth(async (req) => {
+  if (!db || !dispatchModeDocRef) {
+    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
+  }
   try {
-    const body = await request.json();
+    const body = await req.json();
     const parsedDispatchMode = dispatchModeSchema.safeParse(body.dispatchMode);
 
     if (!parsedDispatchMode.success) {
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
       lastUpdated: Timestamp.now(),
     };
 
-    await setDoc(settingsDocRef, settingsUpdate, { merge: true }); // merge true to not overwrite other company settings
+    await setDoc(dispatchModeDocRef, settingsUpdate, { merge: true }); // merge true to not overwrite other company settings
 
     return NextResponse.json({ message: 'Dispatch mode updated successfully', settings: settingsUpdate }, { status: 200 });
 
@@ -59,4 +63,4 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ message: 'Failed to update dispatch settings', details: errorMessage }, { status: 500 });
   }
-}
+});
