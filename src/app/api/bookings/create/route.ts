@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { calculateFare, type FareCalculationParams, type VehicleType } from '@/lib/fare-calculator';
 
 interface LocationPoint {
   address: string;
@@ -66,6 +67,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Server configuration error: Firestore not initialized.' }, { status: 500 });
     }
 
+    const fareParams: FareCalculationParams = {
+      pickupCoords: { lat: bookingData.pickupLocation.latitude, lng: bookingData.pickupLocation.longitude },
+      dropoffCoords: { lat: bookingData.dropoffLocation.latitude, lng: bookingData.dropoffLocation.longitude },
+      stops: bookingData.stops?.map(s => ({ lat: s.latitude, lng: s.longitude })) || [],
+      vehicleType: bookingData.vehicleType as VehicleType,
+      passengers: bookingData.passengers,
+      isWaitAndReturn: bookingData.waitAndReturn,
+      estimatedWaitTimeMinutes: bookingData.estimatedWaitTimeMinutes,
+      isPriorityPickup: bookingData.isPriorityPickup,
+      priorityFeeAmount: bookingData.priorityFeeAmount,
+      isSurgeApplied: bookingData.isSurgeApplied,
+    };
+
+    const { fareEstimate, distance, duration, surgeMultiplier } = await calculateFare(fareParams);
+
     const originatingOperatorId = bookingData.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
     const displayBookingIdPrefix = getOperatorPrefix(originatingOperatorId);
 
@@ -77,19 +93,21 @@ export async function POST(request: NextRequest) {
       stops: bookingData.stops || [],
       vehicleType: bookingData.vehicleType,
       passengers: bookingData.passengers,
-      fareEstimate: bookingData.fareEstimate,
+      fareEstimate: fareEstimate,
       isPriorityPickup: bookingData.isPriorityPickup || false,
       priorityFeeAmount: bookingData.isPriorityPickup ? (bookingData.priorityFeeAmount || 0) : 0,
       isSurgeApplied: bookingData.isSurgeApplied,
-      surgeMultiplier: bookingData.surgeMultiplier,
+      surgeMultiplier: surgeMultiplier,
       stopSurchargeTotal: bookingData.stopSurchargeTotal,
-      status: 'searching', // This is the critical fix
+      status: 'searching',
       bookingTimestamp: serverTimestamp(),
       paymentMethod: bookingData.paymentMethod,
       waitAndReturn: bookingData.waitAndReturn || false,
       originatingOperatorId: originatingOperatorId,
       driverNotes: bookingData.driverNotes || "",
       promoCode: bookingData.promoCode || "",
+      distance: distance,
+      duration: duration,
     };
 
     if (bookingData.paymentMethod === "account") {

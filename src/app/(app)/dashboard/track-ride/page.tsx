@@ -26,7 +26,7 @@ interface LocationPoint {
   address?: string;
 }
 
-interface ActiveRide {
+export interface ActiveRide {
   id: string;
   displayBookingId?: string;
   pickupLocation: LocationPoint;
@@ -40,6 +40,7 @@ interface ActiveRide {
   paymentMethod?: 'card' | 'cash' | 'account';
   bookingTimestamp?: { seconds: number; nanoseconds: number };
   scheduledPickupAt?: string | null;
+  driverNotes?: string;
 }
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
@@ -268,13 +269,13 @@ export default function MyActiveRidePage() {
               <CardDescription>Status: <span className="font-semibold capitalize">{activeRide.status.replace(/_/g, ' ')}</span></CardDescription>
             </div>
             <div className="flex gap-2">
-              {activeRide.scheduledPickupAt && (
+              {activeRide.status === 'searching' && (
                 <Button
                   variant="outline"
                   size="sm"
                   asChild
                 >
-                  <Link href={`/dashboard/scheduled-rides/edit/${activeRide.id}`}>
+                  <Link href={`/dashboard/ride/edit/${activeRide.id}`}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </Link>

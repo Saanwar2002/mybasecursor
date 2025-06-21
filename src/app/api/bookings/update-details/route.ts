@@ -1,126 +1,92 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase'; 
-import { doc, getDoc, updateDoc, Timestamp, deleteField } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/auth-context';
+import { calculateFare, type FareCalculationParams, type VehicleType } from '@/lib/fare-calculator';
 
-interface LocationPointPayload {
-  address: string;
-  latitude: number;
-  longitude: number;
-  doorOrFlat?: string;
+interface LocationPoint {
+    address: string;
+    latitude: number;
+    longitude: number;
 }
 
 interface UpdateDetailsPayload {
-  bookingId: string;
-  passengerId: string; 
-  pickupLocation: LocationPointPayload;
-  dropoffLocation: LocationPointPayload;
-  stops: LocationPointPayload[];
-  scheduledPickupAt: string | null; // ISO string or null to make it ASAP
-  fareEstimate?: number | null; // Added fareEstimate
+  rideId: string;
+  passengerId: string;
+  pickupLocation: LocationPoint;
+  dropoffLocation: LocationPoint;
+  driverNotes?: string;
 }
+
+// NOTE: A full implementation would require re-geocoding addresses
+// and recalculating the fare estimate. For now, this is a simplified version.
 
 export async function POST(request: NextRequest) {
   try {
-    const { 
-        bookingId, 
-        passengerId, 
-        pickupLocation,
-        dropoffLocation,
-        stops,
-        scheduledPickupAt,
-        fareEstimate // Destructure fareEstimate
-    } = (await request.json()) as UpdateDetailsPayload;
+    const payload: UpdateDetailsPayload = await request.json();
+    const { rideId, passengerId, pickupLocation, dropoffLocation, driverNotes } = payload;
 
-    if (!bookingId || !passengerId || !pickupLocation || !dropoffLocation) {
-      return NextResponse.json({ message: 'Booking ID, Passenger ID, Pickup, and Dropoff locations are required.' }, { status: 400 });
-    }
-
-    // Validate scheduledPickupAt if provided
-    if (scheduledPickupAt) {
-      try {
-        if(isNaN(new Date(scheduledPickupAt).getTime())) {
-            throw new Error('Invalid date format for scheduledPickupAt');
-        }
-      } catch (e) {
-        return NextResponse.json({ message: 'Invalid scheduledPickupAt format. Must be a valid ISO string.' }, { status: 400 });
-      }
+    if (!rideId || !passengerId || !pickupLocation || !dropoffLocation) {
+      return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
     }
     
-    // Validate location points
-    const validateLocation = (loc: LocationPointPayload, name: string) => {
-        if (!loc.address || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') {
-            throw new Error(`Invalid ${name} data. Address, latitude, and longitude are required.`);
-        }
+    if (!db) {
+      return NextResponse.json({ message: 'Database connection error.' }, { status: 500 });
+    }
+
+    const rideRef = doc(db, 'rides', rideId);
+    const rideSnap = await getDoc(rideRef);
+
+    if (!rideSnap.exists()) {
+      return NextResponse.json({ message: 'Ride not found.' }, { status: 404 });
+    }
+
+    const rideData = rideSnap.data();
+
+    if (rideData.passengerId !== passengerId) {
+      return NextResponse.json({ message: 'You are not authorized to edit this ride.' }, { status: 403 });
+    }
+
+    if (rideData.status !== 'searching') {
+        return NextResponse.json({ message: `Cannot edit a ride that is already "${rideData.status.replace(/_/g, ' ')}".` }, { status: 409 });
+    }
+    
+    const fareParams: FareCalculationParams = {
+      pickupCoords: { lat: pickupLocation.latitude, lng: pickupLocation.longitude },
+      dropoffCoords: { lat: dropoffLocation.latitude, lng: dropoffLocation.longitude },
+      // The current edit form doesn't support changing stops, so we pass the existing ones.
+      stops: rideData.stops?.map((s: any) => ({ lat: s.latitude, lng: s.longitude })) || [],
+      vehicleType: rideData.vehicleType as VehicleType,
+      passengers: rideData.passengers,
+      isWaitAndReturn: rideData.waitAndReturn,
+      estimatedWaitTimeMinutes: rideData.estimatedWaitTimeMinutes,
+      isPriorityPickup: rideData.isPriorityPickup,
+      priorityFeeAmount: rideData.priorityFeeAmount,
+      isSurgeApplied: rideData.isSurgeApplied,
     };
-
-    try {
-        validateLocation(pickupLocation, "pickup location");
-        validateLocation(dropoffLocation, "dropoff location");
-        stops.forEach((stop, index) => validateLocation(stop, `stop ${index + 1}`));
-    } catch(validationError: any) {
-        return NextResponse.json({ message: validationError.message }, { status: 400 });
-    }
-
-
-    const bookingRef = doc(db, 'bookings', bookingId);
-    const bookingSnap = await getDoc(bookingRef);
-
-    if (!bookingSnap.exists()) {
-      return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
-    }
-
-    const bookingData = bookingSnap.data();
-
-    if (bookingData.passengerId !== passengerId) {
-      return NextResponse.json({ message: 'You are not authorized to update this booking.' }, { status: 403 });
-    }
-
-    // Important: Only allow updates if status is 'pending_assignment'
-    if (bookingData.status !== 'pending_assignment') {
-      return NextResponse.json({ message: 'Booking details can only be changed if the ride is pending assignment.' }, { status: 400 });
-    }
+    
+    const { fareEstimate, distance, duration, surgeMultiplier } = await calculateFare(fareParams);
 
     const updateData: any = {
-        pickupLocation,
-        dropoffLocation,
-        stops: stops || [], // Ensure stops is an array, even if empty
-        updatedAt: Timestamp.now(),
+      pickupLocation: pickupLocation,
+      dropoffLocation: dropoffLocation,
+      driverNotes: driverNotes || rideData.driverNotes || "",
+      fareEstimate: fareEstimate,
+      distance: distance,
+      duration: duration,
+      surgeMultiplier: surgeMultiplier,
+      // We also need to update the fare in the top-level booking data
+      fare: fareEstimate
     };
 
-    if (fareEstimate !== undefined && fareEstimate !== null) {
-        updateData.fareEstimate = fareEstimate;
-    }
+    await updateDoc(rideRef, updateData);
 
-    if (scheduledPickupAt === null) {
-        updateData.scheduledPickupAt = deleteField(); 
-    } else {
-        updateData.scheduledPickupAt = scheduledPickupAt;
-    }
-    
-    await updateDoc(bookingRef, updateData);
-    
-    // Fetch the updated document to return the most current data
-    const updatedBookingSnap = await getDoc(bookingRef);
-    const updatedBookingData = updatedBookingSnap.data();
-
-    return NextResponse.json({ 
-        message: 'Booking details updated successfully', 
-        bookingId,
-        pickupLocation: updatedBookingData?.pickupLocation,
-        dropoffLocation: updatedBookingData?.dropoffLocation,
-        stops: updatedBookingData?.stops,
-        scheduledPickupAt: updatedBookingData?.scheduledPickupAt,
-        fareEstimate: updatedBookingData?.fareEstimate // Return the potentially updated fare
-    }, { status: 200 });
+    return NextResponse.json({ message: 'Ride details updated successfully.', newFare: fareEstimate }, { status: 200 });
 
   } catch (error) {
-    console.error('Error updating booking details:', error);
-    let errorMessage = 'Internal Server Error';
-    if (error instanceof Error) {
-        errorMessage = error.message;
-    }
-    return NextResponse.json({ message: 'Failed to update booking details', details: errorMessage }, { status: 500 });
+    console.error('Error in POST /api/bookings/update-details:', error);
+    const message = error instanceof Error ? error.message : "An unknown server error occurred.";
+    return NextResponse.json({ message: 'Failed to update ride details.', error: message }, { status: 500 });
   }
 }
