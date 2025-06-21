@@ -8,6 +8,7 @@ import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, s
 import { doc, getDoc, Timestamp, setDoc } from 'firebase/firestore'; 
 import { useToast } from '@/hooks/use-toast'; 
 import { Firestore } from 'firebase/firestore';
+import { PLATFORM_OPERATOR_CODE } from "@/lib/constants";
 
 export type UserRole = 'passenger' | 'driver' | 'operator' | 'admin';
 
@@ -51,19 +52,21 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   db: Firestore | null;
-  login: (email: string, pass: string) => Promise<void>; 
+  loginWithEmail: (email: string, pass: string, role: UserRole) => Promise<void>; 
   loginAsGuest: (role: UserRole) => Promise<User>; 
   logout: () => void;
   loading: boolean;
   updateUserProfileInContext: (updatedProfileData: Partial<User>) => void;
+  getAuthToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const PLATFORM_OPERATOR_CODE = "OP001"; 
+export const GUEST_DRIVER_ID = 'guest-driver';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -87,45 +90,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (userDocSnap.exists()) {
           const firestoreUser = userDocSnap.data();
-          const userData: User = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || firestoreUser.email || "",
-            name: firestoreUser.name || firebaseUser.displayName || "User",
-            role: firestoreUser.role || 'passenger',
-            avatarUrl: firestoreUser.avatarUrl || null,
-            preferredPaymentMethod: firestoreUser.preferredPaymentMethod || 'card',
-            customId: firestoreUser.customId,
-            operatorCode: firestoreUser.operatorCode,
-            driverIdentifier: firestoreUser.driverIdentifier,
-            vehicleCategory: firestoreUser.vehicleCategory,
-            phoneNumber: firestoreUser.phoneNumber || firebaseUser.phoneNumber,
-            phoneVerified: firestoreUser.phoneVerified || false,
-            status: firestoreUser.status || 'Active',
-            phoneVerificationDeadline: firestoreUser.phoneVerificationDeadline
-              ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
-              : null,
-            acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
-            acceptsPlatformJobs: firestoreUser.operatorCode === PLATFORM_OPERATOR_CODE ? true : (firestoreUser.acceptsPlatformJobs || false),
-            maxJourneyDistance: firestoreUser.maxJourneyDistance || "no_limit", 
-            dispatchMode: firestoreUser.dispatchMode || 'auto', 
-            acceptsAccountJobs: firestoreUser.acceptsAccountJobs === undefined ? true : firestoreUser.acceptsAccountJobs, 
-            vehicleMakeModel: firestoreUser.vehicleMakeModel,
-            vehicleRegistration: firestoreUser.vehicleRegistration,
-            vehicleColor: firestoreUser.vehicleColor,
-            insurancePolicyNumber: firestoreUser.insurancePolicyNumber,
-            insuranceExpiryDate: firestoreUser.insuranceExpiryDate, 
-            motExpiryDate: firestoreUser.motExpiryDate, 
-            taxiLicenseNumber: firestoreUser.taxiLicenseNumber,
-            taxiLicenseExpiryDate: firestoreUser.taxiLicenseExpiryDate, 
-            currentSessionId: firestoreUser.currentSessionId || null,
-            lastLoginAt: firestoreUser.lastLoginAt ? (firestoreUser.lastLoginAt as Timestamp).toDate().toISOString() : null,
-            totalEarningsCurrentSession: firestoreUser.totalEarningsCurrentSession || null,
-            totalDurationOnlineCurrentSessionSeconds: firestoreUser.totalDurationOnlineCurrentSessionSeconds || null,
-            currentHourlyRate: firestoreUser.currentHourlyRate || null,
-          };
-          setUser(userData);
-          console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);
 
+          // Role verification for non-guest logins
+          if (!isGuestLogin) {
+            const tokenResult = await firebaseUser.getIdTokenResult(true);
+            const claims = tokenResult.claims;
+            const userRoleFromClaims = claims.admin ? 'admin' : claims.operator ? 'operator' : claims.driver ? 'driver' : 'passenger';
+            
+            console.log(`AuthContext: Role from claims: ${userRoleFromClaims}. Role from firestore: ${firestoreUser.role}`);
+
+            if (firestoreUser.role !== userRoleFromClaims) {
+              console.warn(`AuthContext: Mismatch between Firestore role (${firestoreUser.role}) and token claims role (${userRoleFromClaims}). Claims will be trusted.`);
+            }
+
+            if (guestRole && userRoleFromClaims !== guestRole) {
+              console.error(`AuthContext: Role mismatch! User tried to log in as '${guestRole}' but their claim is '${userRoleFromClaims}'.`);
+              toast({ title: "Access Denied", description: `You do not have permission to log in as a ${guestRole}.`, variant: "destructive" });
+              if(auth) await signOut(auth);
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+          }
+
+          if (firestoreUser.isGuest) {
+            console.log(`AuthContext.setUserContextAndRedirect: Detected guest user from Firestore doc for UID ${firebaseUser.uid}`);
+            const guestUserData: User = {
+              id: firestoreUser.role === 'driver' ? GUEST_DRIVER_ID : firebaseUser.uid,
+              email: firestoreUser.email || `guest-${firebaseUser.uid.slice(0,5)}@example.com`,
+              name: firestoreUser.name || 'Guest User',
+              role: firestoreUser.role || 'passenger',
+              status: 'Active',
+              phoneVerified: true,
+            };
+            setUser(guestUserData);
+            console.log("AuthContext.setUserContextAndRedirect: Guest user context set:", guestUserData.email, guestUserData.role, "with ID:", guestUserData.id);
+          } else {
+            console.log(`AuthContext.setUserContextAndRedirect: Detected regular user from Firestore doc for UID ${firebaseUser.uid}`);
+            const userData: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || firestoreUser.email || "",
+              name: firestoreUser.name || firebaseUser.displayName || "User",
+              role: firestoreUser.role || 'passenger',
+              operatorCode: (firestoreUser.role === 'operator' && !firestoreUser.operatorCode)
+                ? PLATFORM_OPERATOR_CODE
+                : firestoreUser.operatorCode,
+              avatarUrl: firestoreUser.avatarUrl || null,
+              preferredPaymentMethod: firestoreUser.preferredPaymentMethod || 'card',
+              customId: firestoreUser.customId,
+              driverIdentifier: firestoreUser.driverIdentifier,
+              vehicleCategory: firestoreUser.vehicleCategory,
+              phoneNumber: firestoreUser.phoneNumber || firebaseUser.phoneNumber,
+              phoneVerified: firestoreUser.phoneVerified || false,
+              status: firestoreUser.status || 'Active',
+              phoneVerificationDeadline: firestoreUser.phoneVerificationDeadline
+                ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
+                : null,
+              acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
+              acceptsPlatformJobs: (firestoreUser.role === 'operator' && !firestoreUser.operatorCode)
+                ? true
+                : (firestoreUser.acceptsPlatformJobs || false),
+              maxJourneyDistance: firestoreUser.maxJourneyDistance || "no_limit", 
+              dispatchMode: firestoreUser.dispatchMode || 'auto', 
+              acceptsAccountJobs: firestoreUser.acceptsAccountJobs === undefined ? true : firestoreUser.acceptsAccountJobs, 
+              vehicleMakeModel: firestoreUser.vehicleMakeModel,
+              vehicleRegistration: firestoreUser.vehicleRegistration,
+              vehicleColor: firestoreUser.vehicleColor,
+              insurancePolicyNumber: firestoreUser.insurancePolicyNumber,
+              insuranceExpiryDate: firestoreUser.insuranceExpiryDate, 
+              motExpiryDate: firestoreUser.motExpiryDate, 
+              taxiLicenseNumber: firestoreUser.taxiLicenseNumber,
+              taxiLicenseExpiryDate: firestoreUser.taxiLicenseExpiryDate, 
+              currentSessionId: firestoreUser.currentSessionId || null,
+              lastLoginAt: firestoreUser.lastLoginAt ? (firestoreUser.lastLoginAt as Timestamp).toDate().toISOString() : null,
+              totalEarningsCurrentSession: firestoreUser.totalEarningsCurrentSession || null,
+              totalDurationOnlineCurrentSessionSeconds: firestoreUser.totalDurationOnlineCurrentSessionSeconds || null,
+              currentHourlyRate: firestoreUser.currentHourlyRate || null,
+            };
+            setUser(userData);
+            console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);
+          }
         } else {
           console.error(`AuthContext.setUserContextAndRedirect: User ${firebaseUser.uid} profile NOT FOUND in Firestore.`);
           toast({ title: "Profile Error", description: "Your user profile is incomplete or not found. Logging out.", variant: "destructive" });
@@ -158,15 +202,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       return;
     }
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("AuthContext: onAuthStateChanged event. Firebase user UID:", firebaseUser ? firebaseUser.uid : "null");
-      await setUserContextAndRedirect(firebaseUser, true);
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      console.log("AuthContext: onAuthStateChanged event. Firebase user UID:", fbUser ? fbUser.uid : "null");
+      setFirebaseUser(fbUser);
+      await setUserContextAndRedirect(fbUser, true);
     });
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
-  const loginWithEmail = async (email: string, pass: string) => {
+  const loginWithEmail = async (email: string, pass: string, role: UserRole) => {
     if (!auth) {
       toast({ title: "Error", description: "Authentication service not ready.", variant: "destructive" });
       throw new Error("Auth service not ready");
@@ -181,8 +226,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email}`);
+      console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email} with intended role ${role}`);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      // After successful sign-in, onAuthStateChanged will trigger setUserContextAndRedirect
+      // We pass the intended role to the redirect function to perform verification there.
+      await setUserContextAndRedirect(userCredential.user, false, false, role);
       console.log("AuthContext.loginWithEmail: signInWithEmailAndPassword SUCCESS for UID:", userCredential.user.uid);
     } catch (error: any) {
       setLoading(false);
@@ -215,6 +263,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const getAuthToken = async (): Promise<string | null> => {
+    if (!firebaseUser) {
+      console.error("getAuthToken called but no firebaseUser is available.");
+      // This might happen if called immediately on load before auth state is resolved.
+      // Or after logout.
+      return null;
+    }
+    try {
+      // Force refresh the token if it's expired.
+      const token = await firebaseUser.getIdToken(true);
+      return token;
+    } catch (error) {
+      console.error("Error getting auth token:", error);
+      // Could log the user out here if token fetching fails permanently
+      return null;
+    }
+  };
+
   const loginAsGuest = async (role: UserRole): Promise<User> => {
     setLoading(true);
     if (!auth || !db) {
@@ -230,7 +296,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const firebaseUser = userCredential.user;
       
       const guestUserData: User = {
-        id: firebaseUser.uid,
+        id: role === 'driver' ? GUEST_DRIVER_ID : firebaseUser.uid,
         email: firebaseUser.email || `guest-${firebaseUser.uid.slice(0,5)}@example.com`,
         name: `Guest ${role.charAt(0).toUpperCase() + role.slice(1)}`,
         role: role,
@@ -243,11 +309,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: guestUserData.name,
         email: guestUserData.email,
         role: guestUserData.role,
+        isGuest: true,
         createdAt: Timestamp.now(),
       });
 
       setUser(guestUserData);
       setLoading(false);
+      toast({
+        title: "Logged in as Guest",
+        description: `You are now browsing as a Guest ${role}.`
+      });
       return guestUserData;
 
     } catch (error: any) {
@@ -336,10 +407,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     db,
     loading,
-    login: loginWithEmail,
+    loginWithEmail,
     loginAsGuest,
     logout,
     updateUserProfileInContext,
+    getAuthToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -353,4 +425,3 @@ export const useAuth = () => {
   return context;
 };
 
-export { PLATFORM_OPERATOR_CODE };

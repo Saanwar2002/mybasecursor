@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-export type LabelType = 'pickup' | 'dropoff' | 'driver' | 'stop';
+export type LabelType = 'pickup' | 'dropoff' | 'driver' | 'stop' | 'hazard';
 export type LabelVariant = 'default' | 'compact';
 
 // Define an interface for the instance methods we expect
@@ -25,7 +25,10 @@ export type CustomMapLabelOverlayConstructor = new (
   position: google.maps.LatLngLiteral,
   content: string,
   type: LabelType,
-  variant?: LabelVariant
+  options?: {
+    variant?: LabelVariant;
+    icon?: string; // We'll pass SVG string here
+  }
 ) => ICustomMapLabelOverlay;
 
 
@@ -36,16 +39,23 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
     private content: string;
     private type: LabelType;
     private variant: LabelVariant;
+    private icon?: string;
     private div: HTMLDivElement | null = null;
     private visible: boolean = true;
 
-    constructor(position: google.maps.LatLngLiteral, content: string, type: LabelType, variant: LabelVariant = 'default') {
+    constructor(
+        position: google.maps.LatLngLiteral, 
+        content: string, 
+        type: LabelType, 
+        options: { variant?: LabelVariant, icon?: string } = {}
+    ) {
       super();
       this.mapsLatLng = mapsApiInstance.LatLng;
       this.positionLatLng = new this.mapsLatLng(position.lat, position.lng);
       this.content = content;
       this.type = type;
-      this.variant = variant;
+      this.variant = options.variant || 'default';
+      this.icon = options.icon;
     }
 
     private _applyStyles() {
@@ -62,7 +72,18 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       this.div.style.transform = 'translateX(-50%) translateY(-100%) translateY(-12px)'; // Adjust vertical offset
 
 
-      if (this.variant === 'compact') {
+      if (this.type === 'hazard') {
+        this.div.style.display = 'flex';
+        this.div.style.alignItems = 'center';
+        this.div.style.gap = '4px';
+        this.div.style.padding = '3px 6px';
+        this.div.style.borderRadius = '6px';
+        this.div.style.fontSize = '10px';
+        this.div.style.background = 'rgba(0,0,0,0.7)';
+        this.div.style.color = 'white';
+        this.div.style.border = '1px solid white';
+        this.div.style.fontWeight = 'bold';
+      } else if (this.variant === 'compact') {
         this.div.style.padding = '2px 4px';
         this.div.style.borderRadius = '4px';
         this.div.style.fontSize = '9px';
@@ -109,7 +130,14 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
       this.div.style.pointerEvents = 'none';
 
       this._applyStyles();
-      this.div.innerHTML = this.content;
+      
+      let innerHTML = '';
+      if (this.icon) {
+        // The icon should be an SVG string
+        innerHTML += this.icon;
+      }
+      innerHTML += `<span>${this.content}</span>`;
+      this.div.innerHTML = innerHTML;
 
       const panes = this.getPanes();
       if (panes) {
@@ -158,7 +186,12 @@ export function getCustomMapLabelOverlayClass(mapsApiInstance: typeof google.map
         this.variant = newVariant;
       }
       if (this.div) {
-        this.div.innerHTML = this.content;
+        let innerHTML = '';
+        if (this.icon) {
+            innerHTML += this.icon;
+        }
+        innerHTML += `<span>${this.content}</span>`;
+        this.div.innerHTML = innerHTML;
         this._applyStyles(); 
       }
     }

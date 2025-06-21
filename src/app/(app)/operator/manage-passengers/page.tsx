@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -9,6 +8,8 @@ import { Contact, Search, Loader2, AlertTriangle, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isValid } from 'date-fns';
+import { useAuth } from '@/contexts/auth-context';
+import { auth } from '@/lib/firebase';
 
 interface Passenger {
   id: string;
@@ -36,6 +37,7 @@ export default function OperatorManagePassengersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth(); // Get user from auth context
 
   const [searchName, setSearchName] = useState<string>("");
   const [searchEmail, setSearchEmail] = useState<string>("");
@@ -49,7 +51,20 @@ export default function OperatorManagePassengersPage() {
   const fetchPassengers = useCallback(async (cursor?: string | null, direction: 'next' | 'prev' | 'filter' = 'filter') => {
     setIsLoading(true);
     setError(null);
+
+    if (!auth || !user) {
+      setError("You must be logged in to view passengers.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        throw new Error("Authentication token not available.");
+      }
+      const headers = { 'Authorization': `Bearer ${token}` };
+
       const params = new URLSearchParams();
       params.append('limit', String(PASSENGERS_PER_PAGE));
       if (cursor) {
@@ -65,10 +80,18 @@ export default function OperatorManagePassengersPage() {
       // params.append('sortBy', 'createdAt'); 
       // params.append('sortOrder', 'desc');
 
-      const response = await fetch(`/api/operator/passengers?${params.toString()}`);
+      const response = await fetch(`/api/operator/passengers?${params.toString()}`, { headers });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to fetch passengers: ${response.status}`);
+        // Attempt to parse error as text first, as "Unauthorized" isn't JSON
+        const errorText = await response.text();
+        try {
+            // See if the text is actually JSON
+            const errorData = JSON.parse(errorText);
+            throw new Error(errorData.message || `Failed to fetch passengers: ${response.status}`);
+        } catch (jsonError) {
+            // If parsing fails, use the raw text
+            throw new Error(errorText || `Failed to fetch passengers: ${response.status}`);
+        }
       }
       const data = await response.json();
       
@@ -92,12 +115,18 @@ export default function OperatorManagePassengersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchName, searchEmail, toast, passengers]); // Added passengers to dependency array for prevCursors
+  }, [searchName, searchEmail, toast, user]);
 
   useEffect(() => {
-    // Initial fetch or when search terms change
-    fetchPassengers(null, 'filter');
-  }, [searchName, searchEmail]); // Removed fetchPassengers from dep array, as it causes infinite loop due to 'passengers' dependency. This setup should be fine for filter changes.
+    // Initial fetch or when search terms change, but only if user is logged in
+    if (user) {
+        fetchPassengers(null, 'filter');
+    } else {
+        // Handle case where user is not logged in on initial load
+        setIsLoading(false);
+        setError("Please log in to view passenger data.");
+    }
+  }, [searchName, searchEmail, user, fetchPassengers]);
 
 
   const handleNextPage = () => {

@@ -1263,7 +1263,10 @@ export default function AvailableRidesPage() {
     ) {
         chargeForPreviousStop = currentStopTimerDisplay.charge;
         setCompletedStopWaitCharges(prev => ({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop }));
-        setAccumulatedStopWaitingCharges(prev => Object.values({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop}).reduce((sum, val) => sum + (val || 0), 0));
+        setAccumulatedStopWaitingCharges(prev => {
+            const updatedCharges = {...completedStopWaitCharges, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop};
+            return Object.values(updatedCharges).reduce((sum, val) => sum + (val || 0), 0);
+        });
     }
 
 
@@ -1419,7 +1422,7 @@ export default function AvailableRidesPage() {
         passengerAcknowledgedArrivalTimestamp: serverData.passengerAcknowledgedArrivalTimestamp || activeRide.passengerAcknowledgedArrivalTimestamp,
         rideStartedAt: serverData.rideStartedAt || activeRide.rideStartedAt,
         completedAt: serverData.completedAt || activeRide.completedAt,
-        fareEstimate: actionType === 'complete_ride' && payload.finalFare !== undefined ? payload.finalFare : (serverData.fareEstimate ?? activeRide.fareEstimate),
+        fareEstimate: (actionType === 'complete_ride' && payload.finalFare !== undefined) ? payload.finalFare : (serverData.fareEstimate ?? activeRide.fareEstimate),
         waitAndReturn: serverData.waitAndReturn ?? activeRide.waitAndReturn,
         estimatedAdditionalWaitTimeMinutes: serverData.estimatedAdditionalWaitTimeMinutes ?? activeRide.estimatedAdditionalWaitTimeMinutes,
         driverCurrentLocation: serverData.driverCurrentLocation || activeRide.driverCurrentLocation || driverLocation,
@@ -2176,7 +2179,7 @@ export default function AvailableRidesPage() {
                         {activeRide.status === 'completed' ? (
                             <div className="text-center">
                                 <Badge variant="default" className="font-bold text-base w-fit mx-auto bg-primary text-primary-foreground py-1.5 px-4 rounded-lg shadow-lg flex items-center gap-2">
-                                    <CheckCircleIconLucide className="w-5 h-5" /> <span>Ride Completed</span>
+                                    <CheckCircleIcon className="w-5 h-5" /> <span>Ride Completed</span>
                                 </Badge>
                                 <p className="mt-3 font-semibold text-lg">{activeRide.passengerName}</p>
                                 <p className="text-2xl font-bold text-primary">{displayedFare}</p>

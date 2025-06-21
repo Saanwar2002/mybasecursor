@@ -1,31 +1,14 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit as firestoreLimit,
-  startAfter as firestoreStartAfter,
-  getDocs,
-  doc,
-  getDoc,
-  Timestamp,
-  QueryConstraint,
-  Query,
-  DocumentData,
-} from 'firebase/firestore';
+import { getDb } from '@/lib/firebase-admin';
+import { withOperatorAuth } from '@/lib/auth-middleware';
+import { Timestamp, DocumentData, Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
-// Helper to convert Firestore Timestamp to a serializable format
-function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
+// Helper to convert Firestore Timestamp to a serializable format (ISO string)
+function serializeTimestamp(timestamp: Timestamp | undefined | null): string | null {
   if (!timestamp) return null;
-  return {
-    _seconds: timestamp.seconds,
-    _nanoseconds: timestamp.nanoseconds,
-  };
+  return timestamp.toDate().toISOString();
 }
 
 const querySchema = z.object({
@@ -34,100 +17,21 @@ const querySchema = z.object({
   status: z.string().optional(),
   sortBy: z.string().optional().default('bookingTimestamp'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
-  dateFrom: z.string().datetime({ message: "Invalid dateFrom format, expected ISO string" }).optional(),
-  dateTo: z.string().datetime({ message: "Invalid dateTo format, expected ISO string" }).optional(),
+  dateFrom: z.string().datetime({ message: "Invalid dateFrom format" }).optional(),
+  dateTo: z.string().datetime({ message: "Invalid dateTo format" }).optional(),
   passengerName: z.string().optional(),
 });
 
-const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
-const PLATFORM_OPERATOR_ID_PREFIX = "001";
 
-function getOperatorPrefix(operatorCode?: string | null): string {
-  if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
-    const numericPart = operatorCode.substring(2);
-    if (/^\d{3,}$/.test(numericPart)) {
-      return numericPart.slice(0, 3);
-    }
-  }
-  return PLATFORM_OPERATOR_ID_PREFIX;
-}
-
-function generateNumericSuffix(): string {
-  const timestampPart = Date.now().toString().slice(-4);
-  const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-  return `${timestampPart}${randomPart}`;
-}
-
-const nowForMocks = Timestamp.now();
-const nowSerializedForMocks = serializeTimestamp(nowForMocks);
-
-
-const updatedMockBookings: any[] = [
-    {
-        id: `mock_phone_1stop_${Date.now() + 1}`,
-        displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
-        originatingOperatorId: "OP001",
-        passengerName: "Sarah Davis (1 Stop)",
-        passengerPhone: "+447700900111",
-        pickupLocation: { address: "Huddersfield Library, Princess Alexandra Walk, Huddersfield HD1 2SU", latitude: 53.6469, longitude: -1.7821 },
-        stops: [{ address: "Kingsgate Shopping Centre, King Street, Huddersfield HD1 2QB", latitude: 53.6465, longitude: -1.7833 }],
-        dropoffLocation: { address: "Huddersfield Train Station, St George's Square, Huddersfield HD1 1JB", latitude: 53.6483, longitude: -1.7805 },
-        status: 'pending_assignment',
-        fareEstimate: 19.80,
-        bookingTimestamp: nowSerializedForMocks,
-        vehicleType: 'estate', passengers: 1, paymentMethod: 'cash',
-        driverNotes: "Needs help with a small suitcase. Call upon arrival."
-    },
-    {
-        id: `mock_phone_2stops_${Date.now() + 2}`,
-        displayBookingId: `${getOperatorPrefix("OP002")}/${generateNumericSuffix()}`,
-        originatingOperatorId: "OP002",
-        passengerName: "Michael Chen (2 Stops)",
-        passengerPhone: "+447700900222",
-        pickupLocation: { address: "University of Huddersfield, Queensgate, Huddersfield HD1 3DH", latitude: 53.6438, longitude: -1.7787 },
-        stops: [
-            { address: "Greenhead Park (Play Area), Park Drive, Huddersfield HD1 4HS", latitude: 53.6501, longitude: -1.7969 },
-            { address: "Lindley Village (Post Office), Lidget Street, Huddersfield HD3 3JB", latitude: 53.6580, longitude: -1.8280 }
-        ],
-        dropoffLocation: { address: "Beaumont Park, Huddersfield HD4 7AY", latitude: 53.6333, longitude: -1.8080 },
-        status: 'pending_assignment',
-        fareEstimate: 28.50,
-        bookingTimestamp: nowSerializedForMocks,
-        vehicleType: 'minibus_6', passengers: 4, paymentMethod: 'card'
-    },
-    {
-        id: `mock_note_only_${Date.now() + 3}`,
-        displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
-        originatingOperatorId: "OP001",
-        passengerName: "Laura Smith (Wheelchair)",
-        passengerPhone: "+447700900333", // Added phone
-        pickupLocation: { address: "John Smith's Stadium, Stadium Way, Huddersfield HD1 6PG", latitude: 53.6542, longitude: -1.7677 },
-        dropoffLocation: { address: "Almondbury Village, Huddersfield HD5 8XE", latitude: 53.6391, longitude: -1.7542 },
-        status: 'pending_assignment',
-        fareEstimate: 16.25,
-        bookingTimestamp: nowSerializedForMocks,
-        vehicleType: 'disable_wheelchair_access', passengers: 1, paymentMethod: 'account',
-        driverNotes: "Requires assistance with a foldable wheelchair. Please ensure boot space is clear. Thank you. Passenger will be waiting by main reception."
-    },
-     {
-        id: `mock_simple_${Date.now()}`,
-        displayBookingId: `${getOperatorPrefix("OP001")}/${generateNumericSuffix()}`,
-        originatingOperatorId: "OP001",
-        passengerName: "David Lee (Simple)",
-        passengerPhone: "+447700900444", // Added phone
-        pickupLocation: { address: "10 Downing Street, London", latitude: 51.503364, longitude: -0.127625 },
-        dropoffLocation: { address: "Buckingham Palace, London", latitude: 51.501364, longitude: -0.141890 },
-        status: 'pending_assignment',
-        fareEstimate: 15.50,
-        bookingTimestamp: nowSerializedForMocks,
-        vehicleType: 'car', passengers: 1, paymentMethod: 'card'
-    },
-];
-
-
-export async function GET(request: NextRequest) {
+export const GET = withOperatorAuth(async (request, { user: operatorUser }) => {
+  const db = getDb();
   const { searchParams } = new URL(request.url);
   const params = Object.fromEntries(searchParams.entries());
+
+  if (!operatorUser || !operatorUser.operatorCode) {
+    return NextResponse.json({ message: 'Operator not authenticated or operator code is missing' }, { status: 401 });
+  }
+  const operatorCode = operatorUser.operatorCode;
 
   const parsedQuery = querySchema.safeParse(params);
 
@@ -147,128 +51,74 @@ export async function GET(request: NextRequest) {
   } = parsedQuery.data;
 
   try {
-    const bookingsRef = collection(db, 'bookings');
-    const queryConstraints: QueryConstraint[] = [];
+    let queryChain: Query<DocumentData> = db.collection('bookings')
+        .where('originatingOperatorId', '==', operatorCode);
 
     if (status && status !== "all") {
-      queryConstraints.push(where('status', '==', status));
+      queryChain = queryChain.where('status', '==', status);
     }
     if (passengerName) {
-      queryConstraints.push(where('passengerName', '>=', passengerName));
-      queryConstraints.push(where('passengerName', '<=', passengerName + '\uf8ff'));
+      queryChain = queryChain.where('passengerName', '>=', passengerName)
+                           .where('passengerName', '<=', passengerName + '\uf8ff');
     }
     if (dateFrom) {
-      queryConstraints.push(where('bookingTimestamp', '>=', Timestamp.fromDate(new Date(dateFrom))));
+      queryChain = queryChain.where('bookingTimestamp', '>=', Timestamp.fromDate(new Date(dateFrom)));
     }
     if (dateTo) {
       const toDate = new Date(dateTo);
       toDate.setHours(23, 59, 59, 999);
-      queryConstraints.push(where('bookingTimestamp', '<=', Timestamp.fromDate(toDate)));
+      queryChain = queryChain.where('bookingTimestamp', '<=', Timestamp.fromDate(toDate));
     }
 
-    if (passengerName && sortBy !== 'passengerName') {
-        queryConstraints.push(orderBy('passengerName', sortOrder));
-        if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder));
-    } else if ((dateFrom || dateTo) && sortBy !== 'bookingTimestamp') {
-        queryConstraints.push(orderBy('bookingTimestamp', sortOrder));
-        if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder));
-    } else if (sortBy) {
-        queryConstraints.push(orderBy(sortBy, sortOrder));
+    if (passengerName) {
+        queryChain = queryChain.orderBy('passengerName', sortOrder);
+    } else if (dateFrom || dateTo) {
+        queryChain = queryChain.orderBy('bookingTimestamp', sortOrder);
+    } else {
+        queryChain = queryChain.orderBy(sortBy, sortOrder);
     }
-
-    let lastDocSnapshot = null;
+    
     if (startAfterDocId) {
-      const startAfterDocRef = doc(db, 'bookings', startAfterDocId);
-      lastDocSnapshot = await getDoc(startAfterDocRef);
-      if (!lastDocSnapshot.exists()) {
-        return NextResponse.json({ message: 'Pagination cursor not found.' }, { status: 404 });
+      const startAfterDoc = await db.collection('bookings').doc(startAfterDocId).get();
+      if (startAfterDoc.exists) {
+        queryChain = queryChain.startAfter(startAfterDoc);
       }
-      queryConstraints.push(firestoreStartAfter(lastDocSnapshot));
     }
 
-    queryConstraints.push(firestoreLimit(limit));
+    const finalQuery = queryChain.limit(limit);
+    const querySnapshot = await finalQuery.get();
 
-    const q = query(bookingsRef, ...queryConstraints) as Query<DocumentData>;
-    const querySnapshot = await getDocs(q);
-
-    const firestoreBookings = querySnapshot.docs.map((doc) => {
+    const bookings = querySnapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => {
       const data = doc.data();
-      let displayBookingId = data.displayBookingId;
-      const rideOriginatingOperatorId = data.originatingOperatorId || data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
-
-      if (!displayBookingId || (displayBookingId.includes('/') && displayBookingId.split('/')[1].length > 10 && !/^\d+$/.test(displayBookingId.split('/')[1]))) {
-        const prefix = getOperatorPrefix(rideOriginatingOperatorId);
-        const shortSuffix = doc.id.substring(0, 6).toUpperCase();
-        displayBookingId = `${prefix}/${shortSuffix}`;
-      }
-
       return {
         id: doc.id,
-        displayBookingId: displayBookingId,
-        originatingOperatorId: rideOriginatingOperatorId,
-        passengerId: data.passengerId,
-        passengerName: data.passengerName,
-        passengerPhone: data.passengerPhone || data.customerPhoneNumber,
-        driverId: data.driverId,
-        driverName: data.driverName,
-        driverVehicleDetails: data.driverVehicleDetails,
-        pickupLocation: data.pickupLocation,
-        dropoffLocation: data.dropoffLocation,
-        stops: data.stops || [],
-        status: data.status,
-        fareEstimate: data.fareEstimate,
+        ...data,
         bookingTimestamp: serializeTimestamp(data.bookingTimestamp as Timestamp | undefined),
-        scheduledPickupAt: data.scheduledPickupAt ? data.scheduledPickupAt : null,
+        scheduledPickupAt: serializeTimestamp(data.scheduledPickupAt as Timestamp | undefined),
         updatedAt: serializeTimestamp(data.updatedAt as Timestamp | undefined),
         cancelledAt: serializeTimestamp(data.cancelledAt as Timestamp | undefined),
-        vehicleType: data.vehicleType,
-        passengers: data.passengers,
-        paymentMethod: data.paymentMethod,
-        driverNotes: data.driverNotes,
-        isPriorityPickup: data.isPriorityPickup,
-        priorityFeeAmount: data.priorityFeeAmount,
-        waitAndReturn: data.waitAndReturn,
-        estimatedWaitTimeMinutes: data.estimatedWaitTimeMinutes,
       };
     });
 
-    let combinedBookings = firestoreBookings;
-    if (!startAfterDocId) { // Only add mocks on the first page
-        combinedBookings = [...updatedMockBookings, ...firestoreBookings];
-    }
-
-    const uniqueBookingsMap = new Map();
-    combinedBookings.forEach(booking => {
-        if (!uniqueBookingsMap.has(booking.id)) {
-            uniqueBookingsMap.set(booking.id, booking);
-        }
-    });
-    const finalUniqueBookings = Array.from(uniqueBookingsMap.values());
-
-
     let nextCursor: string | null = null;
-    // Determine nextCursor based on Firestore results, not the combined list length
-    if (querySnapshot.docs.length === limit && firestoreBookings.length > 0) {
-      const lastVisibleFirestoreDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-      if (lastVisibleFirestoreDoc) {
-        nextCursor = lastVisibleFirestoreDoc.id;
-      }
+    if (querySnapshot.docs.length === limit) {
+      nextCursor = querySnapshot.docs[querySnapshot.docs.length - 1].id;
     }
 
     return NextResponse.json({
-      bookings: finalUniqueBookings.slice(0, limit), // Ensure we only return the requested limit of the combined list
+      bookings,
       nextCursor,
-    }, { status: 200 });
+    });
 
   } catch (error) {
-    console.error('Error fetching bookings for operator:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (error instanceof Error && (error as any).code === 'failed-precondition') {
-        return NextResponse.json({
-            message: 'Query requires a Firestore index. Please check the console for a link to create it.',
-            details: errorMessage
-        }, { status: 500});
+    console.error("Error fetching operator bookings:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    if (error instanceof Error && 'code' in error && (error as any).code === 5) {
+        return NextResponse.json({ 
+            message: "Query requires a composite index. Check Firestore console.",
+            details: errorMessage 
+        }, { status: 500 });
     }
-    return NextResponse.json({ message: 'Failed to fetch bookings', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ message: `Error fetching bookings: ${errorMessage}` }, { status: 500 });
   }
-}
+});

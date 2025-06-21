@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import admin from './firebase-admin';
+import * as fbAdmin from 'firebase-admin';
+import { getAuth, getAdmin } from './firebase-admin';
 
 type ApiHandler = (
   req: NextRequest, 
-  context: { params: any; user?: admin.auth.DecodedIdToken }
+  context: { params: any; user?: fbAdmin.auth.DecodedIdToken }
 ) => Promise<NextResponse>;
 
 type AuthenticatedApiHandler = (
     req: NextRequest, 
-    context: { params: any; user: admin.auth.DecodedIdToken }
+    context: { params: any; user: fbAdmin.auth.DecodedIdToken }
 ) => Promise<NextResponse>;
 
 
 export const withAuth = (handler: AuthenticatedApiHandler): ApiHandler => {
   return async (req: NextRequest, { params }: { params: any }) => {
+    // Ensure Firebase Admin is initialized
+    if (!getAdmin().apps.length) {
+      console.error('withAuth Middleware: Firebase Admin App is not initialized!');
+      return new NextResponse('Internal Server Error: App configuration failed', { status: 500 });
+    }
+
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new NextResponse('Unauthorized: Missing or invalid Authorization header', { status: 401 });
@@ -22,7 +29,8 @@ export const withAuth = (handler: AuthenticatedApiHandler): ApiHandler => {
     const token = authHeader.split('Bearer ')[1];
     
     try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
+      const auth = getAuth();
+      const decodedToken = await auth.verifyIdToken(token);
       return handler(req, { params, user: decodedToken });
     } catch (error) {
       console.error('Error verifying auth token:', error);
@@ -41,7 +49,8 @@ export const withAdminAuth = (handler: AuthenticatedApiHandler) => withAuth(asyn
 
     // Fallback: check user record from Auth just in case claims aren't in the token
     try {
-        const userRecord = await admin.auth().getUser(user.uid);
+        const auth = getAuth();
+        const userRecord = await auth.getUser(user.uid);
         if (userRecord.customClaims?.admin === true) {
             return handler(req, context);
         }
@@ -62,7 +71,8 @@ export const withOperatorAuth = (handler: AuthenticatedApiHandler) => withAuth(a
 
     // Fallback: check user record from Auth
     try {
-        const userRecord = await admin.auth().getUser(user.uid);
+        const auth = getAuth();
+        const userRecord = await auth.getUser(user.uid);
         if (userRecord.customClaims?.operator === true) {
             return handler(req, context);
         }

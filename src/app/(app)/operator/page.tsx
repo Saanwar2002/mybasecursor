@@ -1,4 +1,3 @@
-
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import * as LucideIcons from 'lucide-react'; // For dynamic icon loading
 import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow'; // Re-using for demo structure
 type AiActionItemType = import('@/ai/flows/admin-action-items-flow').ActionItem; // Correct import for type
+import { auth } from '@/lib/firebase';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -98,34 +98,51 @@ export default function OperatorDashboardPage() {
 
   const fetchOperatorSettings = useCallback(async () => {
     setIsLoadingOperatorSettings(true);
-    try {
-      const [dispatchRes, operationalRes] = await Promise.all([
-        fetch('/api/operator/settings/dispatch-mode'),
-        fetch('/api/operator/settings/operational')
-      ]);
 
-      if (!dispatchRes.ok || !operationalRes.ok) {
-        const dispatchError = !dispatchRes.ok ? await dispatchRes.json().catch(()=>null) : null;
-        const operationalError = !operationalRes.ok ? await operationalRes.json().catch(()=>null) : null;
-        console.error("Error fetching operator settings:", {dispatchError, operationalError});
-        throw new Error("Failed to load some operator settings.");
-      }
-      const dispatchData = await dispatchRes.json();
-      const operationalData = await operationalRes.json();
-      
-      setOperatorSettings({
-        dispatchMode: dispatchData.dispatchMode || 'auto',
-        maxAutoAcceptWaitTimeMinutes: operationalData.maxAutoAcceptWaitTimeMinutes === undefined ? 30 : operationalData.maxAutoAcceptWaitTimeMinutes,
-      });
+    if (!auth) {
+      toast({ title: "Authentication Error", description: "Auth service is not available.", variant: "destructive" });
+      setIsLoadingOperatorSettings(false);
+      return;
+    }
+
+    const currentUser = auth.currentUser;
+    if (!user || !currentUser) {
+        toast({ title: "Authentication Error", description: "You are not logged in or session is invalid.", variant: "destructive" });
+        setIsLoadingOperatorSettings(false);
+        return;
+    }
+
+    try {
+        const token = await currentUser.getIdToken();
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        const [dispatchRes, operationalRes] = await Promise.all([
+            fetch('/api/operator/settings/dispatch-mode', { headers }),
+            fetch('/api/operator/settings/operational', { headers })
+        ]);
+
+        if (!dispatchRes.ok || !operationalRes.ok) {
+            const dispatchError = !dispatchRes.ok ? await dispatchRes.json().catch(()=>null) : null;
+            const operationalError = !operationalRes.ok ? await operationalRes.json().catch(()=>null) : null;
+            console.error("Error fetching operator settings:", {dispatchError, operationalError});
+            throw new Error("Failed to load some operator settings.");
+        }
+        const dispatchData = await dispatchRes.json();
+        const operationalData = await operationalRes.json();
+        
+        setOperatorSettings({
+            dispatchMode: dispatchData.dispatchMode || 'auto',
+            maxAutoAcceptWaitTimeMinutes: operationalData.maxAutoAcceptWaitTimeMinutes === undefined ? 30 : operationalData.maxAutoAcceptWaitTimeMinutes,
+        });
 
     } catch (error) {
-      console.error("Error in fetchOperatorSettings:", error);
-      toast({ title: "Settings Load Error", description: error instanceof Error ? error.message : "Could not load operator settings.", variant: "destructive" });
-      setOperatorSettings({ dispatchMode: 'auto', maxAutoAcceptWaitTimeMinutes: 30 }); // Fallback
+        console.error("Error in fetchOperatorSettings:", error);
+        toast({ title: "Settings Load Error", description: error instanceof Error ? error.message : "Could not load operator settings.", variant: "destructive" });
+        setOperatorSettings({ dispatchMode: 'auto', maxAutoAcceptWaitTimeMinutes: 30 }); // Fallback
     } finally {
-      setIsLoadingOperatorSettings(false);
+        setIsLoadingOperatorSettings(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoadingStats(true);
@@ -192,16 +209,28 @@ export default function OperatorDashboardPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchOperatorSettings();
-    fetchDashboardData();
-  }, [fetchOperatorSettings, fetchDashboardData]);
+    if (user) {
+      fetchOperatorSettings();
+      fetchDashboardData();
+    }
+  }, [user, fetchOperatorSettings, fetchDashboardData]);
   
   useEffect(() => {
-    // Simulate high wait time toggling for demo
+    const busynessLevels: MapBusynessLevel[] = ['idle', 'moderate', 'high', 'moderate'];
+    let currentIndex = 0;
+    const intervalId = setInterval(() => {
+      currentIndex = (currentIndex + 1) % busynessLevels.length;
+      setMapBusynessLevel(busynessLevels[currentIndex]);
+    }, 4000); 
+
     const waitTimeToggleInterval = setInterval(() => {
       setSimulatedIsHighWaitTime(prev => !prev);
     }, 20000); // Toggle every 20 seconds
-    return () => clearInterval(waitTimeToggleInterval);
+    
+    return () => {
+      clearInterval(intervalId);
+      clearInterval(waitTimeToggleInterval);
+    };
   }, []);
 
   const mapContainerClasses = cn(

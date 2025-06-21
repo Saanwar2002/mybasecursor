@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Car, Loader2, PhoneOutcome, Briefcase, Shield, ShieldCheck } from "lucide-react"; 
+import { Car, Loader2, Briefcase, Shield } from "lucide-react"; 
 import React, { useState, useEffect, useRef } from "react";
 import { 
   createUserWithEmailAndPassword, 
@@ -38,7 +37,10 @@ const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
 );
 
-const operatorCodeRegex = /^OP\d{3,}$/; 
+interface Operator {
+  operatorCode: string;
+  displayName: string;
+}
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -46,7 +48,7 @@ const formSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(["passenger", "driver", "operator", "admin"], { required_error: "You must select a role." }), 
   vehicleCategory: z.string().optional(),
-  operatorCode: z.string().optional(), 
+  selectedOperatorCode: z.string().optional(), 
   phoneNumber: z.string().optional(),
   verificationCode: z.string().optional().refine(value => !value || /^\d{6}$/.test(value), {
     message: "Verification code must be 6 digits."
@@ -61,12 +63,12 @@ const formSchema = z.object({
   path: ["vehicleCategory"],
 }).refine(data => {
   if (data.role === 'driver') {
-    return !!data.operatorCode && operatorCodeRegex.test(data.operatorCode);
+    return !!data.selectedOperatorCode && data.selectedOperatorCode.trim() !== "";
   }
   return true;
 }, {
-  message: "Valid Operator Code (e.g., OP001) is required for drivers.",
-  path: ["operatorCode"],
+  message: "Please select an operator for drivers.",
+  path: ["selectedOperatorCode"],
 }).refine(data => {
   if (data.role === 'passenger') {
     return !!data.phoneNumber && data.phoneNumber.trim() !== "" && phoneRegex.test(data.phoneNumber);
@@ -96,14 +98,22 @@ interface UserProfile {
   phoneVerificationDeadline?: Timestamp | null;
 }
 
+// Helper function to generate driver ID with operator prefix
+function generateDriverId(operatorCode: string, uid: string): string {
+  const timestamp = Date.now().toString().slice(-6);
+  const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `${operatorCode}/${timestamp}${randomSuffix}`;
+}
 
 export function RegisterForm() {
-  const { login: contextLogin, updateUserProfileInContext } = useAuth();
+  const { loginWithEmail: contextLogin, updateUserProfileInContext } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationStep, setRegistrationStep] = useState<RegistrationStep>('initial');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [firebaseUserForLinking, setFirebaseUserForLinking] = useState<FirebaseUser | null>(null);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [isLoadingOperators, setIsLoadingOperators] = useState(false);
   
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
@@ -116,13 +126,47 @@ export function RegisterForm() {
       password: "",
       role: "passenger",
       vehicleCategory: undefined,
-      operatorCode: "",
+      selectedOperatorCode: "",
       phoneNumber: "",
       verificationCode: "",
     },
   });
 
   const watchedRole = form.watch("role");
+
+  // Fetch operators when driver role is selected
+  useEffect(() => {
+    if (watchedRole === 'driver' && operators.length === 0 && !isLoadingOperators) {
+      fetchOperators();
+    }
+  }, [watchedRole, operators.length, isLoadingOperators]);
+
+  const fetchOperators = async () => {
+    setIsLoadingOperators(true);
+    try {
+      const response = await fetch('/api/operators/list');
+      if (response.ok) {
+        const data = await response.json();
+        setOperators(data.operators);
+      } else {
+        console.error('Failed to fetch operators');
+        toast({ 
+          title: "Error", 
+          description: "Could not load operator list. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching operators:', error);
+      toast({ 
+        title: "Error", 
+        description: "Could not load operator list. Please try again.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoadingOperators(false);
+    }
+  };
 
   useEffect(() => {
     if (auth && recaptchaContainerRef.current && !recaptchaVerifierRef.current && registrationStep === 'initial') {
@@ -163,7 +207,6 @@ export function RegisterForm() {
     };
   }, []);
 
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!auth || !db) {
       toast({ title: "Registration Error", description: "Firebase services not initialized.", variant: "destructive", duration: 7000 });
@@ -194,9 +237,11 @@ export function RegisterForm() {
         
         if (values.role === 'driver') {
           if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
-          if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
-          userProfile.driverIdentifier = `DR-mock-${firebaseUser.uid.slice(0,4)}`;
-          console.log(`Mock driverIdentifier generated: ${userProfile.driverIdentifier} for operator ${userProfile.operatorCode}`);
+          if (values.selectedOperatorCode) userProfile.operatorCode = values.selectedOperatorCode;
+          // Generate driver ID with operator prefix
+          const driverId = generateDriverId(values.selectedOperatorCode!, firebaseUser.uid);
+          userProfile.driverIdentifier = driverId;
+          console.log(`Driver ID generated: ${driverId} for operator ${userProfile.operatorCode}`);
         }
         
         if (values.phoneNumber && values.phoneNumber.trim() !== "") {
@@ -238,21 +283,11 @@ export function RegisterForm() {
             setFirebaseUserForLinking(null);
           }
         } else {
-          contextLogin(
-            firebaseUser.uid,
-            firebaseUser.email || values.email, 
-            values.name, 
-            values.role as UserRole, 
-            userProfile.vehicleCategory,
-            userProfile.phoneNumberInput, 
-            false, 
-            userProfile.status,
-            userProfile.phoneVerificationDeadline,
-            userProfile.customId,
-            userProfile.operatorCode,
-            userProfile.driverIdentifier
-          );
-          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''}` });
+          contextLogin(userProfile as User);
+          const successMessage = values.role === 'driver' 
+            ? `Welcome, ${values.name}! Your MyBase account as a driver has been created. Your Driver ID is ${userProfile.driverIdentifier}. You are pending approval from your operator.`
+            : `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created.`;
+          toast({ title: "Registration Successful!", description: successMessage });
           setIsSubmitting(false);
         }
 
@@ -289,20 +324,22 @@ export function RegisterForm() {
         const userProfileSnapshot = await getDoc(userDocRef);
         const finalProfile = userProfileSnapshot.data() as UserProfile | undefined;
 
-        contextLogin(
-            firebaseUserForLinking.uid,
-            firebaseUserForLinking.email || form.getValues("email"), 
-            firebaseUserForLinking.displayName || form.getValues("name"), 
-            form.getValues("role") as UserRole,
-            finalProfile?.vehicleCategory,
-            firebaseUserForLinking.phoneNumber,
-            true, 
-            finalProfile?.status,
-            null, 
-            finalProfile?.customId,
-            finalProfile?.operatorCode,
-            finalProfile?.driverIdentifier
-        );
+        if (finalProfile) {
+          contextLogin(finalProfile as User);
+        } else {
+          // Fallback if the profile somehow isn't available
+          const fallbackProfile: User = {
+            id: firebaseUserForLinking.uid,
+            email: firebaseUserForLinking.email || form.getValues("email"),
+            name: firebaseUserForLinking.displayName || form.getValues("name"),
+            role: form.getValues("role") as UserRole,
+            phoneVerified: true,
+            phoneNumber: firebaseUserForLinking.phoneNumber,
+            status: 'Active',
+          };
+          contextLogin(fallbackProfile);
+        }
+        
         setIsSubmitting(false);
       } catch (error: any) {
         handleRegistrationError(error);
@@ -338,14 +375,23 @@ export function RegisterForm() {
     toast({ title: "Registration Failed", description: errorMessage, variant: "destructive" });
   }
 
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {registrationStep === 'initial' && (
           <>
             <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>{watchedRole === 'operator' ? 'Company / Taxi Base Name' : 'Full Name'}</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder={watchedRole === 'operator' ? 'e.g., City Taxis Ltd' : 'John Doe'} 
+                      {...field} 
+                      disabled={isSubmitting} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
             )} />
             <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="your@email.com" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
@@ -359,8 +405,8 @@ export function RegisterForm() {
                     if (value !== 'driver') { 
                         form.setValue('vehicleCategory', undefined); 
                         form.clearErrors('vehicleCategory');
-                        form.setValue('operatorCode', undefined);
-                        form.clearErrors('operatorCode');
+                        form.setValue('selectedOperatorCode', "");
+                        form.clearErrors('selectedOperatorCode');
                     } else { 
                         form.setValue('vehicleCategory', 'car');
                     }
@@ -377,8 +423,28 @@ export function RegisterForm() {
             )} />
             {watchedRole === "driver" && (
               <>
-                <FormField control={form.control} name="operatorCode" render={({ field }) => (
-                    <FormItem><FormLabel className="flex items-center gap-1"><Briefcase className="w-4 h-4 text-muted-foreground" /> Your Affiliated Operator Code <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., OP001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                <FormField control={form.control} name="selectedOperatorCode" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1">
+                        <Briefcase className="w-4 h-4 text-muted-foreground" /> 
+                        Select Your Operator <span className="text-destructive font-bold">*</span>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting || isLoadingOperators}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={isLoadingOperators ? "Loading operators..." : "Choose your operator"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {operators.map((operator) => (
+                            <SelectItem key={operator.operatorCode} value={operator.operatorCode}>
+                              {operator.displayName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                 )} />
                 <FormField control={form.control} name="vehicleCategory" render={({ field }) => (
                     <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4 text-muted-foreground" /> Vehicle Category <span className="text-destructive font-bold">*</span></FormLabel><Select onValueChange={field.onChange} defaultValue={field.value || "car"} disabled={isSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle category" /></SelectTrigger></FormControl><SelectContent>

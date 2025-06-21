@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole } from '@/contexts/auth-context'; 
-import { useAuth } from '@/contexts/auth-context'; // To potentially get current operator's code
+import type { UserRole } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth-context';
 
 interface Driver {
   id: string;
@@ -25,12 +24,12 @@ interface Driver {
   rating?: number;
   totalRides?: number;
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
-  role: UserRole; 
-  operatorCode?: string; // Added for operator association
+  role: UserRole;
+  operatorCode?: string;
 }
 
 export default function OperatorManageDriversPage() {
-  const { user: currentOperatorUser } = useAuth(); // Get the currently logged-in operator
+  const { user: currentOperatorUser, getAuthToken } = useAuth();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,14 +46,14 @@ export default function OperatorManageDriversPage() {
 
   const DRIVERS_PER_PAGE = 10;
 
-  // For demo purposes, assume the logged-in operator's code.
-  // In a real app, this would come from currentOperatorUser.operatorCode or similar.
-  const currentOperatorCodeForDemo = currentOperatorUser?.operatorCode || currentOperatorUser?.customId || "OP001"; // Fallback if not set
-
   const fetchDrivers = useCallback(async (cursor?: string | null, direction: 'next' | 'prev' | 'filter' = 'filter') => {
+    if (!currentOperatorUser) return;
     setIsLoading(true);
     setError(null);
     try {
+      const token = await getAuthToken();
+      if (!token) throw new Error("Authentication token not available.");
+
       const params = new URLSearchParams();
       params.append('limit', String(DRIVERS_PER_PAGE));
       if (cursor) {
@@ -66,10 +65,12 @@ export default function OperatorManageDriversPage() {
       if (searchTerm.trim() !== "") {
         params.append('searchName', searchTerm.trim());
       }
-      // TODO: In a real app, the API should automatically filter by the logged-in operator's ID.
-      // For this prototype, we fetch all and then filter on client if needed, or rely on operatorCode for approval logic.
       
-      const response = await fetch(`/api/operator/drivers?${params.toString()}`);
+      const response = await fetch(`/api/operator/drivers?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Failed to fetch drivers: ${response.status}`);
@@ -100,12 +101,14 @@ export default function OperatorManageDriversPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterStatus, searchTerm, toast, drivers]); 
+  }, [filterStatus, searchTerm, toast, currentOperatorUser, getAuthToken]);
 
   useEffect(() => {
-    fetchDrivers(null, 'filter');
+    if (currentOperatorUser) {
+        fetchDrivers(null, 'filter');
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatus, searchTerm]); // fetchDrivers removed from deps to avoid loop, as it depends on `drivers` for prevCursor.
+  }, [filterStatus, searchTerm, currentOperatorUser]);
 
 
   const handleNextPage = () => {
@@ -147,23 +150,10 @@ export default function OperatorManageDriversPage() {
       licensePlate: formData.get('licensePlate') as string,
       status: 'Pending Approval', 
       role: 'driver' as UserRole,
-      // For new drivers added BY an operator, their operatorCode would be the operator's own code.
-      operatorCode: currentOperatorUser?.operatorCode || currentOperatorUser?.customId || undefined, 
+      operatorCode: currentOperatorUser?.operatorCode,
     };
 
     try {
-      console.log("Simulating add driver by operator:", newDriverData);
-      // This should ideally be a POST to /api/operator/drivers (not /api/auth/register)
-      // For now, we'll just simulate.
-      // const response = await fetch('/api/auth/register', { // WRONG endpoint for OPERATOR adding driver
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({...newDriverData, password: "Password123!"}), // Mock password
-      // });
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Failed to add driver.');
-      // }
       await new Promise(resolve => setTimeout(resolve, 1000)); 
       
       toast({ title: "Driver Submitted (Mock)", description: `${newDriverData.name} added and is pending approval under operator ${newDriverData.operatorCode}.`});
@@ -179,8 +169,15 @@ export default function OperatorManageDriversPage() {
   };
   
   const handleDriverStatusUpdate = async (driverId: string, newStatus: Driver['status'], reason?: string) => {
+    if (!currentOperatorUser) {
+      toast({ title: "Authentication Error", description: "Cannot update status. Operator not logged in.", variant: "destructive" });
+      return;
+    }
     setActionLoading(prev => ({ ...prev, [driverId]: true }));
     try {
+        const token = await getAuthToken();
+        if (!token) throw new Error("Authentication token not available.");
+
         const payload: any = { status: newStatus };
         if (newStatus === 'Suspended' && reason) {
             payload.statusReason = reason;
@@ -188,11 +185,19 @@ export default function OperatorManageDriversPage() {
 
         const response = await fetch(`/api/operator/drivers/${driverId}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify(payload)
         });
         if (!response.ok) {
-            const errorData = await response.json();
+            let errorData;
+            try {
+              errorData = await response.json();
+            } catch (e) {
+              errorData = { message: await response.text() };
+            }
             throw new Error(errorData.message || `Failed to update driver status to ${newStatus}.`);
         }
         const updatedDriverData = await response.json();
@@ -215,7 +220,7 @@ export default function OperatorManageDriversPage() {
             <CardTitle className="text-3xl font-headline flex items-center gap-2">
               <Users className="w-8 h-8 text-primary" /> Manage Drivers
             </CardTitle>
-            <CardDescription>Onboard, view, and manage your fleet of drivers. (Demo Operator: {currentOperatorCodeForDemo})</CardDescription>
+            <CardDescription>Onboard, view, and manage your fleet of drivers. (Operator Code: {currentOperatorUser?.operatorCode || 'N/A'})</CardDescription>
           </div>
           <Dialog open={isAddDriverDialogOpen} onOpenChange={setIsAddDriverDialogOpen}>
             <DialogTrigger asChild>
@@ -227,7 +232,7 @@ export default function OperatorManageDriversPage() {
               <DialogHeader>
                 <DialogTitle>Add New Driver</DialogTitle>
                 <DialogDescription>
-                  Fill in the details to onboard a new driver. They will be set to 'Pending Approval' under your operator code: {currentOperatorCodeForDemo}.
+                  Fill in the details to onboard a new driver. They will be set to 'Pending Approval' under your operator code: {currentOperatorUser?.operatorCode || 'N/A'}.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleAddDriverSubmit} className="grid gap-4 py-4">
@@ -248,161 +253,157 @@ export default function OperatorManageDriversPage() {
                   <Input id="vehicleModel" name="vehicleModel" className="col-span-3" disabled={actionLoading['addDriver']} />
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="licensePlate" className="text-right">License</Label>
+                  <Label htmlFor="licensePlate" className="text-right">License Plate</Label>
                   <Input id="licensePlate" name="licensePlate" className="col-span-3" disabled={actionLoading['addDriver']} />
                 </div>
-                {/* Operator Code is implicitly the current operator's code */}
                 <DialogFooter>
-                  <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addDriver']}>Cancel</Button></DialogClose>
-                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addDriver']}>
-                    {actionLoading['addDriver'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add Driver
-                  </Button>
+                    <DialogClose asChild>
+                        <Button type="button" variant="ghost" disabled={actionLoading['addDriver']}>Cancel</Button>
+                    </DialogClose>
+                    <Button type="submit" disabled={actionLoading['addDriver']}>
+                        {actionLoading['addDriver'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Add Driver
+                    </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
         </CardHeader>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-2">
-                <Search className="w-5 h-5 text-muted-foreground" />
-                <Input 
-                  placeholder="Search by driver name..." 
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  className="w-full md:max-w-xs"
-                />
-            </div>
-            <div className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-muted-foreground" />
-                <Select value={filterStatus} onValueChange={handleFilterChange}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                    <SelectItem value="Pending Approval">Pending Approval</SelectItem>
-                    <SelectItem value="Suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-            </div>
-        </CardHeader>
         <CardContent>
-           {isLoading && (
-            <div className="flex justify-center items-center py-10">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          {error && (
+            <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 px-4 py-3 rounded-lg flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5" />
+              <div>
+                <p className="font-bold">Error loading drivers:</p>
+                <p>{error}</p>
+                <Button variant="link" onClick={() => fetchDrivers()} className="p-0 h-auto mt-1 text-red-700 dark:text-red-200">Try Again</Button>
+              </div>
             </div>
           )}
-          {error && !isLoading && (
-            <div className="text-center py-10 text-destructive">
-              <AlertTriangle className="mx-auto h-12 w-12 mb-2" />
-              <p className="font-semibold">Error loading drivers:</p>
-              <p>{error}</p>
-              <Button onClick={() => fetchDrivers(null, 'filter')} variant="outline" className="mt-4">Try Again</Button>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="relative w-full md:w-1/3">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by driver name..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="pl-8"
+                disabled={isLoading}
+              />
             </div>
-          )}
-          {!isLoading && !error && drivers.length === 0 && (
-             <p className="text-center text-muted-foreground py-8">No drivers match your criteria.</p>
-          )}
-          {!isLoading && !error && drivers.length > 0 && (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Operator Code</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {drivers.map((driver) => (
+            <Select onValueChange={handleFilterChange} defaultValue="all" disabled={isLoading}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Pending Approval">Pending Approval</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+                <SelectItem value="Suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Operator Code</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={`loader-${i}`}>
+                      <TableCell colSpan={5} className="text-center p-8">
+                         <div className="flex justify-center items-center gap-2">
+                           <Loader2 className="w-6 h-6 animate-spin text-primary"/>
+                           <span className="text-muted-foreground">Loading drivers...</span>
+                         </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : drivers.length > 0 ? (
+                  drivers.map((driver) => (
                     <TableRow key={driver.id}>
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell>
                         <div>{driver.email}</div>
                         <div className="text-xs text-muted-foreground">{driver.phone || 'N/A'}</div>
                       </TableCell>
-                      <TableCell>{driver.operatorCode || 'N/A'}</TableCell>
+                      <TableCell>
+                         <Badge variant="outline">{driver.operatorCode || 'N/A'}</Badge>
+                      </TableCell>
                       <TableCell>
                         <Badge variant={
                           driver.status === 'Active' ? 'default' :
                           driver.status === 'Pending Approval' ? 'secondary' :
-                          driver.status === 'Suspended' ? 'destructive' :
-                          'outline' 
-                        }
-                        className={
-                            driver.status === 'Active' ? 'bg-green-500/80 text-green-950 hover:bg-green-500/70' :
-                            driver.status === 'Pending Approval' ? 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70' :
-                            driver.status === 'Suspended' ? 'bg-red-600 text-white hover:bg-red-700' : 
-                            'border-slate-500 text-slate-500 hover:bg-slate-500/10'
-                        }
-                        >
-                          {driver.status}
-                        </Badge>
+                          driver.status === 'Suspended' ? 'destructive' : 'outline'
+                        }>{driver.status}</Badge>
                       </TableCell>
-                      <TableCell className="text-center space-x-1">
-                        {actionLoading[driver.id] ? (
-                            <Loader2 className="h-5 w-5 animate-spin inline-block" />
-                        ) : (
-                            <>
-                                {driver.status === 'Pending Approval' && driver.operatorCode === currentOperatorCodeForDemo && (
-                                    <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" title="Approve Driver" onClick={() => handleDriverStatusUpdate(driver.id, 'Active')}>
-                                        <CheckCircle className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Approve</span>
-                                    </Button>
-                                )}
-                                {driver.status === 'Active' && (
-                                    <Button variant="outline" size="sm" className="h-8 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white" title="Suspend Driver" onClick={() => {
-                                        const reason = prompt("Reason for suspension (optional):");
-                                        handleDriverStatusUpdate(driver.id, 'Suspended', reason || undefined);
-                                    }}>
-                                        <ShieldAlert className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Suspend</span>
-                                    </Button>
-                                )}
-                                {(driver.status === 'Inactive' || driver.status === 'Suspended') && (
-                                    <Button variant="outline" size="sm" className="h-8 border-sky-500 text-sky-500 hover:bg-sky-500 hover:text-white" title="Activate Driver" onClick={() => handleDriverStatusUpdate(driver.id, 'Active')}>
-                                        <UserPlus className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Activate</span>
-                                    </Button>
-                                )}
-                                {/* 
-                                <Button variant="outline" size="icon" className="h-8 w-8" title="Edit Driver (Placeholder)">
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                                */}
-                            </>
+                      <TableCell className="text-right">
+                        {driver.status === 'Pending Approval' && (
+                           <Button size="sm" variant="outline" onClick={() => handleDriverStatusUpdate(driver.id, 'Active')} disabled={actionLoading[driver.id]}>
+                            {actionLoading[driver.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                            Approve
+                          </Button>
+                        )}
+                        {driver.status === 'Active' && (
+                           <Button size="sm" variant="destructive" onClick={() => handleDriverStatusUpdate(driver.id, 'Suspended', 'Manual suspension by operator.')} disabled={actionLoading[driver.id]}>
+                             {actionLoading[driver.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldAlert className="mr-2 h-4 w-4" />}
+                             Suspend
+                           </Button>
+                        )}
+                         {driver.status === 'Inactive' && (
+                           <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => handleDriverStatusUpdate(driver.id, 'Active')} disabled={actionLoading[driver.id]}>
+                             {actionLoading[driver.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                             Activate
+                           </Button>
+                        )}
+                        {driver.status === 'Suspended' && (
+                          <Button size="sm" variant="outline" onClick={() => handleDriverStatusUpdate(driver.id, 'Active')} disabled={actionLoading[driver.id]}>
+                            {actionLoading[driver.id] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+                            Re-activate
+                          </Button>
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="flex items-center justify-end space-x-2 py-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrevPage}
-                  disabled={currentPage === 1 && prevCursors.length === 0 || isLoading}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">Page {currentPage}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNextPage}
-                  disabled={!nextCursor || isLoading}
-                >
-                  Next
-                </Button>
-              </div>
-            </>
-          )}
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">
+                      No drivers found for the current filters.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex items-center justify-end space-x-2 py-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrevPage}
+              disabled={currentPage <= 1 || isLoading}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">Page {currentPage}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={!nextCursor || isLoading}
+            >
+              Next
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

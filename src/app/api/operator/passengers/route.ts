@@ -1,22 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase-admin';
 import { withOperatorAuth } from '@/lib/auth-middleware';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit as firestoreLimit,
-  startAfter as firestoreStartAfter,
-  getDocs,
-  doc,
-  getDoc,
-  Timestamp,
-  QueryConstraint,
-  Query,
-  DocumentData,
-} from 'firebase/firestore';
+import { Timestamp, Query } from 'firebase-admin/firestore';
 import { z } from 'zod';
 
 // Helper to convert Firestore Timestamp to a serializable format
@@ -50,9 +36,7 @@ interface Passenger {
 }
 
 export const GET = withOperatorAuth(async (req) => {
-  if (!db) {
-    return NextResponse.json({ message: "Firestore not initialized" }, { status: 500 });
-  }
+  const db = getDb();
 
   const { searchParams } = new URL(req.url);
   const params = Object.fromEntries(searchParams.entries());
@@ -73,55 +57,47 @@ export const GET = withOperatorAuth(async (req) => {
   } = parsedQuery.data;
 
   try {
-    const usersRef = collection(db, 'users');
-    const queryConstraints: QueryConstraint[] = [];
-
-    // Always filter by role 'passenger'
-    queryConstraints.push(where('role', '==', 'passenger'));
+    const usersRef = db.collection('users');
+    let q: Query = usersRef.where('role', '==', 'passenger');
 
     // Filtering by name
     if (searchName) {
-      queryConstraints.push(where('name', '>=', searchName));
-      queryConstraints.push(where('name', '<=', searchName + '\uf8ff'));
+      q = q.where('name', '>=', searchName)
+           .where('name', '<=', searchName + '\uf8ff');
       // If searching by name, Firestore requires the first orderBy to be on 'name'.
       if (sortBy !== 'name') {
-        queryConstraints.push(orderBy('name', sortOrder)); // Add name sort first
-        if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder)); // Then the original sort
+        q = q.orderBy('name', sortOrder).orderBy(sortBy, sortOrder);
       } else {
-        queryConstraints.push(orderBy(sortBy, sortOrder));
+        q = q.orderBy('name', sortOrder);
       }
     } else if (searchEmail) {
       // Filtering by email (exact match)
-      queryConstraints.push(where('email', '==', searchEmail));
+      q = q.where('email', '==', searchEmail);
       // If filtering by email and sortBy is not email, it might need specific indexing.
-      // For simplicity, if sortBy is different, we'll add email sort first.
       if (sortBy !== 'email') {
-          queryConstraints.push(orderBy('email', sortOrder));
-          if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder));
+          q = q.orderBy('email', sortOrder).orderBy(sortBy, sortOrder);
       } else {
-          queryConstraints.push(orderBy(sortBy, sortOrder));
+          q = q.orderBy('email', sortOrder);
       }
     } else if (sortBy) {
-      queryConstraints.push(orderBy(sortBy, sortOrder));
+      q = q.orderBy(sortBy, sortOrder);
     }
 
 
     // Pagination
     if (startAfterDocId) {
-      const startAfterDocRef = doc(db, 'users', startAfterDocId);
-      const lastDocSnapshot = await getDoc(startAfterDocRef);
-      if (!lastDocSnapshot.exists()) {
+      const startAfterDoc = await db.collection('users').doc(startAfterDocId).get();
+      if (!startAfterDoc.exists) {
         return NextResponse.json({ message: 'Pagination cursor not found.' }, { status: 404 });
       }
-      queryConstraints.push(firestoreStartAfter(lastDocSnapshot));
+      q = q.startAfter(startAfterDoc);
     }
 
-    queryConstraints.push(firestoreLimit(limit));
+    q = q.limit(limit);
 
-    const q = query(usersRef, ...queryConstraints) as Query<DocumentData>;
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await q.get();
 
-    const passengers: Passenger[] = querySnapshot.docs.map((doc) => {
+    const passengers: Passenger[] = querySnapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const data = doc.data();
       return {
         id: doc.id,
