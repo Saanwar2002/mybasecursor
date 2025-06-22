@@ -23,6 +23,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#000000" />
+      </head>
       <body className={ptSans.className}> {/* Apply PT Sans class */}
         <AuthProvider>
           <ThemeInitializer>
@@ -30,6 +34,9 @@ export default function RootLayout({
             {children}
           </ThemeInitializer>
         </AuthProvider>
+        <script dangerouslySetInnerHTML={{
+          __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('/service-worker.js'); }); }`
+        }} />
       </body>
     </html>
   );
