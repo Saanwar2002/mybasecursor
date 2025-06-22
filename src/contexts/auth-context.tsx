@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, db } from '@/lib/firebase'; 
-import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut, signInAnonymously } from 'firebase/auth'; 
+import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut, signInAnonymously, sendPasswordResetEmail } from 'firebase/auth'; 
 import { doc, getDoc, Timestamp, setDoc } from 'firebase/firestore'; 
 import { useToast } from '@/hooks/use-toast'; 
 import { Firestore } from 'firebase/firestore';
@@ -60,6 +60,7 @@ interface AuthContextType {
   loading: boolean;
   updateUserProfileInContext: (updatedProfileData: Partial<User>) => void;
   getAuthToken: () => Promise<string | null>;
+  sendPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -213,6 +214,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
+
+  const sendPasswordReset = async (email: string) => {
+    if (!auth) {
+      toast({ title: "Error", description: "Authentication service not ready.", variant: "destructive" });
+      throw new Error("Auth service not ready");
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: "Password Reset Email Sent",
+        description: `If an account exists for ${email}, a password reset link has been sent to it.`,
+      });
+    } catch (error: any) {
+      console.error("Error sending password reset email:", error);
+      // Don't reveal if the user exists or not.
+      toast({
+        title: "Password Reset Email Sent",
+        description: `If an account exists for ${email}, a password reset link has been sent to it.`,
+      });
+    }
+  };
 
   const loginWithEmail = async (email: string, pass: string, role: UserRole) => {
     if (!auth) {
@@ -415,6 +437,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     updateUserProfileInContext,
     getAuthToken,
+    sendPasswordReset
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

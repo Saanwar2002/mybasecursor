@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, Suspense } from 'react'; // Added Suspense
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,15 +11,15 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from '@/contexts/auth-context';
-import { useAuth } from '@/contexts/auth-context'; 
+import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { useSearchParams } from 'next/navigation'; // Added useSearchParams
+import { useSearchParams } from 'next/navigation';
 
-const PLATFORM_ADMIN_UID = "qWDHrEVDBfWu3A2F5qY6N9tGgnI3"; 
+const PLATFORM_ADMIN_UID = "qWDHrEVDBfWu3A2F5qY6N9tGgnI3";
 
 interface OperatorUser {
   id: string;
@@ -43,8 +43,8 @@ const addOperatorFormSchema = z.object({
 type AddOperatorFormValues = z.infer<typeof addOperatorFormSchema>;
 
 function ManagePlatformOperatorsContent() {
-  const { user: currentAdminUser } = useAuth(); 
-  const searchParamsHook = useSearchParams(); // Renamed to avoid conflict
+  const { user: currentAdminUser, getAuthToken } = useAuth();
+  const searchParamsHook = useSearchParams();
   const statusFromUrl = searchParamsHook.get('status');
 
   const [operators, setOperators] = useState<OperatorUser[]>([]);
@@ -71,15 +71,35 @@ function ManagePlatformOperatorsContent() {
 
   const fetchOperators = useCallback(async (cursor?: string | null, direction: 'next' | 'prev' | 'filter' = 'filter') => {
     setIsLoading(true); setError(null);
+    if (!currentAdminUser) {
+      setError("Authentication details not loaded. Please wait or refresh.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error("Could not retrieve authentication token.");
+      }
       const params = new URLSearchParams();
       params.append('limit', String(OPERATORS_PER_PAGE));
       if (cursor) params.append('startAfter', cursor);
       if (filterStatus !== "all") params.append('status', filterStatus);
       if (searchTerm.trim() !== "") params.append('searchName', searchTerm.trim());
       
-      const response = await fetch(`/api/operator/operators-list?${params.toString()}`);
-      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || `Failed to fetch operators: ${response.status}`); }
+      const response = await fetch(`/api/operator/operators-list?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) { 
+        if (response.status === 401 || response.status === 403) {
+            throw new Error("Unauthorized: You don't have permission to view this data.");
+        }
+        const errorData = await response.json().catch(() => ({ message: "An unexpected error occurred. The server response was not valid JSON." }));
+        throw new Error(errorData.message || `Failed to fetch operators: ${response.status}`);
+      }
       const data = await response.json();
       
       const fetchedOperators = (data.operators || []).map((op: any) => ({ ...op, status: op.status || 'Inactive' }));
@@ -93,9 +113,9 @@ function ManagePlatformOperatorsContent() {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(message);
       toast({ title: "Error Fetching Operators", description: message, variant: "destructive" });
-      setOperators([]); 
+      setOperators([]);
     } finally { setIsLoading(false); }
-  }, [filterStatus, searchTerm, toast, operators]); // `operators` is a dependency for prevCursor logic
+  }, [filterStatus, searchTerm, toast, operators, currentAdminUser, getAuthToken]);
 
   useEffect(() => {
     const newStatusFromUrl = searchParamsHook.get('status');
@@ -119,12 +139,17 @@ function ManagePlatformOperatorsContent() {
   
   const handleOperatorStatusUpdate = async (operatorId: string, newStatus: OperatorUser['status'], reason?: string) => {
     if (!isPlatformAdminUser) { toast({ title: "Unauthorized", description: "Only the designated platform admin can update operator statuses.", variant: "destructive"}); return; }
+    if (!currentAdminUser) { toast({ title: "Authentication Error", description: "Cannot update status without user token.", variant: "destructive"}); return; }
+
     setActionLoading(prev => ({ ...prev, [operatorId]: true }));
     try {
+        const token = await getAuthToken();
+        if (!token) throw new Error("Authentication token not available.");
+
         const payload: any = { status: newStatus };
         if (newStatus === 'Suspended' && reason) payload.statusReason = reason;
         
-        const response = await fetch(`/api/operator/drivers/${operatorId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch(`/api/operator/drivers/${operatorId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(payload) });
         if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || `Failed to update operator status to ${newStatus}.`); }
         const updatedOperatorData = await response.json();
         
@@ -135,9 +160,14 @@ function ManagePlatformOperatorsContent() {
   };
 
   async function onAddOperatorSubmit(values: AddOperatorFormValues) {
+    if (!currentAdminUser) { toast({ title: "Authentication Error", description: "Cannot add operator without user token.", variant: "destructive"}); return; }
+
     setActionLoading(prev => ({...prev, addNewOperator: true}));
     try {
-      const response = await fetch('/api/admin/operators/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+      const token = await getAuthToken();
+      if (!token) throw new Error("Authentication token not available.");
+
+      const response = await fetch('/api/admin/operators/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(values) });
       const responseData = await response.json();
       if (!response.ok) throw new Error(responseData.message || `Failed to add operator: ${response.status}`);
       toast({ title: "Operator Submitted", description: responseData.message || `${values.name} with code ${values.operatorCode} created and set to 'Pending Approval'.`, duration: 7000 });
@@ -159,7 +189,14 @@ function ManagePlatformOperatorsContent() {
             <CardDescription> View, approve, and manage platform operators. {isPlatformAdminUser ? " As platform admin, you can approve new operators." : " (Approval rights restricted)"} </CardDescription>
           </div>
           <Dialog open={isAddOperatorDialogOpen} onOpenChange={setIsAddOperatorDialogOpen}>
-            <DialogTrigger asChild> <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0"> <UserPlus className="mr-2 h-4 w-4" /> Add New Operator </Button> </DialogTrigger>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0">
+                <span className="flex items-center">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add New Operator
+                </span>
+              </Button>
+            </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader> <DialogTitle>Add New Platform Operator</DialogTitle> <DialogDescription> Enter the details for the new taxi base operator. They will be created with 'Pending Approval' status. </DialogDescription> </DialogHeader>
               <Form {...addOperatorForm}>
