@@ -1,20 +1,30 @@
 import { NextResponse } from 'next/server';
+import { getDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
-// This is a mock implementation.
-// In a real app, you'd add a record to a database table linking a user to a driver.
+// Adds a driver to a user's list of favorite drivers in Firestore.
 export async function POST(request: Request) {
   try {
-    const { driverId, driverName, vehicleInfo } = await request.json();
+    const { userId, driverId, driverName, vehicleInfo } = await request.json();
 
-    if (!driverId || !driverName || !vehicleInfo) {
-      return NextResponse.json({ message: 'Missing driver details' }, { status: 400 });
+    if (!userId || !driverId || !driverName || !vehicleInfo) {
+      return NextResponse.json({ message: 'Missing user or driver details' }, { status: 400 });
     }
 
-    console.log(`(MOCK) Added driver ${driverName} (${driverId}) with vehicle ${vehicleInfo} to favorites.`);
+    const db = getDb();
+    const userRef = db.collection('users').doc(userId);
 
-    // In a real app, you would now have the logic to save this to the database.
-    // For the mock, we don't need to manipulate the in-memory list here,
-    // as the 'list' endpoint returns a static list.
+    // Using a subcollection 'favoriteDrivers' to store favorite drivers for the user.
+    // The document ID within the subcollection will be the driverId to prevent duplicates.
+    const favoriteDriverRef = userRef.collection('favoriteDrivers').doc(driverId);
+
+    await favoriteDriverRef.set({
+      driverName,
+      vehicleInfo,
+      addedAt: FieldValue.serverTimestamp(),
+    });
+
+    console.log(`Added driver ${driverName} (${driverId}) to favorites for user ${userId}.`);
 
     return NextResponse.json({
       message: `Driver ${driverName} added to favorites successfully.`,

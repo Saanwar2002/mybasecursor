@@ -23,3 +23,7 @@
 - Use clear and recognizable icons for navigation and features, maintaining a consistent visual language throughout the app.
 - A clean, grid-based layout to provide intuitive navigation and optimize content display across various screen sizes.
 - Subtle transitions and loading animations to enhance user experience without being intrusive.
+
+## Future Implementation / Go-Live Checklist:
+
+-   [ ] **Implement Dynamic Passenger Reviews**: The `PassengerReviewsCarousel` component on the marketing page currently uses hardcoded mock data. This needs to be connected to a `reviews` collection in Firestore to display real user feedback.

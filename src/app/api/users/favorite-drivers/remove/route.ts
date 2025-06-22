@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
+import { getDb } from '@/lib/firebase-admin';
 
-// This is a mock implementation.
-// In a real app, you'd remove a record from a database table.
+// Removes a driver from a user's list of favorite drivers in Firestore.
 export async function POST(request: Request) {
   try {
-    const { driverId } = await request.json();
+    const { userId, driverId } = await request.json();
 
-    if (!driverId) {
-      return NextResponse.json({ message: 'Missing driver ID' }, { status: 400 });
+    if (!userId || !driverId) {
+      return NextResponse.json({ message: 'Missing user or driver ID' }, { status: 400 });
     }
 
-    console.log(`(MOCK) Removing driver ${driverId} from favorites.`);
+    const db = getDb();
+    const favoriteDriverRef = db.collection('users').doc(userId).collection('favoriteDrivers').doc(driverId);
 
-    // In a real app, you would now have the logic to delete this from the database.
-    // We don't manipulate the in-memory list here as it's just a mock.
+    await favoriteDriverRef.delete();
+
+    console.log(`Removed driver ${driverId} from favorites for user ${userId}.`);
 
     return NextResponse.json({
       message: `Driver removed from favorites successfully.`

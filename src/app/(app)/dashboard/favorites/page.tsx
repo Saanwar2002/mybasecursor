@@ -1,7 +1,7 @@
-
 "use client";
 
 import { useAuth } from "@/contexts/auth-context";
+import { useGoogleMaps } from "@/contexts/google-maps/google-maps-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader } from '@googlemaps/js-api-loader';
 
 interface FavoriteLocation {
   id: string;
@@ -32,6 +31,13 @@ const favoriteLocationFormSchema = z.object({
 export default function FavoriteLocationsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { 
+    isLoaded: isGoogleMapsLoaded, 
+    loadError: googleMapsLoadError,
+    autocompleteService,
+    placesService,
+    createSessionToken 
+  } = useGoogleMaps();
 
   const [favoriteLocations, setFavoriteLocations] = useState<FavoriteLocation[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
@@ -47,8 +53,6 @@ export default function FavoriteLocationsPage() {
   const [newFavLocationCoords, setNewFavLocationCoords] = useState<google.maps.LatLngLiteral | null>(null);
   
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
 
   const favoriteForm = useForm<z.infer<typeof favoriteLocationFormSchema>>({
@@ -60,27 +64,20 @@ export default function FavoriteLocationsPage() {
   });
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-      console.warn("Google Maps API Key is missing for FavoriteLocationsPage. Address autocomplete will not work.");
-      toast({ title: "Configuration Error", description: "Maps API key missing. Address search disabled.", variant: "destructive" });
-      return;
+    if (isGoogleMapsLoaded && !autocompleteSessionTokenRef.current) {
+      autocompleteSessionTokenRef.current = createSessionToken();
     }
-    const loader = new Loader({
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-      version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places"], 
-    });
-
-    loader.load().then((google) => {
-      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      const mapDiv = document.createElement('div'); 
-      placesServiceRef.current = new google.maps.places.PlacesService(mapDiv);
-      autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
-    }).catch(e => {
-        console.error("Failed to load Google Maps API for address search in FavoriteLocationsPage", e);
-        toast({ title: "Error", description: "Could not load address search functionality.", variant: "destructive"});
-    });
-  }, [toast]);
+  }, [isGoogleMapsLoaded, createSessionToken]);
+  
+  useEffect(() => {
+    if (googleMapsLoadError) {
+      toast({
+        title: "Map Service Error",
+        description: "Address search functionality failed to load.",
+        variant: "destructive"
+      });
+    }
+  }, [googleMapsLoadError, toast]);
 
   const fetchFavoriteLocations = useCallback(async () => {
     if (!user) return;
@@ -112,24 +109,24 @@ export default function FavoriteLocationsPage() {
     setSuggestionsFunc: (suggestions: google.maps.places.AutocompletePrediction[]) => void,
     setIsFetchingFunc: (isFetching: boolean) => void
   ) => {
-    if (!autocompleteServiceRef.current || inputValue.length < 2) {
+    if (!autocompleteService || inputValue.length < 2) {
       setSuggestionsFunc([]);
       setIsFetchingFunc(false);
       return;
     }
     setIsFetchingFunc(true);
-    autocompleteServiceRef.current.getPlacePredictions(
+    autocompleteService.getPlacePredictions(
       { input: inputValue, sessionToken: autocompleteSessionTokenRef.current, componentRestrictions: { country: 'gb' } },
       (predictions, status) => {
         setIsFetchingFunc(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+        if (isGoogleMapsLoaded && status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
           setSuggestionsFunc(predictions);
         } else {
           setSuggestionsFunc([]);
         }
       }
     );
-  }, []);
+  }, [autocompleteService, isGoogleMapsLoaded]);
 
   const handleNewFavAddressInputChange = (inputValue: string, formOnChange: (value: string) => void) => {
     formOnChange(inputValue);
@@ -160,19 +157,19 @@ export default function FavoriteLocationsPage() {
     setShowNewFavLocationSuggestions(false);
     setIsFetchingNewFavLocationDetails(true);
 
-    if (placesServiceRef.current && suggestion.place_id) {
-      placesServiceRef.current.getDetails(
+    if (placesService && suggestion.place_id) {
+      placesService.getDetails(
         { placeId: suggestion.place_id, fields: ['geometry.location'], sessionToken: autocompleteSessionTokenRef.current },
         (place, status) => {
           setIsFetchingNewFavLocationDetails(false);
-          if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+          if (isGoogleMapsLoaded && status === window.google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
             setNewFavLocationCoords({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
             toast({ title: "Location Selected", description: `${addressText} coordinates captured.`});
           } else {
             setNewFavLocationCoords(null);
             toast({ title: "Error", description: "Could not get location details. Please try again.", variant: "destructive"});
           }
-          autocompleteSessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+          autocompleteSessionTokenRef.current = createSessionToken();
         }
       );
     } else {
@@ -185,7 +182,7 @@ export default function FavoriteLocationsPage() {
   const handleNewFavFocus = () => {
     if (newFavLocationAddress.length >= 2 && newFavLocationSuggestions.length > 0) {
         setShowNewFavLocationSuggestions(true);
-    } else if (newFavLocationAddress.length >= 2 && autocompleteServiceRef.current) {
+    } else if (newFavLocationAddress.length >= 2 && autocompleteService) {
         fetchAddressSuggestions(newFavLocationAddress, setNewFavLocationSuggestions, setIsFetchingNewFavLocationSuggestions);
         setShowNewFavLocationSuggestions(true);
     } else {

@@ -1,14 +1,32 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/lib/firebase-admin";
 
-// In-memory store for favorite drivers
-const favoriteDrivers = [
-  { id: "driver_fav_1", name: "John Smith", avatarText: "JS", vehicleInfo: "Silver Toyota Camry - LS67 FGE" },
-  { id: "driver_fav_2", name: "Maria Garcia", avatarText: "MG", vehicleInfo: "Black Mercedes E-Class - MV20 XYZ" },
-  { id: "driver_fav_3", name: "David Wilson", avatarText: "DW", vehicleInfo: "Blue Ford Mondeo Estate - DW21 ABC" },
-];
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
 
-export async function GET() {
-  // In a real application, you would fetch this from a database
-  // for the currently authenticated user.
-  return NextResponse.json(favoriteDrivers);
+    if (!userId) {
+      return NextResponse.json({ message: 'User ID is required' }, { status: 400 });
+    }
+
+    const db = getDb();
+    const favoriteDriversRef = db.collection('users').doc(userId).collection('favoriteDrivers');
+    const snapshot = await favoriteDriversRef.orderBy('addedAt', 'desc').get();
+
+    if (snapshot.empty) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    const favorites = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return NextResponse.json(favorites);
+
+  } catch (error) {
+    console.error('Failed to list favorite drivers:', error);
+    return NextResponse.json({ message: 'An unexpected error occurred.' }, { status: 500 });
+  }
 } 

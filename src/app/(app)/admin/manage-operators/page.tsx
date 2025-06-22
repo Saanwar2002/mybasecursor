@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback, Suspense } from 'react'; // Added Suspense
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,9 +197,24 @@ function ManagePlatformOperatorsContent() {
                       <TableCell className="text-center space-x-1">
                         {actionLoading[operator.id] ? ( <Loader2 className="h-5 w-5 animate-spin inline-block" /> ) : (
                             <>
-                                {isPlatformAdminUser && operator.status === 'Pending Approval' && ( <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" title="Approve Operator" onClick={() => handleOperatorStatusUpdate(operator.id, 'Active')}> <CheckCircle className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Approve</span> </Button> )}
-                                {isPlatformAdminUser && operator.status === 'Active' && ( <Button variant="outline" size="sm" className="h-8 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white" title="Suspend Operator" onClick={() => { const reason = prompt("Reason for suspension (optional):"); handleOperatorStatusUpdate(operator.id, 'Suspended', reason || undefined); }}> <ShieldAlert className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Suspend</span> </Button> )}
-                                {isPlatformAdminUser && (operator.status === 'Inactive' || operator.status === 'Suspended') && ( <Button variant="outline" size="sm" className="h-8 border-sky-500 text-sky-500 hover:bg-sky-500 hover:text-white" title="Activate Operator" onClick={() => handleOperatorStatusUpdate(operator.id, 'Active')}> <UserPlus className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Activate</span> </Button> )}
+                                {isPlatformAdminUser && operator.status === 'Pending Approval' && ( <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" title="Approve Operator" onClick={() => handleOperatorStatusUpdate(operator.id, 'Active')}>
+                                  <span className="flex items-center">
+                                    <CheckCircle className="h-4 w-4"/>
+                                    <span className="ml-1 hidden sm:inline">Approve</span>
+                                  </span>
+                                </Button> )}
+                                {isPlatformAdminUser && operator.status === 'Active' && ( <Button variant="outline" size="sm" className="h-8 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white" title="Suspend Operator" onClick={() => { const reason = prompt("Reason for suspension (optional):"); handleOperatorStatusUpdate(operator.id, 'Suspended', reason || undefined); }}>
+                                  <span className="flex items-center">
+                                    <ShieldAlert className="h-4 w-4"/>
+                                    <span className="ml-1 hidden sm:inline">Suspend</span>
+                                  </span>
+                                </Button> )}
+                                {isPlatformAdminUser && (operator.status === 'Inactive' || operator.status === 'Suspended') && ( <Button variant="outline" size="sm" className="h-8 border-sky-500 text-sky-500 hover:bg-sky-500 hover:text-white" title="Activate Operator" onClick={() => handleOperatorStatusUpdate(operator.id, 'Active')}>
+                                  <span className="flex items-center">
+                                    <UserPlus className="h-4 w-4"/>
+                                    <span className="ml-1 hidden sm:inline">Activate</span>
+                                  </span>
+                                </Button> )}
                                  {!isPlatformAdminUser && operator.status !== 'Active' && ( <span className="text-xs text-muted-foreground italic">Awaiting Platform Admin action</span> )}
                             </>
                         )}

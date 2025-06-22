@@ -22,11 +22,10 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementTy
   </Card>
 );
 
-const StatCard = ({ number, label, icon: Icon }: { number: string, label: string, icon: React.ElementType }) => (
+const StatCard = ({ label, icon: Icon }: { label: string, icon: React.ElementType }) => (
   <div className="text-center">
     <div className="flex items-center justify-center mb-2">
       <Icon className="w-5 h-5 text-primary mr-2" />
-      <span className="text-2xl font-bold text-primary">{number}</span>
     </div>
     <p className="text-sm text-muted-foreground">{label}</p>
   </div>
@@ -71,9 +70,9 @@ export default function LandingPage() {
 
           {/* Stats Section */}
           <div className="grid grid-cols-3 gap-6 max-w-md mx-auto mb-8">
-            <StatCard number="500+" label="Happy Customers" icon={Users} />
-            <StatCard number="50+" label="Verified Drivers" icon={ShieldCheck} />
-            <StatCard number="24/7" label="Support Available" icon={Zap} />
+            <StatCard label="Happy Customers" icon={Users} />
+            <StatCard label="Verified Drivers" icon={ShieldCheck} />
+            <StatCard label="24/7 Support Available" icon={Zap} />
           </div>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 max-w-lg mx-auto mb-8">
@@ -86,10 +85,9 @@ export default function LandingPage() {
             <Button size="lg" variant="outline" className="text-lg px-8 py-3 border-primary text-primary hover:bg-primary/10 active:bg-primary/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95" asChild>
               <Link href="/register?role=driver">Drive for MyBase</Link>
             </Button>
-            <Button size="lg" variant="ghost" className="text-lg px-8 py-3 hover:bg-primary/5 active:bg-primary/10 transition-all duration-300 transform active:scale-95" asChild>
-              <Link href="/login" className="flex items-center">
-                <Play className="mr-2 w-4 h-4" />
-                Watch Demo
+            <Button size="lg" className="text-lg px-8 py-3 bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95" asChild>
+              <Link href="/login">
+                Login
               </Link>
             </Button>
           </div>
