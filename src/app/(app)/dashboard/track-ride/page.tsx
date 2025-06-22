@@ -1,5 +1,5 @@
 "use client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Car, Loader2, AlertTriangle, RefreshCw, Edit, X } from "lucide-react";
 import dynamic from 'next/dynamic';
@@ -11,6 +11,7 @@ import { doc as firestoreDoc, onSnapshot, query, where, collection, limit, updat
 import { db } from '@/lib/firebase';
 import { useGoogleMaps } from '@/contexts/google-maps/google-maps-provider';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -45,59 +46,65 @@ export interface ActiveRide {
 
 const huddersfieldCenterGoogle: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
 
-export default function MyActiveRidePage() {
+export default function TrackRidePage() {
   const { user, loading: authLoading } = useAuth();
   const { isLoaded: isGoogleMapsLoaded, google } = useGoogleMaps();
   const { toast } = useToast();
+  const router = useRouter();
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [routePolyline, setRoutePolyline] = useState<google.maps.LatLngLiteral[]>([]);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [mapCenter, setMapCenter] = useState<google.maps.LatLngLiteral>(huddersfieldCenterGoogle);
 
-  useEffect(() => {
-    if (authLoading) {
-      return; 
-    }
-
-    if (!user?.id) {
+  const fetchActiveRide = useCallback(async () => {
+    if (!user) {
       setIsLoading(false);
-      setActiveRide(null);
       return;
     }
-
-    if (!db) {
-        setError("Database connection is not available.");
-        setIsLoading(false);
-        return;
-    }
     
-    setIsLoading(true);
-    const activeRideQuery = query(
-      collection(db, 'rides'),
-      where('passengerId', '==', user.id),
-      where('status', 'in', ['searching', 'driver_assigned', 'arrived_at_pickup', 'in_progress']),
-      limit(1)
-    );
-
-    const unsubscribe = onSnapshot(activeRideQuery, (snapshot) => {
-      if (snapshot.empty) {
-        setActiveRide(null);
-        setError(null);
-      } else {
-        const rideData = snapshot.docs[0].data();
-        const rideId = snapshot.docs[0].id;
-        setActiveRide({ ...rideData, id: rideId } as ActiveRide);
+    try {
+      const response = await fetch('/api/bookings/my-active-ride');
+      
+      if (response.status === 404) {
+          setActiveRide(null);
+          return;
       }
-      setIsLoading(false);
-    }, (err) => {
-      console.error("Error listening to active ride:", err);
-      setError("Failed to listen for ride updates.");
-      setIsLoading(false);
-    });
 
-    return () => unsubscribe();
-  }, [authLoading, user]);
+      if (!response.ok) {
+          throw new Error('Failed to fetch ride status');
+      }
+
+      const data = await response.json();
+
+      if (data.ride) {
+        if (data.ride.status === 'completed') {
+          setActiveRide(null); 
+          router.push(`/dashboard/ride-summary/${data.ride.id}`);
+          return; 
+        }
+        setActiveRide(data.ride);
+        if (data.ride.driverCurrentLocation) {
+          setMapCenter(data.ride.driverCurrentLocation);
+        }
+      } else {
+        setActiveRide(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch active ride:", error);
+      toast({ title: "Error", description: "Could not fetch ride status.", variant: "destructive" });
+      setActiveRide(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, router, toast]);
+  
+  useEffect(() => {
+      fetchActiveRide(); // Initial fetch
+      const interval = setInterval(fetchActiveRide, 10000); // Poll every 10 seconds
+      return () => clearInterval(interval);
+  }, [fetchActiveRide]);
 
   const directionsCallback = useCallback((response: google.maps.DirectionsResult | null, status: google.maps.DirectionsStatus) => {
     if (status === 'OK' && response) {
@@ -148,12 +155,6 @@ export default function MyActiveRidePage() {
     return markers;
   }, [activeRide, google]);
 
-  const mapCenter = useMemo(() => {
-    if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
-    if (activeRide?.pickupLocation) return { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude };
-    return huddersfieldCenterGoogle;
-  }, [activeRide]);
-
   const bookingTime = useMemo(() => {
     if (!activeRide?.bookingTimestamp) return null;
     const date = new Date(activeRide.bookingTimestamp.seconds * 1000);
@@ -164,42 +165,24 @@ export default function MyActiveRidePage() {
   }, [activeRide?.bookingTimestamp]);
 
   const handleCancelRide = async () => {
-    if (!activeRide || !user?.id) return;
-    
+    if (!user || !activeRide) return;
     setIsCanceling(true);
     try {
-      const response = await fetch(`/api/bookings/cancel`, {
+      const response = await fetch('/api/bookings/cancel', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          rideId: activeRide.id,
-          passengerId: user.id,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: activeRide.id }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Ride Cancelled",
-          description: "Your ride has been cancelled successfully.",
-        });
-      } else {
-        toast({
-          title: "Error Cancelling Ride",
-          description: data.message || "Failed to cancel ride",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || "Failed to cancel ride");
       }
+
+      toast({ title: "Ride Cancelled", description: "Your ride has been successfully cancelled." });
+      setActiveRide(null); 
     } catch (error) {
-      console.error('Error cancelling ride:', error);
-      toast({
-        title: "Error",
-        description: "Failed to cancel ride. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Cancellation Error", description: (error as Error).message, variant: "destructive" });
     } finally {
       setIsCanceling(false);
     }
