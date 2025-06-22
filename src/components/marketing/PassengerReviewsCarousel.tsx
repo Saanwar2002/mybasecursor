@@ -26,23 +26,33 @@ export function PassengerReviewsCarousel() {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await fetch('/api/feedback/featured');
+        const response = await fetch('/api/feedback/list?minRating=4');
         if (!response.ok) {
           throw new Error('Failed to fetch reviews.');
         }
         const data = await response.json();
-        if (data.featuredReviews && data.featuredReviews.length > 0) {
-          setReviews(data.featuredReviews);
+        if (data && data.length > 0) {
+           const formattedReviews = data.map((fb: any) => ({
+                id: fb.id,
+                name: fb.passengerName || 'Anonymous',
+                avatarText: (fb.passengerName || 'A').charAt(0),
+                reviewText: fb.comments,
+                stars: fb.rating,
+                location: 'Huddersfield' // Assuming location, can be added to feedback later
+          }));
+          setReviews(formattedReviews);
         } else {
           // Fallback to some generic reviews if none are featured yet
           setReviews([
-            { id: 'fallback1', name: 'A Happy Customer', avatarText: 'HC', reviewText: 'Great, reliable service every time. Highly recommended!', stars: 5, location: 'Huddersfield' }
+            { id: 'fallback1', name: 'A Happy Customer', avatarText: 'HC', reviewText: 'Great, reliable service every time. Highly recommended!', stars: 5, location: 'Huddersfield' },
+            { id: 'fallback2', name: 'Satisfied Passenger', avatarText: 'SP', reviewText: 'The driver was professional and the car was clean. Excellent experience.', stars: 5, location: 'Huddersfield' },
           ]);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         setReviews([
-            { id: 'fallback_error', name: 'A Happy Customer', avatarText: 'HC', reviewText: 'Great, reliable service every time. Highly recommended!', stars: 5, location: 'Huddersfield' }
+            { id: 'fallback_error_1', name: 'A Happy Customer', avatarText: 'HC', reviewText: 'Great, reliable service every time. Highly recommended!', stars: 5, location: 'Huddersfield' },
+            { id: 'fallback_error_2', name: 'Satisfied Passenger', avatarText: 'SP', reviewText: 'The driver was professional and the car was clean. Excellent experience.', stars: 5, location: 'Huddersfield' },
         ]);
       } finally {
         setIsLoading(false);

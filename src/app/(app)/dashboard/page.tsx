@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2, CheckCircle2, Smile, DollarSign as DollarSignIcon, Building } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
@@ -225,17 +225,19 @@ interface FeatureCardProps {
 
 function FeatureCard({ title, description, icon: Icon, link, actionText }: FeatureCardProps) {
   return (
-    <Card className="hover:shadow-xl transition-shadow duration-300">
+    <Card className="hover:shadow-xl transition-shadow duration-300 flex flex-col">
       <CardHeader className="items-center pb-4">
         <Icon className="w-10 h-10 text-accent mb-3" />
         <CardTitle className="font-headline text-xl">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="text-center space-y-4">
+      <CardContent className="text-center space-y-4 flex-grow">
         <p className="text-muted-foreground text-sm">{description}</p>
-        <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" asChild>
+      </CardContent>
+      <CardFooter>
+        <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" asChild>
           <Link href={link}>{actionText}</Link>
         </Button>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }

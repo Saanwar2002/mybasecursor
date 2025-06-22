@@ -1,7 +1,6 @@
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { getDb, getAdmin } from '@/lib/firebase-admin';
+import { withAuth } from '@/lib/auth-middleware';
 import { calculateFare, type FareCalculationParams, type VehicleType } from '@/lib/fare-calculator';
 
 interface LocationPoint {
@@ -12,22 +11,16 @@ interface LocationPoint {
 }
 
 interface BookingPayload {
-  passengerId: string;
-  passengerName: string;
+  // passengerId & passengerName will come from auth context
   pickupLocation: LocationPoint;
   dropoffLocation: LocationPoint;
   stops: LocationPoint[];
   vehicleType: string;
   passengers: number;
-  fareEstimate: number;
   isPriorityPickup?: boolean;
   priorityFeeAmount?: number;
   isSurgeApplied: boolean;
-  surgeMultiplier: number;
-  stopSurchargeTotal: number;
   scheduledPickupAt?: string | null;
-  customerPhoneNumber?: string;
-  bookedByOperatorId?: string;
   driverNotes?: string;
   waitAndReturn?: boolean;
   estimatedWaitTimeMinutes?: number;
@@ -53,18 +46,15 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
+export const POST = withAuth(async (req, { user }) => {
+  const db = getDb();
+  const admin = getAdmin();
 
-export async function POST(request: NextRequest) {
   try {
-    const bookingData: BookingPayload = await request.json();
+    const bookingData: BookingPayload = await req.json();
 
-    if (!bookingData.passengerId || !bookingData.pickupLocation || !bookingData.dropoffLocation || !bookingData.passengerName || !bookingData.paymentMethod) {
-      return NextResponse.json({ message: 'Missing required booking fields (passengerId, passengerName, pickup, dropoff, paymentMethod).' }, { status: 400 });
-    }
-    
-    if (!db) {
-      console.error('Firestore (db) is not initialized.');
-      return NextResponse.json({ message: 'Server configuration error: Firestore not initialized.' }, { status: 500 });
+    if (!bookingData.pickupLocation || !bookingData.dropoffLocation || !bookingData.paymentMethod) {
+      return NextResponse.json({ message: 'Missing required booking fields (pickup, dropoff, paymentMethod).' }, { status: 400 });
     }
 
     const fareParams: FareCalculationParams = {
@@ -86,8 +76,8 @@ export async function POST(request: NextRequest) {
     const displayBookingIdPrefix = getOperatorPrefix(originatingOperatorId);
 
     const newBookingForFirestore: any = {
-      passengerId: bookingData.passengerId,
-      passengerName: bookingData.passengerName,
+      passengerId: user.uid,
+      passengerName: user.name || 'N/A',
       pickupLocation: bookingData.pickupLocation,
       dropoffLocation: bookingData.dropoffLocation,
       stops: bookingData.stops || [],
@@ -98,9 +88,8 @@ export async function POST(request: NextRequest) {
       priorityFeeAmount: bookingData.isPriorityPickup ? (bookingData.priorityFeeAmount || 0) : 0,
       isSurgeApplied: bookingData.isSurgeApplied,
       surgeMultiplier: surgeMultiplier,
-      stopSurchargeTotal: bookingData.stopSurchargeTotal,
       status: 'searching',
-      bookingTimestamp: serverTimestamp(),
+      bookingTimestamp: admin.firestore.FieldValue.serverTimestamp(), // Correct server-side timestamp
       paymentMethod: bookingData.paymentMethod,
       waitAndReturn: bookingData.waitAndReturn || false,
       originatingOperatorId: originatingOperatorId,
@@ -120,7 +109,7 @@ export async function POST(request: NextRequest) {
       newBookingForFirestore.scheduledPickupAt = bookingData.scheduledPickupAt;
     }
 
-    const docRef = await addDoc(collection(db, 'rides'), newBookingForFirestore);
+    const docRef = await db.collection('bookings').add(newBookingForFirestore);
     const firestoreDocId = docRef.id;
 
     const timestampPart = Date.now().toString().slice(-4);
@@ -129,7 +118,7 @@ export async function POST(request: NextRequest) {
     
     const displayBookingId = `${displayBookingIdPrefix}/${numericSuffix}`;
 
-    await updateDoc(doc(db, 'rides', firestoreDocId), {
+    await db.collection('bookings').doc(firestoreDocId).update({
       displayBookingId: displayBookingId,
     });
 
@@ -143,4 +132,4 @@ export async function POST(request: NextRequest) {
     console.error('Error in POST /api/bookings/create:', error);
     return NextResponse.json({ message: 'Failed to create booking due to an unexpected server error.' }, { status: 500 });
   }
-}
+});

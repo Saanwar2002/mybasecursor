@@ -25,118 +25,131 @@ interface ActiveRide {
 }
 
 export default function ChatPage() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeRide, setActiveRide] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
+  const { user, getAuthToken } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }
 
   // Fetch active ride
   useEffect(() => {
-    if (!user?.id) {
-      setIsLoading(false);
+    if (!user) {
+      setLoading(false);
       return;
     }
 
     const fetchActiveRide = async () => {
       try {
-        const response = await fetch('/api/bookings/my-active-ride');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.ride && ['accepted', 'en_route_to_pickup', 'at_pickup', 'in_progress'].includes(data.ride.status)) {
-            setActiveRide(data.ride);
-          } else {
-            setActiveRide(null);
-          }
-        } else {
+        const token = await getAuthToken();
+        if (!token) throw new Error("Not authenticated");
+
+        const response = await fetch('/api/bookings/my-active-ride', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.status === 404) {
+          setError("No active ride found.");
           setActiveRide(null);
+        } else if (response.ok) {
+          const ride = await response.json();
+          setActiveRide(ride);
+        } else {
+          const errorData = await response.json();
+          setError(errorData.message || 'Failed to fetch active ride.');
         }
       } catch (err) {
-        console.error('Error fetching active ride:', err);
-        setError('Failed to load ride information');
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     fetchActiveRide();
-  }, [user]);
+  }, [user, getAuthToken]);
 
   // Fetch messages
   useEffect(() => {
-    if (!activeRide?.id) {
-      setMessages([]);
-      return;
-    }
+    if (!activeRide) return;
 
     const fetchMessages = async () => {
       try {
-        const response = await fetch(`/api/chat/messages?rideId=${activeRide.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setMessages(data.messages || []);
-        } else {
-          setError('Failed to load messages');
+        const token = await getAuthToken();
+        if (!token) throw new Error("Not authenticated");
+
+        const response = await fetch(`/api/chat/messages?rideId=${activeRide.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch messages.');
         }
+
+        const data = await response.json();
+        setMessages(data);
       } catch (err) {
-        console.error('Error fetching messages:', err);
-        setError('Failed to load messages');
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred fetching messages.');
       }
     };
-
-    fetchMessages();
     
-    // Poll for new messages every 3 seconds
-    const interval = setInterval(fetchMessages, 3000);
-    return () => clearInterval(interval);
-  }, [activeRide]);
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000); // Poll for new messages every 5 seconds
 
-  // Auto-scroll to bottom when new messages arrive
+    return () => clearInterval(interval);
+  }, [activeRide, getAuthToken]);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom();
   }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === '' || !activeRide || !user || isSending) return;
+    if (!newMessage.trim() || !activeRide) return;
 
-    setIsSending(true);
+    const optimisticMessage = {
+      text: newMessage,
+      senderId: user?.uid,
+      timestamp: new Date().toISOString(),
+      optimistic: true,
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
+
     try {
+       const token = await getAuthToken();
+       if (!token) throw new Error("Not authenticated");
+
       const response = await fetch('/api/chat/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           rideId: activeRide.id,
-          text: newMessage.trim(),
+          text: newMessage,
         }),
       });
 
-      if (response.ok) {
-        setNewMessage('');
-        // The message will be added to the list when we poll for updates
-      } else {
-        toast({
-          title: "Failed to send message",
-          description: "Please try again.",
-          variant: "destructive"
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send message.');
       }
-    } catch (error) {
-      toast({
-        title: "Network Error",
-        description: "Could not send message. Please check your connection.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSending(false);
+      // The message will be replaced by the one from polling, so no need to do anything with the response
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred sending the message.');
+      setMessages(prev => prev.filter(m => !m.optimistic)); // Remove optimistic message on failure
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-7rem)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -210,19 +223,15 @@ export default function ChatPage() {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   className="flex-1"
-                  disabled={isSending}
+                  disabled={!activeRide}
                 />
                 <Button 
                   type="submit" 
                   size="icon" 
                   className="bg-accent hover:bg-accent/90 text-accent-foreground"
-                  disabled={isSending || !newMessage.trim()}
+                  disabled={!newMessage.trim() || !activeRide}
                 >
-                  {isSending ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
-                  )}
+                  <Send className="w-5 h-5" />
                 </Button>
               </form>
             </CardContent>
