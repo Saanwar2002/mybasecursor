@@ -1,9 +1,8 @@
-
 "use client";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { HelpCircle, LifeBuoy, MessageSquare, ShieldQuestion, Send, Loader2 } from "lucide-react";
+import { HelpCircle, LifeBuoy, MessageSquare, ShieldQuestion, Send, Loader2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +13,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { cn } from "@/lib/utils";
 
 const faqItems = [
   {
@@ -50,8 +50,9 @@ const faqItems = [
 
 const passengerFeedbackFormSchema = z.object({
   category: z.string({ required_error: "Please select a category." }),
-  details: z.string().min(20, { message: "Please provide at least 20 characters of detail." }).max(1000, { message: "Details cannot exceed 1000 characters."}),
-  rideId: z.string().optional(), // Optional ride ID for specific issues
+  rating: z.number().min(1, "A rating is required.").max(5).optional().nullable(),
+  details: z.string().min(10, { message: "Details must be at least 10 characters." }).max(500, { message: "Details cannot exceed 500 characters."}),
+  rideId: z.string().optional(),
 });
 
 type PassengerFeedbackFormValues = z.infer<typeof passengerFeedbackFormSchema>;
@@ -79,6 +80,7 @@ export default function PassengerHelpSupportPage() {
       category: "",
       details: "",
       rideId: "",
+      rating: null,
     },
   });
 
@@ -101,6 +103,7 @@ export default function PassengerHelpSupportPage() {
           category: values.category,
           details: values.details,
           rideId: values.rideId,
+          rating: values.rating,
         }),
       });
 
@@ -196,7 +199,33 @@ export default function PassengerHelpSupportPage() {
                   </FormItem>
                 )}
               />
-               <FormField
+              <FormField
+                control={form.control}
+                name="rating"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rating (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={cn(
+                              "h-7 w-7 cursor-pointer transition-colors",
+                              (field.value || 0) >= star
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-muted-foreground/30"
+                            )}
+                            onClick={() => field.onChange(star === field.value ? null : star)}
+                          />
+                        ))}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
                 control={form.control}
                 name="rideId"
                 render={({ field }) => (

@@ -321,12 +321,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const firebaseUser = userCredential.user;
       
       const guestUserData: User = {
-        id: role === 'driver' ? GUEST_DRIVER_ID : firebaseUser.uid,
+        id: firebaseUser.uid,
         email: firebaseUser.email || `guest-${firebaseUser.uid.slice(0,5)}@example.com`,
         name: `Guest ${role.charAt(0).toUpperCase() + role.slice(1)}`,
         role: role,
         status: 'Active',
         phoneVerified: true,
+        driverIdentifier: role === 'driver' ? GUEST_DRIVER_ID : undefined,
       };
 
       // Create a basic user document in Firestore for the guest

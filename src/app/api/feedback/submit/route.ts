@@ -12,6 +12,7 @@ const feedbackSchema = z.object({
   category: z.string().min(1),
   details: z.string().min(10, { message: "Details must be at least 10 characters."}),
   rideId: z.string().optional().nullable(),
+  rating: z.number().min(1).max(5).optional().nullable(),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,7 +32,8 @@ export async function POST(request: NextRequest) {
         submitterRole, 
         category, 
         details,
-        rideId 
+        rideId,
+        rating
     } = parsedPayload.data;
 
     const newFeedback = {
@@ -42,6 +44,7 @@ export async function POST(request: NextRequest) {
       category,
       details,
       rideId: rideId || null,
+      rating: rating || null,
       status: 'New', // Default status for new feedback
       submittedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

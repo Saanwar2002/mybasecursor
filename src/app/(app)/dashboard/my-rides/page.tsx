@@ -34,6 +34,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 
 interface JsonTimestamp {
@@ -63,6 +64,7 @@ interface Ride {
   fareEstimate: number;
   status: string;
   rating?: number;
+  reviewSubmitted?: boolean;
   passengerName: string;
   isSurgeApplied?: boolean;
   notifiedPassengerArrivalTimestamp?: JsonTimestamp | null;
@@ -104,13 +106,14 @@ type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions
 export default function MyRidesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [allFetchedRides, setAllFetchedRides] = useState<Ride[]>([]);
+  const [rides, setRides] = useState<Ride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedRideForRating, setSelectedRideForRating] = useState<Ride | null>(null);
-  const [currentRating, setCurrentRating] = useState(0);
-  const [favoritingDriverId, setFavoritingDriverId] = useState<string | null>(null);
+  const [selectedRideForReview, setSelectedRideForReview] = useState<Ride | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComments, setReviewComments] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -172,7 +175,7 @@ export default function MyRidesPage() {
           const response = await fetch(`/api/bookings/my-rides?passengerId=${user.id}`);
           if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch rides: ${response.status}` })); throw new Error(errorData.details || errorData.message); }
           const data: Ride[] = await response.json();
-          setAllFetchedRides(data);
+          setRides(data);
         } catch (err) { const displayMessage = err instanceof Error ? err.message : "An unknown error occurred."; setError(displayMessage); toast({ title: "Error Fetching Rides History", description: displayMessage, variant: "destructive", duration: 7000 });
         } finally { setIsLoading(false); }
       };
@@ -180,26 +183,59 @@ export default function MyRidesPage() {
     } else setIsLoading(false);
   }, [user, toast]);
 
-  const displayedRides = allFetchedRides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver');
+  const displayedRides = rides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver');
 
-  const handleRateRide = (ride: Ride) => { setSelectedRideForRating(ride); setCurrentRating(ride.rating || 0); };
+  const handleRateRide = (ride: Ride) => { 
+    setSelectedRideForReview(ride);
+    setReviewRating(ride.rating || 0);
+    setReviewComments(""); // Reset comments
+  };
   
-  const submitRating = async () => {
-    if (!selectedRideForRating || !user) return;
+  const submitReview = async () => {
+    if (!selectedRideForReview || !user || reviewRating === 0) {
+      toast({ title: "Incomplete Review", description: "Please provide a star rating.", variant: "destructive" });
+      return;
+    }
     
-    setAllFetchedRides(prevRides => 
-      prevRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r)
-    );
+    setIsSubmittingReview(true);
 
-    let toastDescription = `You rated your ride ${currentRating} stars. (Ride ID: ${selectedRideForRating.displayBookingId || selectedRideForRating.id})`;
-    
-    toast({
-      title: "Rating Submitted (Mock)",
-      description: toastDescription,
-    });
+    try {
+      const response = await fetch('/api/feedback/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          submitterId: user.id,
+          submitterName: user.name,
+          submitterEmail: user.email,
+          submitterRole: user.role,
+          category: reviewRating >= 4 ? "driver_compliment" : "driver_complaint",
+          details: reviewComments || (reviewRating >= 4 ? 'Great ride!' : 'Ride issue.'),
+          rideId: selectedRideForReview.id,
+          rating: reviewRating,
+        }),
+      });
 
-    setSelectedRideForRating(null);
-    setCurrentRating(0);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({message: "Submission failed."}));
+        throw new Error(errorData.message);
+      }
+      
+      setRides(prevRides => 
+        prevRides.map(r => r.id === selectedRideForReview.id ? { ...r, rating: reviewRating, reviewSubmitted: true } : r)
+      );
+
+      toast({
+        title: "Review Submitted",
+        description: "Thank you for your feedback!",
+      });
+      setSelectedRideForReview(null);
+      
+    } catch (error) {
+       const message = error instanceof Error ? error.message : "Could not submit review.";
+       toast({ title: "Submission Error", description: message, variant: "destructive" });
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
 
@@ -248,7 +284,7 @@ export default function MyRidesPage() {
       toast({ title: "Cannot Favorite", description: "Driver information is missing for this ride.", variant: "destructive" });
       return;
     }
-    setFavoritingDriverId(rideToFavorite.driverId);
+    setActionLoading(prev => ({ ...prev, [`fav-${rideToFavorite.driverId}`]: true }));
     try {
       const response = await fetch('/api/users/favorite-drivers/add', {
         method: 'POST',
@@ -268,7 +304,7 @@ export default function MyRidesPage() {
       const message = error instanceof Error ? error.message : "Unknown error while favoriting driver.";
       toast({ title: "Favoriting Failed", description: message, variant: "destructive" });
     } finally {
-      setFavoritingDriverId(null);
+      setActionLoading(prev => ({ ...prev, [`fav-${rideToFavorite.driverId}`]: false }));
     }
   };
 
@@ -338,60 +374,62 @@ export default function MyRidesPage() {
               </div>
               <CardFooter className="flex flex-wrap gap-2 pt-4 border-t">
                 {ride.status === 'completed' && (
-                  <Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>
-                    <Star className="mr-2 h-4 w-4" /> Rate Ride
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                       <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs" 
+                          disabled={ride.reviewSubmitted} 
+                          onClick={() => handleRateRide(ride)}
+                        >
+                          {ride.reviewSubmitted ? 'Review Submitted' : 'Rate Ride'}
+                        </Button>
+                    </AlertDialogTrigger>
+                    {selectedRideForReview && selectedRideForReview.id === ride.id && (
+                       <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Rate your ride with {ride.driver}</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Your feedback helps us improve. Please leave a rating and optional comments.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="py-4 space-y-4">
+                            <div className="flex items-center justify-center gap-2">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={cn("h-8 w-8 cursor-pointer transition-colors", reviewRating >= star ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/30")}
+                                  onClick={() => setReviewRating(star)}
+                                />
+                              ))}
+                            </div>
+                            <Textarea 
+                              placeholder="Add a comment... (optional)" 
+                              value={reviewComments}
+                              onChange={(e) => setReviewComments(e.target.value)}
+                              className="min-h-[80px]"
+                            />
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setSelectedRideForReview(null)}>Cancel</AlertDialogCancel>
+                          <Button onClick={submitReview} disabled={isSubmittingReview}>
+                            {isSubmittingReview && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Submit Review
+                          </Button>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    )}
+                  </AlertDialog>
+                )}
+                {user?.role === 'passenger' && ride.status === 'completed' && ride.driverId && (
+                  <Button onClick={() => handleBlockDriver(ride)} disabled={actionLoading[`block-${ride.driverId}`]} variant="destructive" size="sm" className="text-xs">
+                    <UserX className="mr-1 h-3.5 w-3.5" /> Block Driver
                   </Button>
                 )}
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                     <Button 
-                      variant="outline" 
-                      size="sm"
-                      disabled={!ride.driverId || actionLoading[`block-${ride.driverId}`]}
-                      className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      {actionLoading[`block-${ride.driverId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
-                      Block Driver
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Block {ride.driver || 'this driver'}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to block this driver? You will not be matched with them for future rides. This can be undone in your profile settings.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleBlockDriver(ride)} className={buttonVariants({ variant: "destructive" })}>Confirm Block</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                {ride.status === 'completed' && ride.driverId && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleFavoriteDriver(ride)}
-                    disabled={favoritingDriverId === ride.driverId}
-                  >
-                    {favoritingDriverId === ride.driverId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />}
-                    Favorite Driver
-                  </Button>
-                )}
-
-                {ride.status === 'pending' && (
-                   <Button variant="outline" size="sm" onClick={() => handleOpenEditDetailsDialog(ride)}><Edit className="mr-2 h-4 w-4"/> Edit Details</Button>
-                )}
-
-                {ride.status === 'pending' && (
-                   <Button variant="destructive" size="sm" onClick={() => handleOpenCancelDialog(ride)}><XCircle className="mr-2 h-4 w-4" /> Cancel Booking</Button>
-                )}
-                 
-                {ride.status === 'driver_assigned' && ride.notifiedPassengerArrivalTimestamp && !ride.passengerAcknowledgedArrivalTimestamp && (
-                  <Button size="sm" onClick={() => handleAcknowledgeArrival(ride.id)} className="bg-green-600 hover:bg-green-700">
-                    <CheckCheck className="mr-2 h-4 w-4" /> Acknowledge Driver Arrival
+                 {user?.role === 'passenger' && ride.status === 'completed' && ride.driverId && (
+                  <Button onClick={() => handleFavoriteDriver(ride)} disabled={actionLoading[`fav-${ride.driverId}`]} variant="outline" size="sm" className="text-xs">
+                    <ThumbsUp className="mr-1 h-3.5 w-3.5" /> Favorite Driver
                   </Button>
                 )}
               </CardFooter>
@@ -399,32 +437,6 @@ export default function MyRidesPage() {
           </Card>
         ))}
       </div>
-
-      {selectedRideForRating && ( 
-        <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl">
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRideForRating(null)} />
-          <div className="relative bg-card rounded-lg p-6">
-            <CardHeader>
-              <CardTitle>Rate ride with {selectedRideForRating.driver || 'driver'}</CardTitle>
-              <CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address} (ID: {selectedRideForRating.displayBookingId || selectedRideForRating.id})</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-center space-x-1 py-2">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-8 h-8 cursor-pointer ${i < currentRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`} onClick={() => setCurrentRating(i + 1)}/>
-                ))}
-              </div>
-              <p className="text-sm text-center text-muted-foreground">
-                Enjoyed your ride? Consider tipping your driver directly next time!
-              </p>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setSelectedRideForRating(null)}>Cancel</Button>
-              <Button onClick={submitRating} className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit</Button>
-            </CardFooter>
-          </div>
-        </Card> 
-      )}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquareHeart, Loader2, AlertTriangle, Eye, Filter } from "lucide-react";
+import { MessageSquareHeart, Loader2, AlertTriangle, Eye, Filter, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,22 +13,24 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
+import { useAuth } from "@/contexts/auth-context";
 
 interface FeedbackItem {
   id: string;
   submitterId: string;
   submitterName: string;
   submitterEmail?: string | null;
-  submitterRole: 'passenger' | 'driver' | 'operator' | 'admin';
+  submitterRole: "passenger" | "driver" | "operator" | "admin";
   category: string;
   details: string;
   rideId?: string | null;
-  status: 'New' | 'Investigating' | 'Resolved' | 'Closed';
+  status: "New" | "Investigating" | "Resolved" | "Closed";
+  rating?: number | null;
   submittedAt: string; // ISO string
   updatedAt: string; // ISO string
 }
 
-const statusOptions: FeedbackItem['status'][] = ['New', 'Investigating', 'Resolved', 'Closed'];
+const statusOptions: FeedbackItem["status"][] = ["New", "Investigating", "Resolved", "Closed"];
 
 export default function AdminUserFeedbackPage() {
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
@@ -44,13 +45,16 @@ export default function AdminUserFeedbackPage() {
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const { getAuthToken } = useAuth();
 
   const fetchFeedback = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // TODO: Add query params for filtering when API supports it
-      const response = await fetch('/api/admin/feedback/list');
+      const token = await getAuthToken();
+      const response = await fetch('/api/admin/feedback/list', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to fetch feedback list.'}));
         throw new Error(errorData.message);
@@ -64,7 +68,7 @@ export default function AdminUserFeedbackPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, getAuthToken]);
 
   useEffect(() => {
     fetchFeedback();
@@ -81,7 +85,10 @@ export default function AdminUserFeedbackPage() {
 
   const allCategories = Array.from(new Set(feedbackItems.map(item => item.category))).sort();
 
-  const handleStatusChange = async (feedbackId: string, newStatus: FeedbackItem['status']) => {
+  const handleStatusChange = async (
+    feedbackId: string,
+    newStatus: FeedbackItem["status"]
+  ) => {
     setIsUpdatingStatus(true);
     console.log(`Mock: Updating feedback ${feedbackId} to status ${newStatus}`);
     // Simulate API call
@@ -93,7 +100,6 @@ export default function AdminUserFeedbackPage() {
     toast({ title: "Status Updated (Mock)", description: `Feedback ${feedbackId} moved to ${newStatus}.`});
     setIsUpdatingStatus(false);
   };
-
 
   const getStatusBadgeVariant = (status: FeedbackItem['status']) => {
     switch (status) {
@@ -173,25 +179,48 @@ export default function AdminUserFeedbackPage() {
                   <TableHead>Submitter</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Details (Snippet)</TableHead>
+                  <TableHead>Rating</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredFeedback.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="text-xs">{format(parseISO(item.submittedAt), "dd MMM yy, HH:mm")}</TableCell>
+                    <TableCell className="text-xs">
+                      {format(parseISO(item.submittedAt), "dd MMM yy, HH:mm")}
+                    </TableCell>
                     <TableCell>
                       <div>{item.submitterName}</div>
-                      <div className="text-xs text-muted-foreground capitalize">{item.submitterRole}</div>
+                      <div className="text-xs text-muted-foreground capitalize">
+                        {item.submitterRole}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs">{item.category}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(item.status)} className={getStatusBadgeClass(item.status)}>{item.status}</Badge>
+                      <Badge
+                        variant={getStatusBadgeVariant(item.status)}
+                        className={getStatusBadgeClass(item.status)}
+                      >
+                        {item.status}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-xs max-w-xs truncate" title={item.details}>{item.details}</TableCell>
+                    <TableCell className="text-xs">
+                      {item.rating ? (
+                         <div className="flex items-center">
+                           {item.rating} <Star className="w-3.5 h-3.5 ml-1 text-yellow-500 fill-yellow-500" />
+                         </div>
+                       ) : 'N/A'}
+                    </TableCell>
                     <TableCell className="text-center">
-                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setSelectedFeedback(item); setIsDetailsModalOpen(true); }}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setSelectedFeedback(item);
+                          setIsDetailsModalOpen(true);
+                        }}
+                      >
                         <Eye className="mr-1 h-3.5 w-3.5" /> View
                       </Button>
                     </TableCell>

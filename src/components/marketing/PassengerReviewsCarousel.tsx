@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Loader2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Review {
@@ -17,63 +16,52 @@ interface Review {
   location?: string;
 }
 
-const mockReviews: Review[] = [
-  {
-    id: 'review1',
-    name: 'Aisha K.',
-    avatarText: 'AK',
-    reviewText: "MyBase got me from Lindley to the station right on time! The car was spotless and the driver was so polite. Excellent service!",
-    stars: 5,
-    location: "Lindley, Huddersfield",
-  },
-  {
-    id: 'review2',
-    name: 'Tom P.',
-    avatarText: 'TP',
-    reviewText: "Fantastic trip to Holmfirth with MyBase. The driver knew all the shortcuts and the app made booking super easy. Will use again!",
-    stars: 5,
-    location: "Holmfirth",
-  },
-  {
-    id: 'review3',
-    name: 'Priya S.',
-    avatarText: 'PS',
-    reviewText: "Reliable service from Marsh to the town centre. Appreciate the clear pricing and friendly drivers. Much better than other local options.",
-    stars: 4,
-    location: "Marsh, Huddersfield",
-  },
-  {
-    id: 'review4',
-    name: 'David R.',
-    avatarText: 'DR',
-    reviewText: "Needed a quick ride from Almondbury and MyBase delivered. The driver was helpful with my shopping. Five stars!",
-    stars: 5,
-    location: "Almondbury, Huddersfield",
-  },
-  {
-    id: 'review5',
-    name: 'Chloe G.',
-    avatarText: 'CG',
-    reviewText: "Consistent and dependable. I use MyBase regularly for trips around Huddersfield. Always a pleasant experience.",
-    stars: 5,
-    location: "Huddersfield Town Centre",
-  }
-];
-
 export function PassengerReviewsCarousel() {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch('/api/feedback/featured');
+        if (!response.ok) {
+          throw new Error('Failed to fetch reviews.');
+        }
+        const data = await response.json();
+        if (data.featuredReviews && data.featuredReviews.length > 0) {
+          setReviews(data.featuredReviews);
+        } else {
+          // Fallback to some generic reviews if none are featured yet
+          setReviews([
+            { id: 'fallback1', name: 'A Happy Customer', avatarText: 'HC', reviewText: 'Great, reliable service every time. Highly recommended!', stars: 5, location: 'Huddersfield' }
+          ]);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setReviews([
+            { id: 'fallback_error', name: 'A Happy Customer', avatarText: 'HC', reviewText: 'Great, reliable service every time. Highly recommended!', stars: 5, location: 'Huddersfield' }
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchReviews();
+  }, []);
+
   const navigate = (direction: 'prev' | 'next') => {
+    if (reviews.length <= 1) return;
     setIsTransitioning(true);
     setTimeout(() => {
       if (direction === 'prev') {
         setCurrentIndex((prevIndex) =>
-          prevIndex === 0 ? mockReviews.length - 1 : prevIndex - 1
+          prevIndex === 0 ? reviews.length - 1 : prevIndex - 1
         );
       } else {
         setCurrentIndex((prevIndex) =>
-          prevIndex === mockReviews.length - 1 ? 0 : prevIndex + 1
+          prevIndex === reviews.length - 1 ? 0 : prevIndex + 1
         );
       }
       setIsTransitioning(false);
@@ -82,15 +70,26 @@ export function PassengerReviewsCarousel() {
 
   // Autoplay effect
   useEffect(() => {
+    if (reviews.length <= 1) return;
     const timer = setInterval(() => {
       navigate('next');
     }, 7000); // Change review every 7 seconds
     return () => clearInterval(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reviews]);
 
 
-  const currentReview = mockReviews[currentIndex];
+  const currentReview = reviews[currentIndex];
+
+  if (isLoading) {
+    return (
+        <Card className="w-full max-w-md h-auto flex flex-col justify-between rounded-xl shadow-2xl bg-gradient-to-br from-primary/10 via-card to-accent/10 border-2 border-primary/30">
+            <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+            </div>
+        </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md h-auto flex flex-col justify-between rounded-xl shadow-2xl overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10 border-2 border-primary/30">
@@ -126,11 +125,11 @@ export function PassengerReviewsCarousel() {
         </div>
       </CardContent>
       <div className="flex items-center justify-between p-3 border-t bg-card/50 shrink-0">
-        <Button variant="outline" size="icon" onClick={() => navigate('prev')} aria-label="Previous review" className="h-8 w-8">
+        <Button variant="outline" size="icon" onClick={() => navigate('prev')} aria-label="Previous review" className="h-8 w-8" disabled={reviews.length <= 1}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex space-x-1.5">
-            {mockReviews.map((_, index) => (
+            {reviews.map((_, index) => (
             <button
                 key={`dot-${index}`}
                 onClick={() => {
@@ -148,7 +147,7 @@ export function PassengerReviewsCarousel() {
             />
             ))}
         </div>
-        <Button variant="outline" size="icon" onClick={() => navigate('next')} aria-label="Next review" className="h-8 w-8">
+        <Button variant="outline" size="icon" onClick={() => navigate('next')} aria-label="Next review" className="h-8 w-8" disabled={reviews.length <= 1}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
