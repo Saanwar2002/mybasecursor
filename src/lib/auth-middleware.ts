@@ -81,4 +81,26 @@ export const withOperatorAuth = (handler: AuthenticatedApiHandler) => withAuth(a
         console.error('Error fetching user record for operator check:', error);
         return new NextResponse('Internal Server Error', { status: 500 });
     }
+});
+
+export const withDriverAuth = (handler: AuthenticatedApiHandler) => withAuth(async (req, context) => {
+    const { user } = context;
+    
+    // Check for driver custom claim
+    if (user.driver === true) {
+        return handler(req, context);
+    }
+
+    // Fallback: check user record from Auth
+    try {
+        const auth = getAuth();
+        const userRecord = await auth.getUser(user.uid);
+        if (userRecord.customClaims?.driver === true) {
+            return handler(req, context);
+        }
+        return new NextResponse('Forbidden: Driver access required', { status: 403 });
+    } catch (error) {
+        console.error('Error fetching user record for driver check:', error);
+        return new NextResponse('Internal Server Error', { status: 500 });
+    }
 }); 

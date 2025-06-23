@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { useGoogleMaps } from '@/contexts/google-maps/google-maps-provider';
 import { cn } from "@/lib/utils";
 import { Skeleton } from './skeleton';
 import { getCustomMapLabelOverlayClass, type ICustomMapLabelOverlay, type CustomMapLabelOverlayConstructor, type LabelType } from './custom-map-label-overlay';
@@ -68,74 +68,28 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
   const customLabelOverlaysRef = useRef<ICustomMapLabelOverlay[]>([]); 
   const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
   const currentPolylinesRef = useRef<google.maps.Polyline[]>([]); 
-  const [isInternalSdkLoaded, setIsInternalSdkLoaded] = useState(false);
+  
+  const { isLoaded: isSdkLoaded, google, loadError } = useGoogleMaps();
   const [mapError, setMapError] = useState<string | null>(null);
-  const [usedApiKeySource, setUsedApiKeySource] = useState<string>("unknown");
 
   const defaultStyle = useMemo(() => ({ height: '100%', width: '100%', minHeight: '200px' }), []);
   const mapStyle = propStyle ? { ...defaultStyle, ...propStyle } : defaultStyle;
 
   useEffect(() => {
-    let isMounted = true;
-    const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    const firebaseApiKeyForMapsFallback = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    let apiKeyToUse: string | undefined = undefined;
-    let apiKeySource: string = "unknown";
-
-    if (googleMapsApiKey && googleMapsApiKey.trim() !== "") {
-      apiKeyToUse = googleMapsApiKey;
-      apiKeySource = "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY";
-    } else if (firebaseApiKeyForMapsFallback && firebaseApiKeyForMapsFallback.trim() !== "") {
-      apiKeyToUse = firebaseApiKeyForMapsFallback;
-      apiKeySource = "NEXT_PUBLIC_FIREBASE_API_KEY (as fallback for Maps)";
-    } else {
-      apiKeyToUse = FALLBACK_API_KEY_FOR_MAPS;
-      apiKeySource = "Hardcoded Fallback (User Confirmed Key)";
+    if (loadError) {
+      setMapError(`Failed to load Google Maps SDK: ${loadError.message}`);
     }
-    
-    if (isMounted) setUsedApiKeySource(apiKeySource);
-
-    if (!apiKeyToUse) { 
-      if (isMounted) setMapError("Critical Error: No Google Maps API Key could be determined.");
-      return;
-    }
-    if (isMounted) setMapError(null);
-    
-    const loader = new Loader({
-      apiKey: apiKeyToUse,
-      version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], 
-    });
-
-    loader.load().then((loadedGoogle) => {
-      if (isMounted) {
-        if (loadedGoogle && loadedGoogle.maps && loadedGoogle.maps.Map) {
-           CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(loadedGoogle.maps);
-           setIsInternalSdkLoaded(true);
-           if(onSdkLoaded) onSdkLoaded(true);
-           if (typeof window !== 'undefined' && !(window as any).google) {
-             (window as any).google = loadedGoogle;
-           }
-        } else {
-           const errorMsg = `Google Maps SDK loaded, but 'google.maps.Map' is not available. API Key used from: ${apiKeySource}. Check API key permissions for "Maps JavaScript API".`;
-           setMapError(errorMsg);
-           setIsInternalSdkLoaded(false);
-           if(onSdkLoaded) onSdkLoaded(false);
-        }
-      }
-    }).catch(e => {
-      if (isMounted) {
-        const errorMsg = `Failed to load Google Maps SDK. API Key used from: ${apiKeySource}. Error: ${e.message || String(e)}`;
-        setMapError(errorMsg);
-        setIsInternalSdkLoaded(false);
-        if(onSdkLoaded) onSdkLoaded(false);
-      }
-    });
-    return () => { isMounted = false; };
-  }, [onSdkLoaded]); 
+  }, [loadError]);
 
   useEffect(() => {
-    if (!isInternalSdkLoaded || !mapRef.current || typeof window.google === 'undefined' || !window.google.maps) return;
+    if (isSdkLoaded && google && !CustomMapLabelOverlayClassRef.current) {
+        CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(google.maps);
+    }
+  }, [isSdkLoaded, google]);
+
+
+  useEffect(() => {
+    if (!isSdkLoaded || !mapRef.current || !google || !google.maps) return;
     
     const currentCenter = centerProp !== undefined ? centerProp : DEFAULT_CENTER;
     const currentZoom = zoomProp !== undefined ? zoomProp : DEFAULT_ZOOM;
@@ -155,7 +109,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     };
 
     if (!mapInstanceRef.current || (mapIdProp && mapInstanceRef.current.getMapTypeId() !== mapIdProp)) {
-      mapInstanceRef.current = new window.google.maps.Map(mapRef.current, mapOptions);
+      mapInstanceRef.current = new google.maps.Map(mapRef.current, mapOptions);
     } else if (mapInstanceRef.current) {
        if (!fitBoundsToMarkers || !markers || markers.length < 1) {
         const mapInternalCenter = mapInstanceRef.current.getCenter();
@@ -166,15 +120,14 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
           mapInstanceRef.current.setZoom(zoomProp);
         }
       }
-       if (mapInstanceRef.current && typeof mapInstanceRef.current.getOptions === 'function') {
-        const currentGestureHandling = mapInstanceRef.current.getOptions()?.gestureHandling;
-        if (currentGestureHandling !== gestureHandling) {
+       if (mapInstanceRef.current) {
+        if (mapInstanceRef.current.gestureHandling !== gestureHandling) {
           mapInstanceRef.current.setOptions({ gestureHandling });
         }
         if (mapHeading !== undefined && mapInstanceRef.current.getHeading() !== mapHeading) {
           mapInstanceRef.current.setHeading(mapHeading);
         }
-        if (mapRotateControl !== undefined && mapInstanceRef.current.getOptions()?.rotateControl !== mapRotateControl) {
+        if (mapRotateControl !== undefined && mapInstanceRef.current.rotateControl !== mapRotateControl) {
           mapInstanceRef.current.setOptions({ rotateControl: mapRotateControl });
         }
       }
@@ -183,22 +136,22 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     currentMarkersRef.current.forEach(marker => marker.setMap(null));
     currentMarkersRef.current = [];
 
-    const bounds = new window.google.maps.LatLngBounds();
+    const bounds = new google.maps.LatLngBounds();
 
-    if (markers && markers.length > 0 && mapInstanceRef.current && window.google.maps?.Marker && window.google.maps?.LatLngBounds) {
+    if (markers && markers.length > 0 && mapInstanceRef.current && google.maps?.Marker && google.maps?.LatLngBounds) {
       markers.forEach(markerData => {
         let markerOptions: google.maps.MarkerOptions = {
           position: markerData.position, map: mapInstanceRef.current,
           title: markerData.title, label: markerData.label,
         };
-        if (markerData.iconUrl && markerData.iconScaledSize && window.google.maps.Size && window.google.maps.Point) {
+        if (markerData.iconUrl && markerData.iconScaledSize && google.maps.Size && google.maps.Point) {
           markerOptions.icon = {
             url: markerData.iconUrl,
-            scaledSize: new window.google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height),
-            anchor: new window.google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height),
+            scaledSize: new google.maps.Size(markerData.iconScaledSize.width, markerData.iconScaledSize.height),
+            anchor: new google.maps.Point(markerData.iconScaledSize.width / 2, markerData.iconScaledSize.height),
           };
         }
-        const newMarker = new window.google.maps.Marker(markerOptions);
+        const newMarker = new google.maps.Marker(markerOptions);
         currentMarkersRef.current.push(newMarker);
         if (markerData.position) bounds.extend(markerData.position);
       });
@@ -206,9 +159,9 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
     
     currentPolylinesRef.current.forEach(polyline => polyline.setMap(null));
     currentPolylinesRef.current = [];
-    if (polylines && polylines.length > 0 && mapInstanceRef.current && window.google.maps.Polyline && window.google.maps.LatLng) {
+    if (polylines && polylines.length > 0 && mapInstanceRef.current && google.maps.Polyline && google.maps.LatLng) {
       polylines.forEach(polylineData => {
-        const newPolyline = new window.google.maps.Polyline({
+        const newPolyline = new google.maps.Polyline({
           path: polylineData.path,
           strokeColor: polylineData.color,
           strokeOpacity: polylineData.opacity ?? 0.8,
@@ -218,7 +171,7 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
         currentPolylinesRef.current.push(newPolyline);
         if (fitBoundsToMarkers && polylineData.path && polylineData.path.length > 0) {
             polylineData.path.forEach(point => {
-              bounds.extend(new window.google.maps.LatLng(point.lat, point.lng));
+              bounds.extend(new google.maps.LatLng(point.lat, point.lng));
             });
         }
       });
@@ -249,14 +202,18 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
       if (customMapLabels && customMapLabels.length > 0) {
         customMapLabels.forEach(labelData => {
-          const newLabelOverlay = new CustomMapLabelOverlay(labelData.position, labelData.content, labelData.type, labelData.variant || 'default'); 
-          newLabelOverlay.setMap(mapInstanceRef.current);
-          customLabelOverlaysRef.current.push(newLabelOverlay);
+          const overlay = new CustomMapLabelOverlay(
+            labelData.position,
+            labelData.content,
+            { variant: labelData.variant ?? 'default' },
+            mapInstanceRef.current as google.maps.Map
+          );
+          customLabelOverlaysRef.current.push(overlay);
         });
       }
     }
 
-  }, [isInternalSdkLoaded, centerProp, zoomProp, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling, mapHeading, mapRotateControl, polylines, driverIconRotation]);
+  }, [isSdkLoaded, google, centerProp, zoomProp, markers, mapIdProp, disableDefaultUI, fitBoundsToMarkers, customMapLabels, gestureHandling, mapHeading, mapRotateControl, polylines, driverIconRotation]);
 
   useEffect(() => {
     return () => {
@@ -274,16 +231,19 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
       <div className={cn("flex flex-col items-center justify-center text-center rounded-md shadow-md bg-destructive/10 text-destructive p-4", className)} style={mapStyle}>
         <p className="font-semibold mb-1 text-lg">Map Display Error</p>
         <p className="text-sm whitespace-pre-wrap">{mapError}</p>
-        <p className="text-xs mt-2">Key source tried: {usedApiKeySource}.</p>
       </div>
     );
   }
 
-  if (!isInternalSdkLoaded && !mapError) {
-    return <Skeleton className={cn("rounded-md shadow-md", className)} style={mapStyle} aria-label="Loading map..." />;
+  if (!isSdkLoaded) {
+    return (
+      <div className={cn("flex items-center justify-center bg-muted", className)} style={mapStyle}>
+        <Skeleton className="h-full w-full" />
+      </div>
+    );
   }
 
-  return <div ref={mapRef} style={mapStyle} className={cn("rounded-md shadow-md bg-muted/30", className)} />;
+  return <div ref={mapRef} className={className} style={mapStyle} />;
 };
 
 export default GoogleMapDisplay;

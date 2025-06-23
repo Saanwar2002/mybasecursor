@@ -1,9 +1,9 @@
-
 "use client";
 
 import React from 'react'; // Ensure React is imported
 import Link from 'next/link';
 import Image from 'next/image'; // Added Image import
+import { Button } from '@/components/ui/button'; // Import the actual Button component
 
 export function PublicHeader() {
   return (
@@ -24,21 +24,3 @@ export function PublicHeader() {
     </header>
   );
 }
-
-// Helper, assuming Button component exists as used in the original context
-// If not, replace <Button> with a styled <Link> or <a>
-const Button = ({ children, asChild, size, ...props }: any) => {
-  if (asChild) {
-    return React.cloneElement(children, props);
-  }
-  // Basic button styling, adapt as needed or import your actual Button
-  const sizeClasses = size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm';
-  return (
-    <button
-      className={`bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-medium transition-colors ${sizeClasses}`}
-      {...props}
-    >
-      {children.props.children /* Access children of Link */}
-    </button>
-  );
-};

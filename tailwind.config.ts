@@ -1,5 +1,5 @@
-
 import type {Config} from 'tailwindcss';
+const { fontFamily } = require("tailwindcss/defaultTheme");
 
 const config: Config = {
   darkMode: ["class"],
@@ -17,8 +17,8 @@ const config: Config = {
       },
     },
     extend: {
-      fontFamily: { // Add PT Sans to the sans-serif stack
-        sans: ['"PT Sans"', 'sans-serif'],
+      fontFamily: {
+        sans: ["var(--font-sans)", ...fontFamily.sans],
       },
       colors: {
         border: "hsl(var(--border))",

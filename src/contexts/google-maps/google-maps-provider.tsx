@@ -35,7 +35,7 @@ export const GoogleMapsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const loader = new Loader({
       apiKey,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"],
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes", "core"],
     });
 
     loader.load().then(googleInstance => {
@@ -76,7 +76,7 @@ export const GoogleMapsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   return (
     <GoogleMapsContext.Provider value={value}>
-      {children}
+      {isLoaded ? children : null}
     </GoogleMapsContext.Provider>
   );
 };

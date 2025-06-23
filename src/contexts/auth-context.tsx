@@ -288,23 +288,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const getAuthToken = async (): Promise<string | null> => {
-    if (!firebaseUser) {
-      console.error("getAuthToken called but no firebaseUser is available.");
-      // This might happen if called immediately on load before auth state is resolved.
-      // Or after logout.
-      return null;
+  const getAuthToken = React.useCallback(async (): Promise<string | null> => {
+    if (firebaseUser) {
+      try {
+        const token = await firebaseUser.getIdToken(true); // Force refresh
+        return token;
+      } catch (error) {
+        console.error("Error getting auth token:", error);
+        return null;
+      }
     }
-    try {
-      // Force refresh the token if it's expired.
-      const token = await firebaseUser.getIdToken(true);
-      return token;
-    } catch (error) {
-      console.error("Error getting auth token:", error);
-      // Could log the user out here if token fetching fails permanently
-      return null;
-    }
-  };
+    return null;
+  }, [firebaseUser]);
 
   const loginAsGuest = async (role: UserRole): Promise<User> => {
     setLoading(true);
