@@ -179,7 +179,7 @@ export default function OperatorCreditAccountsPage() {
                       <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="e.g., Corporate Client Ltd" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={addAccountForm.control} name="associatedUserId" render={({ field }) => (
-                      <FormItem><FormLabel>Associated Passenger User ID (Optional)</FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Associated Passenger User ID <span className="text-red-500">*</span></FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} required /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={addAccountForm.control} name="creditLimit" render={({ field }) => (
                       <FormItem><FormLabel>Credit Limit (£)</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><FormMessage /></FormItem>
@@ -330,7 +330,7 @@ export default function OperatorCreditAccountsPage() {
                   <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="e.g., Corporate Client Ltd" {...field} defaultValue={editAccount.accountHolderName} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={addAccountForm.control} name="associatedUserId" render={({ field }) => (
-                  <FormItem><FormLabel>Associated Passenger User ID (Optional)</FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} defaultValue={editAccount.associatedUserId} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Associated Passenger User ID <span className="text-red-500">*</span></FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} defaultValue={editAccount.associatedUserId} required /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={addAccountForm.control} name="creditLimit" render={({ field }) => (
                   <FormItem><FormLabel>Credit Limit (£)</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} defaultValue={editAccount.creditLimit} /></FormControl><FormMessage /></FormItem>

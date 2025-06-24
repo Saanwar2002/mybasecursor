@@ -24,12 +24,19 @@ export async function GET() {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, ...updates } = body;
+    const { id, associatedUserId, ...updates } = body;
     const idx = creditAccounts.findIndex(acc => acc.id === id);
     if (idx === -1) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 });
     }
-    creditAccounts[idx] = { ...creditAccounts[idx], ...updates };
+    // Validate associatedUserId if present
+    if (associatedUserId) {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/operator/passengers/${associatedUserId}`);
+      if (!res.ok) {
+        return NextResponse.json({ error: `Associated Passenger User ID '${associatedUserId}' does not exist.` }, { status: 400 });
+      }
+    }
+    creditAccounts[idx] = { ...creditAccounts[idx], ...updates, associatedUserId };
     return NextResponse.json({ account: creditAccounts[idx] });
   } catch (error) {
     return NextResponse.json({ error: "Failed to update account", details: error?.toString() }, { status: 500 });
@@ -57,6 +64,14 @@ export async function POST(req: Request) {
     const parsed = CreditAccountSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid data", details: parsed.error.format() }, { status: 400 });
+    }
+    // Validate associatedUserId
+    const { associatedUserId } = parsed.data;
+    if (associatedUserId) {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/operator/passengers/${associatedUserId}`);
+      if (!res.ok) {
+        return NextResponse.json({ error: `Associated Passenger User ID '${associatedUserId}' does not exist.` }, { status: 400 });
+      }
     }
     const newAccount = {
       id: `acc_${Date.now()}`,
