@@ -162,16 +162,18 @@ function ManagePlatformOperatorsContent() {
           <Dialog open={isAddOperatorDialogOpen} onOpenChange={setIsAddOperatorDialogOpen}>
             <DialogTrigger asChild> <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0"> <UserPlus className="mr-2 h-4 w-4" /> Add New Operator </Button> </DialogTrigger>
             <DialogContent className="sm:max-w-md">
-              <DialogHeader> <DialogTitle>Add New Platform Operator</DialogTitle> <DialogDescription> Enter the details for the new taxi base operator. They will be created with 'Pending Approval' status. </DialogDescription> </DialogHeader>
-              <Form {...addOperatorForm}>
-                <form onSubmit={addOperatorForm.handleSubmit(onAddOperatorSubmit)} className="space-y-4 py-2">
-                  <FormField control={addOperatorForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Operator/Company Name</FormLabel><FormControl><Input placeholder="e.g., City Taxis Ltd" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
-                  <FormField control={addOperatorForm.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input type="email" placeholder="contact@citytaxis.com" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
-                  <FormField control={addOperatorForm.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Contact Phone (Optional)</FormLabel><FormControl><Input type="tel" placeholder="01234 567890" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
-                   <FormField control={addOperatorForm.control} name="operatorCode" render={({ field }) => ( <FormItem> <FormLabel>Unique Operator Code</FormLabel> <FormControl><Input placeholder="e.g., OP002" {...field} disabled={actionLoading['addNewOperator']} /></FormControl> <FormDescription>Assign a unique code (e.g., OP002). This must not be in use.</FormDescription> <FormMessage /> </FormItem> )} />
-                  <DialogFooter className="pt-4"> <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addNewOperator']}>Cancel</Button></DialogClose> <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addNewOperator']}> {actionLoading['addNewOperator'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Operator </Button> </DialogFooter>
-                </form>
-              </Form>
+              <>
+                <DialogHeader> <DialogTitle>Add New Platform Operator</DialogTitle> <DialogDescription> Enter the details for the new taxi base operator. They will be created with 'Pending Approval' status. </DialogDescription> </DialogHeader>
+                <Form {...addOperatorForm}>
+                  <form onSubmit={addOperatorForm.handleSubmit(onAddOperatorSubmit)} className="space-y-4 py-2">
+                    <FormField control={addOperatorForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Operator/Company Name</FormLabel><FormControl><Input placeholder="e.g., City Taxis Ltd" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={addOperatorForm.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input type="email" placeholder="contact@citytaxis.com" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={addOperatorForm.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Contact Phone (Optional)</FormLabel><FormControl><Input type="tel" placeholder="01234 567890" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
+                     <FormField control={addOperatorForm.control} name="operatorCode" render={({ field }) => ( <FormItem> <FormLabel>Unique Operator Code</FormLabel> <FormControl><Input placeholder="e.g., OP002" {...field} disabled={actionLoading['addNewOperator']} /></FormControl> <FormDescription>Assign a unique code (e.g., OP002). This must not be in use.</FormDescription> <FormMessage /> </FormItem> )} />
+                    <DialogFooter className="pt-4"> <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addNewOperator']}>Cancel</Button></DialogClose> <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addNewOperator']}> {actionLoading['addNewOperator'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Operator </Button> </DialogFooter>
+                  </form>
+                </Form>
+              </>
             </DialogContent>
           </Dialog>
         </CardHeader>

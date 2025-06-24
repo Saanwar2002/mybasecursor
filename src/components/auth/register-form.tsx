@@ -354,26 +354,30 @@ export function RegisterForm() {
                 <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="role" render={({ field }) => (
-                <FormItem className="space-y-3"><FormLabel>Register as:</FormLabel><FormControl><RadioGroup onValueChange={(value) => { 
-                    field.onChange(value); 
-                    if (value !== 'driver') { 
-                        form.setValue('vehicleCategory', undefined); 
-                        form.clearErrors('vehicleCategory');
-                        form.setValue('operatorCode', undefined);
-                        form.clearErrors('operatorCode');
-                    } else { 
-                        form.setValue('vehicleCategory', 'car');
-                    }
-                    if (value !== 'passenger') {
-                        form.setValue('phoneNumber', ""); 
-                        form.clearErrors('phoneNumber'); 
-                    }
-                 }} defaultValue={field.value} className="flex flex-col space-y-1 md:flex-row md:flex-wrap md:space-y-0 md:space-x-2" disabled={isSubmitting}>
-                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="passenger" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Passenger</FormLabel></FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="driver" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Driver</FormLabel></FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="operator" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Taxi Base Operator</FormLabel></FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="admin" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Platform Administrator</FormLabel></FormItem>
-                </RadioGroup></FormControl><FormMessage /></FormItem>
+                <FormItem className="space-y-3">
+                  <FormLabel>Register as:</FormLabel>
+                  <RadioGroup onValueChange={(value) => { 
+                      field.onChange(value); 
+                      if (value !== 'driver') { 
+                          form.setValue('vehicleCategory', undefined); 
+                          form.clearErrors('vehicleCategory');
+                          form.setValue('operatorCode', undefined);
+                          form.clearErrors('operatorCode');
+                      } else { 
+                          form.setValue('vehicleCategory', 'car');
+                      }
+                      if (value !== 'passenger') {
+                          form.setValue('phoneNumber', ""); 
+                          form.clearErrors('phoneNumber'); 
+                      }
+                   }} defaultValue={field.value} className="flex flex-col space-y-1 md:flex-row md:flex-wrap md:space-y-0 md:space-x-2" disabled={isSubmitting}>
+                      <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="passenger" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Passenger</FormLabel></FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="driver" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Driver</FormLabel></FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="operator" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Taxi Base Operator</FormLabel></FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0 p-1"><FormControl><RadioGroupItem value="admin" disabled={isSubmitting} /></FormControl><FormLabel className="font-normal">Platform Administrator</FormLabel></FormItem>
+                  </RadioGroup>
+                  <FormMessage />
+                </FormItem>
             )} />
             {watchedRole === "driver" && (
               <>

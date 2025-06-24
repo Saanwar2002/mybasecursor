@@ -14,6 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Loader2, User as UserIcon, Car as CarIcon, Briefcase as BriefcaseIcon, Shield as ShieldIcon, LogIn } from "lucide-react";
@@ -23,7 +24,8 @@ import { Separator } from "@/components/ui/separator";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), 
+  password: z.string().min(1, { message: "Password is required." }),
+  role: z.enum(["passenger", "driver", "operator", "admin"]).default("passenger"),
 });
 
 export function LoginForm() {
@@ -36,14 +38,15 @@ export function LoginForm() {
     defaultValues: {
       email: "",
       password: "",
+      role: "passenger",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("LoginForm onSubmit triggered with Firebase integration:", values.email);
+    console.log("LoginForm onSubmit triggered with Firebase integration:", values.email, values.role);
     setIsSubmittingForm(true);
     try {
-      await loginWithEmail(values.email, values.password);
+      await loginWithEmail(values.email, values.password, values.role);
     } catch (error) {
       console.error("LoginForm direct catch from onSubmit (should be rare if AuthContext handles well):", error);
     } finally {
@@ -70,6 +73,42 @@ export function LoginForm() {
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
+            control={form.control}
+            name="role"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Role</FormLabel>
+                <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <FormControl>
+                      <RadioGroupItem value="passenger" id="role-passenger" />
+                    </FormControl>
+                    <FormLabel htmlFor="role-passenger">Passenger</FormLabel>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <FormControl>
+                      <RadioGroupItem value="driver" id="role-driver" />
+                    </FormControl>
+                    <FormLabel htmlFor="role-driver">Driver</FormLabel>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <FormControl>
+                      <RadioGroupItem value="operator" id="role-operator" />
+                    </FormControl>
+                    <FormLabel htmlFor="role-operator">Operator</FormLabel>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <FormControl>
+                      <RadioGroupItem value="admin" id="role-admin" />
+                    </FormControl>
+                    <FormLabel htmlFor="role-admin">Admin</FormLabel>
+                  </div>
+                </RadioGroup>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="email"
