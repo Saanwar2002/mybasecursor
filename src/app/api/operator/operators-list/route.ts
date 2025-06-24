@@ -49,9 +49,25 @@ interface OperatorUser {
   operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
 }
 
+import { auth } from '@/lib/firebase';
+import { getAuth } from 'firebase-admin/auth';
+
 export async function GET(request: NextRequest) {
-  // TODO: Add proper authentication to ensure only a super-admin/platform owner can call this.
-  // For now, assumes the caller is authorized.
+  // Require authentication and super-admin role
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return NextResponse.json({ message: 'Missing or invalid authorization header' }, { status: 401 });
+  }
+  const idToken = authHeader.split('Bearer ')[1];
+  let decodedToken;
+  try {
+    decodedToken = await auth.verifyIdToken(idToken);
+  } catch (err) {
+    return NextResponse.json({ message: 'Invalid or expired token' }, { status: 401 });
+  }
+  if (decodedToken.role !== 'super-admin' && decodedToken.role !== 'platform-owner') {
+    return NextResponse.json({ message: 'Forbidden: Insufficient privileges' }, { status: 403 });
+  }
 
   const { searchParams } = new URL(request.url);
   const params = Object.fromEntries(searchParams.entries());

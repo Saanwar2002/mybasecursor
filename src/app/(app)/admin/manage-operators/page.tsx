@@ -162,7 +162,7 @@ function ManagePlatformOperatorsContent() {
           <Dialog open={isAddOperatorDialogOpen} onOpenChange={setIsAddOperatorDialogOpen}>
             <DialogTrigger asChild> <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0"> <UserPlus className="mr-2 h-4 w-4" /> Add New Operator </Button> </DialogTrigger>
             <DialogContent className="sm:max-w-md">
-              <>
+              <div>
                 <DialogHeader> <DialogTitle>Add New Platform Operator</DialogTitle> <DialogDescription> Enter the details for the new taxi base operator. They will be created with 'Pending Approval' status. </DialogDescription> </DialogHeader>
                 <Form {...addOperatorForm}>
                   <form onSubmit={addOperatorForm.handleSubmit(onAddOperatorSubmit)} className="space-y-4 py-2">
@@ -173,7 +173,7 @@ function ManagePlatformOperatorsContent() {
                     <DialogFooter className="pt-4"> <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addNewOperator']}>Cancel</Button></DialogClose> <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addNewOperator']}> {actionLoading['addNewOperator'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Operator </Button> </DialogFooter>
                   </form>
                 </Form>
-              </>
+              </div>
             </DialogContent>
           </Dialog>
         </CardHeader>
