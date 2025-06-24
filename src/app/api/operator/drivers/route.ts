@@ -167,3 +167,70 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch drivers', details: errorMessage }, { status: 500 });
   }
 }
+
+// --- Add below GET handler ---
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    // Basic validation
+    const driverSchema = z.object({
+      name: z.string().min(2),
+      email: z.string().email(),
+      phone: z.string().optional(),
+      vehicleModel: z.string().optional(),
+      licensePlate: z.string().optional(),
+      operatorCode: z.string().min(2),
+      vehicleCategory: z.string().optional(),
+      arNumber: z.string().optional(),
+      insuranceNumber: z.string().optional(),
+    });
+    const parsed = driverSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ message: 'Invalid driver data', errors: parsed.error.format() }, { status: 400 });
+    }
+    const driverData = parsed.data;
+    // Check for duplicate email
+    const usersRef = collection(db, 'users');
+    const existing = await getDocs(query(usersRef, where('email', '==', driverData.email)));
+    if (!existing.empty) {
+      return NextResponse.json({ message: 'A driver with this email already exists.' }, { status: 409 });
+    }
+    // Generate customId/driverIdentifier
+    const now = Timestamp.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const customId = `DR-mock-${randomSuffix}`;
+    const newDriver = {
+      ...driverData,
+      status: 'Pending Approval',
+      role: 'driver',
+      createdAt: now,
+      customId,
+      driverIdentifier: customId,
+    };
+    const docRef = await (await import('firebase/firestore')).addDoc(usersRef, newDriver);
+    const createdSnap = await getDoc(docRef);
+    const createdData = createdSnap.data();
+    const serializedDriver = {
+      id: docRef.id,
+      name: createdData.name,
+      email: createdData.email,
+      phone: createdData.phone,
+      vehicleModel: createdData.vehicleModel,
+      licensePlate: createdData.licensePlate,
+      vehicleCategory: createdData.vehicleCategory,
+      arNumber: createdData.arNumber,
+      insuranceNumber: createdData.insuranceNumber,
+      status: createdData.status,
+      role: createdData.role,
+      createdAt: serializeTimestamp(createdData.createdAt),
+      operatorCode: createdData.operatorCode,
+      customId: createdData.customId,
+      driverIdentifier: createdData.driverIdentifier,
+    };
+    return NextResponse.json({ message: 'Driver created successfully', driver: serializedDriver }, { status: 201 });
+  } catch (error) {
+    console.error('Error creating driver:', error);
+    return NextResponse.json({ message: 'Failed to create driver', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+  }
+}

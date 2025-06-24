@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
+import fs from 'fs';
 
 // Helper to convert Firestore Timestamp to a serializable format
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -40,6 +41,9 @@ interface GetContext {
 }
 
 export async function GET(request: NextRequest, context: GetContext) {
+  if (!db) {
+    return NextResponse.json({ message: 'Database connection failed: Firestore not initialized.' }, { status: 500 });
+  }
   const { driverId } = context.params;
 
   if (!driverId || typeof driverId !== 'string' || driverId.trim() === '') {
@@ -100,7 +104,10 @@ const driverUpdateSchema = z.object({
 
 export type DriverUpdatePayload = z.infer<typeof driverUpdateSchema>;
 
-export async function POST(request: NextRequest, context: GetContext) {
+export async function POST(request: NextRequest, context: { params: { driverId: string } }) {
+  if (!db) {
+    return NextResponse.json({ message: 'Database connection failed: Firestore not initialized.' }, { status: 500 });
+  }
   const { driverId } = context.params;
 
   if (!driverId || typeof driverId !== 'string' || driverId.trim() === '') {
@@ -116,7 +123,6 @@ export async function POST(request: NextRequest, context: GetContext) {
     }
 
     const updateDataFromPayload = parsedPayload.data;
-    
     const driverRef = doc(db, 'users', driverId);
     const driverSnap = await getDoc(driverRef);
 
@@ -133,46 +139,65 @@ export async function POST(request: NextRequest, context: GetContext) {
       ...updateDataFromPayload,
       operatorUpdatedAt: Timestamp.now(),
     };
-    
-    if (updateDataFromPayload.status) { // If status is part of the update
-        updatePayload.statusUpdatedAt = Timestamp.now();
+    if (updateDataFromPayload.status) {
+      updatePayload.statusUpdatedAt = Timestamp.now();
     }
-
     if (updateDataFromPayload.status && updateDataFromPayload.status !== 'Suspended') {
-      updatePayload.statusReason = undefined; 
+      updatePayload.statusReason = undefined;
     }
-    
     await updateDoc(driverRef, updatePayload as any);
-
     const updatedDriverSnap = await getDoc(driverRef);
     const updatedDriverData = updatedDriverSnap.data()!;
-
     const serializedUpdatedDriver: Driver = {
-        id: updatedDriverSnap.id,
-        name: updatedDriverData.name || 'N/A',
-        email: updatedDriverData.email || 'N/A',
-        phone: updatedDriverData.phone,
-        vehicleModel: updatedDriverData.vehicleModel,
-        licensePlate: updatedDriverData.licensePlate,
-        status: updatedDriverData.status || 'Inactive',
-        rating: updatedDriverData.rating,
-        totalRides: updatedDriverData.totalRides,
-        role: 'driver',
-        operatorCode: updatedDriverData.operatorCode || null, // Include operatorCode
-        createdAt: serializeTimestamp(updatedDriverData.createdAt as Timestamp | undefined),
-        lastLogin: serializeTimestamp(updatedDriverData.lastLogin as Timestamp | undefined),
-        operatorUpdatedAt: serializeTimestamp(updatedDriverData.operatorUpdatedAt as Timestamp | undefined),
-        statusReason: updatedDriverData.statusReason,
+      id: updatedDriverSnap.id,
+      name: updatedDriverData.name || 'N/A',
+      email: updatedDriverData.email || 'N/A',
+      phone: updatedDriverData.phone,
+      vehicleModel: updatedDriverData.vehicleModel,
+      licensePlate: updatedDriverData.licensePlate,
+      status: updatedDriverData.status || 'Inactive',
+      rating: updatedDriverData.rating,
+      totalRides: updatedDriverData.totalRides,
+      role: 'driver',
+      operatorCode: updatedDriverData.operatorCode || null,
+      createdAt: serializeTimestamp(updatedDriverData.createdAt as Timestamp | undefined),
+      lastLogin: serializeTimestamp(updatedDriverData.lastLogin as Timestamp | undefined),
+      operatorUpdatedAt: serializeTimestamp(updatedDriverData.operatorUpdatedAt as Timestamp | undefined),
+      statusReason: updatedDriverData.statusReason,
     };
-
     return NextResponse.json({ message: 'Driver details updated successfully', driver: serializedUpdatedDriver }, { status: 200 });
-
   } catch (error) {
     console.error(`Error updating driver ${driverId}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (error instanceof z.ZodError) { 
-        return NextResponse.json({ message: 'Invalid update payload.', errors: error.format() }, { status: 400 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: 'Invalid update payload.', errors: error.format() }, { status: 400 });
     }
     return NextResponse.json({ message: `Failed to update driver ${driverId}`, details: errorMessage }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest, context: GetContext) {
+  if (!db) {
+    return NextResponse.json({ message: 'Database connection failed: Firestore not initialized.' }, { status: 500 });
+  }
+  const { driverId } = context.params;
+  if (!driverId || typeof driverId !== 'string' || driverId.trim() === '') {
+    return NextResponse.json({ message: 'A valid Driver ID path parameter is required.' }, { status: 400 });
+  }
+  try {
+    const driverRef = doc(db, 'users', driverId);
+    const driverSnap = await getDoc(driverRef);
+    if (!driverSnap.exists()) {
+      return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
+    }
+    const driverData = driverSnap.data();
+    if (driverData.role !== 'driver') {
+      return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be deleted via this endpoint.` }, { status: 403 });
+    }
+    await (await import('firebase/firestore')).deleteDoc(driverRef);
+    return NextResponse.json({ message: `Driver ${driverId} deleted successfully.` }, { status: 200 });
+  } catch (error) {
+    console.error('UNHANDLED ERROR in API route:', error);
+    return NextResponse.json({ message: 'Unhandled server error', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

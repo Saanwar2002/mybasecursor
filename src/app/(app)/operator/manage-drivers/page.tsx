@@ -35,16 +35,16 @@ export default function OperatorManageDriversPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isAddDriverDialogOpen, setIsAddDriverDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
-
   const [currentPage, setCurrentPage] = useState(1);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [prevCursors, setPrevCursors] = useState<Array<string | null>>([]);
-
+  // --- Moved hooks for edit/delete dialog logic here ---
+  const [isEditDriverDialogOpen, setIsEditDriverDialogOpen] = useState(false);
+  const [editDriverData, setEditDriverData] = useState<Driver | null>(null);
   const DRIVERS_PER_PAGE = 10;
 
   // For demo purposes, assume the logged-in operator's code.
@@ -145,36 +145,32 @@ export default function OperatorManageDriversPage() {
       phone: formData.get('phone') as string,
       vehicleModel: formData.get('vehicleModel') as string,
       licensePlate: formData.get('licensePlate') as string,
-      status: 'Pending Approval', 
-      role: 'driver' as UserRole,
-      // For new drivers added BY an operator, their operatorCode would be the operator's own code.
-      operatorCode: currentOperatorUser?.operatorCode || currentOperatorUser?.customId || undefined, 
+      operatorCode: currentOperatorUser?.operatorCode || currentOperatorUser?.customId || undefined,
+      vehicleCategory: formData.get('vehicleCategory') as string,
+      arNumber: formData.get('arNumber') as string,
+      insuranceNumber: formData.get('insuranceNumber') as string,
     };
 
     try {
-      console.log("Simulating add driver by operator:", newDriverData);
-      // This should ideally be a POST to /api/operator/drivers (not /api/auth/register)
-      // For now, we'll just simulate.
-      // const response = await fetch('/api/auth/register', { // WRONG endpoint for OPERATOR adding driver
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({...newDriverData, password: "Password123!"}), // Mock password
-      // });
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Failed to add driver.');
-      // }
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-      
-      toast({ title: "Driver Submitted (Mock)", description: `${newDriverData.name} added and is pending approval under operator ${newDriverData.operatorCode}.`});
+      const response = await fetch('/api/operator/drivers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newDriverData),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add driver.');
+      }
+      const result = await response.json();
+      toast({ title: 'Driver Added', description: `${result.driver.name} added and is pending approval under operator ${result.driver.operatorCode}.` });
       setIsAddDriverDialogOpen(false);
       (event.target as HTMLFormElement).reset();
-      fetchDrivers(null, 'filter'); 
+      fetchDrivers(null, 'filter');
     } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error adding driver.";
-        toast({ title: "Add Driver Failed", description: message, variant: "destructive"});
+      const message = err instanceof Error ? err.message : 'Unknown error adding driver.';
+      toast({ title: 'Add Driver Failed', description: message, variant: 'destructive' });
     } finally {
-        setActionLoading(prev => ({ ...prev, addDriver: false }));
+      setActionLoading(prev => ({ ...prev, addDriver: false }));
     }
   };
   
@@ -250,6 +246,18 @@ export default function OperatorManageDriversPage() {
                  <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="licensePlate" className="text-right">License</Label>
                   <Input id="licensePlate" name="licensePlate" className="col-span-3" disabled={actionLoading['addDriver']} />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="vehicleCategory" className="text-right">Vehicle Category</Label>
+                  <Input id="vehicleCategory" name="vehicleCategory" className="col-span-3" disabled={actionLoading['addDriver']} />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="arNumber" className="text-right">AR Number</Label>
+                  <Input id="arNumber" name="arNumber" className="col-span-3" disabled={actionLoading['addDriver']} />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="insuranceNumber" className="text-right">Insurance Number</Label>
+                  <Input id="insuranceNumber" name="insuranceNumber" className="col-span-3" disabled={actionLoading['addDriver']} />
                 </div>
                 {/* Operator Code is implicitly the current operator's code */}
                 <DialogFooter>
@@ -370,11 +378,12 @@ export default function OperatorManageDriversPage() {
                                         <UserPlus className="h-4 w-4"/> <span className="ml-1 hidden sm:inline">Activate</span>
                                     </Button>
                                 )}
-                                {/* 
-                                <Button variant="outline" size="icon" className="h-8 w-8" title="Edit Driver (Placeholder)">
+                                <Button variant="outline" size="icon" className="h-8 w-8" title="Edit Driver" onClick={() => openEditDriverDialog(driver)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                                */}
+                                <Button variant="outline" size="icon" className="h-8 w-8" title="Delete Driver" onClick={() => handleDeleteDriver(driver.id)}>
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
                             </>
                         )}
                       </TableCell>
@@ -407,4 +416,60 @@ export default function OperatorManageDriversPage() {
       </Card>
     </div>
   );
+}
+
+async function handleDeleteDriver(driverId: string) {
+  if (!window.confirm('Are you sure you want to delete this driver? This action cannot be undone.')) return;
+  setActionLoading(prev => ({ ...prev, [driverId]: true }));
+  try {
+    const response = await fetch(`/api/operator/drivers/${driverId}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete driver.');
+    }
+    toast({ title: 'Driver Deleted', description: `Driver deleted successfully.` });
+    fetchDrivers(null, 'filter');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error deleting driver.';
+    toast({ title: 'Delete Driver Failed', description: message, variant: 'destructive' });
+  } finally {
+    setActionLoading(prev => ({ ...prev, [driverId]: false }));
+  }
+}
+
+async function handleEditDriverSubmit(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  if (!editDriverData) return;
+  setActionLoading(prev => ({ ...prev, editDriver: true }));
+  const formData = new FormData(event.currentTarget);
+  const updatedData = {
+    name: formData.get('name') as string,
+    email: formData.get('email') as string,
+    phone: formData.get('phone') as string,
+    vehicleModel: formData.get('vehicleModel') as string,
+    licensePlate: formData.get('licensePlate') as string,
+    vehicleCategory: formData.get('vehicleCategory') as string,
+    arNumber: formData.get('arNumber') as string,
+    insuranceNumber: formData.get('insuranceNumber') as string,
+  };
+  try {
+    const response = await fetch(`/api/operator/drivers/${editDriverData.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedData),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update driver.');
+    }
+    toast({ title: 'Driver Updated', description: `${updatedData.name} updated successfully.` });
+    setIsEditDriverDialogOpen(false);
+    setEditDriverData(null);
+    fetchDrivers(null, 'filter');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error updating driver.';
+    toast({ title: 'Update Driver Failed', description: message, variant: 'destructive' });
+  } finally {
+    setActionLoading(prev => ({ ...prev, editDriver: false }));
+  }
 }
