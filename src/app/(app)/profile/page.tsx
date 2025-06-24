@@ -111,7 +111,7 @@ export default function ProfilePage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], // Standardized libraries
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes", "core"], // Match provider
     });
     loader.load().catch(e => console.error("Failed to load Google Maps API for Profile page:", e));
   }, []);

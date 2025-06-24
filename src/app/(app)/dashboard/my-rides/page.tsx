@@ -157,7 +157,7 @@ export default function MyRidesPage() {
     const loader = new Loader({ 
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, 
       version: "weekly", 
-      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"] 
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes", "core"] 
     });
     loader.load().then((google) => {
       autocompleteServiceRef.current = new google.maps.places.AutocompleteService();

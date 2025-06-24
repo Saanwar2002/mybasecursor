@@ -13,12 +13,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; 
 import { useRouter } from 'next/navigation'; 
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 export default function DriverDashboardPage() {
-  const { user } = useAuth();
-  const [isOnline, setIsOnline] = useState(false); 
-  const router = useRouter(); 
-
+  const { user, db, updateUserProfileInContext } = useAuth();
+  const [isOnline, setIsOnline] = useState(false);
+  const [isLoadingOnline, setIsLoadingOnline] = useState(true);
+  const router = useRouter();
   const activeRide = null; 
   // const earningsToday = 75.50; // Remove static value
 
@@ -37,13 +38,40 @@ export default function DriverDashboardPage() {
   }, []);
 
 
-  const handleOnlineStatusChange = (checked: boolean) => {
+  useEffect(() => {
+    if (!user || !db) return;
+    const fetchOnlineStatus = async () => {
+      setIsLoadingOnline(true);
+      try {
+        const userDocRef = doc(db, "users", user.id);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data();
+          setIsOnline(!!data.online);
+        }
+      } catch (err) {
+        // Optionally handle error
+      } finally {
+        setIsLoadingOnline(false);
+      }
+    };
+    fetchOnlineStatus();
+  }, [user, db]);
+
+  const handleOnlineStatusChange = async (checked: boolean) => {
     setIsOnline(checked);
+    if (user && db) {
+      try {
+        const userDocRef = doc(db, "users", user.id);
+        await updateDoc(userDocRef, { online: checked });
+        updateUserProfileInContext({ online: checked });
+      } catch (err) {
+        // Optionally handle error
+      }
+    }
     if (checked) {
       router.push('/driver/available-rides');
     }
-    // In a real app, you'd also send this status update to your backend here.
-    // e.g., updateDriverStatus(user.id, checked);
   };
 
   return (
@@ -58,7 +86,8 @@ export default function DriverDashboardPage() {
                 <Switch 
                   id="online-status" 
                   checked={isOnline} 
-                  onCheckedChange={handleOnlineStatusChange} 
+                  onCheckedChange={handleOnlineStatusChange}
+                  disabled={isLoadingOnline}
                 />
                 <Label htmlFor="online-status" className={isOnline ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
                   {isOnline ? "Online" : "Offline"}

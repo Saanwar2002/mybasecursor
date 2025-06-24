@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth, UserRole } from "@/contexts/auth-context";
+import { useAuth, UserRole, type User } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Car, Loader2, Briefcase, Shield } from "lucide-react"; 
@@ -283,7 +283,20 @@ export function RegisterForm() {
             setFirebaseUserForLinking(null);
           }
         } else {
-          contextLogin(userProfile as User);
+          contextLogin({
+            id: userProfile.uid,
+            email: userProfile.email,
+            name: userProfile.name,
+            role: userProfile.role,
+            customId: userProfile.customId,
+            operatorCode: userProfile.operatorCode,
+            driverIdentifier: userProfile.driverIdentifier,
+            vehicleCategory: userProfile.vehicleCategory,
+            phoneNumber: userProfile.phoneNumberInput ?? null,
+            phoneVerified: userProfile.phoneVerified,
+            status: userProfile.status,
+            phoneVerificationDeadline: userProfile.phoneVerificationDeadline ? userProfile.phoneVerificationDeadline.toDate().toISOString() : null,
+          } as User);
           const successMessage = values.role === 'driver' 
             ? `Welcome, ${values.name}! Your MyBase account as a driver has been created. Your Driver ID is ${userProfile.driverIdentifier}. You are pending approval from your operator.`
             : `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created.`;
