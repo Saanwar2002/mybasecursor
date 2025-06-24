@@ -17,6 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useEffect } from 'react';
 
 interface CreditAccount {
   id: string;
@@ -30,13 +31,6 @@ interface CreditAccount {
   createdAt: string;
 }
 
-const mockCreditAccounts: CreditAccount[] = [
-  { id: "acc_1", accountHolderName: "Corporate Client A", balance: -150.75, creditLimit: 500, status: "Active", billingCycle: "Monthly", createdAt: new Date(2023,0,15).toISOString() },
-  { id: "acc_2", accountHolderName: "Regular VIP John Doe", associatedUserId: "user_vip_john", balance: 25.00, creditLimit: 200, status: "Active", billingCycle: "Fortnightly", lastBilledDate: new Date(2023,9,20).toISOString(), createdAt: new Date(2023,2,10).toISOString() },
-  { id: "acc_3", accountHolderName: "Hotel Partnership X", balance: -450.00, creditLimit: 1000, status: "Suspended", billingCycle: "Monthly", createdAt: new Date(2022,11,1).toISOString() },
-  { id: "acc_4", accountHolderName: "School Runs Account", balance: 0.00, creditLimit: 750, status: "Active", billingCycle: "Weekly", createdAt: new Date(2023,5,1).toISOString() },
-];
-
 const addAccountFormSchema = z.object({
   accountHolderName: z.string().min(3, { message: "Account holder name must be at least 3 characters." }).max(100),
   associatedUserId: z.string().optional(),
@@ -48,9 +42,22 @@ type AddAccountFormValues = z.infer<typeof addAccountFormSchema>;
 
 export default function OperatorCreditAccountsPage() {
   const { toast } = useToast();
-  const [accounts, setAccounts] = useState<CreditAccount[]>(mockCreditAccounts);
+  const [accounts, setAccounts] = useState<CreditAccount[]>([]);
   const [isAddAccountDialogOpen, setIsAddAccountDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function fetchAccounts() {
+      try {
+        const res = await fetch('/api/operator/credit-accounts');
+        const data = await res.json();
+        setAccounts(data.accounts || []);
+      } catch (e) {
+        toast({ title: 'Error', description: 'Failed to load credit accounts.' });
+      }
+    }
+    fetchAccounts();
+  }, [toast]);
 
   const addAccountForm = useForm<AddAccountFormValues>({
     resolver: zodResolver(addAccountFormSchema),
@@ -64,26 +71,23 @@ export default function OperatorCreditAccountsPage() {
 
   async function onAddAccountSubmit(values: AddAccountFormValues) {
     setIsSubmitting(true);
-    console.log("Simulating add credit account:", values);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const newAccount: CreditAccount = {
-        id: `acc_mock_${Date.now()}`,
-        ...values,
-        balance: 0, // New accounts start with zero balance
-        status: "Active",
-        createdAt: new Date().toISOString(),
-    };
-    setAccounts(prev => [newAccount, ...prev]); // Add to the top of the mock list
-
-    toast({
-      title: "Account Created (Mock)",
-      description: `Credit account for "${values.accountHolderName}" has been simulated.`,
-    });
-    addAccountForm.reset();
-    setIsAddAccountDialogOpen(false);
-    setIsSubmitting(false);
+    try {
+      const res = await fetch('/api/operator/credit-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      if (!res.ok) throw new Error('Failed to create account');
+      const data = await res.json();
+      setAccounts(prev => [data.account, ...prev]);
+      toast({ title: 'Account Created!', description: `Credit account for "${values.accountHolderName}" has been created.` });
+      addAccountForm.reset();
+      setIsAddAccountDialogOpen(false);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to create account.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -135,8 +139,7 @@ export default function OperatorCreditAccountsPage() {
                   <DialogFooter className="pt-4">
                     <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
                     <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Create Account (Mock)
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Account
                     </Button>
                   </DialogFooter>
                 </form>

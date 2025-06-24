@@ -78,28 +78,36 @@ export default function OperatorCommunicationsPage() {
 
   async function onSubmit(values: CommunicationsFormValues) {
     setIsSending(true);
-    // Simulate sending action
-    console.log("Mock sending communication:", values);
-
-    let audienceDescription = "";
-    switch(values.targetAudience) {
-        case "all": audienceDescription = "all passengers"; break;
-        case "inactive": audienceDescription = "inactive passengers (mock)"; break;
-        case "specific": audienceDescription = `passenger ID ${values.passengerIdInput} (mock)`; break;
+    try {
+      const response = await fetch("/api/operator/communications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Messages Queued for Delivery",
+          description: `Messages have been queued for delivery. Audience: ${result.details.targetAudience}. Channels: ${[result.details.channelSms ? 'SMS' : '', result.details.channelEmail ? 'Email' : ''].filter(Boolean).join(' & ')}. Discount: ${result.details.discountCode || 'None'}.`,
+          duration: 7000,
+        });
+        form.reset();
+      } else {
+        toast({
+          title: "Failed to Send Messages",
+          description: result.error || "An error occurred.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Network Error",
+        description: String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
     }
-    const channelsUsed = [];
-    if (values.channelSms) channelsUsed.push("SMS");
-    if (values.channelEmail) channelsUsed.push("Email");
-
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-
-    toast({
-      title: "Messages Queued (Mock Action)",
-      description: `Messages would be sent to ${audienceDescription} via ${channelsUsed.join(' & ')}. Discount: ${values.discountCode || 'None'}.`,
-      duration: 7000,
-    });
-    form.reset();
-    setIsSending(false);
   }
 
   return (
@@ -110,8 +118,7 @@ export default function OperatorCommunicationsPage() {
             <Send className="w-8 h-8 text-primary" /> Passenger Communications
           </CardTitle>
           <CardDescription>
-            Compose and (mock) send promotional messages or reminders to passengers.
-            No actual messages will be sent.
+            Compose and send promotional messages or reminders to passengers. No actual messages will be sent unless backend integration is configured.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -119,15 +126,6 @@ export default function OperatorCommunicationsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-headline">Create New Communication</CardTitle>
-           <div className="mt-2 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md">
-            <div className="flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2" />
-                <p className="font-semibold">Developer Note:</p>
-            </div>
-            <p className="text-sm">
-                This is a UI mock-up. No actual SMS/Email will be sent. Integrating real messaging services (Twilio, SendGrid, etc.) requires backend setup and API keys.
-            </p>
-        </div>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -145,9 +143,9 @@ export default function OperatorCommunicationsPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="all">All Passengers (Mock)</SelectItem>
-                        <SelectItem value="inactive">Inactive - Last 90 days (Mock)</SelectItem>
-                        <SelectItem value="specific">Specific Passenger ID (Mock)</SelectItem>
+                        <SelectItem value="all">All Passengers</SelectItem>
+                        <SelectItem value="inactive">Inactive - Last 90 days</SelectItem>
+                        <SelectItem value="specific">Specific Passenger ID</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -267,11 +265,11 @@ export default function OperatorCommunicationsPage() {
                 {isSending ? (
                      <>
                         <Send className="mr-2 h-4 w-4 animate-pulse" />
-                        Sending (Mock)...
+                        Sending...
                     </>
                 ) : (
                     <>
-                        <Send className="mr-2 h-4 w-4" /> Send Messages (Mock)
+                        <Send className="mr-2 h-4 w-4" /> Send Messages
                     </>
                 )}
               </Button>

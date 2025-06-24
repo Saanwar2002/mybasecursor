@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge"; // Added Badge import
 import { useAuth } from "@/contexts/auth-context"; // Added useAuth
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Added Alert imports
+import { useEffect, useState } from "react";
 
 // Mock Data - Scoped to this operator
 const mockOperatorPrograms = [
@@ -23,15 +24,58 @@ const mockOperatorPrograms = [
 
 export default function OperatorDriverIncentivesPage() {
   const { toast } = useToast();
-  const { user } = useAuth(); // Get operator user details
+  const { user } = useAuth();
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleCreateOperatorProgram = (event: React.FormEvent<HTMLFormElement>) => {
+  // Fetch programs on mount
+  useEffect(() => {
+    async function fetchPrograms() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/operator/driver-incentives");
+        const data = await res.json();
+        setPrograms(data.programs || []);
+      } catch (e) {
+        toast({ title: "Error", description: "Failed to load programs." });
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPrograms();
+  }, [toast]);
+
+  const handleCreateOperatorProgram = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    toast({
-      title: "Operator Program Creation (Mock)",
-      description: `A new incentive program for your drivers (Operator: ${user?.operatorCode || 'Your Fleet'}) would be created.`,
-    });
-    (event.target as HTMLFormElement).reset();
+    const form = event.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const payload = {
+      name: formData.get("programNameOp") as string,
+      metric: formData.get("targetMetricOp") as string,
+      reward: formData.get("rewardTypeOp") as string,
+      rewardValue: formData.get("rewardValueOp") as string,
+      criteria: formData.get("programCriteriaOp") as string,
+      startDate: formData.get("startDateOp") as string,
+      endDate: formData.get("endDateOp") as string,
+      operatorCode: user?.operatorCode || "",
+    };
+    try {
+      setLoading(true);
+      const res = await fetch("/api/operator/driver-incentives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to create program");
+      const data = await res.json();
+      setPrograms((prev) => [data.program, ...prev]);
+      toast({ title: "Operator Program Created!", description: `A new incentive program for your drivers has been created.` });
+      form.reset();
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to create program." });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,7 +102,7 @@ export default function OperatorDriverIncentivesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-headline flex items-center gap-2">
-            <PlusCircle className="w-5 h-5 text-accent" /> Create New Program for Your Fleet (Mock UI)
+            <PlusCircle className="w-5 h-5 text-accent" /> Create New Program for Your Fleet
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -117,8 +161,8 @@ export default function OperatorDriverIncentivesPage() {
                     <Input id="endDateOp" type="date" />
                 </div>
             </div>
-            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-              Save Program for My Fleet (Mock)
+            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={loading}>
+              {loading ? "Saving..." : "Save Program for My Fleet"}
             </Button>
           </form>
         </CardContent>
@@ -127,7 +171,7 @@ export default function OperatorDriverIncentivesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-headline flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" /> Your Fleet's Programs (Mock Data)
+            <TrendingUp className="w-5 h-5 text-primary" /> Your Fleet's Programs
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -142,7 +186,7 @@ export default function OperatorDriverIncentivesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockOperatorPrograms.map((program) => (
+              {programs.map((program) => (
                 <TableRow key={program.id}>
                   <TableCell className="font-medium">{program.name}</TableCell>
                   <TableCell>{program.metric}</TableCell>
