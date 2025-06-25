@@ -100,7 +100,7 @@ const driverUpdateSchema = z.object({
   status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended']).optional(),
   statusReason: z.string().optional(),
   operatorCode: z.string().optional(), // Allow updating operatorCode if necessary
-}).min(1, { message: "At least one field must be provided for update." });
+}).refine(obj => Object.keys(obj).length > 0, { message: "At least one field must be provided for update." });
 
 export type DriverUpdatePayload = z.infer<typeof driverUpdateSchema>;
 
@@ -134,6 +134,10 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
     if (driverData.role !== 'driver') {
       return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be updated via this endpoint.` }, { status: 403 });
     }
+    // Prevent activating guest drivers
+    if (driverData.email && driverData.email.startsWith('guest-') && updateDataFromPayload.status === 'Active') {
+      return NextResponse.json({ message: `Guest drivers cannot be activated.` }, { status: 403 });
+    }
 
     const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp, statusUpdatedAt: Timestamp }> = {
       ...updateDataFromPayload,
@@ -145,6 +149,12 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
     if (updateDataFromPayload.status && updateDataFromPayload.status !== 'Suspended') {
       updatePayload.statusReason = undefined;
     }
+    // Remove undefined fields from updatePayload
+    Object.keys(updatePayload).forEach(key => {
+      if (updatePayload[key] === undefined) {
+        delete updatePayload[key];
+      }
+    });
     await updateDoc(driverRef, updatePayload as any);
     const updatedDriverSnap = await getDoc(driverRef);
     const updatedDriverData = updatedDriverSnap.data()!;

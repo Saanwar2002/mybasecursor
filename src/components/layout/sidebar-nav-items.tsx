@@ -37,6 +37,7 @@ export const navItems: NavItem[] = [
   { href: '/operator', label: 'Operator Panel', icon: Briefcase, roles: ['operator'] },
   { href: '/operator/manage-rides', label: 'Manage Rides', icon: Car, roles: ['operator'] },
   { href: '/operator/manage-drivers', label: 'Manage Drivers', icon: Users, roles: ['operator'] },
+  { href: '/operator/drivers-awaiting-approval', label: 'Drivers Awaiting Approval', icon: UserCheck, roles: ['operator'] },
   { href: '/operator/manage-passengers', label: 'Manage Passengers', icon: Contact, roles: ['operator'] },
   { href: '/operator/analytics', label: 'Analytics', icon: BarChart3, roles: ['operator'] },
   { href: '/operator/communications', label: 'Communications', icon: Send, roles: ['operator'] },
