@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from 'date-fns';
 import Image from 'next/image';
 import { Loader } from '@googlemaps/js-api-loader'; // For Favorite Locations (if any)
+// REMOVE this line:
+// import { differenceInDays, isAfter, parseISO } from 'date-fns';
+import { differenceInDays, isAfter } from 'date-fns';
 
 // Helper to safely format date strings
 const formatDateString = (dateString?: string): string => {
@@ -41,7 +44,23 @@ export default function ProfilePage() {
   const [isEditingBasicInfo, setIsEditingBasicInfo] = useState(false);
   const [isEditingVehicleInfo, setIsEditingVehicleInfo] = useState(false);
   const [isEditingBankInfo, setIsEditingBankInfo] = useState(false); // New state for bank info
-  
+  const [showProfileReminder, setShowProfileReminder] = useState(true);
+  const [showInsuranceExpiryAlert, setShowInsuranceExpiryAlert] = useState(true);
+  const [showMotExpiryAlert, setShowMotExpiryAlert] = useState(true);
+
+  // Computed variables that depend on user
+  const isDriverProfileIncomplete = user?.role === 'driver' && (
+    !user.vehicleMakeModel ||
+    !user.vehicleRegistration ||
+    !user.vehicleColor ||
+    !user.insurancePolicyNumber ||
+    !user.insuranceExpiryDate ||
+    !user.motExpiryDate ||
+    !user.taxiLicenseNumber ||
+    !user.taxiLicenseExpiryDate
+  );
+  const insuranceExpiryDays = user?.insuranceExpiryDate ? differenceInDays(parseISO(user.insuranceExpiryDate), new Date()) : null;
+  const motExpiryDays = user?.motExpiryDate ? differenceInDays(parseISO(user.motExpiryDate), new Date()) : null;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -352,7 +371,7 @@ export default function ProfilePage() {
                 <AlertTriangle className="h-4 w-4 !text-blue-600 dark:!text-blue-400" />
                 <AlertTitle className="font-semibold">Reminder</AlertTitle>
                 <AlertDescription>
-                  Keep these details up-to-date for compliance. Renewal notifications will be implemented soon.
+                  Keep these details up-to-date for compliance. You will receive a renewal reminder 28 days before your insurance, MOT, or taxi license expires. Please ensure you renew and update your details promptly to avoid suspension.
                 </AlertDescription>
               </Alert>
 

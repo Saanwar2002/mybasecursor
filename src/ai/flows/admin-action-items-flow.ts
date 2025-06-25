@@ -67,6 +67,7 @@ const prompt = ai.definePrompt({
       - "Brainstorm new feature ideas for passenger engagement" (id: 'brainstorm-features', category: 'Feature Development', iconName: 'Lightbulb', priority: 'medium')
       - "Plan and Implement Real-Time Driver Location Tracking for Passenger Maps" (id: 'implement-live-driver-map', category: 'Feature Development', iconName: 'MapPin', priority: 'high')
       - "Plan and Implement Passenger Approval for Driver-Proposed Final Fare Adjustments" (id: 'implement-fare-adjustment-approval', category: 'Feature Development', iconName: 'ClipboardCheck', priority: 'high')
+      - "Enable Direct Card Payments to Drivers at Ride Completion" (id: 'implement-direct-card-payments', category: 'Feature Development', iconName: 'CreditCard', priority: 'high')
 
     For each task, provide:
     - id: a short, kebab-case unique identifier (e.g., 'review-ops', 'check-alerts', 'implement-live-driver-map', 'implement-fare-adjustment-approval').
