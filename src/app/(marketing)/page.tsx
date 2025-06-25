@@ -49,10 +49,10 @@ export default function LandingPage() {
             <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-3 shadow-md hover:shadow-lg transition-shadow" asChild>
               <Link href="/register?role=passenger">Ride with MyBase</Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-3 border-primary text-primary hover:bg-primary/10 shadow-md hover:shadow-lg transition-shadow" asChild>
+            <Button size="lg" className="bg-blue-900 hover:bg-blue-800 text-white text-lg px-8 py-3 shadow-md hover:shadow-lg transition-shadow border border-blue-900" asChild>
               <Link href="/register?role=driver">Drive for MyBase</Link>
             </Button>
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-3 shadow-md hover:shadow-lg transition-shadow" asChild>
+            <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-3 shadow-md hover:shadow-lg transition-shadow" asChild>
               <Link href="/login">Log In</Link>
             </Button>
           </div>
