@@ -51,8 +51,10 @@ import { formatAddressForMapLabel, formatAddressForDisplay } from '@/lib/utils';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
-  loading: () => <Skeleton className="w-full h-full rounded-md" />,
+  loading: () => <Skeleton className="w-full h-full rounded-md" />, 
 });
+
+
 
 const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
   <!-- Pin Needle (Black) -->
@@ -297,8 +299,63 @@ export default function AvailableRidesPage() {
   const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
 
   const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
-  const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
-  const [isRequestingWR, setIsRequestingWR] = useState(false);
+const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
+const [isRequestingWR, setIsRequestingWR] = useState(false);
+
+// Hazard markers state (must be inside component)
+const [hazardMarkers, setHazardMarkers] = useState([]);
+const [hazardConfirmationDialog, setHazardConfirmationDialog] = useState({ open: false, hazard: null });
+const [recentlyPromptedHazardIds, setRecentlyPromptedHazardIds] = useState([]);
+
+useEffect(() => {
+  if (!driverLocation || !hazardMarkers.length) return;
+  const NEARBY_DISTANCE_METERS = 100;
+  for (const marker of hazardMarkers) {
+    if (!marker.id) continue;
+    const distance = getDistanceBetweenPointsInMeters(driverLocation, marker.position);
+    if (distance < NEARBY_DISTANCE_METERS && !recentlyPromptedHazardIds.includes(marker.id)) {
+      setHazardConfirmationDialog({ open: true, hazard: marker });
+      setRecentlyPromptedHazardIds(ids => [...ids, marker.id]);
+      break;
+    }
+  }
+}, [driverLocation, hazardMarkers]);
+
+const handleHazardFeedback = async (hazardId, isPresent) => {
+  try {
+    await fetch('/api/driver/map-hazards/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hazardId, isPresent }),
+    });
+  } catch (e) {}
+  setHazardConfirmationDialog({ open: false, hazard: null });
+};
+
+useEffect(() => {
+  if (!driverLocation) return;
+  async function fetchNearbyHazards() {
+    try {
+      const response = await fetch(`/api/driver/map-hazards/active?lat=${driverLocation.lat}&lng=${driverLocation.lng}`);
+      if (!response.ok) throw new Error('Failed to fetch hazards');
+      const data = await response.json();
+      if (data && Array.isArray(data.hazards)) {
+        setHazardMarkers(
+          data.hazards.map((hazard) => ({
+            position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
+            title: hazard.hazardType,
+            label: hazard.hazardType[0],
+            iconUrl: hazard.hazardType === 'Roadwork' ? '/icons/cone-yellow.svg' : '/icons/alert-red.svg',
+            iconScaledSize: { width: 32, height: 32 },
+          }))
+        );
+      }
+    } catch (e) {
+      // Optionally handle error
+    }
+  }
+  fetchNearbyHazards();
+}, [driverLocation]);
 
   const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
   const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
@@ -614,7 +671,7 @@ export default function AvailableRidesPage() {
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
-  }, [driverUser?.id, localCurrentLegIndex, activeRide]);
+  }, [driverUser?.id]);
 
 
   useEffect(() => {
@@ -814,6 +871,7 @@ export default function AvailableRidesPage() {
 
 
  useEffect(() => {
+    // Prevent multiple intervals from being created
     if (rideRefreshIntervalIdRef.current) {
       clearInterval(rideRefreshIntervalIdRef.current);
       rideRefreshIntervalIdRef.current = null;
@@ -821,7 +879,10 @@ export default function AvailableRidesPage() {
     if (driverUser && isPollingEnabled) {
       console.log("POLLING EFFECT: Polling enabled, fetching active ride and starting interval.");
       fetchActiveRide();
-      rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
+      // Only set interval if not already set
+      if (!rideRefreshIntervalIdRef.current) {
+        rideRefreshIntervalIdRef.current = setInterval(fetchActiveRide, 30000);
+      }
     } else {
       console.log("POLLING EFFECT: Polling disabled or no driver user.");
     }
@@ -1860,6 +1921,43 @@ export default function AvailableRidesPage() {
     basePlusWRFare = numericGrandTotal - currentPriorityAmount;
   }
 
+  useEffect(() => {
+    if (!driverLocation) return;
+    async function fetchNearbyHazards() {
+      try {
+        const response = await fetch(`/api/driver/map-hazards/active?lat=${driverLocation.lat}&lng=${driverLocation.lng}`);
+        if (!response.ok) throw new Error('Failed to fetch hazards');
+        const data = await response.json();
+        if (data && Array.isArray(data.hazards)) {
+  const RADIUS_METERS = 500;
+  const getDistance = (lat1, lng1, lat2, lng2) => {
+    const toRad = x => x * Math.PI / 180;
+    const R = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+  setHazardMarkers(
+    data.hazards
+      .filter(hazard => getDistance(driverLocation.lat, driverLocation.lng, hazard.location.latitude, hazard.location.longitude) <= RADIUS_METERS)
+      .map((hazard) => ({
+        position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
+        title: hazard.hazardType,
+        label: hazard.hazardType[0],
+        iconUrl: hazard.hazardType === 'Roadwork' ? '/icons/cone-yellow.svg' : '/icons/alert-red.svg',
+        iconScaledSize: { width: 32, height: 32 },
+      }))
+  );
+}
+      } catch (e) {
+        // Optionally handle error
+      }
+    }
+    fetchNearbyHazards();
+  }, [driverLocation]);
+
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
         {isSpeedLimitFeatureEnabled &&
@@ -1880,7 +1978,7 @@ export default function AvailableRidesPage() {
               mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}
               fitBoundsToMarkers={shouldFitMapBounds}
-              markers={mapDisplayElements.markers}
+              markers={hazardMarkers}
               customMapLabels={mapDisplayElements.labels}
               className="w-full h-full"
               disableDefaultUI={true}
@@ -1889,13 +1987,27 @@ export default function AvailableRidesPage() {
               driverIconRotation={driverMarkerHeading ?? undefined}
               gestureHandling="greedy"
             />
+            {hazardConfirmationDialog.open && hazardConfirmationDialog.hazard && (
+              <Dialog open={hazardConfirmationDialog.open} onOpenChange={open => setHazardConfirmationDialog(d => ({ ...d, open }))}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Confirm Hazard</DialogTitle>
+                    <DialogDescription>Are you near a reported hazard ({hazardConfirmationDialog.hazard.title})? Is it still present?</DialogDescription>
+                  </DialogHeader>
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={() => handleHazardFeedback(hazardConfirmationDialog.hazard.id, true)} className="bg-green-500 text-white">Yes, still there</Button>
+                    <Button onClick={() => handleHazardFeedback(hazardConfirmationDialog.hazard.id, false)} className="bg-red-500 text-white">No, it's gone</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
             {isSosButtonVisible && (
               <AlertDialog open={isSosDialogOpen} onOpenChange={setIsSosDialogOpen}>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive"
                     size="icon"
-                    className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg animate-pulse"
+                    className="absolute top-2 right-2 z-[1001] h-8 w-8 md:h-9 md:w-9 rounded-full shadow-lg slow-pulse"
                     aria-label="SOS Emergency Alert"
                     title="SOS Emergency Alert"
                     onClick={() => setIsSosDialogOpen(true)}

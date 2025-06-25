@@ -187,6 +187,9 @@ const GoogleMapDisplay: React.FC<GoogleMapDisplayProps> = ({
 
     if (markers && markers.length > 0 && mapInstanceRef.current && window.google.maps?.Marker && window.google.maps?.LatLngBounds) {
       markers.forEach(markerData => {
+        // Type guard for valid LatLngLiteral
+        const isValidLatLng = markerData.position && typeof markerData.position.lat === "number" && typeof markerData.position.lng === "number" && !isNaN(markerData.position.lat) && !isNaN(markerData.position.lng);
+        if (!isValidLatLng) return;
         let markerOptions: google.maps.MarkerOptions = {
           position: markerData.position, map: mapInstanceRef.current,
           title: markerData.title, label: markerData.label,

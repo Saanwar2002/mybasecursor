@@ -11,24 +11,52 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Award, DollarSign, Target, PlusCircle, TrendingUp, CalendarDays, AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// Mock Data
-const mockActivePrograms = [
-  { id: "prog1", name: "Weekend Warrior Bonus", metric: "Completed Rides (Fri-Sun)", reward: "£50 Bonus", status: "Active", participants: 75 },
-  { id: "prog2", name: "5-Star Driver Tier", metric: "Average Rating > 4.8 (Monthly)", reward: "Priority Offers + Reduced Commission", status: "Active", participants: 32 },
-  { id: "prog3", name: "New Driver Onboarding Rush", metric: "First 50 rides in 2 weeks", reward: "£100 Welcome Bonus", status: "Expired", participants: 15 },
-];
+import { useEffect, useState } from "react";
 
 export default function DriverIncentivesPage() {
   const { toast } = useToast();
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleCreateProgram = (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/operator/driver-incentives")
+      .then(res => res.json())
+      .then(data => setPrograms(data.programs || []))
+      .catch(() => toast({ title: "Error", description: "Failed to load incentive programs." }))
+      .finally(() => setLoading(false));
+  }, [toast]);
+
+  const handleCreateProgram = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    toast({
-      title: "Program Creation (Mock)",
-      description: "A new incentive program would be created with the entered details.",
-    });
-    (event.target as HTMLFormElement).reset();
+    const form = event.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const payload = {
+      name: formData.get("programName") || "",
+      metric: formData.get("targetMetric") || "",
+      reward: formData.get("rewardType") || "",
+      rewardValue: formData.get("rewardValue") || "",
+      criteria: formData.get("programCriteria") || "",
+      startDate: formData.get("startDate") || "",
+      endDate: formData.get("endDate") || "",
+      operatorCode: "ADMIN"
+    };
+    try {
+      const res = await fetch("/api/operator/driver-incentives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("Failed to create program");
+      const { program } = await res.json();
+      setPrograms(prev => [program, ...prev]);
+      toast({ title: "Program Created", description: `Incentive program '${payload.name}' created successfully.` });
+      form.reset();
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to create incentive program." });
+    }
   };
+
 
   return (
     <div className="space-y-6">
@@ -140,20 +168,26 @@ export default function DriverIncentivesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockActivePrograms.map((program) => (
-                <TableRow key={program.id}>
-                  <TableCell className="font-medium">{program.name}</TableCell>
-                  <TableCell>{program.metric}</TableCell>
-                  <TableCell>{program.reward}</TableCell>
-                  <TableCell>
-                    <Badge variant={program.status === "Active" ? "default" : "outline"}
-                           className={program.status === "Active" ? "bg-green-100 text-green-700 border-green-300" : "text-muted-foreground"}>
-                      {program.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">{program.participants}</TableCell>
-                </TableRow>
-              ))}
+              {loading ? (
+                <TableRow><TableCell colSpan={5}>Loading...</TableCell></TableRow>
+              ) : programs.length === 0 ? (
+                <TableRow><TableCell colSpan={5}>No incentive programs found.</TableCell></TableRow>
+              ) : (
+                programs.map((program) => (
+                  <TableRow key={program.id}>
+                    <TableCell className="font-medium">{program.name}</TableCell>
+                    <TableCell>{program.metric}</TableCell>
+                    <TableCell>{program.reward}</TableCell>
+                    <TableCell>
+                      <Badge variant={program.status === "Active" ? "default" : "outline"}
+                        className={program.status === "Active" ? "bg-green-100 text-green-700 border-green-300" : "text-muted-foreground"}>
+                        {program.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{program.participants ?? 0}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

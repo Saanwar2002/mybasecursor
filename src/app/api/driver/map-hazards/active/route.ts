@@ -27,6 +27,23 @@ interface MapHazardAPIResponse {
 }
 
 export async function GET(request: NextRequest) {
+  // Accept driver's current location as query params: ?lat=...&lng=...
+  const { searchParams } = new URL(request.url);
+  const latParam = searchParams.get('lat');
+  const lngParam = searchParams.get('lng');
+  const driverLat = latParam ? parseFloat(latParam) : null;
+  const driverLng = lngParam ? parseFloat(lngParam) : null;
+  const RADIUS_METERS = 500;
+
+  function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const toRad = (x: number) => x * Math.PI / 180;
+    const R = 6371000; // meters
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
   // TODO: Add driver authentication/authorization if needed, though this data might be public-ish for drivers.
 
   try {

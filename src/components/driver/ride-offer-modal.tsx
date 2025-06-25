@@ -300,7 +300,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
           </div>
         </DialogHeader>
 
-        <div className="h-24 sm:h-28 w-full bg-muted flex-shrink-0">
+        <div className="h-48 sm:h-64 w-full bg-muted flex-shrink-0">
             {(rideDetails.pickupCoords && rideDetails.dropoffCoords) ? (
               <GoogleMapDisplay
                 center={mapCenter}

@@ -161,45 +161,19 @@ export function LoginForm() {
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Log In
           </Button>
-          <div className="text-sm text-center">
-            <Link href="/forgot-password" prefetch={false} className="underline text-muted-foreground hover:text-primary">
+          <div className="text-sm text-center mt-4">
+            <Link href="/forgot-password" prefetch={false} className="underline text-primary font-semibold text-base hover:text-primary/80 transition-colors duration-150">
               Forgot your password?
             </Link>
           </div>
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-base font-semibold mt-2">
             Don&apos;t have an account?{" "}
-            <Link href="/register" prefetch={false} className="underline text-accent hover:text-accent/90">
+            <Link href="/register" prefetch={false} className="underline text-accent font-bold hover:text-accent/80 transition-colors duration-150">
               Sign up
             </Link>
           </p>
         </form>
       </Form>
-
-      <Separator className="my-6" />
-
-      <div className="space-y-3">
-        <h3 className="text-center text-sm font-medium text-muted-foreground">
-          Or log in as a Guest (Development)
-        </h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Button variant="outline" size="sm" onClick={() => handleGuestLogin('passenger')} disabled={isLoading}>
-            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-            <UserIcon className="mr-2 h-4 w-4" /> Passenger
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleGuestLogin('driver')} disabled={isLoading}>
-            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-            <CarIcon className="mr-2 h-4 w-4" /> Driver
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleGuestLogin('operator')} disabled={isLoading}>
-            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-            <BriefcaseIcon className="mr-2 h-4 w-4" /> Operator
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleGuestLogin('admin')} disabled={isLoading}>
-            {isLoading && form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-            <ShieldIcon className="mr-2 h-4 w-4" /> Admin
-          </Button>
-        </div>
-      </div>
     </>
   );
 }

@@ -85,11 +85,18 @@ const config: Config = {
           "50%": { "border-color": "hsl(0, 84%, 60%)" }, // red-500
         },
       },
+      keyframes: {
+        "slow-pulse": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: ".5" }
+        },
+      },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "flash-yellow-border": "flash-yellow-border 2s ease-in-out infinite",
         "flash-red-border": "flash-red-border 1.5s ease-in-out infinite",
+        "slow-pulse": "slow-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
     },
   },

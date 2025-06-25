@@ -13,26 +13,47 @@ const IncentiveProgramSchema = z.object({
   operatorCode: z.string(),
 });
 
-// In-memory store for demonstration (replace with DB/Firestore integration)
-let operatorPrograms: any[] = [];
+import { db } from "@/lib/firebase";
+import { collection, getDocs, addDoc, serverTimestamp, query, where } from "firebase/firestore";
 
 export async function GET(req: Request) {
-  // TODO: Replace with DB/Firestore fetch for operator's programs
-  return NextResponse.json({ programs: operatorPrograms });
+  try {
+    const { searchParams } = new URL(req.url);
+    const operatorCode = searchParams.get("operatorCode");
+    if (!db) {
+      return NextResponse.json({ error: "Firestore (db) is not initialized!" }, { status: 500 });
+    }
+    let q = collection(db, "operatorIncentivePrograms");
+    if (operatorCode) {
+      q = query(q, where("operatorCode", "==", operatorCode));
+    }
+    const snapshot = await getDocs(q);
+    const programs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return NextResponse.json({ programs });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch programs", details: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
   try {
+    if (!db) {
+      return NextResponse.json({ error: "Firestore (db) is not initialized!" }, { status: 500 });
+    }
     const body = await req.json();
     const parsed = IncentiveProgramSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid data", details: parsed.error.format() }, { status: 400 });
     }
-    const newProgram = { ...parsed.data, id: `op_prog_${Date.now()}`, status: "Active", participants: 0 };
-    operatorPrograms.unshift(newProgram);
-    // TODO: Persist to DB/Firestore
-    return NextResponse.json({ program: newProgram }, { status: 201 });
+    const newProgram = {
+      ...parsed.data,
+      status: "Active",
+      participants: 0,
+      createdAt: serverTimestamp()
+    };
+    const docRef = await addDoc(collection(db, "operatorIncentivePrograms"), newProgram);
+    return NextResponse.json({ program: { id: docRef.id, ...newProgram } }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to create program", details: error?.toString() }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create program", details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
