@@ -193,7 +193,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
             <Link href="/" className="flex items-center" aria-label="MyBase Home" onClick={() => isMobileView && setIsMobileSheetOpen(false)}>
-              <Image src="/mybase-logo.png" alt="MyBase Logo" width={100} height={30} className="shrink-0" priority />
+              <Image src="/Mybase-new-logo.png" alt="MyBase Logo" width={100} height={30} className="shrink-0" priority />
             </Link>
           )}
           {!isMobileView && (

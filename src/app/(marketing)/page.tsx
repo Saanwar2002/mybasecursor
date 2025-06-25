@@ -31,13 +31,12 @@ export default function LandingPage() {
       <section className="pt-0 md:pt-1 lg:pt-1 pb-0 md:pb-1 lg:pb-1 bg-primary/5">
         <div className="container mx-auto px-4 text-center">
           <Image
-            src="/mybase-logo.png"
+            src="/Mybase-new-logo.png"
             alt="MyBase Logo"
             width={500}
-            height={80}
-            className="mx-auto mb-2" 
+            height={150}
+            className="mx-auto py-8"
             priority
-            data-ai-hint="logo brand"
           />
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline tracking-tight text-primary mb-3 max-w-2xl mx-auto">
             MyBase: Your Journey, Simplified.
