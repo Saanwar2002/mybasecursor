@@ -76,22 +76,23 @@ export default function DriversAwaitingApprovalPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Operator</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Vehicle</TableHead>
-                  <TableHead>License</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {drivers.map(driver => (
                   <TableRow key={driver.id}>
+                    <TableCell>{driver.operatorCode || "N/A"}</TableCell>
                     <TableCell>{driver.name}</TableCell>
                     <TableCell>{driver.email}</TableCell>
                     <TableCell>{driver.phone || "N/A"}</TableCell>
                     <TableCell>{driver.vehicleModel || "N/A"}</TableCell>
-                    <TableCell>{driver.licensePlate || "N/A"}</TableCell>
                     <TableCell>{driver.status}</TableCell>
                     <TableCell>
                       <button
