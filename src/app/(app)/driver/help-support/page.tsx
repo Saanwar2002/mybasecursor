@@ -24,8 +24,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpCircle, Send, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { collection, query, where, onSnapshot, deleteDoc, doc, Timestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 
 const feedbackFormSchema = z.object({
   category: z.string({ required_error: "Please select a category." }),
@@ -48,6 +53,8 @@ export default function DriverHelpSupportPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [tickets, setTickets] = useState([]);
 
   const form = useForm<FeedbackFormValues>({
     resolver: zodResolver(feedbackFormSchema),
@@ -59,22 +66,84 @@ export default function DriverHelpSupportPage() {
 
   async function onSubmit(values: FeedbackFormValues) {
     setIsSubmitting(true);
-    console.log("Driver Feedback Submitted (Mock):", {
-      driverId: user?.id || "unknown_driver",
-      driverName: user?.name || "Unknown Driver",
-      ...values,
-      submittedAt: new Date().toISOString(),
-    });
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    toast({
-      title: "Feedback Submitted (Mock)",
-      description: "Thank you! Your feedback has been recorded. We will review it shortly.",
-    });
-    form.reset();
+    try {
+      const response = await fetch("/api/feedback/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submitterId: user?.id || "unknown_driver",
+          submitterName: user?.name || "Unknown Driver",
+          submitterEmail: user?.email || undefined,
+          submitterRole: "driver",
+          category: values.category,
+          details: values.details,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Feedback Submitted",
+          description: "Thank you! Your feedback has been recorded. We will review it shortly.",
+        });
+        form.reset();
+      } else {
+        toast({
+          title: "Submission Failed",
+          description: data.message || "Could not submit feedback. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Submission Error",
+        description: "An error occurred while submitting feedback.",
+        variant: "destructive",
+      });
+    }
     setIsSubmitting(false);
+  }
+
+  // Fetch driver's tickets
+  useEffect(() => {
+    if (!user?.id || !db) return;
+    setTicketsLoading(true);
+    const ticketsRef = collection(db, "userFeedback");
+    const q = query(ticketsRef, where("submitterId", "==", user.id), where("submitterRole", "==", "driver"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = Date.now();
+      const ticketsData = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        let submittedAt = data.submittedAt;
+        if (submittedAt instanceof Timestamp) submittedAt = submittedAt.toDate().toISOString();
+        // Timeout logic: mark as timed out if >7 days and status is still Pending
+        let timedOut = false;
+        if (data.status === "Pending" && submittedAt) {
+          const submittedTime = new Date(submittedAt).getTime();
+          if (now - submittedTime > 7 * 24 * 60 * 60 * 1000) timedOut = true;
+        }
+        return {
+          id: docSnap.id,
+          category: data.category,
+          details: data.details,
+          status: timedOut ? "Timed Out" : data.status,
+          submittedAt,
+          lastUpdated: data.updatedAt && data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : undefined,
+          canDelete: timedOut || ["Resolved", "Closed"].includes(data.status),
+        };
+      });
+      setTickets(ticketsData);
+      setTicketsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user, db]);
+
+  async function handleDeleteTicket(ticketId: string) {
+    try {
+      await deleteDoc(doc(db, "userFeedback", ticketId));
+      toast({ title: "Ticket Deleted", description: `Your ticket has been deleted.` });
+    } catch (error) {
+      toast({ title: "Delete Failed", description: "Could not delete ticket.", variant: "destructive" });
+    }
   }
 
   return (
@@ -152,6 +221,58 @@ export default function DriverHelpSupportPage() {
               </Button>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-headline">Your Submitted Tickets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {ticketsLoading ? (
+            <div className="flex justify-center items-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : tickets.length === 0 ? (
+            <p className="text-center text-muted-foreground py-6">No tickets submitted yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tickets.map(ticket => (
+                    <TableRow key={ticket.id}>
+                      <TableCell>{ticket.category}</TableCell>
+                      <TableCell><Badge>{ticket.status}</Badge></TableCell>
+                      <TableCell className="text-xs">{ticket.submittedAt ? new Date(ticket.submittedAt).toLocaleString() : "-"}</TableCell>
+                      <TableCell className="max-w-xs truncate" title={ticket.details}>{ticket.details}</TableCell>
+                      <TableCell>
+                        {ticket.canDelete && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive">Delete</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader><AlertDialogTitle>Delete Ticket</AlertDialogTitle><AlertDialogDescription>Are you sure you want to delete this ticket?</AlertDialogDescription></AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteTicket(ticket.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

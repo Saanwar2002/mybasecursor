@@ -27,18 +27,46 @@ interface SupportTicket {
   assignedTo?: string; // Admin/Operator User ID
 }
 
-const mockTicketsForOperator: SupportTicket[] = [
-  { id: 'TICKET_OP001', submitterId: 'driverA1', submitterName: 'Driver Alex', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'App Issue', details: 'GPS is sometimes inaccurate in city center for my assigned rides.', submittedAt: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'Pending' },
-  { id: 'TICKET_OP002', submitterId: 'driverB2', submitterName: 'Driver Beth', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'Payment Query', details: 'My payout from last Friday is still pending.', submittedAt: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'In Progress', assignedTo: 'OperatorUser' },
-  { id: 'TICKET_OP003', submitterId: 'passengerC3', submitterName: 'Passenger Chris', submitterRole: 'passenger', category: 'General Feedback', details: 'Compliment for driver Alex (driverA1 of OP001) - very professional service!', submittedAt: new Date(Date.now() - 86400000 * 4).toISOString(), status: 'Resolved' },
-  { id: 'TICKET_OP004', submitterId: 'driverD4', submitterName: 'Driver Dave', submitterRole: 'driver', driverOperatorCode: 'OP002', driverOperatorName: 'Speedy Cars (Mock)', category: 'Vehicle Issue', details: 'My car requires unexpected maintenance.', submittedAt: new Date(Date.now() - 86400000 * 0.2).toISOString(), status: 'Pending' },
-];
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 const ticketStatusOptions: SupportTicket['status'][] = ['Pending', 'In Progress', 'Resolved', 'Closed'];
 
 export default function OperatorSupportTicketsPage() {
-  const [tickets, setTickets] = useState<SupportTicket[]>(mockTicketsForOperator);
-  const [isLoading, setIsLoading] = useState(false);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTickets() {
+      setIsLoading(true);
+      try {
+        const querySnapshot = await getDocs(collection(db, 'userFeedback'));
+        const fetchedTickets: SupportTicket[] = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            submitterId: data.submitterId,
+            submitterName: data.submitterName,
+            submitterRole: data.submitterRole,
+            driverOperatorCode: data.driverOperatorCode || undefined,
+            driverOperatorName: data.driverOperatorName || undefined,
+            category: data.category,
+            details: data.details,
+            submittedAt: data.submittedAt && data.submittedAt.toDate ? data.submittedAt.toDate().toISOString() : new Date().toISOString(),
+            status: data.status || 'Pending',
+            lastUpdated: data.updatedAt && data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : undefined,
+            assignedTo: data.assignedTo || undefined,
+          };
+        });
+        setTickets(fetchedTickets);
+      } catch (error) {
+        setTickets([]);
+      }
+      setIsLoading(false);
+    }
+    fetchTickets();
+  }, []);
+
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 

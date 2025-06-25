@@ -47,12 +47,10 @@ export async function POST(request: NextRequest) {
       updatedAt: serverTimestamp() as Timestamp,
     };
 
-    // For this mock, we'll just log it. In a real app, save to Firestore:
-    // const docRef = await addDoc(collection(db, 'userFeedback'), newFeedback);
-    console.log("Mock Feedback Submitted:", JSON.stringify(newFeedback, null, 2));
-    // console.log("Mock Feedback would be saved with ID:", docRef.id);
-
-    return NextResponse.json({ message: 'Feedback submitted successfully (mock).', feedbackId: `mock-${Date.now()}` }, { status: 201 });
+    // Save feedback to Firestore
+    const docRef = await addDoc(collection(db, 'userFeedback'), newFeedback);
+    console.log("Feedback Submitted:", JSON.stringify(newFeedback, null, 2));
+    return NextResponse.json({ message: 'Feedback submitted successfully.', feedbackId: docRef.id }, { status: 201 });
 
   } catch (error) {
     console.error('Error submitting feedback:', error);

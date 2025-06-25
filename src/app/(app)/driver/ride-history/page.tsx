@@ -23,6 +23,9 @@ import {
   AlertDialogTrigger // Make sure AlertDialogTrigger is imported
 } from "@/components/ui/alert-dialog";
 
+import { collection, query, where, onSnapshot, Timestamp, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 interface LocationPoint {
   address: string;
   latitude: number;
@@ -70,6 +73,14 @@ const formatDate = (timestamp?: SerializedTimestamp | null, isoString?: string |
   } catch (e) { return 'Date Error'; }
 };
 
+interface RideChatMessage {
+  id: string;
+  senderId: string;
+  senderRole: 'driver' | 'passenger' | 'operator';
+  message: string;
+  timestamp: SerializedTimestamp;
+}
+
 export default function DriverRideHistoryPage() {
   const { user: driverUser } = useAuth();
   const { toast } = useToast();
@@ -79,35 +90,73 @@ export default function DriverRideHistoryPage() {
   const [ratingRide, setRatingRide] = useState<DriverRide | null>(null);
   const [currentRating, setCurrentRating] = useState(0);
   const [blockingPassengerId, setBlockingPassengerId] = useState<string | null>(null);
-
-  const fetchRideHistory = useCallback(async () => {
-    if (!driverUser?.id) {
-      setIsLoading(false);
-      setError("Driver not logged in or ID missing.");
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/driver/ride-history?driverId=${driverUser.id}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `Failed to fetch history: ${response.status}` }));
-        throw new Error(errorData.details || errorData.message);
-      }
-      const data: DriverRide[] = await response.json();
-      setRidesHistory(data.map(ride => ({ ...ride, driverRatingForPassenger: ride.driverRatingForPassenger || null })));
-    } catch (err) {
-      const displayMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-      setError(displayMessage);
-      toast({ title: "Error Fetching Ride History", description: displayMessage, variant: "destructive", duration: 7000 });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [driverUser, toast]);
+  const [rideChats, setRideChats] = useState<{ [rideId: string]: RideChatMessage[] }>({});
 
   useEffect(() => {
-    fetchRideHistory();
-  }, [fetchRideHistory]);
+    if (!driverUser?.id || !db) return;
+    setIsLoading(true);
+    setError(null);
+    const ridesRef = collection(db, 'rides');
+    let q = query(ridesRef, where('driverId', '==', driverUser.id));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ridesData: DriverRide[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        const convertTS = (ts: any): SerializedTimestamp | null => {
+          if (ts instanceof Timestamp) {
+            return { _seconds: ts.seconds, _nanoseconds: ts.nanoseconds };
+          }
+          return ts || null;
+        };
+        return {
+          id: docSnap.id,
+          displayBookingId: data.displayBookingId,
+          originatingOperatorId: data.originatingOperatorId,
+          bookingTimestamp: convertTS(data.bookingTimestamp),
+          scheduledPickupAt: data.scheduledPickupAt || null,
+          completedAt: convertTS(data.completedAt),
+          cancelledAt: convertTS(data.cancelledAt),
+          pickupLocation: data.pickupLocation,
+          dropoffLocation: data.dropoffLocation,
+          stops: data.stops || [],
+          passengerId: data.passengerId,
+          passengerName: data.passengerName,
+          passengerAvatar: data.passengerAvatar,
+          vehicleType: data.vehicleType,
+          fareEstimate: data.fareEstimate,
+          status: data.status,
+          ratingByPassenger: data.ratingByPassenger,
+          driverRatingForPassenger: data.driverRatingForPassenger || null,
+          paymentMethod: data.paymentMethod,
+        };
+      });
+      setRidesHistory(ridesData);
+      setIsLoading(false);
+      // Fetch chat messages for each ride
+      ridesData.forEach(ride => {
+        const chatRef = collection(db, 'rides', ride.id, 'chatMessages');
+        const chatQuery = query(chatRef, orderBy('timestamp', 'asc'));
+        onSnapshot(chatQuery, (chatSnap) => {
+          setRideChats(prev => ({
+            ...prev,
+            [ride.id]: chatSnap.docs.map(doc => {
+              const d = doc.data();
+              return {
+                id: doc.id,
+                senderId: d.senderId,
+                senderRole: d.senderRole,
+                message: d.message,
+                timestamp: d.timestamp instanceof Timestamp ? { _seconds: d.timestamp.seconds, _nanoseconds: d.timestamp.nanoseconds } : d.timestamp
+              };
+            })
+          }));
+        });
+      });
+    }, (err) => {
+      setError("Error loading ride history: " + err.message);
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [driverUser]);
 
   const handleRatePassenger = (ride: DriverRide) => {
     setRatingRide(ride);
@@ -219,6 +268,32 @@ export default function DriverRideHistoryPage() {
                 )}
               </div>
               <Separator />
+              {/* Chat History Section */}
+              <div className="pt-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-semibold">Chat History</span>
+                </div>
+                {rideChats[ride.id] && rideChats[ride.id].length > 0 ? (
+                  <div className="space-y-1 max-h-40 overflow-y-auto border rounded p-2 bg-muted/30">
+                    {rideChats[ride.id].map(msg => (
+                      <div key={msg.id} className="text-xs flex gap-2 items-start">
+                        <span className={
+                          msg.senderRole === 'driver' ? 'text-primary font-bold' :
+                          msg.senderRole === 'passenger' ? 'text-secondary-foreground' :
+                          'text-muted-foreground'
+                        }>
+                          {msg.senderRole.charAt(0).toUpperCase() + msg.senderRole.slice(1)}:
+                        </span>
+                        <span>{msg.message}</span>
+                        <span className="ml-auto text-muted-foreground">{formatDate(msg.timestamp)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">No chat messages for this ride.</div>
+                )}
+              </div>
               <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
                 {ride.status === 'completed' && (
                   ride.driverRatingForPassenger ? (

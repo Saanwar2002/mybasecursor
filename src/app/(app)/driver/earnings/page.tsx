@@ -7,6 +7,10 @@ import { DollarSign, CalendarDays, TrendingUp, ListChecks, Filter } from "lucide
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useContext } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface Earning {
   id: string;
@@ -30,6 +34,35 @@ const chartData = mockEarnings.map(e => ({ name: e.date.substring(5), earnings: 
 export default function DriverEarningsPage() {
   const [earnings, setEarnings] = useState<Earning[]>(mockEarnings);
   const [timeRange, setTimeRange] = useState("last_7_days");
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user || !db) return;
+    // Assume earnings are stored in 'earnings' collection with driverId field
+    const earningsRef = collection(db, 'earnings');
+    let q = query(earningsRef, where('driverId', '==', user.id));
+    // Optionally, filter by timeRange here
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const earningsData: Earning[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        // Convert Firestore Timestamp to string date if needed
+        let dateStr = data.date;
+        if (data.date instanceof Timestamp) {
+          dateStr = data.date.toDate().toISOString().slice(0, 10);
+        }
+        return {
+          id: docSnap.id,
+          date: dateStr,
+          rides: data.rides || 0,
+          totalFare: data.totalFare || 0,
+          commission: data.commission || 0,
+          netEarning: data.netEarning || 0,
+        };
+      });
+      setEarnings(earningsData);
+    });
+    return () => unsubscribe();
+  }, [user, timeRange]);
 
   const totalNetEarnings = earnings.reduce((sum, e) => sum + e.netEarning, 0);
   const totalRides = earnings.reduce((sum, e) => sum + e.rides, 0);

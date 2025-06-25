@@ -19,6 +19,8 @@ import { Separator } from '@/components/ui/separator';
 import * as LucideIcons from 'lucide-react'; // For dynamic icon loading
 import { getAdminActionItems, type AdminActionItemsInput } from '@/ai/flows/admin-action-items-flow'; // Re-using for demo structure
 type AiActionItemType = import('@/ai/flows/admin-action-items-flow').ActionItem; // Correct import for type
+import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -459,3 +461,40 @@ function FeatureCard({ title, description, icon: Icon, link, actionText, notific
     </Card>
   );
 }
+
+// Listen for unresolved emergency reports
+const q = query(
+  collection(db, 'hazardReports'),
+  where('resolved', '==', false),
+  where('hazardType', '==', 'emergency')
+);
+const unsubscribe = onSnapshot(q, (snapshot) => {
+  const emergencies = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      label: `EMERGENCY: ${data.reportedByDriverId || 'Unknown Driver'} at (${data.location?.lat?.toFixed(5)}, ${data.location?.lng?.toFixed(5)})`,
+      completed: false,
+      priority: 'high',
+      details: `Reported at: ${data.reportedAt instanceof Timestamp ? data.reportedAt.toDate().toLocaleString() : ''}`,
+      iconName: 'AlertTriangle',
+      category: 'Emergencies',
+      link: `/operator/emergency/${doc.id}`
+    };
+  });
+  setOperatorActionItems(prev => {
+    // Remove old emergencies
+    const filtered = prev.filter(cat => cat.name !== 'Emergencies');
+    if (emergencies.length === 0) return filtered;
+    return [
+      {
+        id: 'emergencies',
+        name: 'Emergencies',
+        icon: AlertTriangle,
+        items: emergencies
+      },
+      ...filtered
+    ];
+  });
+});
+return () => unsubscribe();
