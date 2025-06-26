@@ -13,6 +13,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; 
 import { useRouter } from 'next/navigation'; 
+import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function DriverDashboardPage() {
   const { user } = useAuth();
@@ -26,15 +28,28 @@ export default function DriverDashboardPage() {
   const [isLoadingEarnings, setIsLoadingEarnings] = useState(true);
 
   useEffect(() => {
+    if (!user || !db) return;
     setIsLoadingEarnings(true);
-    // Simulate fetching earnings
-    const fetchTimer = setTimeout(() => {
-      const fetchedEarnings = (Math.random() * 100 + 50).toFixed(2); // Random earnings between 50 and 150
-      setEarningsTodayDisplay(`£${fetchedEarnings}`);
+    const earningsRef = collection(db, 'earnings');
+    // Get today's date in YYYY-MM-DD
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    // Query for today's earnings for this driver
+    const q = query(earningsRef, where('driverId', '==', user.id), where('date', '==', todayStr));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let total = 0;
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        total += data.netEarning || 0;
+      });
+      setEarningsTodayDisplay(`£${total.toFixed(2)}`);
       setIsLoadingEarnings(false);
-    }, 1500); // Simulate 1.5 second delay
-    return () => clearTimeout(fetchTimer); // Cleanup timeout
-  }, []);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
 
   const handleOnlineStatusChange = (checked: boolean) => {
@@ -116,29 +131,7 @@ export default function DriverDashboardPage() {
           </Card>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <FeatureCard
-            title="Manage Current Ride"
-            description="View details and manage your active ride."
-            icon={Car}
-            link="/driver/available-rides"
-            actionText="View Current Status"
-          />
-          <FeatureCard
-            title="Earnings & History"
-            description="Track your earnings and view past rides."
-            icon={History}
-            link="/driver/earnings"
-            actionText="View Earnings"
-          />
-          <FeatureCard
-            title="In-App Chat"
-            description="Communicate with passengers or support."
-            icon={MessageCircle}
-            link="/driver/chat"
-            actionText="Open Chat"
-          />
-        </div>
+        {/* Feature cards removed as per user request */}
       </div>
     </div>
   );

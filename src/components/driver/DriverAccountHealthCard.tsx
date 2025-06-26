@@ -4,11 +4,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone, ThumbsUp, AlertCircle as AlertCircleIcon } from "lucide-react"; // Added ThumbsUp, AlertCircleIcon
+import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone, ThumbsUp, AlertCircle as AlertCircleIcon, Loader2 } from "lucide-react"; // Added Loader2
 import { Progress } from "@/components/ui/progress"; 
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import ShadCN Alert components
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { useEffect, useState } from "react";
 
 
 interface HealthMetricProps {
@@ -39,26 +41,82 @@ const HealthMetric: React.FC<HealthMetricProps> = ({ label, value, icon: Icon, u
 };
 
 export function DriverAccountHealthCard() {
-  const overallHealth = { status: "Good", score: 85 }; 
-  const averageRating = 4.7;
-  const completionRate = 92; 
-  const acceptanceRate = 88; 
-  const safetyScore = "98/100";
-  const passengerBlocks = 1; 
-  const positiveFeedback = "Passengers consistently praise your friendly demeanor and safe driving.";
-  const areaForImprovement = "Consider reducing waiting times at pickup locations where possible.";
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState({
+    overallHealth: { status: "Good", score: 0 },
+    averageRating: 0,
+    completionRate: 0,
+    acceptanceRate: 0
+  });
 
+  useEffect(() => {
+    async function fetchMetrics() {
+      if (!user?.id) return;
+      setLoading(true);
+      try {
+        // Fetch driver profile
+        const driverRes = await fetch(`/api/operator/drivers/${user.id}`);
+        const driverData = await driverRes.json();
+        // Fetch ride history
+        const ridesRes = await fetch(`/api/driver/ride-history?driverId=${user.id}`);
+        const ridesData = await ridesRes.json();
+        const rides = Array.isArray(ridesData) ? ridesData : ridesData.rides || [];
+        // Compute metrics
+        let completed = 0, accepted = 0, total = 0, ratingSum = 0, ratingCount = 0;
+        rides.forEach(ride => {
+          if (ride.status === "completed") completed++;
+          if (ride.status === "completed" || ride.status === "cancelled_by_passenger" || ride.status === "cancelled_no_show") accepted++;
+          total++;
+          if (ride.ratingByPassenger) {
+            ratingSum += ride.ratingByPassenger;
+            ratingCount++;
+          }
+        });
+        const averageRating = ratingCount ? ratingSum / ratingCount : 0;
+        const completionRate = total ? Math.round((completed / total) * 100) : 0;
+        const acceptanceRate = total ? Math.round((accepted / total) * 100) : 0;
+        const overallScore = Math.round((averageRating * 20 + completionRate + acceptanceRate) / 3);
+        setMetrics({
+          overallHealth: { status: overallScore >= 80 ? "Good" : overallScore >= 60 ? "Fair" : "Poor", score: overallScore },
+          averageRating,
+          completionRate,
+          acceptanceRate
+        });
+      } catch (e) {
+        setMetrics(m => ({ ...m, overallHealth: { status: "N/A", score: 0 } }));
+      }
+      setLoading(false);
+    }
+    fetchMetrics();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <Card className="shadow-lg w-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-headline flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" /> Your Account Health
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          <div className="flex items-center justify-center h-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const { overallHealth, averageRating, completionRate, acceptanceRate } = metrics;
   const getHealthStatusColor = () => {
     if (overallHealth.score >= 80) return "text-green-600 dark:text-green-400";
     if (overallHealth.score >= 60) return "text-yellow-600 dark:text-yellow-400";
     return "text-red-600 dark:text-red-400";
   };
-  
   const getHealthStatusIcon = () => {
     if (overallHealth.score >= 80) return <CheckCircle className="w-5 h-5 text-green-500" />;
     if (overallHealth.score >= 60) return <Activity className="w-5 h-5 text-yellow-500" />;
     return <AlertTriangle className="w-5 h-5 text-red-500" />;
-  }
+  };
 
   return (
     <Card className="shadow-lg w-full">
@@ -87,34 +145,11 @@ export function DriverAccountHealthCard() {
           />
           <p className="text-xs text-muted-foreground">Overall Score: {overallHealth.score}/100</p>
         </div>
-
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 border p-2 rounded-md bg-muted/30">
             <HealthMetric label="Avg. Rating" value={`${averageRating.toFixed(1)}/5`} icon={Star} variant={averageRating >= 4.5 ? "positive" : averageRating >= 4.0 ? "neutral" : "negative"} />
             <HealthMetric label="Completion" value={completionRate} unit="%" icon={TrendingUp} variant={completionRate >= 90 ? "positive" : completionRate >= 80 ? "neutral" : "negative"}/>
             <HealthMetric label="Acceptance" value={acceptanceRate} unit="%" icon={CheckCircle} variant={acceptanceRate >= 85 ? "positive" : "neutral"}/>
-            <HealthMetric label="Safety Score" value={safetyScore} icon={ShieldCheck} variant={safetyScore === "100/100" || safetyScore === "99/100" || safetyScore === "98/100" ? "positive" : "neutral"} />
-            <HealthMetric label="Blocked By" value={passengerBlocks} icon={UserX} variant={passengerBlocks === 0 ? "positive" : passengerBlocks <= 2 ? "neutral" : "negative"} />
         </div>
-        
-        {positiveFeedback && (
-          <Alert variant="default" className="p-2.5 bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700">
-            <ThumbsUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <AlertTitle className="text-xs font-semibold text-green-700 dark:text-green-300">Positive Feedback</AlertTitle>
-            <AlertDescription className="text-xs text-green-600 dark:text-green-500 italic">
-             &ldquo;{positiveFeedback}&rdquo;
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {areaForImprovement && (
-           <Alert variant="default" className="p-2.5 bg-yellow-50 dark:bg-yellow-800/30 border-yellow-300 dark:border-yellow-600">
-            <AlertCircleIcon className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-            <AlertTitle className="text-xs font-semibold text-yellow-700 dark:text-yellow-300">Area for Attention</AlertTitle>
-            <AlertDescription className="text-xs text-yellow-600 dark:text-yellow-500">
-              {areaForImprovement}
-            </AlertDescription>
-          </Alert>
-        )}
       </CardContent>
       <CardFooter className="pt-2">
         <Button variant="outline" size="sm" className="w-full text-xs h-8" disabled>

@@ -132,9 +132,10 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     let changesMadeDescription = "";
     const updates: Partial<User> = {};
+    let saveError = null;
 
     if (user && user.role === 'driver') {
       if (user.acceptsPetFriendlyJobs !== driverAcceptsPets) { updates.acceptsPetFriendlyJobs = driverAcceptsPets; changesMadeDescription += "Pet preference updated. "; }
@@ -151,9 +152,34 @@ export default function SettingsPage() {
     }
     
     if (Object.keys(updates).length > 0) {
-      updateUserProfileInContext(updates);
+      try {
+        // Helper to persist a single driver setting
+        const persistDriverSetting = async (updates: Partial<User>) => {
+          if (!user) return;
+          try {
+            const response = await fetch(`/api/users/${user.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updates)
+            });
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.message || 'Failed to save setting.');
+            }
+            updateUserProfileInContext(updates);
+          } catch (error) {
+            toast({ title: 'Settings Update Failed', description: error instanceof Error ? error.message : 'Unknown error.', variant: 'destructive' });
+          }
+        };
+      } catch (error) {
+        saveError = error instanceof Error ? error.message : 'Unknown error.';
+      }
     }
 
+    if (saveError) {
+      toast({ title: "Settings Update Failed", description: saveError, variant: "destructive" });
+      return;
+    }
     if (changesMadeDescription.trim() === "") {
       changesMadeDescription = "No preference changes to save.";
     }
@@ -187,7 +213,7 @@ export default function SettingsPage() {
               <Label htmlFor="pet-friendly-switch" className="text-base">
                 Accept Pet Friendly Jobs?
               </Label>
-              <Switch id="pet-friendly-switch" checked={driverAcceptsPets} onCheckedChange={setDriverAcceptsPets}/>
+              <Switch id="pet-friendly-switch" checked={driverAcceptsPets} onCheckedChange={(val) => { setDriverAcceptsPets(val); persistDriverSetting({ acceptsPetFriendlyJobs: val }); }}/>
             </div>
             <p className="text-sm text-muted-foreground">Enable this if you are willing to take passengers with pets.</p>
 
@@ -196,7 +222,7 @@ export default function SettingsPage() {
                 <Label htmlFor="platform-jobs-switch" className="text-base">Accept Jobs from MyBase Platform Pool?</Label>
                 <p className="text-xs text-muted-foreground">ON: Get jobs from your operator AND the general MyBase platform.<br/>OFF: Only jobs from your affiliated operator.</p>
               </div>
-              <Switch id="platform-jobs-switch" checked={driverAcceptsPlatformJobs} onCheckedChange={isPlatformDriver ? undefined : setDriverAcceptsPlatformJobs} disabled={isPlatformDriver} className={cn(isPlatformDriver && "cursor-not-allowed opacity-70")}/>
+              <Switch id="platform-jobs-switch" checked={driverAcceptsPlatformJobs} onCheckedChange={isPlatformDriver ? undefined : (val) => { setDriverAcceptsPlatformJobs(val); persistDriverSetting({ acceptsPlatformJobs: val }); }} disabled={isPlatformDriver} className={cn(isPlatformDriver && "cursor-not-allowed opacity-70")}/>
             </div>
             {isPlatformDriver && (
               <Alert variant="default" className="mt-2 bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700">
@@ -208,7 +234,7 @@ export default function SettingsPage() {
             
             <div className="pt-4 border-t space-y-2">
               <Label htmlFor="max-journey-distance-select" className="text-base"><span className="flex items-center gap-1"><Route className="w-4 h-4 text-muted-foreground" /> Maximum Journey Distance</span></Label>
-              <Select value={driverMaxJourneyDistance} onValueChange={setDriverMaxJourneyDistance}>
+              <Select value={driverMaxJourneyDistance} onValueChange={(val) => { setDriverMaxJourneyDistance(val); persistDriverSetting({ maxJourneyDistance: val }); }}>
                 <SelectTrigger id="max-journey-distance-select"><SelectValue placeholder="Select max distance" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no_limit">No Limit (National)</SelectItem>
@@ -222,7 +248,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between pt-4 border-t">
               <Label htmlFor="account-jobs-switch" className="text-base">Accept Account Jobs?</Label>
-              <Switch id="account-jobs-switch" checked={driverAcceptsAccountJobs} onCheckedChange={setDriverAcceptsAccountJobs} />
+              <Switch id="account-jobs-switch" checked={driverAcceptsAccountJobs} onCheckedChange={(val) => { setDriverAcceptsAccountJobs(val); persistDriverSetting({ acceptsAccountJobs: val }); }} />
             </div>
             <p className="text-sm text-muted-foreground">Enable this if you are willing to take on Account Jobs (e.g., corporate clients, school runs) which may have different payment/billing.</p>
           </CardContent>
