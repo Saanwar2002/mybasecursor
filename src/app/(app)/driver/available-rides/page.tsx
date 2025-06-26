@@ -358,6 +358,7 @@ useEffect(() => {
 }, [driverLocation]);
 
   const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
+  const [pauseOffers, setPauseOffers] = useState(false);
   const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
   const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
 
@@ -389,6 +390,15 @@ useEffect(() => {
 
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
   const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
+
+// Sync polling with pauseOffers toggle
+useEffect(() => {
+  if (pauseOffers) {
+    setIsPollingEnabled(false);
+  } else {
+    setIsPollingEnabled(true);
+  }
+}, [pauseOffers]);
 
 
   const journeyPoints = useMemo(() => {
@@ -1766,6 +1776,18 @@ useEffect(() => {
                     JOB DETAIL <ChevronUp className="ml-1 h-3 w-3"/>
                 </Button>
             )}
+            {/* Pause Ride Offers Toggle */}
+            {activeRide && !isRideTerminated(activeRide.status) && (
+  <div className={`flex items-center justify-between w-full mt-1 rounded-xl px-3 py-1 transition-colors duration-200 ${pauseOffers ? 'bg-red-200 border border-red-400' : 'bg-green-50'}`}>
+    <Label htmlFor="pause-offers-switch" className="text-xs font-medium">Pause Ride Offers</Label>
+    <Switch
+      id="pause-offers-switch"
+      checked={pauseOffers}
+      onCheckedChange={setPauseOffers}
+      className="ml-2"
+    />
+  </div>
+)}
         </div>
       </div>
     );
@@ -1972,6 +1994,11 @@ useEffect(() => {
             activeRide && !isRideTerminated(activeRide.status) ? "flex-1" : "h-[calc(100%-10rem)]",
              activeRide && !isRideTerminated(activeRide.status) ? "pb-[calc(var(--navigation-bar-height,11rem)+env(safe-area-inset-bottom)))]" : ""
         )}>
+            {pauseOffers && (
+              <div className="absolute z-50 top-8 left-1/2 transform -translate-x-1/2 bg-red-600 text-white font-extrabold text-2xl px-8 py-4 rounded-xl shadow-lg border-4 border-red-900 animate-pulse pointer-events-none select-none text-center">
+                PAUSED: Turn OFF 'Pause Ride Offers' to receive new rides
+              </div>
+            )}
             <GoogleMapDisplay
               center={memoizedMapCenter}
               zoom={mapZoomToUse}
@@ -2389,6 +2416,17 @@ useEffect(() => {
             </Alert>
         )}
         {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </>) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > <span>{isDriverOnline ? "Online" : "Offline"}</span> </Label> </div>
+        {isDriverOnline && (
+          <div className={`flex items-center justify-between w-full mt-2 rounded-xl px-3 py-1 transition-colors duration-200 ${pauseOffers ? 'bg-red-200 border border-red-400' : 'bg-green-50'}`}>
+            <Label htmlFor="pause-offers-switch-main" className="text-xs font-medium">Pause Ride Offers</Label>
+            <Switch
+              id="pause-offers-switch-main"
+              checked={pauseOffers}
+              onCheckedChange={setPauseOffers}
+              className="ml-2"
+            />
+          </div>
+        )}
         {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => {
             if (!activeRide) {
               handleSimulateOffer();
