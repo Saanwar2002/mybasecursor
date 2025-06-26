@@ -38,6 +38,25 @@ export default function SettingsPage() {
     return false;
   });
   const [language, setLanguage] = useState("en");
+
+  // Move persistDriverSetting to top-level so it's accessible everywhere
+  const persistDriverSetting = async (updates: Partial<User>) => {
+    if (!user) return;
+    try {
+      const response = await fetch(`/api/users/${user.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save setting.');
+      }
+      updateUserProfileInContext(updates);
+    } catch (error) {
+      toast({ title: 'Settings Update Failed', description: error instanceof Error ? error.message : 'Unknown error.', variant: 'destructive' });
+    }
+  };
   
   // Driver specific states
   const [driverAcceptsPets, setDriverAcceptsPets] = useState(user?.role === 'driver' ? user.acceptsPetFriendlyJobs || false : false); 
