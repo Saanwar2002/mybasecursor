@@ -208,7 +208,7 @@ export default function RideSummaryPage() {
   };
 
   const handleSendFareProposal = async () => {
-    if (!rideDetails) return;
+    if (!rideDetails || !driverUser?.id) return;
     const newProposed = parseFloat(proposedFareInput);
     if (isNaN(newProposed) || newProposed <= 0) {
         toast({ title: "Invalid Fare Amount", description: "Please enter a valid positive number for the fare.", variant: "destructive"});
@@ -219,27 +219,33 @@ export default function RideSummaryPage() {
         setIsEditingFare(false);
         return;
     }
-
-    setIsSubmittingFareProposal(true);
-    console.log(`Mock: Driver proposed new fare of £${newProposed.toFixed(2)} for ride ${rideDetails.id}`);
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
-
-    const passengerResponse: 'approved' | 'declined' = Math.random() > 0.3 ? 'approved' : 'declined'; // Higher chance of approval for demo
-    
-    if (passengerResponse === 'approved') {
+    try {
+      setIsSubmittingFareProposal(true);
+      const response = await fetch("/api/bookings/adjust-fare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: rideDetails.id, driverId: driverUser.id, newFare: newProposed })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        toast({ title: "Fare Adjustment Failed", description: data.message || "Could not adjust fare.", variant: "destructive" });
+        setIsSubmittingFareProposal(false);
+        return;
+      }
       setAdjustedFareAmount(newProposed);
       setFareAdjustmentStatus('approved');
       setRideDetails(prevDetails => prevDetails ? { ...prevDetails, finalCalculatedFare: newProposed } : null);
-      toast({ title: "Fare Adjustment Approved!", description: `Passenger approved new fare: £${newProposed.toFixed(2)}` });
-    } else {
-      setFareAdjustmentStatus('declined');
-      toast({ title: "Fare Adjustment Declined", description: `Passenger declined the proposed fare. Original fare applies.`, variant: "default" });
+      toast({ title: "Fare Adjustment Proposed!", description: `New fare proposed: £${newProposed.toFixed(2)}` });
+      setIsEditingFare(false);
+      setIsSubmittingFareProposal(false);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to propose fare adjustment.", variant: "destructive" });
+      setIsEditingFare(false);
+      setIsSubmittingFareProposal(false);
     }
-
-    setIsEditingFare(false);
-    setIsSubmittingFareProposal(false);
   };
-
+// REMOVE THIS EXTRA CLOSING BRACE
+// };
 
   if (isLoadingDetails) {
     return ( <div className="flex flex-col items-center justify-center h-full p-4"> <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> <p className="text-muted-foreground">Loading ride summary...</p> </div> );
