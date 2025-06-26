@@ -497,4 +497,4 @@ const unsubscribe = onSnapshot(q, (snapshot) => {
     ];
   });
 });
-return () => unsubscribe();
+// Removed: return () => unsubscribe();
