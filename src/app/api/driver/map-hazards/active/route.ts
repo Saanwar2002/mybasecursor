@@ -53,11 +53,12 @@ export async function GET(request: NextRequest) {
     }
 
     const hazardsRef = collection(db, 'mapHazards');
+    // Only include hazards reported within the last 12 hours
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+    const now = Date.now();
     const q = query(
       hazardsRef,
       where('status', '==', 'active')
-      // TODO: Add orderBy('reportedAt', 'desc') and corresponding index if performance becomes an issue.
-      // TODO: Add filtering for expiresAt if that field is implemented.
     );
 
     const querySnapshot = await getDocs(q);
@@ -65,13 +66,16 @@ export async function GET(request: NextRequest) {
 
     querySnapshot.forEach((doc) => {
       const data = doc.data() as MapHazardFromDB;
-      activeHazards.push({
-        id: doc.id,
-        hazardType: data.hazardType,
-        location: data.location, // GeoPoint-like object
-        reportedAt: data.reportedAt.toDate().toISOString(),
-        status: data.status,
-      });
+      const reportedAtDate = data.reportedAt.toDate();
+      if (now - reportedAtDate.getTime() <= TWELVE_HOURS_MS) {
+        activeHazards.push({
+          id: doc.id,
+          hazardType: data.hazardType,
+          location: data.location, // GeoPoint-like object
+          reportedAt: reportedAtDate.toISOString(),
+          status: data.status,
+        });
+      }
     });
 
     return NextResponse.json({ hazards: activeHazards }, { status: 200 });

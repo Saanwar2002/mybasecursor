@@ -2012,7 +2012,7 @@ const mapDisplayElements = useMemo(() => {
               mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}
               fitBoundsToMarkers={shouldFitMapBounds}
-              markers={[...memoizedMarkers, ...hazardMarkers]}
+              markers={memoizedMarkers}
               customMapLabels={memoizedLabels}
               className="w-full h-full"
               disableDefaultUI={true}
@@ -2336,7 +2336,7 @@ const mapDisplayElements = useMemo(() => {
                                 </div>
                                 <p className="font-bold flex items-center gap-1.5"><UsersIcon className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Passengers: {activeRide.passengerCount}</span></p>
                                 {activeRide.distanceMiles != null && (<p className="font-bold flex items-center gap-1.5"><Route className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> <span>Dist: ~{activeRide.distanceMiles.toFixed(1)} mi</span></p>)}
-                                {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} <span>Payment: {paymentMethodDisplay}</span> </p> )}
+                                {activeRide.paymentMethod && ( <p className="font-bold flex items-center gap-1.5 col-span-2"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" /> : <Briefcase className="w-4 h-4 text-green-700 dark:text-green-300 shrink-0" />} <span>Payment: {paymentMethodDisplay}</span> {activeRide.paymentMethod === 'account' && (<span className="ml-2 inline-block px-2 py-0.5 rounded bg-purple-800 text-white text-xs font-bold">Account Job</span>)} </p> )}
                             </div>
                            
                         </>

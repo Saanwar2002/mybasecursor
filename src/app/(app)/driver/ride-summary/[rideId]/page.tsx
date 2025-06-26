@@ -282,7 +282,7 @@ export default function RideSummaryPage() {
             <p className="flex items-start"><MapPin className="w-4 h-4 mr-1.5 mt-0.5 text-red-500 shrink-0"/><strong>To:</strong> <span className="ml-1">{rideDetails.dropoffLocation.address} {rideDetails.dropoffLocation.doorOrFlat && `(${rideDetails.dropoffLocation.doorOrFlat})`}</span></p>
             <Separator className="my-2.5" />
             <FareBreakdown ride={rideDetails} />
-            <div className="text-sm text-muted-foreground flex items-center gap-1.5"> <PaymentIcon className="w-4 h-4" /> <span>Payment Method: <span className="capitalize">{rideDetails.paymentMethod || "N/A"}</span></span> </div>
+            <div className="text-sm text-muted-foreground flex items-center gap-1.5"> <PaymentIcon className="w-4 h-4" /> <span>Payment Method: <span className="capitalize">{rideDetails.paymentMethod || "N/A"}</span></span> {rideDetails.paymentMethod === 'account' && (<span style={{background:'#5B2A86',color:'#fff',borderRadius:'6px',padding:'2px 18px',marginLeft:'8px',fontWeight:'bold',fontSize:'0.95em',display:'inline-block'}}>Account Job</span>)} </div>
             {rideDetails.isPriorityPickup && rideDetails.priorityFeeAmount && rideDetails.priorityFeeAmount > 0 && ( <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-500/10"> <Crown className="h-3 w-3 mr-1"/>Priority Included </Badge> )}
             {rideDetails.waitAndReturn && ( <Badge variant="outline" className="text-xs border-indigo-500 text-indigo-600 bg-indigo-500/10"> <RefreshCwIcon className="h-3 w-3 mr-1"/>Wait & Return Journey </Badge> )}
           </div>
