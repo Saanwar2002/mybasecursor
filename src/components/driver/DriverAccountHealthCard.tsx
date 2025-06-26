@@ -49,6 +49,8 @@ export function DriverAccountHealthCard() {
     completionRate: 0,
     acceptanceRate: 0
   });
+  const [creditAccount, setCreditAccount] = useState<{ balance: number, creditLimit: number } | null>(null);
+  const [creditAccountLoading, setCreditAccountLoading] = useState(true);
 
   useEffect(() => {
     async function fetchMetrics() {
@@ -83,8 +85,21 @@ export function DriverAccountHealthCard() {
           completionRate,
           acceptanceRate
         });
+        // Fetch credit account
+        setCreditAccountLoading(true);
+        const accountsRes = await fetch(`/api/operator/credit-accounts`);
+        const accountsData = await accountsRes.json();
+        const myAccount = accountsData.accounts.find((acc: any) => acc.associatedUserId === user.id);
+        if (myAccount) {
+          setCreditAccount({ balance: myAccount.balance, creditLimit: myAccount.creditLimit });
+        } else {
+          setCreditAccount(null);
+        }
+        setCreditAccountLoading(false);
       } catch (e) {
         setMetrics(m => ({ ...m, overallHealth: { status: "N/A", score: 0 } }));
+        setCreditAccount(null);
+        setCreditAccountLoading(false);
       }
       setLoading(false);
     }
@@ -150,6 +165,32 @@ export function DriverAccountHealthCard() {
             <HealthMetric label="Completion" value={completionRate} unit="%" icon={TrendingUp} variant={completionRate >= 90 ? "positive" : completionRate >= 80 ? "neutral" : "negative"}/>
             <HealthMetric label="Acceptance" value={acceptanceRate} unit="%" icon={CheckCircle} variant={acceptanceRate >= 85 ? "positive" : "neutral"}/>
         </div>
+      </CardContent>
+      <CardFooter className="pt-2">
+        <Button variant="outline" size="sm" className="w-full text-xs h-8" disabled>
+          View Full Performance Report (Soon)
+          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+        </Button>
+      </CardFooter>
+      <CardContent className="space-y-3 pt-0">
+        {/* Credit Account Balance Section */}
+        {creditAccountLoading ? (
+          <div className="flex items-center justify-center h-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : creditAccount ? (
+          <div className="flex flex-col items-center mb-2">
+            <span className="text-xs text-muted-foreground flex items-center gap-1"><Briefcase className="w-4 h-4 text-purple-700" />Credit Account Balance</span>
+            <span className={`text-lg font-bold ${creditAccount.balance < 0 ? 'text-red-600' : creditAccount.balance < 0.2 * creditAccount.creditLimit ? 'text-yellow-600' : 'text-green-700'}`}>£{creditAccount.balance.toFixed(2)}</span>
+            {creditAccount.balance < 0 ? (
+              <Badge variant="destructive" className="mt-1 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Over Limit</Badge>
+            ) : creditAccount.balance < 0.2 * creditAccount.creditLimit ? (
+              <Badge variant="secondary" className="mt-1 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 text-yellow-600" /> Low Balance</Badge>
+            ) : null}
+            <span className="text-xs text-muted-foreground">Limit: £{creditAccount.creditLimit.toFixed(2)}</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-10 text-xs text-muted-foreground">No credit account found.</div>
+        )}
+        {/* End Credit Account Balance Section */}
       </CardContent>
       <CardFooter className="pt-2">
         <Button variant="outline" size="sm" className="w-full text-xs h-8" disabled>

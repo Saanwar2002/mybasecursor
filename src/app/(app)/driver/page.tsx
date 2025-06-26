@@ -27,6 +27,39 @@ export default function DriverDashboardPage() {
   const [earningsTodayDisplay, setEarningsTodayDisplay] = useState<string | null>(null);
   const [isLoadingEarnings, setIsLoadingEarnings] = useState(true);
 
+  const [accountBalance, setAccountBalance] = useState<number | null>(null);
+  const [isLoadingAccountBalance, setIsLoadingAccountBalance] = useState(true);
+
+  useEffect(() => {
+    if (!user || !db) return;
+    setIsLoadingAccountBalance(true);
+    const cacheKey = `accountBalance_${user.id}`;
+    const cacheTimestampKey = `accountBalanceTimestamp_${user.id}`;
+    const cachedBalance = localStorage.getItem(cacheKey);
+    const cachedTimestamp = localStorage.getItem(cacheTimestampKey);
+    const now = Date.now();
+    if (cachedBalance && cachedTimestamp && now - parseInt(cachedTimestamp, 10) < 3600000) {
+      setAccountBalance(Number(cachedBalance));
+      setIsLoadingAccountBalance(false);
+      return;
+    }
+    // Fetch from backend (Firestore)
+    const accountsRef = collection(db, 'creditAccounts');
+    const q = query(accountsRef, where('driverId', '==', user.id));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let balance = 0;
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        balance += data.balance || 0;
+      });
+      setAccountBalance(balance);
+      setIsLoadingAccountBalance(false);
+      localStorage.setItem(cacheKey, String(balance));
+      localStorage.setItem(cacheTimestampKey, String(Date.now()));
+    });
+    return () => unsubscribe();
+  }, [user]);
+
   useEffect(() => {
     if (!user || !db) return;
     setIsLoadingEarnings(true);
@@ -126,7 +159,27 @@ export default function DriverDashboardPage() {
               ) : (
                 <p className="text-3xl font-bold">{earningsTodayDisplay || "£0.00"}</p>
               )}
-              <Link href="/driver/earnings" className="text-sm text-accent hover:underline">View Detailed Earnings</Link>
+              <Link href="/driver/earnings" className="text-base font-semibold text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">View Detailed Earnings</Link>
+            </CardContent>
+          </Card>
+          {/* Latest Account Jobs Balance Card */}
+          <Card className={activeRide ? "" : "md:col-span-1"}>
+            <CardHeader>
+              <CardTitle className="text-xl font-headline flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-blue-500" /> Latest Account Jobs Balance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAccountBalance ? (
+                <div className="flex items-center justify-center h-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : accountBalance !== null ? (
+                <p className="text-3xl font-bold">£{accountBalance.toFixed(2)}</p>
+              ) : (
+                <p className="text-muted-foreground">No account job data</p>
+              )}
+              <Link href="/driver/ride-history?filter=account" className="text-base font-semibold text-blue-700 underline underline-offset-4 hover:text-blue-500 transition-colors">View Account Jobs</Link>
             </CardContent>
           </Card>
         </div>

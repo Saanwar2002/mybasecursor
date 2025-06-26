@@ -91,6 +91,7 @@ export default function DriverRideHistoryPage() {
   const [currentRating, setCurrentRating] = useState(0);
   const [blockingPassengerId, setBlockingPassengerId] = useState<string | null>(null);
   const [rideChats, setRideChats] = useState<{ [rideId: string]: RideChatMessage[] }>({});
+  const [showAccountJobsOnly, setShowAccountJobsOnly] = useState(false);
 
   useEffect(() => {
     if (!driverUser?.id || !db) return;
@@ -219,12 +220,20 @@ export default function DriverRideHistoryPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader><CardTitle className="text-3xl font-headline">Ride History</CardTitle><CardDescription>Review your completed or cancelled rides. ({ridesHistory.length} found)</CardDescription></CardHeader>
+        <CardContent>
+          <Button
+            variant={showAccountJobsOnly ? "default" : "outline"}
+            className="mb-2"
+            onClick={() => setShowAccountJobsOnly(v => !v)}
+          >
+            {showAccountJobsOnly ? "Show All Rides" : "Show Only Account Jobs"}
+          </Button>
+        </CardContent>
       </Card>
       {ridesHistory.length === 0 && !isLoading && !error && (<Card><CardContent className="pt-6 text-center text-muted-foreground">You have no completed or cancelled rides in your history yet.</CardContent></Card>)}
       {error && ridesHistory.length > 0 && (<div className="p-4 mb-4 text-sm text-destructive-foreground bg-destructive rounded-md shadow-lg"><p><strong>Error:</strong> {error}</p><p className="text-xs">Displaying cached or partially loaded data.</p></div>)}
-
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-        {ridesHistory.map((ride) => (
+        {(showAccountJobsOnly ? ridesHistory.filter(r => r.paymentMethod === 'account') : ridesHistory).map((ride) => (
           <Card key={ride.id} className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
@@ -259,8 +268,8 @@ export default function DriverRideHistoryPage() {
                 <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}</div>
                 {ride.paymentMethod && (
                   <div className="flex items-center gap-1.5">
-                    {ride.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
-                    <strong>Payment:</strong> {ride.paymentMethod === 'card' ? 'Card (Mock Paid)' : 'Cash Received'}
+                    {ride.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : ride.paymentMethod === 'account' ? <UserCircle className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
+                    <strong>Payment:</strong> {ride.paymentMethod === 'card' ? 'Card (Mock Paid)' : ride.paymentMethod === 'account' ? 'Account Job' : 'Cash Received'}
                   </div>
                 )}
                 {ride.ratingByPassenger !== undefined && ride.ratingByPassenger > 0 && (

@@ -342,6 +342,32 @@ export async function POST(request: NextRequest, context: PostContext) {
               updatePayloadFirestore.pickupWaitingCharge = updateDataFromPayload.pickupWaitingCharge;
           }
           updatePayloadFirestore.currentLegEntryTimestamp = deleteField();
+
+          // --- CREDIT ACCOUNT UPDATE LOGIC START ---
+          // If payment method is 'account', update the credit account balance
+          if ((existingBookingDbData?.paymentMethod === 'account' || updatePayloadFirestore.paymentMethod === 'account') && existingBookingDbData?.passengerId) {
+            try {
+              // Fetch all credit accounts
+              const creditAccountsRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/operator/credit-accounts`);
+              if (creditAccountsRes.ok) {
+                const creditAccountsData = await creditAccountsRes.json();
+                // Find the account with associatedUserId matching passengerId
+                const creditAccount = creditAccountsData.accounts.find((acc: any) => acc.associatedUserId === existingBookingDbData.passengerId);
+                if (creditAccount) {
+                  // Deduct the fare from the account balance
+                  const newBalance = (creditAccount.balance || 0) - (updateDataFromPayload.finalFare || existingBookingDbData.finalCalculatedFare || 0);
+                  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/operator/credit-accounts`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: creditAccount.id, balance: newBalance })
+                  });
+                }
+              }
+            } catch (creditUpdateErr) {
+              console.error('Failed to update credit account balance:', creditUpdateErr);
+            }
+          }
+          // --- CREDIT ACCOUNT UPDATE LOGIC END ---
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
           updatePayloadFirestore.cancelledAt = Timestamp.now();
