@@ -285,6 +285,47 @@ export default function MyRidesPage() {
                 <p className="flex items-start gap-1"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
                 {ride.stops && ride.stops.length > 0 && ride.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1 pl-5"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>Stop {index+1}:</strong> {stop.address}</p> ))}
                 <p className="flex items-start gap-1"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>To:</strong> {ride.dropoffLocation.address}</p>
+                {/* --- BEGIN: Passenger Ride Summary Card --- */}
+                {ride.status === 'completed' && (
+                  <div className="my-3 p-4 rounded-lg bg-green-50 border border-green-400 shadow-md">
+                    <div className="flex flex-col items-center mb-2">
+                      <span className="text-3xl font-bold text-green-700">£{(() => {
+                        // Calculate total fare as in driver summary
+                        const baseFare = ride.fareEstimate || 0;
+                        const pickupWaiting = typeof ride.pickupWaitingCharge === 'number' ? ride.pickupWaitingCharge : 0;
+                        const stopWaiting = typeof ride.accumulatedStopWaitingCharges === 'number' ? ride.accumulatedStopWaitingCharges : 0;
+                        let waitAndReturnSurcharge = 0;
+                        if (ride.waitAndReturn && typeof ride.estimatedAdditionalWaitTimeMinutes === 'number') {
+                          const wrBaseMultiplier = 0.70;
+                          const waitingChargePerMinute = 0.20;
+                          const freeWaitMinutes = 10;
+                          const chargeableWait = Math.max(0, ride.estimatedAdditionalWaitTimeMinutes - freeWaitMinutes);
+                          waitAndReturnSurcharge = (baseFare * wrBaseMultiplier) + (chargeableWait * waitingChargePerMinute);
+                        }
+                        const priority = ride.isPriorityPickup && ride.priorityFeeAmount ? ride.priorityFeeAmount : 0;
+                        // Prefer backend-calculated finalCalculatedFare if present
+                        const total = typeof ride.finalCalculatedFare === 'number'
+                          ? ride.finalCalculatedFare
+                          : baseFare + pickupWaiting + stopWaiting + waitAndReturnSurcharge + priority;
+                        return total.toFixed(2);
+                      })()}</span>
+                      <span className="text-xs text-green-700 font-semibold">Total Fare Paid</span>
+                    </div>
+                    <div className="text-xs text-gray-700">
+                      <div>Base Journey Fare: £{ride.fareEstimate.toFixed(2)}</div>
+                      {typeof ride.pickupWaitingCharge === 'number' && ride.pickupWaitingCharge > 0 && (
+                        <div className="text-yellow-700">Pickup Waiting Time: +£{ride.pickupWaitingCharge.toFixed(2)}</div>
+                      )}
+                      {typeof ride.accumulatedStopWaitingCharges === 'number' && ride.accumulatedStopWaitingCharges > 0 && (
+                        <div className="text-yellow-700">Stop(s) Waiting Time: +£{ride.accumulatedStopWaitingCharges.toFixed(2)}</div>
+                      )}
+                      {ride.isSurgeApplied && (
+                        <div className="text-orange-700">Surge Pricing Applied</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {/* --- END: Passenger Ride Summary Card --- */}
                 <div className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}{ride.isSurgeApplied && <Badge variant="outline" className="ml-1 border-orange-500 text-orange-500">Surge</Badge>}</div>
                  {ride.paymentMethod && (
                   <div className="flex items-center gap-1">

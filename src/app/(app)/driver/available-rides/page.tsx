@@ -1402,6 +1402,7 @@ useEffect(() => {
             if (waitingTimerIntervalRef.current) clearInterval(waitingTimerIntervalRef.current);
             payload.finalFare = finalFare;
             payload.completedAt = true;
+            payload.pickupWaitingCharge = currentWaitingCharge || 0;
             setActiveStopDetails(null);
             break;
         case 'cancel_active':
@@ -1857,8 +1858,10 @@ useEffect(() => {
             navigator.geolocation.clearWatch(watchIdRef.current);
             watchIdRef.current = null;
         }
+        setPauseOffers(false); // Auto-reset Pause Ride Offers when going offline
     }
   };
+
 
   const handleReportHazard = async (hazardType: string) => {
     if (!driverLocation) {

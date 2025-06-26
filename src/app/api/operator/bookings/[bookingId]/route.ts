@@ -337,6 +337,10 @@ export async function POST(request: NextRequest, context: PostContext) {
               updatePayloadFirestore.fareEstimate = updateDataFromPayload.finalFare; // Store the final calculated fare
               updatePayloadFirestore.finalCalculatedFare = updateDataFromPayload.finalFare; // Store final for consistency if a dedicated field is used
           }
+          // Add pickupWaitingCharge if provided
+          if (typeof updateDataFromPayload.pickupWaitingCharge === 'number') {
+              updatePayloadFirestore.pickupWaitingCharge = updateDataFromPayload.pickupWaitingCharge;
+          }
           updatePayloadFirestore.currentLegEntryTimestamp = deleteField();
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
