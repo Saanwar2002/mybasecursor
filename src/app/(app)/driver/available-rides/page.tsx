@@ -416,7 +416,8 @@ useEffect(() => {
              activeRide?.status === 'in_progress_wait_and_return')
   }, [activeRide?.status]);
 
-  const mapDisplayElements = useMemo(() => {
+  // Memoize map markers and labels to prevent unnecessary re-renders from timer state changes
+const mapDisplayElements = useMemo(() => {
     const markers: Array<{ position: google.maps.LatLngLiteral; title?: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType, variant?: 'default' | 'compact' }> = [];
 
@@ -1983,6 +1984,8 @@ useEffect(() => {
     fetchNearbyHazards();
   }, [driverLocation]);
 
+  const memoizedMarkers = useMemo(() => mapDisplayElements.markers, [JSON.stringify(mapDisplayElements.markers)]);
+  const memoizedLabels = useMemo(() => mapDisplayElements.labels, [JSON.stringify(mapDisplayElements.labels)]);
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
         {isSpeedLimitFeatureEnabled &&
@@ -2002,14 +2005,15 @@ useEffect(() => {
                 PAUSED: Turn OFF 'Pause Ride Offers' to receive new rides
               </div>
             )}
-            <GoogleMapDisplay
+
+<GoogleMapDisplay
               center={memoizedMapCenter}
               zoom={mapZoomToUse}
               mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}
               fitBoundsToMarkers={shouldFitMapBounds}
-              markers={[...mapDisplayElements.markers, ...hazardMarkers]}
-              customMapLabels={mapDisplayElements.labels}
+              markers={[...memoizedMarkers, ...hazardMarkers]}
+              customMapLabels={memoizedLabels}
               className="w-full h-full"
               disableDefaultUI={true}
               onSdkLoaded={(loaded) => { setIsMapSdkLoaded(loaded); if (loaded && typeof window !== 'undefined' && window.google?.maps) { CustomMapLabelOverlayClassRef.current = getCustomMapLabelOverlayClass(window.google.maps); if (!geocoderRef.current) geocoderRef.current = new window.google.maps.Geocoder(); if (!directionsServiceRef.current) directionsServiceRef.current = new window.google.maps.DirectionsService(); } }}

@@ -40,6 +40,42 @@ interface CompletedRideDetails {
   finalCalculatedFare: number; 
 }
 
+const FareBreakdown: React.FC<{ ride: CompletedRideDetails }> = ({ ride }) => {
+  const baseFare = ride.fareEstimate;
+  const priority = ride.isPriorityPickup && ride.priorityFeeAmount ? ride.priorityFeeAmount : 0;
+  const pickupWaiting = ride.pickupWaitingCharge || 0;
+  const stopWaiting = ride.accumulatedStopWaitingCharges || 0;
+  let waitAndReturnSurcharge = 0;
+  if (ride.waitAndReturn && typeof ride.estimatedAdditionalWaitTimeMinutes === 'number') {
+    const oneWayBaseForWRSurcharge = ride.fareEstimate;
+    const wrBaseMultiplier = 0.70;
+    const waitingChargePerMinute = 0.20;
+    const freeWaitMinutes = 10;
+    const chargeableWait = Math.max(0, ride.estimatedAdditionalWaitTimeMinutes - freeWaitMinutes);
+    waitAndReturnSurcharge = (oneWayBaseForWRSurcharge * wrBaseMultiplier) + (chargeableWait * waitingChargePerMinute);
+  }
+  const calculatedTotalFare = baseFare + priority + pickupWaiting + stopWaiting + waitAndReturnSurcharge;
+  const totalFare = ride.finalCalculatedFare && ride.finalCalculatedFare > calculatedTotalFare ? ride.finalCalculatedFare : calculatedTotalFare;
+  return (
+    <div className="text-center my-4 p-3 border rounded-md bg-muted/30">
+      <div className="inline-block px-8 py-3 rounded-full bg-green-500 border-2 border-green-700 mb-2 shadow-lg">
+        <p className="text-3xl font-bold text-white">£{(totalFare ?? 0).toFixed(2)}</p>
+        <p className="text-xs text-white font-semibold">Total Fare Collected</p>
+      </div>
+      <Separator className="my-1.5" />
+      <div className="text-xs text-muted-foreground space-y-0.5 text-left">
+        <p className="font-bold">Base Journey Fare: £{baseFare.toFixed(2)}</p>
+        {priority > 0 && <p className="text-orange-600 font-bold">Priority Fee: +£{priority.toFixed(2)}</p>}
+        <p className="text-yellow-600 font-bold">Pickup Waiting Time: +£{pickupWaiting.toFixed(2)}</p>
+        {stopWaiting > 0 && <p className="text-yellow-600">Stop(s) Waiting Time: +£{stopWaiting.toFixed(2)}</p>}
+      </div>
+      {ride.waitAndReturn && waitAndReturnSurcharge > 0 && (
+        <p className="text-indigo-600">Wait & Return Surcharge: +£{waitAndReturnSurcharge.toFixed(2)}</p>
+      )}
+    </div>
+  );
+};
+
 export default function RideSummaryPage() {
   const params = useParams();
   const router = useRouter();
@@ -225,51 +261,6 @@ export default function RideSummaryPage() {
     }
   };
   const PaymentIcon = getPaymentMethodIcon();
-
-  const FareBreakdown: React.FC<{ ride: CompletedRideDetails }> = ({ ride }) => {
-    const baseFare = ride.fareEstimate;
-    const priority = ride.isPriorityPickup && ride.priorityFeeAmount ? ride.priorityFeeAmount : 0;
-    const pickupWaiting = ride.pickupWaitingCharge || 0;
-    const stopWaiting = ride.accumulatedStopWaitingCharges || 0;
-    
-    let waitAndReturnSurcharge = 0;
-    if (ride.waitAndReturn && typeof ride.estimatedAdditionalWaitTimeMinutes === 'number') {
-      const oneWayBaseForWRSurcharge = ride.fareEstimate;
-      const wrBaseMultiplier = 0.70; 
-      const waitingChargePerMinute = 0.20; 
-      const freeWaitMinutes = 10; 
-      const chargeableWait = Math.max(0, ride.estimatedAdditionalWaitTimeMinutes - freeWaitMinutes);
-      waitAndReturnSurcharge = (oneWayBaseForWRSurcharge * wrBaseMultiplier) + (chargeableWait * waitingChargePerMinute);
-    }
-    
-    // Calculate total fare locally to ensure all charges are included
-    const calculatedTotalFare = baseFare + priority + pickupWaiting + stopWaiting + waitAndReturnSurcharge;
-    // Use backend value if it is higher (e.g. after adjustment), otherwise use calculated
-    const totalFare = ride.finalCalculatedFare && ride.finalCalculatedFare > calculatedTotalFare ? ride.finalCalculatedFare : calculatedTotalFare;
-
-    return (
-      <div className="text-center my-4 p-3 border rounded-md bg-muted/30">
-        <div className="inline-block px-8 py-3 rounded-full bg-green-500 border-2 border-green-700 mb-2 shadow-lg">
-          <p className="text-3xl font-bold text-white">£{(totalFare ?? 0).toFixed(2)}</p>
-          <p className="text-xs text-white font-semibold">Total Fare Collected</p>
-        </div>
-        <Separator className="my-1.5" />
-        <div className="text-xs text-muted-foreground space-y-0.5 text-left">
-          <p>Base Journey Fare: £{baseFare.toFixed(2)}</p>
-          {priority > 0 && <p className="text-orange-600">Priority Fee: +£{priority.toFixed(2)}</p>}
-          {(pickupWaiting > 0 || stopWaiting > 0) && (
-            <div className="pl-2">
-              {pickupWaiting > 0 && <p className="text-yellow-600">Pickup Waiting Time: +£{pickupWaiting.toFixed(2)}</p>}
-              {stopWaiting > 0 && <p className="text-yellow-600">Stop(s) Waiting Time: +£{stopWaiting.toFixed(2)}</p>}
-            </div>
-          )}
-          {ride.waitAndReturn && waitAndReturnSurcharge > 0 && (
-            <p className="text-indigo-600">Wait & Return Surcharge: +£{waitAndReturnSurcharge.toFixed(2)}</p>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-6 p-2 md:p-4 max-w-2xl mx-auto">
