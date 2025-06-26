@@ -187,9 +187,7 @@ export function DriverAccountHealthCard() {
             ) : null}
             <span className="text-xs text-muted-foreground">Limit: £{creditAccount.creditLimit.toFixed(2)}</span>
           </div>
-        ) : (
-          <div className="flex items-center justify-center h-10 text-xs text-muted-foreground">No credit account found.</div>
-        )}
+        ) : null}
         {/* End Credit Account Balance Section */}
       </CardContent>
       <CardFooter className="pt-2">

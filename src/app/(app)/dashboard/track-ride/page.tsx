@@ -825,18 +825,10 @@ export default function MyActiveRidePage() {
         type: 'pickup'
       });
     }
-    if (activeRide.dropoffLocation && isActiveRideState) {
-      markers.push({
-        position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
-        title: `Dropoff: ${activeRide.dropoffLocation.address}`,
-        label: { text: "D", color: "white", fontWeight: "bold" }
-      });
-       labels.push({
-        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
-        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
-        type: 'dropoff'
-      });
-    }
+    // Only show dropoff label if driver is on the final leg (after all stops are completed)
+    // Hide dropoff label until all stops are completed; only show Stop 1, Stop 2, ... labels after pickup or in progress
+    // No dropoff label should be rendered in this view
+
     activeRide.stops?.forEach((stop, index) => {
       if(stop.latitude && stop.longitude && isActiveRideState) { 
         markers.push({

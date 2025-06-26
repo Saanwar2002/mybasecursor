@@ -513,8 +513,9 @@ const mapDisplayElements = useMemo(() => {
             }
         });
 
+        // Show dropoff label only for the final leg (when localCurrentLegIndex === dropoffLegIndex)
         if (activeRide.dropoffLocation) {
-            if (currentLegIdx !== undefined && dropoffLegIndex >= currentLegIdx) {
+            if (localCurrentLegIndex === dropoffLegIndex) {
                 markers.push({
                     position: {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude},
                     title: `Dropoff: ${activeRide.dropoffLocation.address}`,
@@ -524,12 +525,11 @@ const mapDisplayElements = useMemo(() => {
                     position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
                     content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
                     type: 'dropoff',
-                    variant: (isAtPickup && localCurrentLegIndex === 0 && journeyPoints.length === 2 && dropoffLegIndex === 1) ||
-                               (localCurrentLegIndex === dropoffLegIndex)
-                               ? 'default' : 'compact'
+                    variant: 'default'
                 });
             }
         }
+
     }
     return { markers, labels };
   }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
