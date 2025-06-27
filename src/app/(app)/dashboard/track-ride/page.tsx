@@ -954,7 +954,7 @@ export default function MyActiveRidePage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live. Ride ID: {activeRide?.displayBookingId || activeRide?.id || "N/A"}</CardDescription> </CardHeader> </Card>
-      {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride">Book a New Ride</Link> </Button> </CardContent> </Card> )}
+      {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"> <Link href="/dashboard/book-ride"><span>Book a New Ride</span></Link> </Button> </CardContent> </Card> )}
       {activeRide && (
         <>
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
@@ -1087,7 +1087,11 @@ export default function MyActiveRidePage() {
                   </Alert>
                 )}
                 
-                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"> <Link href="/dashboard/chat"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link> </Button> </div> )}
+                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto">
+  <Link href="/dashboard/chat" className="flex items-center">
+    <MessageSquare className="w-4 h-4 mr-1.5" /> Chat
+  </Link>
+</Button> </div> )}
                 <Separator />
                 <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> 
                   
@@ -1137,7 +1141,7 @@ export default function MyActiveRidePage() {
               }}
               disabled={!!actionLoading[activeRide?.id || '']}
             >
-              <XCircle className="mr-2 h-4 w-4" /> Cancel Ride
+              <span className="flex items-center"><XCircle className="mr-2 h-4 w-4" /> Cancel Ride</span>
             </Button>
           </AlertDialogTrigger>
         )}

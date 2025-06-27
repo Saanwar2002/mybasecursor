@@ -68,7 +68,7 @@ export default function FavoriteLocationsPage() {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
       version: "weekly",
-      libraries: ["geocoding", "maps", "marker", "places"], 
+      libraries: ["geocoding", "maps", "marker", "places", "geometry", "routes"], 
     });
 
     loader.load().then((google) => {
