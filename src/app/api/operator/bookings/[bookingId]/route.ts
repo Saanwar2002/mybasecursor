@@ -280,6 +280,46 @@ export async function POST(request: NextRequest, context: PostContext) {
       if (updateDataFromPayload.driverId && !existingBookingDbData?.driverId) {
         updatePayloadFirestore.dispatchMethod = 'manual_operator';
         console.log(`API POST /api/operator/bookings/${bookingIdForHandler}: Manual assignment by operator - setting dispatchMethod to 'manual_operator'.`);
+        // --- REAL-TIME RIDE OFFER LOGIC START ---
+        try {
+          const rideOffer = {
+            bookingId: bookingIdForHandler,
+            driverId: updateDataFromPayload.driverId,
+            offerDetails: {
+              pickupLocation: existingBookingDbData.pickupLocation?.address,
+              pickupCoords: {
+                lat: existingBookingDbData.pickupLocation?.latitude,
+                lng: existingBookingDbData.pickupLocation?.longitude
+              },
+              dropoffLocation: existingBookingDbData.dropoffLocation?.address,
+              dropoffCoords: {
+                lat: existingBookingDbData.dropoffLocation?.latitude,
+                lng: existingBookingDbData.dropoffLocation?.longitude
+              },
+              stops: existingBookingDbData.stops || [],
+              fareEstimate: existingBookingDbData.fareEstimate,
+              passengerCount: existingBookingDbData.passengers,
+              passengerId: existingBookingDbData.passengerId,
+              passengerName: existingBookingDbData.passengerName,
+              passengerPhone: existingBookingDbData.customerPhoneNumber,
+              notes: existingBookingDbData.driverNotes,
+              paymentMethod: existingBookingDbData.paymentMethod,
+              isPriorityPickup: existingBookingDbData.isPriorityPickup,
+              priorityFeeAmount: existingBookingDbData.priorityFeeAmount,
+              distanceMiles: existingBookingDbData.distanceMiles,
+              requiredOperatorId: existingBookingDbData.originatingOperatorId,
+              accountJobPin: existingBookingDbData.accountJobPin
+            },
+            status: 'pending',
+            createdAt: serverTimestamp(),
+            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30000)) // 30s expiry
+          };
+          await addDoc(collection(db, 'rideOffers'), rideOffer);
+          console.log(`Ride offer created for driver ${updateDataFromPayload.driverId} for booking ${bookingIdForHandler}`);
+        } catch (offerErr) {
+          console.error('Failed to create ride offer document:', offerErr);
+        }
+        // --- REAL-TIME RIDE OFFER LOGIC END ---
       }
 
       if (updateDataFromPayload.action === 'notify_arrival') {

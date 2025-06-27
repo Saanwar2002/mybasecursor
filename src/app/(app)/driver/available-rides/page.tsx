@@ -42,7 +42,7 @@ import { Input } from '@/components/ui/input';
 import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from '@/components/ui/separator';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
@@ -390,6 +390,24 @@ useEffect(() => {
 
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
   const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
+
+// Real-time ride offer subscription
+useEffect(() => {
+  if (!driverUser?.id || pauseOffers === true) return;
+  const offersQuery = query(
+    collection(db, 'rideOffers'),
+    where('driverId', '==', driverUser.id),
+    where('status', '==', 'pending'),
+  );
+  const unsubscribe = onSnapshot(offersQuery, (snapshot) => {
+    const offers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (offers.length > 0) {
+      setCurrentOfferDetails(offers[0].offerDetails);
+      setIsOfferModalOpen(true);
+    }
+  });
+  return () => unsubscribe();
+}, [driverUser?.id, pauseOffers]);
 
 // Sync polling with pauseOffers toggle
 useEffect(() => {
