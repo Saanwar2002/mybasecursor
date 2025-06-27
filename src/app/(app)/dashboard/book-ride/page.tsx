@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1890,7 +1889,10 @@ const handleProceedToConfirmation = async () => {
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="outline" size="sm" className="flex items-center gap-1" disabled={isLoadingSavedRoutes || savedRoutes.length === 0}>
-                            <List className="w-3.5 h-3.5" /> Load Route
+                            <div className="flex items-center gap-1">
+                                <List className="w-3.5 h-3.5" />
+                                Load Route
+                            </div>
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-80 p-0">
@@ -2189,12 +2191,14 @@ const handleProceedToConfirmation = async () => {
                             <FormLabel>Pickup Date</FormLabel>
                             <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                             <PopoverTrigger asChild>
-                                <FormControl>
-                                <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                              <FormControl>
+                                <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}> 
+                                  <span className="flex items-center justify-between w-full">
                                     {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </span>
                                 </Button>
-                                </FormControl>
+                              </FormControl>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
                                 <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); setIsDatePickerOpen(false); }} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus />

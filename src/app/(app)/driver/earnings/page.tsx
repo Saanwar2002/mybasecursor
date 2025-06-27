@@ -40,7 +40,7 @@ export default function DriverEarningsPage() {
     if (!user || !db) return;
     // Assume earnings are stored in 'earnings' collection with driverId field
     const earningsRef = collection(db, 'earnings');
-    let q = query(earningsRef, where('driverId', '==', user.id));
+    const q = query(earningsRef, where('driverId', '==', user.id));
     // Optionally, filter by timeRange here
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const earningsData: Earning[] = snapshot.docs.map(docSnap => {

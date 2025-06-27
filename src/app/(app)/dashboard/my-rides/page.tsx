@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -191,7 +190,7 @@ export default function MyRidesPage() {
       prevRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r)
     );
 
-    let toastDescription = `You rated your ride ${currentRating} stars. (Ride ID: ${selectedRideForRating.displayBookingId || selectedRideForRating.id})`;
+    const toastDescription = `You rated your ride ${currentRating} stars. (Ride ID: ${selectedRideForRating.displayBookingId || selectedRideForRating.id})`;
     
     toast({
       title: "Rating Submitted (Mock)",
@@ -340,8 +339,10 @@ export default function MyRidesPage() {
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" size="sm" className="bg-destructive/80 hover:bg-destructive text-destructive-foreground" disabled={actionLoading[`block-${ride.driverId}`]}>
-                        {actionLoading[`block-${ride.driverId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
-                        Block Driver
+                        <span className="flex items-center">
+                          {actionLoading[`block-${ride.driverId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
+                          Block Driver
+                        </span>
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

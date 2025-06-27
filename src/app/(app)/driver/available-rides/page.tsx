@@ -1054,7 +1054,7 @@ const mapDisplayElements = useMemo(() => {
     const dropoff = mockHuddersfieldLocations[randomDropoffIndex];
     const passengerPhoneNumber = `+447700900${Math.floor(Math.random() * 900) + 100}`;
 
-    let stopsForOffer: Array<{ address: string; coords: { lat: number; lng: number } }> = [];
+    const stopsForOffer: Array<{ address: string; coords: { lat: number; lng: number } }> = [];
     const numberOfStops = Math.random() < 0.5 ? 0 : (Math.random() < 0.7 ? 1 : 2);
     
     if (numberOfStops >= 1) {
@@ -1353,7 +1353,7 @@ const mapDisplayElements = useMemo(() => {
     console.log(`actionLoading for ${rideId} SET TO TRUE`);
 
     let toastMessage = ""; let toastTitle = "";
-    let payload: any = { action: actionType };
+    const payload: any = { action: actionType };
 
     if (['notify_arrival', 'start_ride', 'proceed_to_next_leg'].includes(actionType) && driverLocation) {
       payload.driverCurrentLocation = driverLocation;
@@ -2627,7 +2627,7 @@ const mapDisplayElements = useMemo(() => {
                   const isCurrentLeg = index === localCurrentLegIndex;
                   const isPastLeg = index < localCurrentLegIndex;
                   let legType = "";
-                  let Icon = MapPin;
+                  const Icon = MapPin;
                   let iconColor = "text-muted-foreground";
 
                   if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }

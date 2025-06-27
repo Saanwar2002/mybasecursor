@@ -98,7 +98,7 @@ export default function DriverRideHistoryPage() {
     setIsLoading(true);
     setError(null);
     const ridesRef = collection(db, 'rides');
-    let q = query(ridesRef, where('driverId', '==', driverUser.id));
+    const q = query(ridesRef, where('driverId', '==', driverUser.id));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ridesData: DriverRide[] = snapshot.docs.map(docSnap => {
         const data = docSnap.data();

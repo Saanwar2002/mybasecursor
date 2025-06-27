@@ -231,7 +231,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       id: `guest-${role}-${Date.now().toString().slice(-6)}`, 
       email: `guest.${role}@example.com`,
       phoneVerified: true,
-      status: 'Active' as 'Active',
+      status: 'Active' as const,
       phoneVerificationDeadline: null,
       phoneNumber: `+155501${Math.floor(Math.random()*90)+10}`,
       avatarUrl: null,

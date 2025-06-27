@@ -175,8 +175,8 @@ export async function GET(request: NextRequest) {
     console.error(`Error in /api/driver/active-ride for driverId ${driverId}:`, error);
 
     let errorMessage = 'An unknown error occurred while fetching the active ride.';
-    let errorDetails = error instanceof Error ? error.message : String(error);
-    let statusCode = 500;
+    const errorDetails = error instanceof Error ? error.message : String(error);
+    const statusCode = 500;
 
     if (error instanceof Error) {
       errorMessage = error.message;
