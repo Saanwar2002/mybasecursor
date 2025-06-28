@@ -1,4 +1,3 @@
-
 "use client"; 
 
 import Link from 'next/link';
@@ -13,6 +12,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useOperators } from '@/hooks/useOperators';
+import { useNearbyDrivers } from '@/hooks/useNearbyDrivers';
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -20,13 +21,6 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 });
 
 const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.7830 };
-
-const MOCK_OPERATORS = [
-  { id: 'op1', name: 'City Taxis' },
-  { id: 'op2', name: 'Speedy Cabs' },
-  { id: 'op3', name: 'Local Cars' },
-  { id: 'op4', name: 'Alpha Cars' },
-];
 
 type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
@@ -55,7 +49,8 @@ export default function PassengerDashboardPage() {
   const [bookingPreference, setBookingPreference] = useState<'app_chooses' | 'specific_operator'>('app_chooses');
   const [selectedOperator, setSelectedOperator] = useState<string>('');
   const [mapBusynessLevel, setMapBusynessLevel] = useState<MapBusynessLevel>('idle');
-  const [mockDriverMarkers, setMockDriverMarkers] = useState<MapMarker[]>([]);
+  const { operators, loading: loadingOperators, error: errorOperators } = useOperators();
+  const { drivers, loading: loadingDrivers, error: errorDrivers } = useNearbyDrivers();
 
   const bookRideHref = bookingPreference === 'specific_operator' && selectedOperator
     ? `/dashboard/book-ride?operator_preference=${encodeURIComponent(selectedOperator)}`
@@ -69,24 +64,6 @@ export default function PassengerDashboardPage() {
       setMapBusynessLevel(busynessLevels[currentIndex]);
     }, 4000); 
     return () => clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    // Generate mock driver markers
-    const generatedMarkers: MapMarker[] = [];
-    const numMarkers = Math.floor(Math.random() * 3) + 3; // 3 to 5 markers
-    for (let i = 0; i < numMarkers; i++) {
-      generatedMarkers.push({
-        position: {
-          lat: huddersfieldCenter.lat + (Math.random() - 0.5) * 0.02, // Small offset
-          lng: huddersfieldCenter.lng + (Math.random() - 0.5) * 0.03, // Small offset
-        },
-        title: `Available Taxi ${i + 1}`,
-        iconUrl: driverCarIconDataUrl,
-        iconScaledSize: { width: 30, height: 45 },
-      });
-    }
-    setMockDriverMarkers(generatedMarkers);
   }, []);
 
   const mapContainerClasses = cn(
@@ -146,7 +123,12 @@ export default function PassengerDashboardPage() {
                       <SelectValue placeholder="Select a taxi operator" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MOCK_OPERATORS.map(op => (
+                      {loadingOperators && <div className="p-2 text-center text-muted-foreground">Loading operators...</div>}
+                      {errorOperators && <div className="p-2 text-center text-destructive">Failed to load operators</div>}
+                      {!loadingOperators && !errorOperators && operators.length === 0 && (
+                        <div className="p-2 text-center text-muted-foreground">No operators found</div>
+                      )}
+                      {!loadingOperators && !errorOperators && operators.map(op => (
                         <SelectItem key={op.id} value={op.name}>{op.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -168,10 +150,25 @@ export default function PassengerDashboardPage() {
             </Button>
           </div>
           <div className={mapContainerClasses}>
+            {loadingDrivers && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+                <span className="text-muted-foreground">Loading drivers...</span>
+              </div>
+            )}
+            {errorDrivers && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+                <span className="text-destructive">Failed to load drivers</span>
+              </div>
+            )}
             <GoogleMapDisplay
               center={huddersfieldCenter}
               zoom={13}
-              markers={mockDriverMarkers}
+              markers={drivers.map(driver => ({
+                position: driver.location,
+                title: driver.name || 'Available Taxi',
+                iconUrl: driverCarIconDataUrl,
+                iconScaledSize: { width: 30, height: 45 },
+              }))}
               className="w-full h-full"
               disableDefaultUI={true}
             />

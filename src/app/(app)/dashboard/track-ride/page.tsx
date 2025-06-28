@@ -40,6 +40,7 @@ import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescr
 import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { formatAddressForMapLabel } from '@/lib/utils';
+import { usePassengerBookings } from '@/hooks/usePassengerBookings';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -206,9 +207,53 @@ function getDistanceInMiles(coords1: google.maps.LatLngLiteral | null, coords2: 
 export default function MyActiveRidePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const activeStatuses = useMemo(() => [
+    'pending_assignment',
+    'driver_assigned',
+    'arrived_at_pickup',
+    'in_progress',
+    'pending_driver_wait_and_return_approval',
+    'in_progress_wait_and_return',
+  ], []);
+  const { bookings, loading, error } = usePassengerBookings(user?.id, activeStatuses);
+
+  // Map booking to ActiveRide shape for rendering, supporting both snake_case and camelCase
+  const mappedActiveRide = bookings.length > 0 ? {
+    id: bookings[0].id,
+    displayBookingId: bookings[0].displayBookingId || bookings[0].display_booking_id || bookings[0].id,
+    originatingOperatorId: bookings[0].originatingOperatorId || bookings[0].originating_operator_id || '',
+    passengerName: bookings[0].passengerName || bookings[0].passenger_name || 'N/A',
+    pickupLocation: bookings[0].pickupLocation || bookings[0].pickup_location || { address: 'N/A', latitude: 0, longitude: 0 },
+    dropoffLocation: bookings[0].dropoffLocation || bookings[0].dropoff_location || { address: 'N/A', latitude: 0, longitude: 0 },
+    stops: bookings[0].stops || bookings[0].stops_list || [],
+    vehicleType: bookings[0].vehicleType || bookings[0].vehicle_type || 'N/A',
+    passengers: bookings[0].passengers || bookings[0].num_passengers || 1,
+    driverId: bookings[0].driverId || bookings[0].driver_id || '',
+    fareEstimate: bookings[0].fareEstimate || bookings[0].fare_estimate || 0,
+    status: bookings[0].status || 'N/A',
+    driver: bookings[0].driverName || bookings[0].driver_name || '',
+    driverAvatar: bookings[0].driverAvatar || bookings[0].driver_avatar || '',
+    driverVehicleDetails: bookings[0].driverVehicleDetails || bookings[0].driver_vehicle_details || '',
+    isPriorityPickup: bookings[0].isPriorityPickup || bookings[0].is_priority_pickup || false,
+    priorityFeeAmount: bookings[0].priorityFeeAmount || bookings[0].priority_fee_amount || 0,
+    isSurgeApplied: bookings[0].isSurgeApplied || bookings[0].is_surge_applied || false,
+    paymentMethod: bookings[0].paymentMethod || bookings[0].payment_method || 'N/A',
+    bookingTimestamp: bookings[0].bookingTimestamp || bookings[0].booking_timestamp || null,
+    scheduledPickupAt: bookings[0].scheduledPickupAt || bookings[0].scheduled_pickup_at || null,
+    notifiedPassengerArrivalTimestamp: bookings[0].notifiedPassengerArrivalTimestamp || bookings[0].notified_passenger_arrival_timestamp || null,
+    passengerAcknowledgedArrivalTimestamp: bookings[0].passengerAcknowledgedArrivalTimestamp || bookings[0].passenger_acknowledged_arrival_timestamp || null,
+    rideStartedAt: bookings[0].rideStartedAt || bookings[0].ride_started_at || null,
+    driverCurrentLocation: bookings[0].driverCurrentLocation || bookings[0].driver_current_location || null,
+    driverEtaMinutes: bookings[0].driverEtaMinutes || bookings[0].driver_eta_minutes || null,
+    waitAndReturn: bookings[0].waitAndReturn || bookings[0].wait_and_return || false,
+    estimatedAdditionalWaitTimeMinutes: bookings[0].estimatedAdditionalWaitTimeMinutes || bookings[0].estimated_additional_wait_time_minutes || null,
+    accountJobPin: bookings[0].accountJobPin || bookings[0].account_job_pin || '',
+    driverCurrentLegIndex: bookings[0].driverCurrentLegIndex || bookings[0].driver_current_leg_index || 0,
+    currentLegEntryTimestamp: bookings[0].currentLegEntryTimestamp || bookings[0].current_leg_entry_timestamp || null,
+    completedStopWaitCharges: bookings[0].completedStopWaitCharges || bookings[0].completed_stop_wait_charges || {},
+  } : null;
+
+  const activeRide = mappedActiveRide;
 
   const [rideToEditDetails, setRideToEditDetails] = useState<ActiveRide | null>(null);
   const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
@@ -305,43 +350,7 @@ export default function MyActiveRidePage() {
   }, [editStopsFields, editDetailsForm]);
 
 
-  const fetchActiveRide = useCallback(async () => {
-    if (!user) return;
-    setError(null);
-    try {
-      const response = await fetch(`/api/bookings/my-active-ride?passengerId=${user.id}`);
-      if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch active ride: ${response.status}`})); throw new Error(errorData.details || errorData.message); }
-      const data: ActiveRide | null = await response.json();
-      setActiveRide(data);
-    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error fetching active ride."; setError(message); toast({ title: "Error Fetching Active Ride", description: message, variant: "destructive" });
-    } finally { setIsLoading(false); }
-  }, [user, toast]);
-
   useEffect(() => {
-    if (user) {
-      fetchActiveRide();
-      const rideRefreshInterval = setInterval(fetchActiveRide, 30000);
-      return () => clearInterval(rideRefreshInterval);
-    } else {
-      setIsLoading(false);
-    }
-  }, [user, fetchActiveRide]);
-
-  useEffect(() => {
-    if (activeRide && (activeRide.status === 'driver_assigned' || activeRide.status === 'arrived_at_pickup')) {
-      const interval = setInterval(() => {
-        setActiveRide(prev => {
-          if (!prev) return null;
-          let newEta = prev.driverEtaMinutes ? Math.max(0, prev.driverEtaMinutes - 1) : (Math.floor(Math.random() * 5) + 2);
-          if (prev.status === 'arrived_at_pickup') newEta = 0;
-          return { ...prev, driverEtaMinutes: newEta };
-        });
-      }, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [activeRide]);
-
- useEffect(() => {
     if (passengerWaitingTimerIntervalRef.current) {
       clearInterval(passengerWaitingTimerIntervalRef.current);
       passengerWaitingTimerIntervalRef.current = null;
@@ -662,7 +671,7 @@ export default function MyActiveRidePage() {
         if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || 'Failed to update booking.'); }
         const updatedRideDataFromServer = await response.json();
         
-        setActiveRide(prev => prev ? { 
+        setRideToEditDetails(prev => prev ? { 
             ...prev,  
             pickupLocation: updatedRideDataFromServer.pickupLocation, 
             dropoffLocation: updatedRideDataFromServer.dropoffLocation, 
@@ -677,7 +686,7 @@ export default function MyActiveRidePage() {
   };
 
   const handleAcknowledgeArrival = async (rideId: string) => {
-    if (!user || !activeRide) return;
+    if (!user || !rideToEditDetails) return;
     try {
       const response = await fetch(`/api/operator/bookings/${rideId}`, {
         method: 'POST',
@@ -689,7 +698,7 @@ export default function MyActiveRidePage() {
         throw new Error(errorData.message || "Failed to acknowledge arrival.");
       }
       const updatedBooking = await response.json();
-      setActiveRide(prev => prev ? { ...prev, passengerAcknowledgedArrivalTimestamp: updatedBooking.booking.passengerAcknowledgedArrivalTimestamp, status: 'arrived_at_pickup' } : null);
+      setRideToEditDetails(prev => prev ? { ...prev, passengerAcknowledgedArrivalTimestamp: updatedBooking.booking.passengerAcknowledgedArrivalTimestamp, status: 'arrived_at_pickup' } : null);
       toast({title: "Arrival Acknowledged!", description: "Your driver has been notified you are aware they have arrived."});
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error.";
@@ -698,7 +707,7 @@ export default function MyActiveRidePage() {
   };
 
   const handleRequestWaitAndReturn = async () => {
-    if (!activeRide || !user) return;
+    if (!rideToEditDetails || !user) return;
     const waitTimeMinutes = parseInt(wrRequestDialogMinutes, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes < 0) {
       toast({ title: "Invalid Wait Time", description: "Please enter a valid number of minutes (0 or more).", variant: "destructive" });
@@ -706,7 +715,7 @@ export default function MyActiveRidePage() {
     }
     setIsRequestingWR(true);
     try {
-      const response = await fetch(`/api/operator/bookings/${activeRide.id}`, {
+      const response = await fetch(`/api/operator/bookings/${rideToEditDetails.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -719,7 +728,7 @@ export default function MyActiveRidePage() {
         throw new Error(errorData.message || "Failed to request Wait & Return.");
       }
       const updatedBooking = await response.json();
-      setActiveRide(updatedBooking.booking); 
+      setRideToEditDetails(updatedBooking.booking); 
       toast({ title: "Wait & Return Requested", description: "Your request has been sent to the driver for confirmation." });
       setIsWRRequestDialogOpen(false);
     } catch (error) {
@@ -744,7 +753,7 @@ export default function MyActiveRidePage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to cancel ride.');
       }
-      toast({ title: "Ride Cancelled", description: `Your ride ${activeRide?.displayBookingId || currentRideId} has been cancelled.` });
+      toast({ title: "Ride Cancelled", description: `Your ride ${rideToEditDetails?.displayBookingId || currentRideId} has been cancelled.` });
       setCancellationSuccess(true); 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error cancelling ride.";
@@ -795,28 +804,29 @@ export default function MyActiveRidePage() {
     }
   };
 
-  const mapElements = useMemo(() => {
+  const mapElements = useMemo<{
+    markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }>;
+    labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }>;
+  }>(() => {
     const labels: Array<{ position: google.maps.LatLngLiteral; content: string; type: LabelType }> = [];
     const markers: Array<{ position: google.maps.LatLngLiteral; title: string; label?: string | google.maps.MarkerLabel; iconUrl?: string; iconScaledSize?: {width: number, height: number} }> = [];
-
     if (!activeRide) return { markers, labels };
     const isActiveRideState = activeRide.status && !['completed', 'cancelled', 'cancelled_by_driver', 'cancelled_no_show'].includes(activeRide.status.toLowerCase());
 
-
     if (activeRide.driverCurrentLocation) {
-        markers.push({ 
-            position: activeRide.driverCurrentLocation, 
-            title: "Your Driver", 
-            iconUrl: driverCarIconDataUrl,
-            iconScaledSize: { width: 32, height: 32 }
-        });
+      markers.push({
+        position: activeRide.driverCurrentLocation,
+        title: "Your Driver",
+        iconUrl: driverCarIconDataUrl,
+        iconScaledSize: { width: 32, height: 32 }
+      });
     }
 
     if (activeRide.pickupLocation) {
       markers.push({
-        position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
+        position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
         title: `Pickup: ${activeRide.pickupLocation.address}`,
-        label: { text: "P", color: "white", fontWeight: "bold"}
+        label: { text: "P", color: "white", fontWeight: "bold" }
       });
       labels.push({
         position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
@@ -824,35 +834,39 @@ export default function MyActiveRidePage() {
         type: 'pickup'
       });
     }
-    // Only show dropoff label if driver is on the final leg (after all stops are completed)
-    // Hide dropoff label until all stops are completed; only show Stop 1, Stop 2, ... labels after pickup or in progress
-    // No dropoff label should be rendered in this view
 
-    activeRide.stops?.forEach((stop, index) => {
-      if(stop.latitude && stop.longitude && isActiveRideState) { 
+    // Add stops
+    (activeRide.stops as LocationPoint[] | undefined)?.forEach((stop: LocationPoint, index: number) => {
+      if (stop.latitude && stop.longitude && isActiveRideState) {
         markers.push({
-          position: {lat: stop.latitude, lng: stop.longitude},
-          title: `Stop ${index+1}: ${stop.address}`,
-          label: { text: `S${index+1}`, color: "white", fontWeight: "bold" }
+          position: { lat: stop.latitude, lng: stop.longitude },
+          title: `Stop ${index + 1}: ${stop.address}`,
+          label: { text: `S${index + 1}`, color: "white", fontWeight: "bold" }
         });
         labels.push({
-            position: { lat: stop.latitude, lng: stop.longitude },
-            content: formatAddressForMapLabel(stop.address, `Stop ${index+1}`),
-            type: 'stop'
+          position: { lat: stop.latitude, lng: stop.longitude },
+          content: formatAddressForMapLabel(stop.address, `Stop ${index + 1}`),
+          type: 'stop'
         });
       }
     });
+
+    // Optionally, add dropoff marker/label here if you want it always visible
+    if (activeRide.dropoffLocation) {
+      markers.push({
+        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+        title: `Dropoff: ${activeRide.dropoffLocation.address}`,
+        label: { text: "D", color: "white", fontWeight: "bold" }
+      });
+      labels.push({
+        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
+        content: formatAddressForMapLabel(activeRide.dropoffLocation.address, 'Dropoff'),
+        type: 'dropoff'
+      });
+    }
+
     return { markers, labels };
   }, [activeRide]);
-
-  const mapCenter = useMemo(() => {
-    if (activeRide?.driverCurrentLocation) return activeRide.driverCurrentLocation;
-    if (activeRide?.status === 'driver_assigned' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
-    if (activeRide?.status === 'arrived_at_pickup' && activeRide.pickupLocation) return {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude};
-    if (activeRide?.status.toLowerCase().includes('in_progress') && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    if (activeRide?.status === 'completed' && activeRide.dropoffLocation) return {lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude};
-    return driverLocation || huddersfieldCenterGoogle;
-  }, [activeRide, driverLocation]);
 
   useEffect(() => {
     if (!isEditDetailsDialogOpen || !rideToEditDetails) {
@@ -911,28 +925,28 @@ export default function MyActiveRidePage() {
   }, [isEditDetailsDialogOpen, dialogPickupCoords, dialogDropoffCoords, dialogStopAutocompleteData, rideToEditDetails, editDetailsForm]);
 
 
-  if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  if (error && !activeRide) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={fetchActiveRide} variant="outline" className="mt-4">Try Again</Button></div>;
+  if (loading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  if (error && !rideToEditDetails) return <div className="text-center py-10 text-destructive"><AlertTriangle className="mx-auto h-12 w-12 mb-2" /><p className="font-semibold">Error loading active ride:</p><p>{error}</p><Button onClick={() => {}} variant="outline" className="mt-4">Try Again</Button></div>;
 
   const renderAutocompleteSuggestions = ( suggestions: google.maps.places.AutocompletePrediction[], isFetchingSugg: boolean, isFetchingDet: boolean, inputValue: string, onSuggClick: (suggestion: google.maps.places.AutocompletePrediction) => void, fieldKey: string ) => ( <ScrollArea className="absolute z-20 w-full mt-1 bg-card border rounded-md shadow-lg max-h-60"> <div className="space-y-1 p-1"> {isFetchingSugg && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</div>} {isFetchingDet && <div className="p-2 text-sm text-muted-foreground flex items-center justify-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</div>} {!isFetchingSugg && !isFetchingDet && suggestions.length === 0 && inputValue.length >= 2 && <div className="p-2 text-sm text-muted-foreground">No suggestions.</div>} {!isFetchingSugg && !isFetchingDet && suggestions.map((s) => { console.log(`[RenderSuggestions DEBUG for ${fieldKey}] Rendering suggestion: ${s.description}`); return( <div key={`${fieldKey}-${s.place_id}`} className="p-2 text-sm hover:bg-muted cursor-pointer rounded-sm" onMouseDown={() => onSuggClick(s)}>{s.description}</div> );})} </div> </ScrollArea> );
-  const vehicleTypeDisplay = activeRide?.vehicleType ? activeRide.vehicleType.charAt(0).toUpperCase() + activeRide.vehicleType.slice(1).replace(/_/g, ' ')  : 'Vehicle N/A';
+  const vehicleTypeDisplay = activeRide?.vehicleType || 'Vehicle N/A';
   const statusDisplay = activeRide?.status ? activeRide.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Status N/A';
   const pickupAddressDisplay = activeRide?.pickupLocation?.address || 'Pickup N/A';
   const dropoffAddressDisplay = activeRide?.dropoffLocation?.address || 'Dropoff N/A';
   
-  let baseFareWithWRSurcharge = activeRide?.fareEstimate || 0;
+  let baseFareWithWRSurcharge = rideToEditDetails?.fareEstimate || 0;
   let finalFareDisplay = "";
   let finalFareSuffix = "";
 
-  if (activeRide) {
-    if (activeRide.waitAndReturn) {
-      const wrBaseFare = (activeRide.fareEstimate || 0) * 1.70;
-      const additionalWaitCharge = Math.max(0, (activeRide.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE;
+  if (rideToEditDetails) {
+    if (rideToEditDetails.waitAndReturn) {
+      const wrBaseFare = (rideToEditDetails.fareEstimate || 0) * 1.70;
+      const additionalWaitCharge = Math.max(0, (rideToEditDetails.estimatedAdditionalWaitTimeMinutes || 0) - FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR) * PASSENGER_STOP_WAITING_CHARGE_PER_MINUTE;
       baseFareWithWRSurcharge = wrBaseFare + additionalWaitCharge;
       finalFareSuffix = " (Base + W&R)";
     }
 
-    const totalIncludingPriority = baseFareWithWRSurcharge + (activeRide.isPriorityPickup && activeRide.priorityFeeAmount ? activeRide.priorityFeeAmount : 0) + currentPassengerWaitingChargePickup + (currentPassengerStopTimerDisplay?.charge || 0);
+    const totalIncludingPriority = baseFareWithWRSurcharge + (rideToEditDetails.isPriorityPickup && rideToEditDetails.priorityFeeAmount ? rideToEditDetails.priorityFeeAmount : 0) + currentPassengerWaitingChargePickup + (currentPassengerStopTimerDisplay?.charge || 0);
     finalFareDisplay = `£${totalIncludingPriority.toFixed(2)}`;
   } else {
     finalFareDisplay = "£0.00";
@@ -940,25 +954,36 @@ export default function MyActiveRidePage() {
 
 
   const paymentMethodDisplay = 
-    activeRide?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)' 
-    : activeRide?.paymentMethod === 'cash' ? 'Cash to Driver' 
-    : activeRide?.paymentMethod === 'account' ? 'Account (Operator will bill)'
+    rideToEditDetails?.paymentMethod === 'card' ? 'Card (pay driver directly with your card)' 
+    : rideToEditDetails?.paymentMethod === 'cash' ? 'Cash to Driver' 
+    : rideToEditDetails?.paymentMethod === 'account' ? 'Account (Operator will bill)'
     : 'Payment N/A';
 
   const isEditingDisabled = activeRide?.status !== 'pending_assignment';
   
-  const journeyLegCount = (activeRide?.stops?.length || 0) + 2; 
+  const journeyLegCount = (rideToEditDetails?.stops?.length || 0) + 2; 
 
+  console.log('DEBUG activeRide:', activeRide);
+
+  const bookedTimeDisplay = activeRide?.bookingTimestamp
+    ? new Date(activeRide.bookingTimestamp.seconds * 1000).toLocaleString()
+    : 'N/A';
+  const fareDisplay = activeRide?.fareEstimate != null
+    ? `£${Number(activeRide.fareEstimate).toFixed(2)}`
+    : 'Fare N/A';
+  const paymentDisplay = activeRide?.paymentMethod
+    ? activeRide.paymentMethod.charAt(0).toUpperCase() + activeRide.paymentMethod.slice(1)
+    : 'Payment N/A';
 
   return (
     <div className="space-y-6">
       <Card className="shadow-lg"> <CardHeader> <CardTitle className="text-3xl font-headline flex items-center gap-2"><MapPin className="w-8 h-8 text-primary" /> My Active Ride</CardTitle> <CardDescription>Track your current ride details and status live. Ride ID: {activeRide?.displayBookingId || activeRide?.id || "N/A"}</CardDescription> </CardHeader> </Card>
-      {!activeRide && !isLoading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"><Link href="/dashboard/book-ride"><span>Book a New Ride</span></Link></Button> </CardContent> </Card> )}
+      {!activeRide && !loading && ( <Card> <CardContent className="pt-6 text-center text-muted-foreground"> <p className="text-lg mb-4">You have no active rides at the moment.</p> <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground"><Link href="/dashboard/book-ride"><span>Book a New Ride</span></Link></Button> </CardContent> </Card> )}
       {activeRide && (
         <>
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-md border">
             <GoogleMapDisplay 
-              center={mapCenter} 
+              center={driverLocation} 
               zoom={14} 
               markers={mapElements.markers} 
               customMapLabels={mapElements.labels}
@@ -989,7 +1014,7 @@ export default function MyActiveRidePage() {
 
           <Card className="shadow-md">
             <CardHeader className="flex flex-row justify-between items-start gap-2">
-                <div> <CardTitle className="text-xl flex items-center gap-2"> <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay} </CardTitle> <CardDescription className="text-xs">{activeRide.scheduledPickupAt ? `Scheduled: ${formatDate(null, activeRide.scheduledPickupAt)}` : `Booked: ${formatDate(activeRide.bookingTimestamp)}`}</CardDescription> </div>
+                <div> <CardTitle className="text-xl flex items-center gap-2"> <Car className="w-5 h-5 text-primary" /> {vehicleTypeDisplay} </CardTitle> <CardDescription className="text-xs">{activeRide.scheduledPickupAt ? `Scheduled: ${formatDate(null, activeRide.scheduledPickupAt)}` : `Booked: ${bookedTimeDisplay}`}</CardDescription> </div>
                 <Badge variant={getStatusBadgeVariant(activeRide.status)} className={cn("text-xs sm:text-sm", getStatusBadgeClass(activeRide.status))}> {statusDisplay} </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -1088,18 +1113,20 @@ export default function MyActiveRidePage() {
                 
                 {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"><Link href="/dashboard/chat" className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link></Button> </div> )}
                 <Separator />
-                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address} </p> ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> 
+                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop: LocationPoint, index: number): JSX.Element => (
+  <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p>
+))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> 
                   
                   <div className="flex items-center gap-1.5 bg-green-600 text-white font-bold text-lg rounded-md px-3 py-1.5">
                     <DollarSign className="w-5 h-5 text-white" />
-                    <span>Fare: {finalFareDisplay}</span>
+                    <span>Fare: {fareDisplay}</span>
                     {activeRide.isSurgeApplied && (
                       <Badge variant="outline" className="ml-1.5 border-orange-300 text-orange-100 bg-orange-500/50">Surge</Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground pl-5">Booking ID: {activeRide.displayBookingId || activeRide.id}</p>
 
-                <div className="bg-primary/10 p-2 rounded-md border border-black/70 flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentMethodDisplay} </div> </div>
+                <div className="bg-primary/10 p-2 rounded-md border border-black/70 flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
             </CardContent>
              {activeRide.status === 'pending_assignment' && (
@@ -1121,7 +1148,7 @@ export default function MyActiveRidePage() {
           </Card>
         </>
       )}
-      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen) { setRideIdToCancel(null); if (cancellationSuccess) { setActiveRide(null); setCancellationSuccess(false); } } }}>
+      <AlertDialog open={showCancelConfirmationDialog} onOpenChange={(isOpen) => { setShowCancelConfirmationDialog(isOpen); if (!isOpen) { setRideIdToCancel(null); if (cancellationSuccess) { setCancellationSuccess(false); } } }}>
         {activeRide && activeRide.status === 'pending_assignment' && (
            <AlertDialogTrigger asChild>
             <Button

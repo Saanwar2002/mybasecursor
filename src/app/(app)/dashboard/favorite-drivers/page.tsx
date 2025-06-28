@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -8,6 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThumbsUp, Trash2, Car, Info, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useFavoriteDrivers } from '@/hooks/useFavoriteDrivers';
+import { useAuth } from '@/contexts/auth-context';
+import { db } from '@/lib/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 
 interface FavoriteDriver {
   id: string;
@@ -24,20 +27,28 @@ const mockFavoriteDrivers: FavoriteDriver[] = [
 
 export default function FavoriteDriversPage() {
   const { toast } = useToast();
-  const [favoriteDrivers, setFavoriteDrivers] = useState<FavoriteDriver[]>(mockFavoriteDrivers);
+  const { user } = useAuth();
   const [removingDriverId, setRemovingDriverId] = useState<string | null>(null);
+  const { favoriteDrivers, loading, error } = useFavoriteDrivers(user?.id);
 
-  const handleRemoveFavorite = (driverId: string) => {
-    setRemovingDriverId(driverId);
-    // Simulate API call
-    setTimeout(() => {
-      setFavoriteDrivers(prev => prev.filter(driver => driver.id !== driverId));
+  const handleRemoveFavorite = async (favId: string) => {
+    if (!user?.id || !db) return;
+    setRemovingDriverId(favId);
+    try {
+      await deleteDoc(doc(db, 'users', user.id, 'favoriteDrivers', favId));
       toast({
-        title: "Driver Removed (Mock)",
-        description: "The driver has been removed from your favorites.",
+        title: 'Driver Removed',
+        description: 'The driver has been removed from your favorites.',
       });
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to remove favorite driver.',
+        variant: 'destructive',
+      });
+    } finally {
       setRemovingDriverId(null);
-    }, 1000);
+    }
   };
 
   return (
@@ -62,7 +73,11 @@ export default function FavoriteDriversPage() {
         </AlertDescription>
       </Alert>
 
-      {favoriteDrivers.length === 0 ? (
+      {loading ? (
+        <Card><CardContent className="pt-6 text-center text-muted-foreground">Loading favorite drivers...</CardContent></Card>
+      ) : error ? (
+        <Card><CardContent className="pt-6 text-center text-destructive">Failed to load favorite drivers</CardContent></Card>
+      ) : favoriteDrivers.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
             <p>You haven't added any favorite drivers yet.</p>
@@ -74,13 +89,16 @@ export default function FavoriteDriversPage() {
             <Card key={driver.id} className="shadow-md hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center gap-4 pb-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={`https://placehold.co/48x48.png?text=${driver.avatarText}`} alt={driver.name} data-ai-hint="driver avatar" />
-                  <AvatarFallback>{driver.avatarText}</AvatarFallback>
+                  {driver.avatarUrl ? (
+                    <AvatarImage src={driver.avatarUrl} alt={driver.name || 'Driver'} data-ai-hint="driver avatar" />
+                  ) : (
+                    <AvatarFallback>{driver.name ? driver.name.split(' ').map(n => n[0]).join('') : 'DR'}</AvatarFallback>
+                  )}
                 </Avatar>
                 <div>
-                  <CardTitle className="text-lg">{driver.name}</CardTitle>
+                  <CardTitle className="text-lg">{driver.name || 'Driver'}</CardTitle>
                   <CardDescription className="text-xs flex items-center gap-1">
-                    <Car className="w-3 h-3"/> {driver.vehicleInfo}
+                    <Car className="w-3 h-3"/> {driver.vehicleInfo || ''}
                   </CardDescription>
                 </div>
               </CardHeader>

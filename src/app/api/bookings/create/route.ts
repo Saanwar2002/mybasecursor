@@ -1,4 +1,3 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -144,6 +143,11 @@ export async function POST(request: NextRequest) {
     }
     if (bookingData.preferredOperatorId) { 
         newBookingForFirestore.preferredOperatorId = bookingData.preferredOperatorId;
+    }
+
+    // Defensive: Always set status to 'pending_assignment' if not present
+    if (!('status' in newBookingForFirestore) || !newBookingForFirestore.status) {
+      newBookingForFirestore.status = 'pending_assignment';
     }
 
     const docRef = await addDoc(collection(db, 'bookings'), newBookingForFirestore);

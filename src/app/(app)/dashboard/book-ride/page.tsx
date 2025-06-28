@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, Wheelchair, LockKeyhole, Briefcase } from 'lucide-react';
+import { MapPin, Car, DollarSign, Users, Loader2, Zap, Route, PlusCircle, XCircle, Calendar as CalendarIcon, Clock, Star, StickyNote, Save, List, Trash2, User as UserIcon, Home as HomeIcon, MapPin as StopMarkerIcon, Mic, Ticket, CalendarClock, Building, AlertTriangle, Info, LocateFixed, CheckCircle2, CreditCard, Coins, Send, Wifi, BadgeCheck, ShieldAlert, Edit, RefreshCwIcon, Timer, AlertCircle, Crown, Dog, LockKeyhole, Briefcase } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,6 +35,8 @@ import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/compone
 import { parseBookingRequest, ParseBookingRequestInput, ParseBookingRequestOutput } from '@/ai/flows/parse-booking-request-flow';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Switch } from "@/components/ui/switch";
+import { useOperators } from '@/hooks/useOperators';
+import { useNearbyDrivers } from '@/hooks/useNearbyDrivers';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -227,7 +229,6 @@ export default function BookRidePage() {
   const { user } = useAuth();
   const router = useRouter();
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
-  const [mockAvailableDriverMarkers, setMockAvailableDriverMarkers] = useState<MapMarker[]>([]); // New state for driver markers
 
   const [pickupCoords, setPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
   const [dropoffCoords, setDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
@@ -254,7 +255,7 @@ export default function BookRidePage() {
 
   const [isListening, setIsListening] = useState(false);
   const [isProcessingAi, setIsProcessingAi] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<window.SpeechRecognition | window.webkitSpeechRecognition | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ pickupLocation: string } | null>(null);
@@ -294,6 +295,8 @@ export default function BookRidePage() {
   const [accountJobAuthPinInputType, setAccountJobAuthPinInputType] = useState<'password' | 'text'>('password');
   const pinPeekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const { operators, loading: loadingOperators, error: errorOperators } = useOperators();
+  const { drivers, loading: loadingDrivers, error: errorDrivers } = useNearbyDrivers();
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -376,68 +379,20 @@ export default function BookRidePage() {
   }, [isPriorityFeeDialogOpen]);
 
  useEffect(() => {
-    setAvailabilityStatusLevel('loading');
-    let message = "Checking availability...";
-    setAvailabilityStatusMessage(message);
-
-    const mockOperators = [
-        { id: "OP001", name: "MyBase Direct"},
-        { id: "OP002", name: "City Cabs"},
-        { id: "OP003", name: "Speedy Cars"},
-        { id: "OP004", name: "Alpha Taxis"}
-    ];
-    const randomWaitTimes = ["2-4 mins", "4-7 mins", "6-10 mins", "8-12 mins", "10-15 mins"];
-
-    const timer = setTimeout(() => {
-        const noDriversOverall = Math.random() < 0.2; 
-        let currentLevel: AvailabilityStatusLevel = 'available';
-
-        if (noDriversOverall) {
-            message = "Currently, no drivers are available in your area. Please try again shortly. (Mock)";
-            currentLevel = 'unavailable';
-        } else {
-            const randomWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
-            if (operatorPreference) {
-                const preferredOpDetails = mockOperators.find(op => op.id === operatorPreference || op.name === operatorPreference);
-                const preferredOpDisplayName = preferredOpDetails ? preferredOpDetails.name : operatorPreference;
-                const preferredOpAvailable = Math.random() < 0.7; 
-
-                if (preferredOpAvailable) {
-                    message = `${preferredOpDisplayName} driver available. Est. wait: ~${randomWait}. (Mock)`;
-                    currentLevel = 'available';
-                } else { 
-                    const fallbackOpCandidates = mockOperators.filter(op => (op.id !== operatorPreference && op.name !== operatorPreference));
-                    if (fallbackOpCandidates.length > 0) {
-                        const fallbackOp = fallbackOpCandidates[Math.floor(Math.random() * fallbackOpCandidates.length)];
-                        const fallbackWait = randomWaitTimes[Math.floor(Math.random() * randomWaitTimes.length)];
-                        message = `Drivers from ${preferredOpDisplayName} are currently experiencing high demand. However, a ${fallbackOp.name} driver is available in ~${fallbackWait}. (Mock)`;
-                        currentLevel = 'high_demand';
-                    } else {
-                        message = `Drivers from ${preferredOpDisplayName} are currently experiencing very high demand and no other drivers are available at the moment. Please try again soon. (Mock)`;
-                        currentLevel = 'unavailable';
-                    }
-                }
-            } else { 
-                const specificOpFound = Math.random() < 0.6;
-                if (specificOpFound) {
-                    const bestOp = mockOperators[Math.floor(Math.random() * mockOperators.length)];
-                    message = `${bestOp.name} driver available. Est. wait: ~${randomWait}. (Mock)`;
-                } else {
-                     message = `MyBase driver available. Est. wait: ~${randomWait}. (Mock)`;
-                }
-                currentLevel = 'available'; 
-                 if (Math.random() < 0.25) { 
-                    message = `Area experiencing high demand. Estimated wait: ~${randomWaitTimes[randomWaitTimes.length -1]}. (Mock)`;
-                    currentLevel = 'high_demand';
-                }
-            }
-        }
-        setAvailabilityStatusMessage(message);
-        setAvailabilityStatusLevel(currentLevel);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [operatorPreference, pickupCoords]);
+    if (loadingDrivers) {
+      setAvailabilityStatusLevel('loading');
+      setAvailabilityStatusMessage('Checking availability in your area...');
+    } else if (errorDrivers) {
+      setAvailabilityStatusLevel('unavailable');
+      setAvailabilityStatusMessage('Error loading driver availability.');
+    } else if (drivers.length === 0) {
+      setAvailabilityStatusLevel('unavailable');
+      setAvailabilityStatusMessage('No drivers are currently available in your area. Please try again later.');
+    } else {
+      setAvailabilityStatusLevel('available');
+      setAvailabilityStatusMessage(`${drivers.length} driver${drivers.length > 1 ? 's' : ''} available in your area.`);
+    }
+  }, [drivers, loadingDrivers, errorDrivers]);
 
 
   useEffect(() => {
@@ -545,7 +500,7 @@ export default function BookRidePage() {
         iconScaledSize: { width: 30, height: 45 },
       });
     }
-    setMockAvailableDriverMarkers(generatedMarkers);
+    setMapMarkers(generatedMarkers);
   }, []);
 
 
@@ -1073,7 +1028,7 @@ export default function BookRidePage() {
 
 
  useEffect(() => {
-    const newMarkers: MapMarker[] = [...mockAvailableDriverMarkers]; // Start with available driver markers
+    const newMarkers: MapMarker[] = []; // Start with empty markers
     if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
       newMarkers.push({
         position: suggestedGpsPickup.coords,
@@ -1109,7 +1064,7 @@ export default function BookRidePage() {
       }
     }
     setMapMarkers(newMarkers);
-  }, [showGpsSuggestionAlert, suggestedGpsPickup, pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops, mockAvailableDriverMarkers]);
+  }, [showGpsSuggestionAlert, suggestedGpsPickup, pickupCoords, dropoffCoords, stopAutocompleteData, form, watchedStops]);
 
 
   async function handleBookRide(values: BookingFormValues) {
@@ -1559,7 +1514,7 @@ export default function BookRidePage() {
     };
   }, [toast, form, geocodeAiAddress, playSound, isListening]);
 
- const handleMicMouseDown = async () => {
+ const handleMicMouseDown = async (event: React.MouseEvent) => {
     if (!recognitionRef.current) {
         toast({ title: "Voice Input Unavailable", description: "Speech recognition is not supported or initialized.", variant: "destructive" });
         return;
@@ -1584,7 +1539,7 @@ export default function BookRidePage() {
     playSound('start');
   };
 
-  const handleMicMouseUpOrLeave = () => {
+  const handleMicMouseUpOrLeave = (event: React.MouseEvent | React.LeaveEvent) => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
     }
@@ -1865,6 +1820,9 @@ const handleProceedToConfirmation = async () => {
     }, 500);
   };
 
+  // Set availability status based on real driver data
+  // Note: availabilityStatusLevel and availabilityStatusMessage are managed by React state
+  // and updated via useEffect based on drivers, loadingDrivers, and errorDrivers
 
   return (
     <div className="space-y-6">

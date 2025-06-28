@@ -1,4 +1,3 @@
-
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; 
 import { useRouter } from 'next/navigation'; 
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function DriverDashboardPage() {
@@ -85,13 +84,45 @@ export default function DriverDashboardPage() {
   }, [user]);
 
 
-  const handleOnlineStatusChange = (checked: boolean) => {
+  const handleOnlineStatusChange = async (checked: boolean) => {
     setIsOnline(checked);
+    if (!user || !db) return;
+
     if (checked) {
+      // Get driver's current location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const location = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+            // Update the driver's document in the 'drivers' collection
+            await setDoc(
+              doc(db, 'drivers', user.id),
+              {
+                name: user.name,
+                email: user.email,
+                status: 'Active',
+                location,
+                createdAt: serverTimestamp(),
+                vehicleCategory: user.vehicleCategory || '',
+                operatorCode: user.operatorCode || '',
+                // ...add any other fields you want to store
+              },
+              { merge: true }
+            );
+          },
+          (error) => {
+            alert('Location access denied. You must allow location to go online.');
+          }
+        );
+      }
       router.push('/driver/available-rides');
+    } else {
+      // Optionally, set status to 'Inactive' when going offline
+      await updateDoc(doc(db, 'drivers', user.id), { status: 'Inactive' });
     }
-    // In a real app, you'd also send this status update to your backend here.
-    // e.g., updateDriverStatus(user.id, checked);
   };
 
   return (

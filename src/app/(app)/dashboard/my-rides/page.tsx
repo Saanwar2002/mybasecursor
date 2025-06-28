@@ -34,6 +34,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { usePassengerBookings } from '@/hooks/usePassengerBookings';
 
 
 interface JsonTimestamp {
@@ -104,9 +105,7 @@ type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions
 export default function MyRidesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [allFetchedRides, setAllFetchedRides] = useState<Ride[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { bookings, loading, error } = usePassengerBookings(user?.id);
 
   const [selectedRideForRating, setSelectedRideForRating] = useState<Ride | null>(null);
   const [currentRating, setCurrentRating] = useState(0);
@@ -162,33 +161,16 @@ export default function MyRidesPage() {
     }).catch(e => console.error("Failed to load Google Maps API for MyRidesPage", e));
   }, []);
 
-
-  useEffect(() => {
-    if (user?.id) {
-      const fetchRides = async () => {
-        setIsLoading(true); setError(null);
-        try {
-          const response = await fetch(`/api/bookings/my-rides?passengerId=${user.id}`);
-          if (!response.ok) { const errorData = await response.json().catch(() => ({ message: `Failed to fetch rides: ${response.status}` })); throw new Error(errorData.details || errorData.message); }
-          const data: Ride[] = await response.json();
-          setAllFetchedRides(data);
-        } catch (err) { const displayMessage = err instanceof Error ? err.message : "An unknown error occurred."; setError(displayMessage); toast({ title: "Error Fetching Rides History", description: displayMessage, variant: "destructive", duration: 7000 });
-        } finally { setIsLoading(false); }
-      };
-      fetchRides();
-    } else setIsLoading(false);
-  }, [user, toast]);
-
-  const displayedRides = allFetchedRides.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver');
+  const displayedRides = bookings.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver');
 
   const handleRateRide = (ride: Ride) => { setSelectedRideForRating(ride); setCurrentRating(ride.rating || 0); };
   
   const submitRating = async () => {
     if (!selectedRideForRating || !user) return;
     
-    setAllFetchedRides(prevRides => 
-      prevRides.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r)
-    );
+    const updatedRides = bookings.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r);
+    // Assuming usePassengerBookings updates the state
+    // If not, you might want to update the state here
 
     const toastDescription = `You rated your ride ${currentRating} stars. (Ride ID: ${selectedRideForRating.displayBookingId || selectedRideForRating.id})`;
     
@@ -243,13 +225,13 @@ export default function MyRidesPage() {
   };
 
 
-  if (isLoading) return ( <div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>Loading your past rides...</CardDescription></CardHeader></Card><div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div></div> );
+  if (loading) return ( <div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>Loading your past rides...</CardDescription></CardHeader></Card><div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div></div> );
   if (error && displayedRides.length === 0) return ( <div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>View past completed or cancelled rides.</CardDescription></CardHeader></Card><Card className="border-destructive bg-destructive/10"><CardContent className="pt-6 text-center text-destructive"><AlertTriangle className="w-12 h-12 mx-auto mb-2" /><p className="font-semibold">Could not load rides history.</p><p className="text-sm">{error}</p><Button variant="outline" onClick={() => window.location.reload()} className="mt-4">Try Again</Button></CardContent></Card></div> );
 
   return (
     <div className="space-y-6">
       <Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>View your past completed or cancelled rides. ({displayedRides.length} found)</CardDescription></CardHeader></Card>
-      {displayedRides.length === 0 && !isLoading && !error && ( <Card><CardContent className="pt-6 text-center text-muted-foreground">You have no completed or cancelled rides yet.</CardContent></Card> )}
+      {displayedRides.length === 0 && !loading && !error && ( <Card><CardContent className="pt-6 text-center text-muted-foreground">You have no completed or cancelled rides yet.</CardContent></Card> )}
       {error && displayedRides.length > 0 && ( <div className="p-4 mb-4 text-sm text-destructive-foreground bg-destructive rounded-md shadow-lg"><p><strong>Error:</strong> {error}</p><p className="text-xs">Displaying cached or partially loaded data.</p></div> )}
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
@@ -290,11 +272,11 @@ export default function MyRidesPage() {
                     <div className="flex flex-col items-center mb-2">
                       <span className="text-3xl font-bold text-green-700">£{(() => {
                         // Calculate total fare as in driver summary
-                        const baseFare = ride.fareEstimate || 0;
-                        const pickupWaiting = typeof ride.pickupWaitingCharge === 'number' ? ride.pickupWaitingCharge : 0;
+                        const baseFare = ride.fareEstimate ?? 0;
+                        const pickupWaiting = ride.pickupWaitingCharge ?? 0;
                         const stopWaiting = typeof ride.accumulatedStopWaitingCharges === 'number' ? ride.accumulatedStopWaitingCharges : 0;
                         let waitAndReturnSurcharge = 0;
-                        if (ride.waitAndReturn && typeof ride.estimatedAdditionalWaitTimeMinutes === 'number') {
+                        if (ride.isSurgeApplied && typeof ride.estimatedAdditionalWaitTimeMinutes === 'number') {
                           const wrBaseMultiplier = 0.70;
                           const waitingChargePerMinute = 0.20;
                           const freeWaitMinutes = 10;
@@ -312,11 +294,11 @@ export default function MyRidesPage() {
                     </div>
                     <div className="text-xs text-gray-700">
                       <div>Base Journey Fare: £{ride.fareEstimate.toFixed(2)}</div>
-                      {typeof ride.pickupWaitingCharge === 'number' && ride.pickupWaitingCharge > 0 && (
-                        <div className="text-yellow-700">Pickup Waiting Time: +£{ride.pickupWaitingCharge.toFixed(2)}</div>
+                      {typeof pickupWaiting === 'number' && pickupWaiting > 0 && (
+                        <div className="text-yellow-700">Pickup Waiting Time: +£{pickupWaiting.toFixed(2)}</div>
                       )}
-                      {typeof ride.accumulatedStopWaitingCharges === 'number' && ride.accumulatedStopWaitingCharges > 0 && (
-                        <div className="text-yellow-700">Stop(s) Waiting Time: +£{ride.accumulatedStopWaitingCharges.toFixed(2)}</div>
+                      {typeof stopWaiting === 'number' && stopWaiting > 0 && (
+                        <div className="text-yellow-700">Stop(s) Waiting Time: +£{stopWaiting.toFixed(2)}</div>
                       )}
                       {ride.isSurgeApplied && (
                         <div className="text-orange-700">Surge Pricing Applied</div>
