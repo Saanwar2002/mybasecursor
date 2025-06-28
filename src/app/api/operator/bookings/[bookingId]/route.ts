@@ -1,8 +1,7 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField, GeoPoint } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField, GeoPoint, getDocs, query, where, collection as firestoreCollection } from 'firebase/firestore';
 import { z } from 'zod';
 
 // Helper to serialize Timestamp for the response
@@ -112,6 +111,16 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
+// Helper to calculate distance between two lat/lng points (Haversine formula)
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (x: number): number => x * Math.PI / 180;
+  const R = 6371000; // meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
 
 export async function POST(request: NextRequest, context: PostContext) {
   let bookingIdForHandler: string = "UNKNOWN_BOOKING_ID_CONTEXT_ERROR";
@@ -439,6 +448,108 @@ export async function POST(request: NextRequest, context: PostContext) {
         updatePayloadFirestore.driverCurrentLocation = new GeoPoint(updateDataFromPayload.driverCurrentLocation.lat, updateDataFromPayload.driverCurrentLocation.lng);
       }
 
+      // --- AUTOMATIC DRIVER MATCHING LOGIC ---
+      if (updateDataFromPayload.action === 'auto_assign_driver') {
+        // 1. Get the booking's pickup location
+        const pickup = existingBookingDbData?.pickupLocation;
+        if (!pickup || typeof pickup.latitude !== 'number' || typeof pickup.longitude !== 'number') {
+          return NextResponse.json({ message: 'Booking does not have a valid pickup location.' }, { status: 400 });
+        }
+
+        // 2. Determine which operator to filter by
+        const preferredOperatorId = existingBookingDbData?.preferredOperatorId || existingBookingDbData?.originatingOperatorId;
+        
+        // 3. Query drivers collection for active drivers with a location
+        const driversRef = firestoreCollection(db, 'drivers');
+        let driversQuery;
+        
+        if (preferredOperatorId) {
+          // Filter by both status and operator code
+          driversQuery = query(
+            driversRef, 
+            where('status', '==', 'Active'),
+            where('operatorCode', '==', preferredOperatorId)
+          );
+          console.log(`Auto-assign: Filtering drivers by operator ${preferredOperatorId}`);
+        } else {
+          // No operator preference, get all active drivers
+          driversQuery = query(driversRef, where('status', '==', 'Active'));
+          console.log(`Auto-assign: No operator preference, considering all active drivers`);
+        }
+        
+        const driversSnapshot = await getDocs(driversQuery);
+        let nearestDriver: any = null;
+        let minDistance = Infinity;
+        
+        driversSnapshot.forEach(docSnap => {
+          const driver = docSnap.data();
+          if (driver.location && typeof driver.location.lat === 'number' && typeof driver.location.lng === 'number') {
+            const dist = haversineDistance(pickup.latitude, pickup.longitude, driver.location.lat, driver.location.lng);
+            if (dist < minDistance) {
+              minDistance = dist;
+              nearestDriver = { id: docSnap.id, ...driver };
+            }
+          }
+        });
+        
+        if (!nearestDriver) {
+          const errorMessage = preferredOperatorId 
+            ? `No available drivers found for operator ${preferredOperatorId} in your area.`
+            : 'No available drivers found in your area.';
+          return NextResponse.json({ message: errorMessage }, { status: 404 });
+        }
+        
+        console.log(`Auto-assign: Selected driver ${nearestDriver.id} (${nearestDriver.name}) at distance ${(minDistance/1000).toFixed(2)}km`);
+        
+        // 4. Assign the ride to the nearest driver
+        updatePayloadFirestore.driverId = nearestDriver.id;
+        updatePayloadFirestore.status = 'driver_assigned';
+        updatePayloadFirestore.dispatchMethod = 'auto_system';
+        
+        // Add driver details
+        updatePayloadFirestore.driverName = nearestDriver.name;
+        updatePayloadFirestore.driverVehicleDetails = nearestDriver.vehicleCategory || '';
+        
+        // Create a ride offer for the selected driver
+        try {
+          const rideOffer = {
+            bookingId: bookingIdForHandler,
+            driverId: nearestDriver.id,
+            offerDetails: {
+              pickupLocation: existingBookingDbData.pickupLocation?.address,
+              pickupCoords: {
+                lat: existingBookingDbData.pickupLocation?.latitude,
+                lng: existingBookingDbData.pickupLocation?.longitude
+              },
+              dropoffLocation: existingBookingDbData.dropoffLocation?.address,
+              dropoffCoords: {
+                lat: existingBookingDbData.dropoffLocation?.latitude,
+                lng: existingBookingDbData.dropoffLocation?.longitude
+              },
+              stops: existingBookingDbData.stops || [],
+              fareEstimate: existingBookingDbData.fareEstimate,
+              passengerCount: existingBookingDbData.passengers,
+              passengerId: existingBookingDbData.passengerId,
+              passengerName: existingBookingDbData.passengerName,
+              passengerPhone: existingBookingDbData.customerPhoneNumber,
+              notes: existingBookingDbData.driverNotes,
+              paymentMethod: existingBookingDbData.paymentMethod,
+              isPriorityPickup: existingBookingDbData.isPriorityPickup,
+              priorityFeeAmount: existingBookingDbData.priorityFeeAmount,
+              distanceMiles: existingBookingDbData.distanceMiles,
+              requiredOperatorId: existingBookingDbData.originatingOperatorId,
+              accountJobPin: existingBookingDbData.accountJobPin
+            },
+            status: 'pending',
+            createdAt: serverTimestamp(),
+            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30000)) // 30s expiry
+          };
+          await addDoc(collection(db, 'rideOffers'), rideOffer);
+          console.log(`Auto-assign: Ride offer created for driver ${nearestDriver.id} for booking ${bookingIdForHandler}`);
+        } catch (offerErr) {
+          console.error('Auto-assign: Failed to create ride offer document:', offerErr);
+        }
+      }
 
       if (updatePayloadFirestore.notifiedPassengerArrivalTimestamp === true) delete updatePayloadFirestore.notifiedPassengerArrivalTimestamp;
       if (updatePayloadFirestore.rideStartedAt === true) delete updatePayloadFirestore.rideStartedAt;

@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; 
 import { useRouter } from 'next/navigation'; 
-import { collection, query, where, onSnapshot, Timestamp, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, setDoc, updateDoc, serverTimestamp, GeoPoint } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function DriverDashboardPage() {
@@ -93,35 +93,49 @@ export default function DriverDashboardPage() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            const location = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            };
-            // Update the driver's document in the 'drivers' collection
-            await setDoc(
-              doc(db, 'drivers', user.id),
-              {
-                name: user.name,
-                email: user.email,
-                status: 'Active',
-                location,
-                createdAt: serverTimestamp(),
-                vehicleCategory: user.vehicleCategory || '',
-                operatorCode: user.operatorCode || '',
-                // ...add any other fields you want to store
-              },
-              { merge: true }
-            );
+            try {
+              const location = new GeoPoint(position.coords.latitude, position.coords.longitude);
+              // Update the driver's document in the 'drivers' collection
+              await setDoc(
+                doc(db, 'drivers', user.id),
+                {
+                  name: user.name,
+                  email: user.email,
+                  status: 'Active',
+                  location,
+                  createdAt: serverTimestamp(),
+                  vehicleCategory: user.vehicleCategory || '',
+                  operatorCode: user.operatorCode || '',
+                  // ...add any other fields you want to store
+                },
+                { merge: true }
+              );
+              // Also update status in the users collection
+              await updateDoc(doc(db, 'users', user.id), { status: 'Active' });
+              console.log('Driver status set to Active in both collections.');
+            } catch (err) {
+              console.error('Error setting driver online:', err);
+              alert('Failed to set driver online. See console for details.');
+              setIsOnline(false);
+            }
           },
           (error) => {
             alert('Location access denied. You must allow location to go online.');
+            setIsOnline(false);
           }
         );
       }
       router.push('/driver/available-rides');
     } else {
-      // Optionally, set status to 'Inactive' when going offline
-      await updateDoc(doc(db, 'drivers', user.id), { status: 'Inactive' });
+      try {
+        await updateDoc(doc(db, 'drivers', user.id), { status: 'Inactive' });
+        await updateDoc(doc(db, 'users', user.id), { status: 'Inactive' });
+        console.log('Driver status set to Inactive in both collections.');
+      } catch (err) {
+        console.error('Error setting driver offline:', err);
+        alert('Failed to set driver offline. See console for details.');
+        setIsOnline(true);
+      }
     }
   };
 

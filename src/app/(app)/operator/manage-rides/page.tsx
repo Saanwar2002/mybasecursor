@@ -1,11 +1,10 @@
-
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle, DollarSign, MessageSquare, Clock, RefreshCwIcon, Crown, XCircle } from "lucide-react";
+import { Filter, Car, Users, MapPin, Edit, Trash2, Eye, Loader2, AlertTriangle, DollarSign, MessageSquare, Clock, RefreshCwIcon, Crown, XCircle, Zap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -321,6 +320,46 @@ export default function OperatorManageRidesPage() {
     }
   };
 
+  const handleAutoAssignDriver = async (ride: Ride) => {
+    setIsAssigning(true);
+    try {
+        const response = await fetch(`/api/operator/bookings/${ride.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'auto_assign_driver' }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to auto-assign driver.');
+        }
+        const result = await response.json();
+        
+        setRides(prevRides => prevRides.map(r => 
+            r.id === ride.id ? 
+            { ...r, 
+                driverId: result.booking.driverId, 
+                driverName: result.booking.driverName, 
+                driverVehicleDetails: result.booking.driverVehicleDetails,
+                status: result.booking.status as Ride['status'] 
+            } : r
+        ));
+        
+        const driverName = result.booking.driverName || 'Unknown Driver';
+        toast({ 
+            title: "Driver Auto-Assigned", 
+            description: `Driver ${driverName} automatically assigned to ride ${ride.displayBookingId || ride.id}.` 
+        });
+    } catch (error) {
+        toast({ 
+            title: "Auto-Assignment Failed", 
+            description: error instanceof Error ? error.message : "Unknown error.", 
+            variant: "destructive" 
+        });
+    } finally {
+        setIsAssigning(false);
+    }
+  };
+
   const handleOpenRideDetails = (ride: Ride) => {
     setRideForDetailsModal(ride);
     setIsRideDetailsDialogOpen(true);
@@ -443,6 +482,9 @@ export default function OperatorManageRidesPage() {
                           <>
                             <Button variant="outline" size="sm" className="h-8 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => openAssignDialog(ride)} disabled={isAssigning || !!isCancellingRideId}>
                               <Users className="mr-1 h-3 w-3" /> Assign
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white" onClick={() => handleAutoAssignDriver(ride)} disabled={isAssigning || !!isCancellingRideId}>
+                              {isAssigning ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Zap className="mr-1 h-3 w-3" />} Auto Assign
                             </Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
