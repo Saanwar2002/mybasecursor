@@ -1,4 +1,3 @@
-
 "use client";
 import { useAuth, User, UserRole } from "@/contexts/auth-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -135,7 +134,7 @@ export default function ProfilePage() {
     loader.load().catch(e => console.error("Failed to load Google Maps API for Profile page:", e));
   }, []);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!user) return;
     const updatedDetails: Partial<User> = {};
     let changesMade = false;
@@ -162,14 +161,31 @@ export default function ProfilePage() {
     
     // Note: Bank details are mock, so no actual user context update for them.
 
-    if (changesMade && Object.keys(updatedDetails).length > 0) { 
-        updateUserProfileInContext(updatedDetails); 
-        toast({ title: "Profile Changes Applied", description: "Your profile display has been updated." });
+    if (changesMade && Object.keys(updatedDetails).length > 0) {
+      try {
+        // Only persist to backend for passenger fields or if passenger
+        if (user.role === 'passenger' && (isEditingBasicInfo)) {
+          const response = await fetch(`/api/users/${user.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedDetails),
+          });
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Failed to update profile.');
+          }
+        }
+        updateUserProfileInContext(updatedDetails);
+        toast({ title: "Profile Changes Applied", description: "Your profile has been updated." });
         if (profilePicFile) {
           setProfilePicFile(null);
         }
+      } catch (error) {
+        toast({ title: "Profile Update Failed", description: error instanceof Error ? error.message : "Could not update your profile.", variant: "destructive" });
+        return;
+      }
     } else if (!isEditingBankInfo) { // Don't show "no changes" if bank info was the only thing being edited
-        toast({ title: "No Changes Detected", description: "No information was modified.", variant: "default"});
+      toast({ title: "No Changes Detected", description: "No information was modified.", variant: "default"});
     }
     
     if (isEditingBasicInfo) setIsEditingBasicInfo(false);
