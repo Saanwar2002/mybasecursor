@@ -12,8 +12,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; 
 import { useRouter } from 'next/navigation'; 
-import { collection, query, where, onSnapshot, Timestamp, doc, setDoc, updateDoc, serverTimestamp, GeoPoint } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot, Timestamp, doc, setDoc, updateDoc, serverTimestamp, GeoPoint, deleteField } from 'firebase/firestore';
+import { db as importedDb } from '@/lib/firebase';
+
+if (!importedDb) {
+  throw new Error('Firestore db is not initialized. Check your Firebase config.');
+}
+const db = importedDb;
 
 export default function DriverDashboardPage() {
   const { user } = useAuth();
@@ -94,7 +99,13 @@ export default function DriverDashboardPage() {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             try {
-              const location = new GeoPoint(position.coords.latitude, position.coords.longitude);
+              if (!db) throw new Error('Firestore db is not initialized');
+              // Store location as an object with lat/lng fields
+              const location = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+              console.log('Attempting to set driver online with location:', location);
               // Update the driver's document in the 'drivers' collection
               await setDoc(
                 doc(db, 'drivers', user.id),
@@ -110,6 +121,7 @@ export default function DriverDashboardPage() {
                 },
                 { merge: true }
               );
+              console.log('Driver location written to Firestore:', location);
               // Also update status in the users collection
               await updateDoc(doc(db, 'users', user.id), { status: 'Active' });
               console.log('Driver status set to Active in both collections.');
@@ -120,17 +132,20 @@ export default function DriverDashboardPage() {
             }
           },
           (error) => {
+            console.error('Geolocation error:', error);
             alert('Location access denied. You must allow location to go online.');
             setIsOnline(false);
-          }
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       }
       router.push('/driver/available-rides');
     } else {
       try {
-        await updateDoc(doc(db, 'drivers', user.id), { status: 'Inactive' });
+        if (!db) throw new Error('Firestore db is not initialized');
+        await updateDoc(doc(db, 'drivers', user.id), { status: 'Inactive', location: deleteField() });
         await updateDoc(doc(db, 'users', user.id), { status: 'Inactive' });
-        console.log('Driver status set to Inactive in both collections.');
+        console.log('Driver status set to Inactive and location removed in drivers collection.');
       } catch (err) {
         console.error('Error setting driver offline:', err);
         alert('Failed to set driver offline. See console for details.');

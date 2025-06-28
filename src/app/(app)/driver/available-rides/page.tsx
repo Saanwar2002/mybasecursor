@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -41,13 +40,17 @@ import {
 import { Input } from '@/components/ui/input';
 import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from '@/components/ui/separator';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, setDoc, serverTimestamp, Timestamp, GeoPoint } from 'firebase/firestore';
+import { db as importedDb } from '@/lib/firebase';
+import { collection, query, where, onSnapshot, doc, setDoc, serverTimestamp, Timestamp, GeoPoint, updateDoc, getDoc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
 import { formatAddressForMapLabel, formatAddressForDisplay } from '@/lib/utils';
 
+if (!importedDb) {
+  throw new Error('Firestore db is not initialized. Check your Firebase config.');
+}
+const db = importedDb;
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
   ssr: false,
@@ -391,6 +394,104 @@ useEffect(() => {
   const [isRideDetailsPanelMinimized, setIsRideDetailsPanelMinimized] = useState(true);
   const [shouldFitMapBounds, setShouldFitMapBounds] = useState<boolean>(true);
 
+  const locationUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startLocationWatcher = () => {
+    if (navigator.geolocation && driverUser) {
+      // Clear any previous interval
+      if (locationUpdateIntervalRef.current) {
+        clearInterval(locationUpdateIntervalRef.current);
+        locationUpdateIntervalRef.current = null;
+      }
+      // Start a new interval to update location every 7 seconds
+      locationUpdateIntervalRef.current = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const location = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            try {
+              await updateDoc(doc(db, 'drivers', driverUser.id), { location });
+              console.log('Driver location updated in Firestore:', location);
+            } catch (err) {
+              console.error('Error updating driver location:', err);
+            }
+          },
+          (error) => {
+            console.error('Geolocation error (interval):', error);
+          },
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+        );
+      }, 7000); // 7 seconds
+    }
+  };
+
+  const stopLocationWatcher = () => {
+    if (locationUpdateIntervalRef.current) {
+      clearInterval(locationUpdateIntervalRef.current);
+      locationUpdateIntervalRef.current = null;
+    }
+  };
+
+  // Update handleToggleOnlineStatus to start/stop watcher
+  const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
+    setIsDriverOnline(newOnlineStatus);
+    if (newOnlineStatus) {
+      setConsecutiveMissedOffers(0);
+      if (geolocationError) {
+        setGeolocationError(null);
+      }
+      setIsPollingEnabled(true);
+      // Write driver location to Firestore when going online
+      if (navigator.geolocation && driverUser) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const location = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            console.log('Attempting to set driver online with location:', location);
+            try {
+              await setDoc(
+                doc(db, 'drivers', driverUser.id),
+                {
+                  name: driverUser.name,
+                  email: driverUser.email,
+                  status: 'Active',
+                  location,
+                  createdAt: serverTimestamp(),
+                  vehicleCategory: driverUser.vehicleCategory || '',
+                  operatorCode: driverUser.operatorCode || '',
+                },
+                { merge: true }
+              );
+              console.log('Driver location written to Firestore:', location);
+              await updateDoc(doc(db, 'users', driverUser.id), { status: 'Active' });
+              console.log('Driver status set to Active in both collections.');
+              startLocationWatcher(); // Start real-time updates
+            } catch (err) {
+              console.error('Error setting driver online:', err);
+            }
+          },
+          (error) => {
+            console.error('Geolocation error:', error);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+        );
+      }
+    } else {
+      setRideRequests([]);
+      setIsPollingEnabled(false);
+      stopLocationWatcher(); // Stop real-time updates
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      setPauseOffers(false); // Auto-reset Pause Ride Offers when going offline
+    }
+  };
+
 // Real-time ride offer subscription
 useEffect(() => {
   if (!driverUser?.id || pauseOffers === true) return;
@@ -658,6 +759,17 @@ const mapDisplayElements = useMemo(() => {
     };
   }, [isDriverOnline]);
 
+  useEffect(() => {
+    // On component mount or when driver logs in, fetch last known location from Firestore
+    if (driverUser) {
+      const driverDocRef = doc(db, 'drivers', driverUser.id);
+      getDoc(driverDocRef).then((docSnap) => {
+        if (docSnap.exists() && docSnap.data().location) {
+          setDriverLocation(docSnap.data().location); // Set map to last known location
+        }
+      });
+    }
+  }, [driverUser]);
 
   const fetchActiveRide = useCallback(async () => {
     console.log("fetchActiveRide called. driverUser ID:", driverUser?.id);
@@ -1860,25 +1972,6 @@ const mapDisplayElements = useMemo(() => {
       duration: 10000
     });
     setIsSosDialogOpen(false);
-  };
-
-  const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
-    setIsDriverOnline(newOnlineStatus);
-    if (newOnlineStatus) {
-        setConsecutiveMissedOffers(0);
-        if (geolocationError) {
-            setGeolocationError(null);
-        }
-        setIsPollingEnabled(true);
-    } else {
-        setRideRequests([]);
-        setIsPollingEnabled(false);
-        if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-        }
-        setPauseOffers(false); // Auto-reset Pause Ride Offers when going offline
-    }
   };
 
 

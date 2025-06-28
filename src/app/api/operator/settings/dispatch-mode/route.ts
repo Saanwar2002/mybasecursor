@@ -1,4 +1,3 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
@@ -40,9 +39,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsedDispatchMode = dispatchModeSchema.safeParse(body.dispatchMode);
+    const operatorId = body.operatorId; // Expect operatorId in the request body
 
     if (!parsedDispatchMode.success) {
       return NextResponse.json({ message: 'Invalid payload: dispatchMode must be "auto" or "manual".', errors: parsedDispatchMode.error.format() }, { status: 400 });
+    }
+    if (!operatorId) {
+      return NextResponse.json({ message: 'Missing operatorId in request body.' }, { status: 400 });
     }
 
     const settingsUpdate: DispatchSettings = {
@@ -51,6 +54,12 @@ export async function POST(request: NextRequest) {
     };
 
     await setDoc(settingsDocRef, settingsUpdate, { merge: true }); // merge true to not overwrite other company settings
+
+    // --- Sync with operatorSettings/{operatorId} for Cloud Function ---
+    const autoDispatchEnabled = parsedDispatchMode.data === 'auto';
+    const operatorSettingsRef = doc(db, 'operatorSettings', operatorId);
+    await setDoc(operatorSettingsRef, { autoDispatchEnabled }, { merge: true });
+    // --- End sync ---
 
     return NextResponse.json({ message: 'Dispatch mode updated successfully', settings: settingsUpdate }, { status: 200 });
 

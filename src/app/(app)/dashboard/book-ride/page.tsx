@@ -472,7 +472,7 @@ export default function BookRidePage() {
             setGeolocationFetchStatus(fetchErrorStatus);
             setShowGpsSuggestionAlert(false);
           },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
         );
       } else {
         setGeolocationFetchStatus("error_unavailable");
