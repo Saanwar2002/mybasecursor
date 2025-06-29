@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -369,7 +368,7 @@ export function NewScheduleForm({ initialData, isEditMode = false }: NewSchedule
       const response = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
       if (!response.ok) throw new Error('Failed to fetch favorites');
       const data = await response.json();
-      setFavoriteLocations(data);
+      setFavoriteLocations(data.favoriteLocations || []);
     } catch (error) {
       toast({ title: "Error", description: "Could not load favorite locations.", variant: "destructive" });
     } finally {

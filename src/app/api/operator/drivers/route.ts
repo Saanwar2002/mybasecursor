@@ -1,23 +1,13 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit as firestoreLimit,
-  startAfter as firestoreStartAfter,
-  getDocs,
-  doc,
-  getDoc,
-  Timestamp,
-  QueryConstraint,
-  Query,
-  DocumentData,
-} from 'firebase/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 // Helper to convert Firestore Timestamp to a serializable format
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -55,120 +45,18 @@ interface Driver {
   operatorCode?: string;
 }
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const params = Object.fromEntries(searchParams.entries());
-
-  const parsedQuery = querySchema.safeParse(params);
-
-  if (!parsedQuery.success) {
-    return NextResponse.json({ message: 'Invalid query parameters', errors: parsedQuery.error.format() }, { status: 400 });
-  }
-
-  let {
-    limit,
-    startAfter: startAfterDocId,
-    status,
-    sortBy,
-    sortOrder,
-    searchName,
-    operatorCode, // Destructure new filter
-  } = parsedQuery.data;
-
-  // If operatorCode is provided and no specific status is requested, default to 'Active'
-  if (operatorCode && status === 'all') {
-    status = 'Active';
-  }
-
-
+export async function GET(req: NextRequest) {
   try {
-    const usersRef = collection(db, 'users'); 
-    const queryConstraints: QueryConstraint[] = [];
-
-    queryConstraints.push(where('role', '==', 'driver'));
-
-    if (operatorCode) {
-      queryConstraints.push(where('operatorCode', '==', operatorCode));
-    }
-
-    if (status && status !== 'all') {
-      queryConstraints.push(where('status', '==', status));
-    }
-
-    if (searchName) {
-      queryConstraints.push(where('name', '>=', searchName));
-      queryConstraints.push(where('name', '<=', searchName + '\uf8ff')); 
-       if (sortBy !== 'name') {
-        queryConstraints.push(orderBy('name', sortOrder)); 
-        if (sortBy) queryConstraints.push(orderBy(sortBy, sortOrder)); 
-      } else {
-        queryConstraints.push(orderBy(sortBy, sortOrder));
-      }
-    } else if (sortBy) {
-        queryConstraints.push(orderBy(sortBy, sortOrder));
-    }
-
-
-    let lastDocSnapshot = null;
-    if (startAfterDocId) {
-      const startAfterDocRef = doc(db, 'users', startAfterDocId); 
-      lastDocSnapshot = await getDoc(startAfterDocRef);
-      if (!lastDocSnapshot.exists()) {
-        return NextResponse.json({ message: 'Pagination cursor not found.' }, { status: 404 });
-      }
-      queryConstraints.push(firestoreStartAfter(lastDocSnapshot));
-    }
-
-    queryConstraints.push(firestoreLimit(limit));
-
-    const q = query(usersRef, ...queryConstraints) as Query<DocumentData>;
-    const querySnapshot = await getDocs(q);
-
-    const drivers: Driver[] = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name || 'N/A',
-        email: data.email || 'N/A',
-        phone: data.phone,
-        vehicleModel: data.vehicleModel,
-        licensePlate: data.licensePlate,
-        vehicleCategory: data.vehicleCategory,
-        customId: data.customId,
-        status: data.status || 'Inactive', 
-        rating: data.rating,
-        totalRides: data.totalRides,
-        role: 'driver', 
-        createdAt: serializeTimestamp(data.createdAt as Timestamp | undefined),
-        operatorCode: data.operatorCode || null,
-      } as Driver;
-    });
-
-    let nextCursor: string | null = null;
-    if (querySnapshot.docs.length === limit) {
-      const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
-      nextCursor = lastVisible.id;
-    }
-
-    return NextResponse.json({
-      drivers,
-      nextCursor,
-    }, { status: 200 });
-
+    const driversRef = db.collection('drivers');
+    const snapshot = await driversRef.get();
+    const drivers = snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() }));
+    return NextResponse.json({ drivers });
   } catch (error) {
-    console.error('Error fetching drivers for operator:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (error instanceof Error && (error as any).code === 'failed-precondition') {
-        return NextResponse.json({
-            message: 'Query requires a Firestore index. Please check the console for a link to create it.',
-            details: errorMessage
-        }, { status: 500});
-    }
-    return NextResponse.json({ message: 'Failed to fetch drivers', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch drivers', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
-// --- Add below GET handler ---
+// Implement other HTTP methods (POST, PUT, DELETE) similarly using the Admin SDK if needed.
 
 export async function POST(request: NextRequest) {
   try {
@@ -191,8 +79,8 @@ export async function POST(request: NextRequest) {
     }
     const driverData = parsed.data;
     // Check for duplicate email
-    const usersRef = collection(db, 'users');
-    const existing = await getDocs(query(usersRef, where('email', '==', driverData.email)));
+    const usersRef = db.collection('users');
+    const existing = await usersRef.where('email', '==', driverData.email).get();
     if (!existing.empty) {
       return NextResponse.json({ message: 'A driver with this email already exists.' }, { status: 409 });
     }
@@ -208,8 +96,8 @@ export async function POST(request: NextRequest) {
       customId,
       driverIdentifier: customId,
     };
-    const docRef = await (await import('firebase/firestore')).addDoc(usersRef, newDriver);
-    const createdSnap = await getDoc(docRef);
+    const docRef = await usersRef.add(newDriver);
+    const createdSnap = await docRef.get();
     const createdData = createdSnap.data();
     const serializedDriver = {
       id: docRef.id,

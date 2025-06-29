@@ -1,8 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp, addDoc, collection, serverTimestamp, deleteField, GeoPoint, getDocs, query, where, collection as firestoreCollection } from 'firebase/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 // Helper to serialize Timestamp for the response
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {

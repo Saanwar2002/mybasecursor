@@ -1,10 +1,14 @@
-
 // src/app/api/scheduled-bookings/[scheduleId]/route.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface LocationPointPayload {
   address: string;
@@ -72,7 +76,6 @@ const scheduledRideUpdateSchema = z.object({
   path: ["estimatedWaitTimeMinutesOutbound"],
 });
 
-
 interface RouteContext {
   params: {
     scheduleId: string;
@@ -98,8 +101,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const updateData = parsedPayload.data;
     console.log(`API PUT /scheduled-bookings/${scheduleId}: Validated updateData`, JSON.stringify(updateData, null, 2));
 
-    const scheduleRef = doc(db, 'scheduledBookings', scheduleId);
-    const scheduleSnap = await getDoc(scheduleRef);
+    const scheduleRef = db.collection('scheduledBookings').doc(scheduleId);
+    const scheduleSnap = await scheduleRef.get();
 
     if (!scheduleSnap.exists()) {
       return NextResponse.json({ message: 'Scheduled booking not found.' }, { status: 404 });
@@ -113,7 +116,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     const finalUpdatePayload: Partial<any> = { ...updateData };
     delete finalUpdatePayload.passengerId; // Don't update passengerId itself
-    finalUpdatePayload.updatedAt = serverTimestamp() as Timestamp;
+    finalUpdatePayload.updatedAt = Timestamp.fromDate(new Date());
 
     // Handle nullable fields explicitly to allow setting them to null or removing them
     const nullableFields: Array<keyof typeof finalUpdatePayload> = ['returnPickupTime', 'estimatedWaitTimeMinutesOutbound', 'driverNotes', 'estimatedFareOneWay', 'estimatedFareReturn'];
@@ -131,19 +134,18 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         finalUpdatePayload.estimatedWaitTimeMinutesOutbound = null;
     }
 
-
     console.log(`API PUT /scheduled-bookings/${scheduleId}: Updating Firestore with`, finalUpdatePayload);
-    await updateDoc(scheduleRef, finalUpdatePayload);
+    await scheduleRef.update(finalUpdatePayload);
     
-    const updatedDocSnap = await getDoc(scheduleRef); 
+    const updatedDocSnap = await scheduleRef.get(); 
 
     return NextResponse.json({ 
         message: 'Scheduled booking updated successfully.', 
         data: { 
             id: updatedDocSnap.id, 
             ...updatedDocSnap.data(),
-            createdAt: (updatedDocSnap.data()?.createdAt as Timestamp)?.toDate().toISOString(),
-            updatedAt: (updatedDocSnap.data()?.updatedAt as Timestamp)?.toDate().toISOString(),
+            createdAt: updatedDocSnap.data()?.createdAt?.toDate().toISOString(),
+            updatedAt: updatedDocSnap.data()?.updatedAt?.toDate().toISOString(),
         } 
     }, { status: 200 });
 
@@ -165,8 +167,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   console.log(`API DELETE /scheduled-bookings/${scheduleId}: Request received for passenger ${passengerId}`);
   try {
-    const scheduleRef = doc(db, 'scheduledBookings', scheduleId);
-    const scheduleSnap = await getDoc(scheduleRef);
+    const scheduleRef = db.collection('scheduledBookings').doc(scheduleId);
+    const scheduleSnap = await scheduleRef.get();
 
     if (!scheduleSnap.exists()) {
       return NextResponse.json({ message: 'Scheduled booking not found.' }, { status: 404 });
@@ -176,7 +178,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       console.warn(`API DELETE /scheduled-bookings/${scheduleId}: Unauthorized attempt by passenger ${passengerId}. Owner is ${scheduleData.passengerId}.`);
       return NextResponse.json({ message: 'Unauthorized to delete this schedule.' }, { status: 403 });
     }
-    await deleteDoc(scheduleRef);
+    await scheduleRef.delete();
     console.log(`API DELETE /scheduled-bookings/${scheduleId}: Successfully deleted.`);
     
     return NextResponse.json({ message: 'Scheduled booking deleted successfully.' }, { status: 200 });
@@ -197,8 +199,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   
   console.log(`API GET /scheduled-bookings/${scheduleId}: Request received.`);
   try {
-    const scheduleRef = doc(db, 'scheduledBookings', scheduleId);
-    const scheduleSnap = await getDoc(scheduleRef);
+    const scheduleRef = db.collection('scheduledBookings').doc(scheduleId);
+    const scheduleSnap = await scheduleRef.get();
 
     if (!scheduleSnap.exists()) {
       return NextResponse.json({ message: `Scheduled booking with ID ${scheduleId} not found.` }, { status: 404 });
@@ -213,8 +215,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const responseData = {
         id: scheduleSnap.id,
         ...data,
-        createdAt: (data.createdAt as Timestamp)?.toDate().toISOString(),
-        updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString(),
+        createdAt: data.createdAt?.toDate().toISOString(),
+        updatedAt: data.updatedAt?.toDate().toISOString(),
         nextRunDate: data.nextRunDate instanceof Timestamp 
             ? data.nextRunDate.toDate().toISOString().split('T')[0] 
             : typeof data.nextRunDate === 'string' ? data.nextRunDate : undefined,

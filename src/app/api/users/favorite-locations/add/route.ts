@@ -1,8 +1,11 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface AddFavoriteLocationPayload {
   userId: string;
@@ -12,39 +15,13 @@ interface AddFavoriteLocationPayload {
   longitude: number;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { userId, label, address, latitude, longitude } = (await request.json()) as AddFavoriteLocationPayload;
-
-    if (!userId || !label || !address || typeof latitude !== 'number' || typeof longitude !== 'number') {
-      return NextResponse.json({ message: 'User ID, label, address, latitude, and longitude are required.' }, { status: 400 });
-    }
-    if (label.trim().length === 0) {
-        return NextResponse.json({ message: 'Label cannot be empty.' }, { status: 400 });
-    }
-    if (address.trim().length === 0) {
-        return NextResponse.json({ message: 'Address cannot be empty.' }, { status: 400 });
-    }
-
-    // In a real app, you'd get userId from the authenticated session, not the payload.
-    // For demo purposes, we'll trust the userId from the payload.
-
-    const newFavoriteLocation = {
-      userId,
-      label,
-      address,
-      latitude,
-      longitude,
-      createdAt: serverTimestamp(),
-    };
-
-    const docRef = await addDoc(collection(db, 'favoriteLocations'), newFavoriteLocation);
-
-    return NextResponse.json({ message: 'Favorite location added successfully', id: docRef.id, data: { ...newFavoriteLocation, createdAt: new Date().toISOString()} }, { status: 201 });
-
+    const data = await req.json();
+    data.createdAt = Timestamp.now();
+    const docRef = await db.collection('favoriteLocations').add(data);
+    return NextResponse.json({ message: 'Favorite location added successfully', id: docRef.id });
   } catch (error) {
-    console.error('Error adding favorite location:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: 'Failed to add favorite location', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to add favorite location', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

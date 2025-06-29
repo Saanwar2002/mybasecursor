@@ -1,8 +1,11 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 // Helper to convert Firestore Timestamp to a serializable format
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -31,35 +34,33 @@ interface GetContext {
   };
 }
 
-export async function GET(request: NextRequest, context: GetContext) {
+export async function GET(req: Request, { params }: { params: { passengerId: string } }) {
   // TODO: Implement authentication/authorization for operator role.
   // const operator = await getAuthenticatedOperator(request);
   // if (!operator) {
   //   return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   // }
 
-  const { passengerId } = context.params;
+  const passengerId = params.passengerId;
 
   if (!passengerId || typeof passengerId !== 'string' || passengerId.trim() === '') {
     return NextResponse.json({ message: 'A valid Passenger ID path parameter is required.' }, { status: 400 });
   }
 
   try {
-    const passengerRef = doc(db, 'users', passengerId);
-    const passengerSnap = await getDoc(passengerRef);
-
-    if (!passengerSnap.exists()) {
-      return NextResponse.json({ message: `Passenger with ID ${passengerId} not found.` }, { status: 404 });
+    const docRef = db.collection('users').doc(passengerId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return NextResponse.json({ error: 'Passenger not found' }, { status: 404 });
     }
-
-    const passengerData = passengerSnap.data();
+    const passengerData = docSnap.data();
 
     if (passengerData.role !== 'passenger') {
       return NextResponse.json({ message: `User with ID ${passengerId} is not a passenger.` }, { status: 404 });
     }
 
     const serializedPassenger: Passenger = {
-      id: passengerSnap.id,
+      id: docSnap.id,
       name: passengerData.name || 'N/A',
       email: passengerData.email || 'N/A',
       phone: passengerData.phone,
@@ -73,6 +74,6 @@ export async function GET(request: NextRequest, context: GetContext) {
   } catch (error) {
     console.error(`Error fetching passenger ${passengerId}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: `Failed to fetch passenger ${passengerId}`, details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch passenger', details: errorMessage }, { status: 500 });
   }
 }

@@ -1,8 +1,11 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase'; 
-import { doc, getDoc, updateDoc, Timestamp, deleteField } from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface LocationPointPayload {
   address: string;
@@ -64,10 +67,10 @@ export async function POST(request: NextRequest) {
     }
 
 
-    const bookingRef = doc(db, 'bookings', bookingId);
-    const bookingSnap = await getDoc(bookingRef);
+    const bookingRef = db.collection('bookings').doc(bookingId);
+    const bookingSnap = await bookingRef.get();
 
-    if (!bookingSnap.exists()) {
+    if (!bookingSnap.exists) {
       return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
     }
 
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
         pickupLocation,
         dropoffLocation,
         stops: stops || [], // Ensure stops is an array, even if empty
-        updatedAt: Timestamp.now(),
+        updatedAt: Timestamp.fromDate(new Date()),
     };
 
     if (fareEstimate !== undefined && fareEstimate !== null) {
@@ -99,10 +102,10 @@ export async function POST(request: NextRequest) {
         updateData.scheduledPickupAt = scheduledPickupAt;
     }
     
-    await updateDoc(bookingRef, updateData);
+    await bookingRef.update(updateData);
     
     // Fetch the updated document to return the most current data
-    const updatedBookingSnap = await getDoc(bookingRef);
+    const updatedBookingSnap = await bookingRef.get();
     const updatedBookingData = updatedBookingSnap.data();
 
     return NextResponse.json({ 

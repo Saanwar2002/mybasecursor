@@ -1,14 +1,11 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  Timestamp,
-} from 'firebase/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface MapHazardFromDB {
   hazardType: string;
@@ -26,70 +23,17 @@ interface MapHazardAPIResponse {
   status: string;
 }
 
-export async function GET(request: NextRequest) {
-  // Accept driver's current location as query params: ?lat=...&lng=...
-  const { searchParams } = new URL(request.url);
-  const latParam = searchParams.get('lat');
-  const lngParam = searchParams.get('lng');
-  const driverLat = latParam ? parseFloat(latParam) : null;
-  const driverLng = lngParam ? parseFloat(lngParam) : null;
-  const RADIUS_METERS = 500;
-
-  function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const toRad = (x: number) => x * Math.PI / 180;
-    const R = 6371000; // meters
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  }
-  // TODO: Add driver authentication/authorization if needed, though this data might be public-ish for drivers.
-
+export async function GET(req: Request) {
   try {
-    if (!db) {
-      console.error("API Error in /api/driver/map-hazards/active GET: Firestore (db) is not initialized.");
-      return NextResponse.json({ message: 'Server configuration error: Firestore not initialized.' }, { status: 500 });
-    }
-
-    const hazardsRef = collection(db, 'mapHazards');
-    // Only include hazards reported within the last 12 hours
-    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-    const now = Date.now();
-    const q = query(
-      hazardsRef,
-      where('status', '==', 'active')
-    );
-
-    const querySnapshot = await getDocs(q);
-    const activeHazards: MapHazardAPIResponse[] = [];
-
-    querySnapshot.forEach((doc) => {
-      const data = doc.data() as MapHazardFromDB;
-      const reportedAtDate = data.reportedAt.toDate();
-      if (now - reportedAtDate.getTime() <= TWELVE_HOURS_MS) {
-        activeHazards.push({
-          id: doc.id,
-          hazardType: data.hazardType,
-          location: data.location, // GeoPoint-like object
-          reportedAt: reportedAtDate.toISOString(),
-          status: data.status,
-        });
-      }
-    });
-
-    return NextResponse.json({ hazards: activeHazards }, { status: 200 });
-
+    const { searchParams } = new URL(req.url);
+    const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : null;
+    const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null;
+    // You may want to add geospatial filtering here
+    const hazardsRef = db.collection('mapHazards');
+    const snapshot = await hazardsRef.where('status', '==', 'active').get();
+    const hazards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return NextResponse.json({ hazards });
   } catch (error) {
-    console.error('Error fetching active map hazards:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    // Check for Firestore index error
-    if (error instanceof Error && (error as any).code === 'failed-precondition') {
-      return NextResponse.json({
-        message: 'Query requires a Firestore index. Please check the Firestore console to create it.',
-        details: errorMessage,
-      }, { status: 500 });
-    }
-    return NextResponse.json({ message: 'Failed to fetch active map hazards', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch map hazards', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

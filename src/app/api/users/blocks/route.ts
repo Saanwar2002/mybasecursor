@@ -1,7 +1,6 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import {
   collection,
   addDoc,
@@ -11,12 +10,16 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
-  Timestamp,
   getDoc,
   // orderBy, // Removed orderBy
 } from 'firebase/firestore';
 import { z } from 'zod';
 import type { UserRole } from '@/contexts/auth-context';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface UserBlock {
   id: string; // Document ID of the block itself
@@ -43,53 +46,20 @@ const createBlockSchema = z.object({
 });
 
 // POST: Create a new block
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const payload = await request.json();
-    const parsedPayload = createBlockSchema.safeParse(payload);
-
-    if (!parsedPayload.success) {
-      return NextResponse.json({ message: 'Invalid input data.', errors: parsedPayload.error.format() }, { status: 400 });
-    }
-
-    const { blockerId, blockedId, blockerRole, blockedRole } = parsedPayload.data;
-
-    if (blockerId === blockedId) {
-      return NextResponse.json({ message: 'User cannot block themselves.' }, { status: 400 });
-    }
-
-    // Check if block already exists
-    const q = query(
-      collection(db, 'userBlocks'),
-      where('blockerId', '==', blockerId),
-      where('blockedId', '==', blockedId)
-    );
-    const existingBlockSnap = await getDocs(q);
-    if (!existingBlockSnap.empty) {
-      return NextResponse.json({ message: 'This user is already blocked.' }, { status: 409 });
-    }
-
-    const newBlock = {
-      blockerId,
-      blockedId,
-      blockerRole,
-      blockedRole,
-      createdAt: serverTimestamp() as Timestamp,
-    };
-
-    const docRef = await addDoc(collection(db, 'userBlocks'), newBlock);
-    return NextResponse.json({ message: 'User blocked successfully.', blockId: docRef.id }, { status: 201 });
-
+    const data = await req.json();
+    data.createdAt = Timestamp.now();
+    const docRef = await db.collection('userBlocks').add(data);
+    return NextResponse.json({ message: 'User block added successfully', id: docRef.id });
   } catch (error) {
-    console.error('Error creating user block:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: 'Failed to create user block', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to add user block', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
 // GET: List users blocked by a specific user
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId'); // This is the blockerId
 
   if (!userId) {
@@ -140,37 +110,16 @@ export async function GET(request: NextRequest) {
 }
 
 // DELETE: Remove a block
-export async function DELETE(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const blockId = searchParams.get('blockId');
-  // const userId = searchParams.get('userId'); // User ID of the person initiating the delete
-
-  if (!blockId) { // Removed userId from required check for admin override
-    return NextResponse.json({ message: 'blockId query parameter is required.' }, { status: 400 });
-  }
-
+export async function DELETE(req: Request) {
   try {
-    const blockDocRef = doc(db, 'userBlocks', blockId);
-    const blockDocSnap = await getDoc(blockDocRef);
-
-    if (!blockDocSnap.exists()) {
-      return NextResponse.json({ message: 'Block record not found.' }, { status: 404 });
+    const { searchParams } = new URL(req.url);
+    const blockId = searchParams.get('blockId');
+    if (!blockId) {
+      return NextResponse.json({ error: 'Missing blockId' }, { status: 400 });
     }
-
-    // TODO: Implement proper admin role check here.
-    // For now, any authenticated user can delete any block by its ID if they call this endpoint.
-    // The frontend logic will differentiate between user unblocking their own and admin unblocking any.
-    // const blockData = blockDocSnap.data();
-    // if (blockData.blockerId !== userId && !IS_ADMIN_USER_MAKING_REQUEST) { // IS_ADMIN_USER_MAKING_REQUEST needs to be determined
-    //   return NextResponse.json({ message: 'You are not authorized to remove this block.' }, { status: 403 });
-    // }
-
-    await deleteDoc(blockDocRef);
-    return NextResponse.json({ message: 'User unblocked successfully.' }, { status: 200 });
-
+    await db.collection('userBlocks').doc(blockId).delete();
+    return NextResponse.json({ message: 'User block deleted successfully' });
   } catch (error) {
-    console.error('Error deleting user block:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: 'Failed to delete user block', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete user block', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

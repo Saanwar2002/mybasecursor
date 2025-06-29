@@ -1,10 +1,12 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
-import fs from 'fs';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 // Helper to convert Firestore Timestamp to a serializable format
 function serializeTimestamp(timestamp: Timestamp | undefined | null): { _seconds: number; _nanoseconds: number } | null {
@@ -33,61 +35,23 @@ interface Driver {
   statusReason?: string; 
 }
 
-
 interface GetContext {
   params: {
     driverId: string;
   };
 }
 
-export async function GET(request: NextRequest, context: GetContext) {
-  if (!db) {
-    return NextResponse.json({ message: 'Database connection failed: Firestore not initialized.' }, { status: 500 });
-  }
-  const { driverId } = context.params;
-
-  if (!driverId || typeof driverId !== 'string' || driverId.trim() === '') {
-    return NextResponse.json({ message: 'A valid Driver ID path parameter is required.' }, { status: 400 });
-  }
-
+export async function GET(req: Request, { params }: { params: { driverId: string } }) {
   try {
-    const driverRef = doc(db, 'users', driverId);
-    const driverSnap = await getDoc(driverRef);
-
-    if (!driverSnap.exists()) {
-      return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
+    const driverId = params.driverId;
+    const docRef = db.collection('users').doc(driverId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return NextResponse.json({ error: 'Driver not found' }, { status: 404 });
     }
-
-    const driverData = driverSnap.data();
-
-    if (driverData.role !== 'driver') {
-      return NextResponse.json({ message: `User with ID ${driverId} is not a driver.` }, { status: 404 });
-    }
-
-    const serializedDriver: Driver = {
-      id: driverSnap.id,
-      name: driverData.name || 'N/A',
-      email: driverData.email || 'N/A',
-      phone: driverData.phone,
-      vehicleModel: driverData.vehicleModel,
-      licensePlate: driverData.licensePlate,
-      status: driverData.status || 'Inactive',
-      rating: driverData.rating,
-      totalRides: driverData.totalRides,
-      role: 'driver',
-      operatorCode: driverData.operatorCode || null, // Include operatorCode
-      createdAt: serializeTimestamp(driverData.createdAt as Timestamp | undefined),
-      lastLogin: serializeTimestamp(driverData.lastLogin as Timestamp | undefined),
-      operatorUpdatedAt: serializeTimestamp(driverData.operatorUpdatedAt as Timestamp | undefined),
-      statusReason: driverData.statusReason,
-    };
-    
-    return NextResponse.json(serializedDriver, { status: 200 });
-
+    return NextResponse.json({ id: docSnap.id, ...docSnap.data() });
   } catch (error) {
-    console.error(`Error fetching driver ${driverId}:`, error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: `Failed to fetch driver ${driverId}`, details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch driver', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -123,8 +87,8 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
     }
 
     const updateDataFromPayload = parsedPayload.data;
-    const driverRef = doc(db, 'users', driverId);
-    const driverSnap = await getDoc(driverRef);
+    const driverRef = db.collection('users').doc(driverId);
+    const driverSnap = await driverRef.get();
 
     if (!driverSnap.exists()) {
       return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
@@ -141,10 +105,10 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
 
     const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp, statusUpdatedAt: Timestamp }> = {
       ...updateDataFromPayload,
-      operatorUpdatedAt: Timestamp.now(),
+      operatorUpdatedAt: Timestamp.fromDate(new Date()),
     };
     if (updateDataFromPayload.status) {
-      updatePayload.statusUpdatedAt = Timestamp.now();
+      updatePayload.statusUpdatedAt = Timestamp.fromDate(new Date());
     }
     if (updateDataFromPayload.status && updateDataFromPayload.status !== 'Suspended') {
       updatePayload.statusReason = undefined;
@@ -155,8 +119,8 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
         delete updatePayload[key];
       }
     });
-    await updateDoc(driverRef, updatePayload as any);
-    const updatedDriverSnap = await getDoc(driverRef);
+    await driverRef.update(updatePayload as any);
+    const updatedDriverSnap = await driverRef.get();
     const updatedDriverData = updatedDriverSnap.data()!;
     const serializedUpdatedDriver: Driver = {
       id: updatedDriverSnap.id,
@@ -195,8 +159,8 @@ export async function DELETE(request: NextRequest, context: GetContext) {
     return NextResponse.json({ message: 'A valid Driver ID path parameter is required.' }, { status: 400 });
   }
   try {
-    const driverRef = doc(db, 'users', driverId);
-    const driverSnap = await getDoc(driverRef);
+    const driverRef = db.collection('users').doc(driverId);
+    const driverSnap = await driverRef.get();
     if (!driverSnap.exists()) {
       return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
     }
@@ -204,7 +168,7 @@ export async function DELETE(request: NextRequest, context: GetContext) {
     if (driverData.role !== 'driver') {
       return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be deleted via this endpoint.` }, { status: 403 });
     }
-    await (await import('firebase/firestore')).deleteDoc(driverRef);
+    await driverRef.delete();
     return NextResponse.json({ message: `Driver ${driverId} deleted successfully.` }, { status: 200 });
   } catch (error) {
     console.error('UNHANDLED ERROR in API route:', error);

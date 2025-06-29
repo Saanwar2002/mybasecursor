@@ -1,40 +1,22 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 
-export async function DELETE(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-  const userId = searchParams.get('userId'); // For verification
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
-  if (!id || !userId) {
-    return NextResponse.json({ message: 'Favorite location ID and User ID are required as query parameters.' }, { status: 400 });
-  }
-
+export async function DELETE(req: Request) {
   try {
-    const favLocationRef = doc(db, 'favoriteLocations', id);
-    const favLocationSnap = await getDoc(favLocationRef);
-
-    if (!favLocationSnap.exists()) {
-      return NextResponse.json({ message: 'Favorite location not found.' }, { status: 404 });
+    const { searchParams } = new URL(req.url);
+    const favId = searchParams.get('favId');
+    if (!favId) {
+      return NextResponse.json({ error: 'Missing favId' }, { status: 400 });
     }
-
-    const favLocationData = favLocationSnap.data();
-
-    // Verify ownership (in a real app, use authenticated user ID from session)
-    if (favLocationData.userId !== userId) {
-      return NextResponse.json({ message: 'You are not authorized to remove this favorite location.' }, { status: 403 });
-    }
-
-    await deleteDoc(favLocationRef);
-    
-    return NextResponse.json({ message: 'Favorite location removed successfully', id }, { status: 200 });
-
+    await db.collection('favoriteLocations').doc(favId).delete();
+    return NextResponse.json({ message: 'Favorite location deleted successfully' });
   } catch (error) {
-    console.error('Error removing favorite location:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: 'Failed to remove favorite location', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete favorite location', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

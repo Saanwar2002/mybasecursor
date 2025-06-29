@@ -572,7 +572,7 @@ export default function BookRidePage() {
       const response = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
       if (!response.ok) throw new Error('Failed to fetch favorites');
       const data = await response.json();
-      setFavoriteLocations(data);
+      setFavoriteLocations(data.favoriteLocations || []);
     } catch (error) {
       toast({ title: "Error", description: "Could not load favorite locations.", variant: "destructive" });
     } finally {
@@ -587,7 +587,7 @@ export default function BookRidePage() {
       const response = await fetch(`/api/users/saved-routes/list?userId=${user.id}`);
       if (!response.ok) throw new Error('Failed to fetch saved routes');
       const data = await response.json();
-      setSavedRoutes(data);
+      setSavedRoutes(data.savedRoutes || []);
     } catch (error) {
       toast({ title: "Error", description: "Could not load saved routes.", variant: "destructive" });
     } finally {
@@ -1615,7 +1615,7 @@ export default function BookRidePage() {
 
   const { mapCenterForDisplay, mapZoomForDisplay } = useMemo(() => {
     if (showGpsSuggestionAlert && suggestedGpsPickup?.coords) {
-        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 25 };
+        return { mapCenterForDisplay: suggestedGpsPickup.coords, mapZoomForDisplay: 18 };
     }
     if (pickupCoords) {
         return { mapCenterForDisplay: pickupCoords, mapZoomForDisplay: 14 };

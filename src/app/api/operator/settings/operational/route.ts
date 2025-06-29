@@ -1,9 +1,12 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface OperationalSettings {
   enableSurgePricing: boolean;
@@ -13,7 +16,7 @@ interface OperationalSettings {
 }
 
 // Using the same document for simplicity, but fields are expanded.
-const settingsDocRef = doc(db, 'companySettings', 'pricing'); 
+const settingsDocRef = db.collection('companySettings').doc('pricing'); 
 
 const operationalSettingsResponseSchema = z.object({
   enableSurgePricing: z.boolean().default(false),
@@ -29,77 +32,38 @@ const operationalSettingsUpdateSchema = z.object({
   message: "At least one setting must be provided.",
 });
 
-
 // GET handler to fetch current operational settings
-export async function GET(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export async function GET(req: Request) {
   try {
-    const docSnap = await getDoc(settingsDocRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data() as OperationalSettings;
-      const responsePayload: z.infer<typeof operationalSettingsResponseSchema> = {
-        enableSurgePricing: data.enableSurgePricing || false,
-        operatorSurgePercentage: data.operatorSurgePercentage === undefined ? 0 : data.operatorSurgePercentage,
-        maxAutoAcceptWaitTimeMinutes: data.maxAutoAcceptWaitTimeMinutes === undefined ? 30 : data.maxAutoAcceptWaitTimeMinutes,
-      };
-      return NextResponse.json(responsePayload, { status: 200 });
-    } else {
-      // Default values if settings not found
-      return NextResponse.json({
-        enableSurgePricing: false,
-        operatorSurgePercentage: 0,
-        maxAutoAcceptWaitTimeMinutes: 30, // Default if not set
-      }, { status: 200 });
+    const { searchParams } = new URL(req.url);
+    const operatorId = searchParams.get('operatorId');
+    if (!operatorId) {
+      return NextResponse.json({ error: 'Missing operatorId' }, { status: 400 });
     }
+    const docRef = db.collection('operatorSettings').doc(operatorId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return NextResponse.json({ error: 'Operator settings not found' }, { status: 404 });
+    }
+    return NextResponse.json({ id: docSnap.id, ...docSnap.data() });
   } catch (error) {
-    console.error('Error fetching operational settings:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: 'Failed to fetch operational settings', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch operator settings', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
 // POST handler to update operational settings
-export async function POST(request: NextRequest) {
-  // TODO: Add operator authentication/authorization check
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    const parsedBody = operationalSettingsUpdateSchema.safeParse(body);
-
-    if (!parsedBody.success) {
-      return NextResponse.json({ message: 'Invalid payload.', errors: parsedBody.error.format() }, { status: 400 });
+    const { searchParams } = new URL(req.url);
+    const operatorId = searchParams.get('operatorId');
+    if (!operatorId) {
+      return NextResponse.json({ error: 'Missing operatorId' }, { status: 400 });
     }
-    
-    const updatePayload: Partial<OperationalSettings> = { 
-      lastUpdated: Timestamp.now(),
-    };
-
-    if (parsedBody.data.enableSurgePricing !== undefined) {
-        updatePayload.enableSurgePricing = parsedBody.data.enableSurgePricing;
-    }
-    if (parsedBody.data.operatorSurgePercentage !== undefined) {
-        updatePayload.operatorSurgePercentage = parsedBody.data.operatorSurgePercentage;
-    }
-    if (parsedBody.data.maxAutoAcceptWaitTimeMinutes !== undefined) {
-        updatePayload.maxAutoAcceptWaitTimeMinutes = parsedBody.data.maxAutoAcceptWaitTimeMinutes;
-    }
-
-    await setDoc(settingsDocRef, updatePayload, { merge: true });
-
-    const currentSettingsSnap = await getDoc(settingsDocRef);
-    const currentSettings = currentSettingsSnap.data() as OperationalSettings;
-
-    return NextResponse.json({ 
-        message: 'Operational settings updated successfully', 
-        settings: {
-            enableSurgePricing: currentSettings.enableSurgePricing,
-            operatorSurgePercentage: currentSettings.operatorSurgePercentage,
-            maxAutoAcceptWaitTimeMinutes: currentSettings.maxAutoAcceptWaitTimeMinutes
-        }
-    }, { status: 200 });
-
+    const updates = await req.json();
+    const docRef = db.collection('operatorSettings').doc(operatorId);
+    await docRef.update(updates);
+    return NextResponse.json({ message: 'Operator settings updated successfully' });
   } catch (error) {
-    console.error('Error updating operational settings:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ message: 'Failed to update operational settings', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update operator settings', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

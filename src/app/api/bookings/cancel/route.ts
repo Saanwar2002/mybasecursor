@@ -1,8 +1,11 @@
+import { NextResponse, NextRequest } from 'next/server';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase'; 
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface CancelBookingPayload {
   bookingId: string;
@@ -17,14 +20,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Booking ID and Passenger ID are required.' }, { status: 400 });
     }
 
-    const bookingRef = doc(db, 'bookings', bookingId);
-    const bookingSnap = await getDoc(bookingRef);
+    const bookingRef = db.collection('bookings').doc(bookingId);
+    const bookingSnap = await bookingRef.get();
 
-    if (!bookingSnap.exists()) {
+    if (!bookingSnap.exists) {
       return NextResponse.json({ message: 'Booking not found.' }, { status: 404 });
     }
 
     const bookingData = bookingSnap.data();
+    if (!bookingData) {
+      return NextResponse.json({ message: 'Booking data is missing.' }, { status: 500 });
+    }
 
     // Verify passenger ownership
     if (bookingData.passengerId !== passengerId) {
@@ -47,9 +53,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the booking status to 'cancelled'
-    await updateDoc(bookingRef, {
+    await bookingRef.update({
       status: 'cancelled',
-      cancelledAt: Timestamp.now(), // Optionally add a cancellation timestamp
+      cancelledAt: Timestamp.fromDate(new Date()), // Optionally add a cancellation timestamp
     });
     
     return NextResponse.json({ message: 'Booking cancelled successfully', bookingId }, { status: 200 });

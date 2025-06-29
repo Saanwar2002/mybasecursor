@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = params.id;
@@ -14,8 +19,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ message: 'Invalid JSON.' }, { status: 400 });
   }
   try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, updates);
+    const userRef = db.collection('users').doc(userId);
+    await userRef.update(updates);
     return NextResponse.json({ message: 'User updated successfully.' });
   } catch (error) {
     return NextResponse.json({ message: error instanceof Error ? error.message : 'Failed to update user.' }, { status: 500 });

@@ -1,8 +1,11 @@
-
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore'; // Removed orderBy
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
 
 interface LocationPoint {
   address: string;
@@ -20,77 +23,50 @@ interface SavedRouteDoc {
   createdAt: Timestamp; // Firestore Timestamp on server
 }
 
-function serializeTimestamp(timestamp: Timestamp): { _seconds: number; _nanoseconds: number } {
-  return {
-    _seconds: timestamp.seconds,
-    _nanoseconds: timestamp.nanoseconds,
-  };
+function deepSerialize(obj: any): any {
+  if (obj == null) return obj;
+  if (Array.isArray(obj)) return obj.map(deepSerialize);
+  if (typeof obj === 'object') {
+    // Firestore Timestamp check (Admin SDK)
+    if (obj.constructor && obj.constructor.name === 'Timestamp' && 'seconds' in obj && 'nanoseconds' in obj) {
+      return { _seconds: obj.seconds, _nanoseconds: obj.nanoseconds };
+    }
+    const result: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        result[key] = deepSerialize(obj[key]);
+      }
+    }
+    return result;
+  }
+  return obj;
 }
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ message: 'userId query parameter is required.' }, { status: 400 });
-  }
-  
+export async function GET(req: Request) {
   try {
-    const savedRoutesRef = collection(db, 'savedRoutes');
-    const q = query(
-      savedRoutesRef,
-      where('userId', '==', userId)
-      // orderBy('createdAt', 'desc') // Removed to prevent missing index error
-    );
-
-    const querySnapshot = await getDocs(q);
-    
-    const routes: any[] = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data() as Omit<SavedRouteDoc, 'id'>;
-      let processedTimestamp: Timestamp;
-       if (data.createdAt instanceof Timestamp) {
-        processedTimestamp = data.createdAt;
-      } else if (data.createdAt && typeof (data.createdAt as any).seconds === 'number') {
-        processedTimestamp = new Timestamp((data.createdAt as any).seconds, (data.createdAt as any).nanoseconds || 0);
-      } else {
-        console.warn(`Saved route doc ${doc.id} has missing or malformed createdAt. Using current time as fallback.`);
-        processedTimestamp = Timestamp.now();
-      }
-      
-      routes.push({
-        id: doc.id,
-        ...data,
-        createdAt: serializeTimestamp(processedTimestamp),
-      });
-    });
-
-    return NextResponse.json(routes, { status: 200 });
-
-  } catch (error) {
-    console.error('Error fetching saved routes:', error);
-    let errorMessage = 'An unknown server error occurred.';
-    let errorDetails = '';
-
-    if (error instanceof Error) {
-        errorMessage = error.message;
-        const firebaseError = error as any; 
-        if (firebaseError.code === 'failed-precondition' && firebaseError.message.toLowerCase().includes('index')) {
-             // More specific message if it's a known index issue
-             errorDetails = `Firestore query failed. This often indicates a missing composite index for the 'savedRoutes' collection on 'userId' and 'createdAt'. Please check the server-side logs for a Firestore error message, which may include a URL to create the required index. Firestore error code: ${firebaseError.code || 'N/A'}. Details: ${firebaseError.message}`;
-             return NextResponse.json({
-                message: 'Failed to retrieve saved routes due to a database configuration issue.',
-                details: errorDetails
-             }, { status: 500 });
-        } else {
-            errorDetails = error.toString();
-        }
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
-    
-    return NextResponse.json({
-      message: 'Failed to retrieve saved routes.',
-      details: `${errorMessage} ${errorDetails}`.trim()
-    }, { status: 500 });
+    const savedRoutesRef = db.collection('savedRoutes');
+    const snapshot = await savedRoutesRef.where('userId', '==', userId).get();
+    let savedRoutes = snapshot.docs.map(doc => deepSerialize({ id: doc.id, ...doc.data() }));
+    // Defensive: always return an array
+    if (!Array.isArray(savedRoutes)) savedRoutes = [];
+    return NextResponse.json({ savedRoutes });
+  } catch (error) {
+    let errorDetails = {
+      message: (error && typeof error === 'object' && 'message' in error) ? (error as any).message : String(error),
+      code: (error && typeof error === 'object' && 'code' in error) ? (error as any).code : undefined,
+      json: undefined as string | undefined,
+    };
+    try {
+      errorDetails.json = JSON.stringify(error);
+    } catch (e) {
+      errorDetails.json = 'Could not stringify error';
+    }
+    return NextResponse.json({ error: 'Failed to fetch saved routes', details: errorDetails }, { status: 500 });
   }
 }
 
