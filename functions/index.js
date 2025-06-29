@@ -205,3 +205,55 @@ async function generateDriverId(operatorCode) {
     throw error;
   }
 }
+
+// Function to generate sequential passenger ID
+async function generatePassengerId() {
+  const counterRef = db.collection('counters').doc('passengerId');
+  
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists) {
+        // Initialize counter if it doesn't exist
+        transaction.set(counterRef, { currentId: 1 });
+        return 1;
+      }
+      
+      const currentId = counterDoc.data().currentId;
+      transaction.update(counterRef, { currentId: currentId + 1 });
+      return currentId + 1;
+    });
+    
+    return `CU${result.toString().padStart(3, '0')}`;
+  } catch (error) {
+    logger.error('Error generating passenger ID:', error);
+    throw error;
+  }
+}
+
+// Function to generate sequential admin ID
+async function generateAdminId() {
+  const counterRef = db.collection('counters').doc('adminId');
+  
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists) {
+        // Initialize counter if it doesn't exist
+        transaction.set(counterRef, { currentId: 1 });
+        return 1;
+      }
+      
+      const currentId = counterDoc.data().currentId;
+      transaction.update(counterRef, { currentId: currentId + 1 });
+      return currentId + 1;
+    });
+    
+    return `AD${result.toString().padStart(3, '0')}`;
+  } catch (error) {
+    logger.error('Error generating admin ID:', error);
+    throw error;
+  }
+}

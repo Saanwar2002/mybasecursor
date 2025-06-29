@@ -107,6 +107,51 @@ export function RegisterForm() {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
+  // Helper functions to generate sequential IDs
+  const generateSequentialPassengerId = async (): Promise<string> => {
+    try {
+      const response = await fetch('/api/users/generate-passenger-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        return data.passengerId;
+      } else {
+        throw new Error(data.error || 'Failed to generate passenger ID');
+      }
+    } catch (error) {
+      console.error('Error generating passenger ID:', error);
+      // Fallback to old method if API fails
+      return `CU-mock-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    }
+  };
+
+  const generateSequentialAdminId = async (): Promise<string> => {
+    try {
+      const response = await fetch('/api/users/generate-admin-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        return data.adminId;
+      } else {
+        throw new Error(data.error || 'Failed to generate admin ID');
+      }
+    } catch (error) {
+      console.error('Error generating admin ID:', error);
+      // Fallback to old method if API fails
+      return `AD-mock-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    }
+  };
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -187,9 +232,14 @@ export function RegisterForm() {
           status: (values.role === 'driver' || values.role === 'operator') ? 'Pending Approval' : 'Active',
         };
         
-        if (values.role === 'passenger') userProfile.customId = `CU-mock-${firebaseUser.uid.slice(0,4)}`;
-        if (values.role === 'operator') userProfile.customId = `OP-mock-${firebaseUser.uid.slice(0,4)}`;
-        if (values.role === 'admin') userProfile.customId = `AD-mock-${firebaseUser.uid.slice(0,4)}`; 
+        // Generate sequential IDs based on role
+        if (values.role === 'passenger') {
+          const passengerId = await generateSequentialPassengerId();
+          userProfile.customId = passengerId;
+        } else if (values.role === 'admin') {
+          const adminId = await generateSequentialAdminId();
+          userProfile.customId = adminId;
+        }
         
         if (values.role === 'driver') {
           if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
