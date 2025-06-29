@@ -201,86 +201,91 @@ export function RegisterForm() {
         await updateFirebaseUserProfile(firebaseUser, { displayName: values.name });
         setFirebaseUserForLinking(firebaseUser);
 
-        const userProfile: UserProfile = {
-          uid: firebaseUser.uid,
-          name: values.name,
-          email: values.email,
-          role: values.role as UserRole,
-          createdAt: serverTimestamp(),
-          status: (values.role === 'driver' || values.role === 'operator' || values.role === 'admin') ? 'Pending Approval' : 'Active',
-        };
-        
-        // Generate sequential IDs based on role
-        if (values.role === 'passenger') {
-          const passengerId = await generateSequentialPassengerId();
-          userProfile.customId = passengerId;
-        }
-        // Note: Admin and operator IDs will be assigned after approval
-        
-        if (values.role === 'driver') {
-          if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
-          if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
-          userProfile.driverIdentifier = `DR-mock-${firebaseUser.uid.slice(0,4)}`;
-          console.log(`Mock driverIdentifier generated: ${userProfile.driverIdentifier} for operator ${userProfile.operatorCode}`);
-        }
-        
-        if (values.phoneNumber && values.phoneNumber.trim() !== "") {
-            userProfile.phoneNumberInput = values.phoneNumber.trim(); 
-        }
-
-        if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") {
-            userProfile.phoneVerified = false;
-            const deadline = new Date();
-            deadline.setDate(deadline.getDate() + 7);
-            userProfile.phoneVerificationDeadline = Timestamp.fromDate(deadline);
-        }
-
-        await setDoc(doc(db, "users", firebaseUser.uid), userProfile);
-
-        const shouldVerifyPhone = (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") ||
-                                  ((values.role === 'driver' || values.role === 'operator' || values.role === 'admin') && values.phoneNumber && values.phoneNumber.trim() !== "");
-
-        if (shouldVerifyPhone && recaptchaVerifierRef.current) {
-          toast({ title: "Account Created!", description: "Next, verify your phone number."});
-          const appVerifier = recaptchaVerifierRef.current;
-          
-          try {
-            const result = await linkWithPhoneNumber(firebaseUser, values.phoneNumber!, appVerifier);
-            setConfirmationResult(result);
-            setRegistrationStep('verifyingPhone');
-            setIsSubmitting(false); 
-            form.setFocus("verificationCode");
-          } catch (phoneLinkError: any) {
-            if (recaptchaVerifierRef.current) {
-              recaptchaVerifierRef.current.render().then((widgetId) => {
-                if (typeof window !== 'undefined' && (window as any).grecaptcha) {
-                  (window as any).grecaptcha.reset(widgetId);
-                }
-              }).catch(e => console.error("Error resetting reCAPTCHA widget after phone link error:", e));
+        // Wait for auth state to be established before writing to Firestore
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          if (user) {
+            unsubscribe(); // Prevent multiple triggers
+            const userProfile: UserProfile = {
+              uid: user.uid,
+              name: values.name,
+              email: values.email,
+              role: values.role as UserRole,
+              createdAt: serverTimestamp(),
+              status: (values.role === 'driver' || values.role === 'operator' || values.role === 'admin') ? 'Pending Approval' : 'Active',
+            };
+            if (values.role === 'passenger') {
+              const passengerId = await generateSequentialPassengerId();
+              userProfile.customId = passengerId;
             }
-            handleRegistrationError(phoneLinkError);
-            setIsSubmitting(false);
-            setFirebaseUserForLinking(null);
-          }
-        } else {
-          contextLogin(
-            firebaseUser.uid,
-            firebaseUser.email || values.email, 
-            values.name, 
-            values.role as UserRole, 
-            userProfile.vehicleCategory,
-            userProfile.phoneNumberInput, 
-            false, 
-            userProfile.status,
-            userProfile.phoneVerificationDeadline,
-            userProfile.customId,
-            userProfile.operatorCode,
-            userProfile.driverIdentifier
-          );
-          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''} ${values.role === 'admin' || values.role === 'operator' ? 'Your account is pending approval. You will be notified once approved.' : ''}` });
-          setIsSubmitting(false);
-        }
+            if (values.role === 'driver') {
+              if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
+              if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
+              userProfile.driverIdentifier = `DR-mock-${user.uid.slice(0,4)}`;
+            }
+            if (values.phoneNumber && values.phoneNumber.trim() !== "") {
+              userProfile.phoneNumberInput = values.phoneNumber.trim();
+            }
+            if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") {
+              userProfile.phoneVerified = false;
+              const deadline = new Date();
+              deadline.setDate(deadline.getDate() + 7);
+              userProfile.phoneVerificationDeadline = Timestamp.fromDate(deadline);
+            }
+            try {
+              await setDoc(doc(db, "users", user.uid), userProfile);
+              console.log("User profile written to Firestore for UID:", user.uid, userProfile);
+            } catch (e) {
+              console.error("Error writing user profile to Firestore for UID:", user.uid, e);
+              toast({ title: "Profile Creation Error", description: `Could not create user profile: ${e.message || e}`, variant: "destructive" });
+              setIsSubmitting(false);
+              unsubscribe();
+              return;
+            }
 
+            const shouldVerifyPhone = (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") ||
+              ((values.role === 'driver' || values.role === 'operator' || values.role === 'admin') && values.phoneNumber && values.phoneNumber.trim() !== "");
+
+            if (shouldVerifyPhone && recaptchaVerifierRef.current) {
+              toast({ title: "Account Created!", description: "Next, verify your phone number."});
+              const appVerifier = recaptchaVerifierRef.current;
+              try {
+                const result = await linkWithPhoneNumber(user, values.phoneNumber!, appVerifier);
+                setConfirmationResult(result);
+                setRegistrationStep('verifyingPhone');
+                setIsSubmitting(false);
+                form.setFocus("verificationCode");
+              } catch (phoneLinkError: any) {
+                if (recaptchaVerifierRef.current) {
+                  recaptchaVerifierRef.current.render().then((widgetId) => {
+                    if (typeof window !== 'undefined' && (window as any).grecaptcha) {
+                      (window as any).grecaptcha.reset(widgetId);
+                    }
+                  }).catch(e => console.error("Error resetting reCAPTCHA widget after phone link error:", e));
+                }
+                handleRegistrationError(phoneLinkError);
+                setIsSubmitting(false);
+                setFirebaseUserForLinking(null);
+              }
+            } else {
+              contextLogin(
+                user.uid,
+                user.email || values.email,
+                values.name,
+                values.role as UserRole,
+                userProfile.vehicleCategory,
+                userProfile.phoneNumberInput,
+                false,
+                userProfile.status,
+                userProfile.phoneVerificationDeadline,
+                userProfile.customId,
+                userProfile.operatorCode,
+                userProfile.driverIdentifier
+              );
+              toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''} ${values.role === 'admin' || values.role === 'operator' ? 'Your account is pending approval. You will be notified once approved.' : ''}` });
+              setIsSubmitting(false);
+            }
+          }
+        });
       } catch (error: any) {
         handleRegistrationError(error);
         setIsSubmitting(false);

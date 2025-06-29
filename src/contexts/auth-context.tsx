@@ -123,6 +123,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             currentHourlyRate: firestoreUser.currentHourlyRate || null,
             isSuperAdmin: firestoreUser.isSuperAdmin || false, // <-- Add this line to set super admin status
           };
+          // --- Status check for approval ---
+          if ((userData.role === 'operator' || userData.role === 'driver' || userData.role === 'admin') && userData.status !== 'Active') {
+            let reason = userData.status === 'Pending Approval' ? 'Your account is pending approval by an administrator.' : 'Your account has been suspended.';
+            toast({ title: 'Account Restricted', description: reason, variant: 'destructive' });
+            if (auth) await signOut(auth);
+            setUser(null);
+            setLoading(false);
+            if (!isInitialLoad) router.push('/login');
+            return;
+          }
           setUser(userData);
           console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);
 
