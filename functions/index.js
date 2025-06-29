@@ -153,3 +153,55 @@ exports.autoAssignOnBookingCreate = onDocumentCreated({
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 30000)), // 30s expiry
   });
 });
+
+// Function to generate sequential operator ID
+async function generateOperatorId() {
+  const counterRef = db.collection('counters').doc('operatorId');
+  
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists) {
+        // Initialize counter if it doesn't exist
+        transaction.set(counterRef, { currentId: 1 });
+        return 1;
+      }
+      
+      const currentId = counterDoc.data().currentId;
+      transaction.update(counterRef, { currentId: currentId + 1 });
+      return currentId + 1;
+    });
+    
+    return `OP${result.toString().padStart(3, '0')}`;
+  } catch (error) {
+    logger.error('Error generating operator ID:', error);
+    throw error;
+  }
+}
+
+// Function to generate sequential driver ID for an operator
+async function generateDriverId(operatorCode) {
+  const counterRef = db.collection('counters').doc(`driverId_${operatorCode}`);
+  
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists) {
+        // Initialize counter if it doesn't exist
+        transaction.set(counterRef, { currentId: 1 });
+        return 1;
+      }
+      
+      const currentId = counterDoc.data().currentId;
+      transaction.update(counterRef, { currentId: currentId + 1 });
+      return currentId + 1;
+    });
+    
+    return `${operatorCode}/DR${result.toString().padStart(3, '0')}`;
+  } catch (error) {
+    logger.error('Error generating driver ID:', error);
+    throw error;
+  }
+}

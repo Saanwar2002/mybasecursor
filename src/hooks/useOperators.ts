@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, DocumentData } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 
-export interface Operator {
+interface Operator {
   id: string;
+  operatorCode: string;
   name: string;
-  status?: string;
-  operatorCode?: string;
-  [key: string]: any;
+  email: string;
+  phone: string;
+  status: string;
 }
 
 export function useOperators() {
@@ -16,27 +15,44 @@ export function useOperators() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!db) {
-      setError('Firestore not initialized');
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const q = query(collection(db, 'users'), where('role', '==', 'operator'));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const ops: Operator[] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Operator));
-        setOperators(ops);
-        setLoading(false);
-      },
-      (err) => {
-        setError(err.message);
-        setLoading(false);
-      }
-    );
-    return () => unsubscribe();
+    fetchOperators();
   }, []);
 
-  return { operators, loading, error };
+  const fetchOperators = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/operators/list-approved');
+      const data = await response.json();
+      
+      if (data.success) {
+        setOperators(data.operators);
+      } else {
+        setError(data.error || 'Failed to fetch operators');
+      }
+    } catch (err) {
+      setError('Failed to fetch operators');
+      console.error('Error fetching operators:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getOperatorByCode = (operatorCode: string) => {
+    return operators.find(op => op.operatorCode === operatorCode);
+  };
+
+  const getOperatorById = (id: string) => {
+    return operators.find(op => op.id === id);
+  };
+
+  return {
+    operators,
+    loading,
+    error,
+    refetch: fetchOperators,
+    getOperatorByCode,
+    getOperatorById
+  };
 } 

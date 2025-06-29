@@ -78,24 +78,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid driver data', errors: parsed.error.format() }, { status: 400 });
     }
     const driverData = parsed.data;
+    
     // Check for duplicate email
     const usersRef = db.collection('users');
     const existing = await usersRef.where('email', '==', driverData.email).get();
     if (!existing.empty) {
       return NextResponse.json({ message: 'A driver with this email already exists.' }, { status: 409 });
     }
-    // Generate customId/driverIdentifier
+    
+    // Generate sequential driver ID
+    const driverId = await generateSequentialDriverId(driverData.operatorCode);
+    
     const now = Timestamp.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const customId = `DR-mock-${randomSuffix}`;
     const newDriver = {
       ...driverData,
       status: 'Pending Approval',
       role: 'driver',
       createdAt: now,
-      customId,
-      driverIdentifier: customId,
+      customId: driverId,
+      driverIdentifier: driverId,
     };
+    
     const docRef = await usersRef.add(newDriver);
     const createdSnap = await docRef.get();
     const createdData = createdSnap.data();
@@ -120,5 +123,31 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating driver:', error);
     return NextResponse.json({ message: 'Failed to create driver', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+  }
+}
+
+// Function to generate sequential driver ID for an operator
+async function generateSequentialDriverId(operatorCode: string): Promise<string> {
+  const counterRef = db.collection('counters').doc(`driverId_${operatorCode}`);
+  
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists) {
+        // Initialize counter if it doesn't exist
+        transaction.set(counterRef, { currentId: 1 });
+        return 1;
+      }
+      
+      const currentId = counterDoc.data().currentId;
+      transaction.update(counterRef, { currentId: currentId + 1 });
+      return currentId + 1;
+    });
+    
+    return `${operatorCode}/DR${result.toString().padStart(3, '0')}`;
+  } catch (error) {
+    console.error('Error generating driver ID:', error);
+    throw error;
   }
 }

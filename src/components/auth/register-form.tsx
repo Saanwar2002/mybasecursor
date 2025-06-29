@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +17,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { useOperators } from "@/hooks/useOperators";
 import Link from "next/link";
 import { Car, Loader2, PhoneOutcome, Briefcase, Shield, ShieldCheck } from "lucide-react"; 
 import React, { useState, useEffect, useRef } from "react";
@@ -37,8 +37,6 @@ import { doc, setDoc, serverTimestamp, updateDoc, Timestamp, getDoc, deleteField
 const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
 );
-
-const operatorCodeRegex = /^OP\d{3,}$/; 
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -61,11 +59,11 @@ const formSchema = z.object({
   path: ["vehicleCategory"],
 }).refine(data => {
   if (data.role === 'driver') {
-    return !!data.operatorCode && operatorCodeRegex.test(data.operatorCode);
+    return !!data.operatorCode && data.operatorCode.trim() !== "";
   }
   return true;
 }, {
-  message: "Valid Operator Code (e.g., OP001) is required for drivers.",
+  message: "Please select an operator for drivers.",
   path: ["operatorCode"],
 }).refine(data => {
   if (data.role === 'passenger') {
@@ -100,6 +98,7 @@ interface UserProfile {
 export function RegisterForm() {
   const { login: contextLogin, updateUserProfileInContext } = useAuth();
   const { toast } = useToast();
+  const { operators, loading: operatorsLoading } = useOperators();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationStep, setRegistrationStep] = useState<RegistrationStep>('initial');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -382,7 +381,27 @@ export function RegisterForm() {
             {watchedRole === "driver" && (
               <>
                 <FormField control={form.control} name="operatorCode" render={({ field }) => (
-                    <FormItem><FormLabel className="flex items-center gap-1"><Briefcase className="w-4 h-4 text-muted-foreground" /> Your Affiliated Operator Code <span className="text-destructive font-bold">*</span></FormLabel><FormControl><Input placeholder="e.g., OP001" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1">
+                        <Briefcase className="w-4 h-4 text-muted-foreground" /> 
+                        Select Your Operator <span className="text-destructive font-bold">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting || operatorsLoading}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={operatorsLoading ? "Loading operators..." : "Select an operator"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {operators.map((operator) => (
+                              <SelectItem key={operator.operatorCode} value={operator.operatorCode}>
+                                {operator.name} ({operator.operatorCode})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                 )} />
                 <FormField control={form.control} name="vehicleCategory" render={({ field }) => (
                     <FormItem><FormLabel className="flex items-center gap-1"><Car className="w-4 h-4 text-muted-foreground" /> Vehicle Category <span className="text-destructive font-bold">*</span></FormLabel><Select onValueChange={field.onChange} defaultValue={field.value || "car"} disabled={isSubmitting}><FormControl><SelectTrigger><SelectValue placeholder="Select vehicle category" /></SelectTrigger></FormControl><SelectContent>

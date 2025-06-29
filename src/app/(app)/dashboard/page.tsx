@@ -129,7 +129,9 @@ export default function PassengerDashboardPage() {
                         <div className="p-2 text-center text-muted-foreground">No operators found</div>
                       )}
                       {!loadingOperators && !errorOperators && operators.map(op => (
-                        <SelectItem key={op.id} value={op.name}>{op.name}</SelectItem>
+                        <SelectItem key={op.id} value={op.operatorCode}>
+                          {op.name} ({op.operatorCode})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
