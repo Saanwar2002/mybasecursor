@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -13,7 +12,15 @@ const DialogTrigger = DialogPrimitive.Trigger
 
 const DialogPortal = DialogPrimitive.Portal
 
-const DialogClose = DialogPrimitive.Close
+const DebugDialogClose = React.forwardRef(function DebugDialogClose(props: any, ref) {
+  const child = props.children;
+  if (Array.isArray(child)) {
+    console.error('DialogClose asChild received an array:', child);
+  } else if (!React.isValidElement(child)) {
+    console.error('DialogClose asChild received a non-element:', child);
+  }
+  return <DialogPrimitive.Close ref={ref} {...props}>{child}</DialogPrimitive.Close>;
+});
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
@@ -126,7 +133,7 @@ export {
   Dialog,
   DialogPortal,
   DialogOverlay,
-  DialogClose,
+  DebugDialogClose as DialogClose,
   DialogTrigger,
   DialogContent,
   DialogHeader,

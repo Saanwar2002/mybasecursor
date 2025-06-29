@@ -1,4 +1,3 @@
-
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
+  const isSuperAdmin = user?.isSuperAdmin;
   const [adminActionItems, setAdminActionItems] = useState<AiActionItemType[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [tasksError, setTasksError] = useState<string | null>(null);
@@ -48,13 +48,23 @@ export default function AdminDashboardPage() {
 
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isSuperAdmin ? 'bg-gradient-to-r from-yellow-400 via-red-400 to-pink-500/30 p-6 rounded-lg border-4 border-yellow-500 shadow-xl' : ''}`}>
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
-            <Shield className="w-8 h-8 text-primary" /> Platform Administration
+            <Shield className={`w-8 h-8 ${isSuperAdmin ? 'text-yellow-500' : 'text-primary'}`} />
+            {isSuperAdmin ? (
+              <span>
+                PLATFORM <span className="text-yellow-700 font-bold">SUPER ADMINISTRATION</span>
+                <span className="ml-2 px-2 py-1 bg-yellow-400 text-yellow-900 rounded-full text-xs font-bold align-middle">SUPER ADMIN</span>
+              </span>
+            ) : (
+              'Platform Administration'
+            )}
           </CardTitle>
-          <CardDescription>Welcome, {user?.name || 'Administrator'}. Oversee and manage the platform.</CardDescription>
+          <CardDescription>
+            Welcome, {user?.name || 'Administrator'}. Oversee and manage the platform.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-lg">

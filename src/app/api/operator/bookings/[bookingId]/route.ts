@@ -113,7 +113,28 @@ function getOperatorPrefix(operatorCode?: string | null): string {
       return numericPart.slice(0, 3); // Return first 3 digits of the numeric part
     }
   }
-  return PLATFORM_OPERATOR_ID_PREFIX;
+  return "001";
+}
+
+// Function to generate sequential booking ID for an operator
+async function generateBookingId(operatorCode: string): Promise<string> {
+  const counterRef = db.collection('counters').doc(`bookingId_${operatorCode}`);
+  
+  const result = await db.runTransaction(async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
+    
+    if (!counterDoc.exists) {
+      // Initialize counter if it doesn't exist
+      transaction.set(counterRef, { currentId: 1 });
+      return 1;
+    }
+    
+    const currentId = counterDoc.data().currentId;
+    transaction.update(counterRef, { currentId: currentId + 1 });
+    return currentId + 1;
+  });
+  
+  return `${operatorCode}/${result.toString().padStart(8, '0')}`;
 }
 
 // Helper to calculate distance between two lat/lng points (Haversine formula)
@@ -231,12 +252,8 @@ export async function POST(request: NextRequest, context: PostContext) {
         const docRef = await addDoc(collection(db, 'bookings'), newBookingData);
         const newFirestoreId = docRef.id;
         
-        const displayBookingIdPrefix = getOperatorPrefix(originatingOperatorId);
-        const timestampPart = Date.now().toString().slice(-4);
-        const randomPart = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        const numericSuffix = `${timestampPart}${randomPart}`;
-        const finalDisplayBookingId = `${displayBookingIdPrefix}/${numericSuffix}`;
-
+        // Generate sequential display booking ID
+        const finalDisplayBookingId = await generateBookingId(originatingOperatorId);
 
         // Update the new booking with its displayBookingId
         await updateDoc(doc(db, 'bookings', newFirestoreId), {

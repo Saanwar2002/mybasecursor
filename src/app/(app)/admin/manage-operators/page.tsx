@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Users, UserPlus, Edit, Filter, Search, Loader2, AlertTriangle, CheckCircle, XCircle, ShieldAlert, Briefcase, Building as BuildingIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -169,7 +169,14 @@ function ManagePlatformOperatorsContent() {
                     <FormField control={addOperatorForm.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input type="email" placeholder="contact@citytaxis.com" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
                     <FormField control={addOperatorForm.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Contact Phone (Optional)</FormLabel><FormControl><Input type="tel" placeholder="01234 567890" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />
                      <FormField control={addOperatorForm.control} name="operatorCode" render={({ field }) => ( <FormItem> <FormLabel>Unique Operator Code</FormLabel> <FormControl><Input placeholder="e.g., OP002" {...field} disabled={actionLoading['addNewOperator']} /></FormControl> <FormDescription>Assign a unique code (e.g., OP002). This must not be in use.</FormDescription> <FormMessage /> </FormItem> )} />
-                    <DialogFooter className="pt-4"> <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addNewOperator']}>Cancel</Button></DialogClose> <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addNewOperator']}> {actionLoading['addNewOperator'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Operator </Button> </DialogFooter>
+                    <DialogFooter className="pt-4">
+                      {/* <DialogClose asChild>
+                        <Button type="button" variant="outline" disabled={actionLoading['addNewOperator']}>Cancel</Button>
+                      </DialogClose> */}
+                      <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addNewOperator']}>
+                        {actionLoading['addNewOperator'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Operator
+                      </Button>
+                    </DialogFooter>
                   </form>
                 </Form>
               </div>

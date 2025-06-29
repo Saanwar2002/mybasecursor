@@ -218,6 +218,8 @@ const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" hei
 </svg>`;
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
+// Fix for linter: declare window for TypeScript
+declare const window: any;
 
 export default function BookRidePage() {
   const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
@@ -1516,7 +1518,7 @@ export default function BookRidePage() {
     };
   }, [toast, form, geocodeAiAddress, playSound, isListening]);
 
- const handleMicMouseDown = async (event: React.MouseEvent) => {
+  const handleMicMouseDown = async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!recognitionRef.current) {
         toast({ title: "Voice Input Unavailable", description: "Speech recognition is not supported or initialized.", variant: "destructive" });
         return;
@@ -1541,7 +1543,7 @@ export default function BookRidePage() {
     playSound('start');
   };
 
-  const handleMicMouseUpOrLeave = (event: React.MouseEvent | React.LeaveEvent) => {
+  const handleMicMouseUpOrLeave = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
     }
@@ -2373,8 +2375,8 @@ const handleProceedToConfirmation = async () => {
                                       <Briefcase className="w-4 h-4 text-purple-500" /> Account
                                       {field.value === "account" && (
                                         isAccountJobAuthPinVerified 
-                                          ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 ml-1" title="PIN Verified" />
-                                          : <AlertTriangle className="w-3.5 h-3.5 text-orange-500 ml-1" title="PIN Required" />
+                                          ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 ml-1" />
+                                          : <AlertTriangle className="w-3.5 h-3.5 text-orange-500 ml-1" />
                                       )}
                                     </FormLabel>
                                 </FormItem>
@@ -2599,12 +2601,8 @@ const handleProceedToConfirmation = async () => {
             </p>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleWaitAndReturnDialogCancel}>
-              Cancel W&R
-            </Button>
-            <Button type="button" onClick={handleWaitAndReturnDialogConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Confirm Wait Time
-            </Button>
+            <Button type="button" variant="outline" onClick={handleWaitAndReturnDialogCancel}>Cancel W&R</Button>
+            <Button type="button" onClick={handleWaitAndReturnDialogConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm Wait Time</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2629,12 +2627,8 @@ const handleProceedToConfirmation = async () => {
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>
-              Cancel Priority
-            </Button>
-            <Button type="button" onClick={handlePriorityFeeDialogConfirm} className="bg-orange-500 hover:bg-orange-600 text-white">
-              Set Priority Fee
-            </Button>
+            <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>Cancel Priority</Button>
+            <Button type="button" onClick={handlePriorityFeeDialogConfirm} className="bg-orange-500 hover:bg-orange-600 text-white">Set Priority Fee</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2676,9 +2670,7 @@ const handleProceedToConfirmation = async () => {
               setIsAccountJobAuthPinDialogOpen(false);
               toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
             }}>Cancel & Change Payment</Button>
-            <Button type="button" onClick={handleAccountJobAuthPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Confirm PIN
-            </Button>
+            <Button type="button" onClick={handleAccountJobAuthPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm PIN</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

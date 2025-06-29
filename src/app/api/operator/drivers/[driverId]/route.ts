@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
+import { NextResponse, NextRequest } from 'next/server';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
 
@@ -27,7 +27,7 @@ interface Driver {
   status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended';
   rating?: number;
   totalRides?: number;
-  role: 'driver';
+  role: 'driver' | 'admin';
   operatorCode?: string; // Added operatorCode
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
   lastLogin?: { _seconds: number; _nanoseconds: number } | null;
@@ -46,7 +46,7 @@ export async function GET(req: Request, { params }: { params: { driverId: string
     const driverId = params.driverId;
     const docRef = db.collection('users').doc(driverId);
     const docSnap = await docRef.get();
-    if (!docSnap.exists) {
+    if (!docSnap.exists()) {
       return NextResponse.json({ error: 'Driver not found' }, { status: 404 });
     }
     return NextResponse.json({ id: docSnap.id, ...docSnap.data() });
@@ -64,6 +64,12 @@ const driverUpdateSchema = z.object({
   status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended']).optional(),
   statusReason: z.string().optional(),
   operatorCode: z.string().optional(), // Allow updating operatorCode if necessary
+  customId: z.string().optional(), // <-- allow updating customId
+  driverIdentifier: z.string().optional(), // <-- allow updating driverIdentifier
+  role: z.enum(['driver', 'admin']).optional(), // Allow updating role
+  isSuperAdmin: z.boolean().optional(), // Allow setting super admin flag
+  approvedAt: z.string().optional(), // Allow setting approval timestamp
+  approvedBy: z.string().optional(), // Allow setting who approved
 }).refine(obj => Object.keys(obj).length > 0, { message: "At least one field must be provided for update." });
 
 export type DriverUpdatePayload = z.infer<typeof driverUpdateSchema>;
@@ -95,11 +101,14 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
     }
 
     const driverData = driverSnap.data();
-    if (driverData.role !== 'driver') {
-      return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be updated via this endpoint.` }, { status: 403 });
+    if (!driverData) {
+      return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
+    }
+    if (driverData.role !== 'driver' && driverData.role !== 'admin') {
+      return NextResponse.json({ message: `User with ID ${driverId} is not a driver or admin and cannot be updated via this endpoint.` }, { status: 403 });
     }
     // Prevent activating guest drivers
-    if (driverData.email && driverData.email.startsWith('guest-') && updateDataFromPayload.status === 'Active') {
+    if (driverData.role === 'driver' && driverData.email && driverData.email.startsWith('guest-') && updateDataFromPayload.status === 'Active') {
       return NextResponse.json({ message: `Guest drivers cannot be activated.` }, { status: 403 });
     }
 
@@ -132,7 +141,7 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
       status: updatedDriverData.status || 'Inactive',
       rating: updatedDriverData.rating,
       totalRides: updatedDriverData.totalRides,
-      role: 'driver',
+      role: updatedDriverData.role,
       operatorCode: updatedDriverData.operatorCode || null,
       createdAt: serializeTimestamp(updatedDriverData.createdAt as Timestamp | undefined),
       lastLogin: serializeTimestamp(updatedDriverData.lastLogin as Timestamp | undefined),

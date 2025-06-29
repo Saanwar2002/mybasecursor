@@ -14,21 +14,18 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const limitCount = parseInt(searchParams.get('limit') || '50');
 
-    const usersRef = db.collection('users');
-    const constraints = [];
+    let q = db.collection('users');
     
     if (role) {
-      constraints.push(db.collection('users').where('role', '==', role));
+      q = q.where('role', '==', role);
     }
     
     if (status) {
-      constraints.push(db.collection('users').where('status', '==', status));
+      q = q.where('status', '==', status);
     }
     
-    constraints.push(db.collection('users').orderBy('createdAt', 'desc'));
-    constraints.push(db.collection('users').limit(limitCount));
+    q = q.orderBy('createdAt', 'desc').limit(limitCount);
 
-    const q = db.collection('users').where(...constraints);
     const snapshot = await q.get();
     const users = snapshot.docs.map(doc => ({
       id: doc.id,

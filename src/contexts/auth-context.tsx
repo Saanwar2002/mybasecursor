@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -46,6 +45,7 @@ export interface User {
   totalEarningsCurrentSession?: number | null; 
   totalDurationOnlineCurrentSessionSeconds?: number | null;
   currentHourlyRate?: number | null; 
+  isSuperAdmin?: boolean; // <-- Added for super admin support
 }
 
 interface AuthContextType {
@@ -121,6 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             totalEarningsCurrentSession: firestoreUser.totalEarningsCurrentSession || null,
             totalDurationOnlineCurrentSessionSeconds: firestoreUser.totalDurationOnlineCurrentSessionSeconds || null,
             currentHourlyRate: firestoreUser.currentHourlyRate || null,
+            isSuperAdmin: firestoreUser.isSuperAdmin || false, // <-- Add this line to set super admin status
           };
           setUser(userData);
           console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);

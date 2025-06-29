@@ -1,4 +1,3 @@
-
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Users, Car as CarIcon, DollarSign, AlertTriangle, Loader2, Users2, Building, Shield, Lightbulb, BrainCircuit } from "lucide-react";
@@ -137,7 +136,7 @@ export default function AdminAnalyticsPage() {
           <StatCard title="Total Operators" value={summaryStats.totalOperators} icon={Building} />
           <StatCard title="Total Admins" value={summaryStats.totalAdmins} icon={Shield} />
           <StatCard title="Rides (Last 30d)" value={summaryStats.totalRidesLast30Days} icon={TrendingUp} color="text-green-500"/>
-          <StatCard title="Revenue (Last 30d)" value={`£${summaryStats.totalRevenueLast30Days.toLocaleString()}`} icon={DollarSign} color="text-green-500" description="(Mock Data)"/>
+          <StatCard title="Revenue (Last 30d)" value={`£${(summaryStats.totalRevenueLast30Days ?? 0).toLocaleString()}`} icon={DollarSign} color="text-green-500" description="(Mock Data)"/>
         </div>
       )}
 

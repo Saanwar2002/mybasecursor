@@ -257,3 +257,29 @@ async function generateAdminId() {
     throw error;
   }
 }
+
+// Function to generate sequential booking ID for an operator
+async function generateBookingId(operatorCode) {
+  const counterRef = db.collection('counters').doc(`bookingId_${operatorCode}`);
+  
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists) {
+        // Initialize counter if it doesn't exist
+        transaction.set(counterRef, { currentId: 1 });
+        return 1;
+      }
+      
+      const currentId = counterDoc.data().currentId;
+      transaction.update(counterRef, { currentId: currentId + 1 });
+      return currentId + 1;
+    });
+    
+    return `${operatorCode}/${result.toString().padStart(8, '0')}`;
+  } catch (error) {
+    logger.error('Error generating booking ID:', error);
+    throw error;
+  }
+}

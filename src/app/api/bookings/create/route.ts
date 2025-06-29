@@ -56,6 +56,27 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
+// Function to generate sequential booking ID for an operator
+async function generateBookingId(operatorCode: string): Promise<string> {
+  const counterRef = db.collection('counters').doc(`bookingId_${operatorCode}`);
+  
+  const result = await db.runTransaction(async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
+    
+    if (!counterDoc.exists) {
+      // Initialize counter if it doesn't exist
+      transaction.set(counterRef, { currentId: 1 });
+      return 1;
+    }
+    
+    const currentId = counterDoc.data().currentId;
+    transaction.update(counterRef, { currentId: currentId + 1 });
+    return currentId + 1;
+  });
+  
+  return `${operatorCode}/${result.toString().padStart(8, '0')}`;
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -78,14 +99,22 @@ export async function POST(req: Request) {
 
     data.originatingOperatorId = data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
 
+    // Generate sequential display booking ID
+    const displayBookingId = await generateBookingId(data.originatingOperatorId);
+    data.displayBookingId = displayBookingId;
+
     // Write to Firestore
     const docRef = await db.collection('bookings').add(data);
 
     // Log for debugging
-    console.log("Booking created:", docRef.id, data);
+    console.log("Booking created:", docRef.id, "Display ID:", displayBookingId, data);
 
     // Return consistent response
-    return NextResponse.json({ success: true, bookingId: docRef.id });
+    return NextResponse.json({ 
+      success: true, 
+      bookingId: docRef.id,
+      displayBookingId: displayBookingId
+    });
   } catch (error) {
     console.error("Error creating booking:", error);
     return NextResponse.json({ error: 'Failed to create booking', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
