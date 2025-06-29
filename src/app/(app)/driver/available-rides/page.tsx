@@ -263,6 +263,9 @@ interface HazardMarker {
   iconScaledSize: { width: number; height: number };
 }
 
+// MOCK: Always use Huddersfield for driver location (for testing)
+const HUDDERSFIELD_LOCATION = { lat: 53.645792, lng: -1.785035 };
+
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
@@ -289,6 +292,13 @@ export default function AvailableRidesPage() {
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
+  const [useMockLocation, setUseMockLocation] = useState(false);
+  const useMockLocationRef = useRef(useMockLocation);
+  useEffect(() => {
+    useMockLocationRef.current = useMockLocation;
+  }, [useMockLocation]);
+  const HUDDERSFIELD_LOCATION = { lat: 53.645792, lng: -1.785035 };
+
   useEffect(() => {
     function handleVisibilityChange() {
       if (
@@ -300,6 +310,7 @@ export default function AvailableRidesPage() {
         if (navigator.geolocation && driverUser) {
           navigator.geolocation.getCurrentPosition(
             (position) => {
+              console.log('Initial geolocation:', position.coords);
               setGeolocationError(null);
               setDriverLocation({
                 lat: position.coords.latitude,
@@ -326,7 +337,7 @@ export default function AvailableRidesPage() {
             (error) => {
               setGeolocationError('Location access denied. You must allow location to go online.');
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
           );
         }
       }
@@ -458,6 +469,13 @@ useEffect(() => {
 
   const locationUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Helper to always get the correct location (mock or real)
+  function getDriverLocationFromPosition(position: GeolocationPosition): google.maps.LatLngLiteral {
+    return useMockLocationRef.current
+      ? HUDDERSFIELD_LOCATION
+      : { lat: position.coords.latitude, lng: position.coords.longitude };
+  }
+
   const startLocationWatcher = () => {
     if (navigator.geolocation && driverUser) {
       // Clear any previous interval
@@ -469,21 +487,20 @@ useEffect(() => {
       locationUpdateIntervalRef.current = setInterval(() => {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            const location = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            };
+            console.log('Interval geolocation:', position.coords);
+            const location = getDriverLocationFromPosition(position);
             try {
               await updateDoc(doc(db, 'drivers', driverUser.id), { location });
               console.log('Driver location updated in Firestore:', location);
             } catch (err) {
               console.error('Error updating driver location:', err);
             }
+            setDriverLocation(location);
           },
           (error) => {
             console.error('Geolocation error (interval):', error);
           },
-          { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
         );
       }, 7000); // 7 seconds
     }
@@ -509,10 +526,7 @@ useEffect(() => {
       if (navigator.geolocation && driverUser) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            const location = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            };
+            const location = getDriverLocationFromPosition(position);
             console.log('Attempting to set driver online with location:', location);
             try {
               await setDoc(
@@ -521,7 +535,7 @@ useEffect(() => {
                   name: driverUser.name,
                   email: driverUser.email,
                   status: 'Active',
-                  location,
+                  location: useMockLocationRef.current ? HUDDERSFIELD_LOCATION : location,
                   createdAt: serverTimestamp(),
                   vehicleCategory: driverUser.vehicleCategory || '',
                   operatorCode: driverUser.operatorCode || '',
@@ -539,7 +553,7 @@ useEffect(() => {
           (error) => {
             console.error('Geolocation error:', error);
           },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
         );
       }
     } else {
@@ -604,12 +618,16 @@ const mapDisplayElements = useMemo(() => {
 
     if (!activeRide) {
        if (isDriverOnline && driverLocation) {
-        markers.push({
-            position: driverLocation,
-            title: "Your Current Location",
-            iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 30, height: 45}
-        });
+        if (driverLocation.lat && driverLocation.lng) {
+          markers.push({
+              position: driverLocation,
+              title: "Your Current Location",
+              iconUrl: driverCarIconDataUrl,
+              iconScaledSize: {width: 30, height: 45}
+          });
+        } else {
+          console.warn('Invalid driverLocation for marker:', driverLocation);
+        }
         if (driverCurrentStreetName) {
             labels.push({
                 position: driverLocation,
@@ -619,6 +637,7 @@ const mapDisplayElements = useMemo(() => {
             });
         }
       }
+      console.log('Map Markers:', markers);
       return { markers, labels };
     }
 
@@ -629,7 +648,7 @@ const mapDisplayElements = useMemo(() => {
         ? driverLocation
         : activeRide.driverCurrentLocation;
 
-    if (currentLocToDisplay) {
+    if (currentLocToDisplay && currentLocToDisplay.lat && currentLocToDisplay.lng) {
         markers.push({
             position: currentLocToDisplay,
             title: "Your Current Location",
@@ -648,6 +667,8 @@ const mapDisplayElements = useMemo(() => {
                 variant: 'compact'
             });
         }
+    } else if (currentLocToDisplay) {
+      console.warn('Invalid currentLocToDisplay for marker:', currentLocToDisplay);
     }
 
     const isEnRouteToPickup = currentStatusLower === 'driver_assigned';
@@ -712,6 +733,8 @@ const mapDisplayElements = useMemo(() => {
         }
 
     }
+    // At the end, before returning
+    console.log('Map Markers:', markers.map(m => m.position));
     return { markers, labels };
   }, [activeRide, driverLocation, isDriverOnline, localCurrentLegIndex, journeyPoints, driverCurrentStreetName]);
 
@@ -827,11 +850,11 @@ const mapDisplayElements = useMemo(() => {
       const driverDocRef = doc(db, 'drivers', driverUser.id);
       getDoc(driverDocRef).then((docSnap) => {
         if (docSnap.exists() && docSnap.data().location) {
-          setDriverLocation(docSnap.data().location); // Set map to last known location
+          setDriverLocation(useMockLocationRef.current ? HUDDERSFIELD_LOCATION : docSnap.data().location); // Set map to last known location
         }
       });
     }
-  }, [driverUser]);
+  }, [driverUser, useMockLocationRef]);
 
   const fetchActiveRide = useCallback(async () => {
     console.log("fetchActiveRide called. driverUser ID:", driverUser?.id);
@@ -2171,6 +2194,29 @@ const mapDisplayElements = useMemo(() => {
   const memoizedLabels = useMemo(() => mapDisplayElements.labels, [JSON.stringify(mapDisplayElements.labels)]);
   return (
       <div className="flex flex-col h-full p-2 md:p-4 relative overflow-hidden">
+        {/* Mock Location Toggle */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            zIndex: 1000,
+            background: 'white',
+            borderRadius: 8,
+            padding: '6px 12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+          }}
+        >
+          <label style={{ fontWeight: 500, fontSize: 14 }}>
+            <input
+              type="checkbox"
+              checked={useMockLocation}
+              onChange={e => setUseMockLocation(e.target.checked)}
+              style={{ marginRight: 6 }}
+            />
+            Mock Location (Huddersfield)
+          </label>
+        </div>
         {isSpeedLimitFeatureEnabled &&
           <SpeedLimitDisplay
             currentSpeed={currentMockSpeed}
@@ -2190,7 +2236,7 @@ const mapDisplayElements = useMemo(() => {
             )}
 
 <GoogleMapDisplay
-              center={memoizedMapCenter}
+              center={{ lat: 53.645792, lng: -1.785035 }}
               zoom={mapZoomToUse}
               mapHeading={driverMarkerHeading ?? 0}
               mapRotateControl={false}

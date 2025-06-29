@@ -1118,6 +1118,7 @@ export default function BookRidePage() {
 
     setIsBooking(true);
 
+    const PLATFORM_OPERATOR_CODE = "OP001";
     const bookingPayload: any = {
       passengerId: user.id,
       passengerName: user.name || "Passenger",
@@ -1138,6 +1139,7 @@ export default function BookRidePage() {
       estimatedWaitTimeMinutes: values.estimatedWaitTimeMinutes,
       promoCode: values.promoCode,
       paymentMethod: values.paymentMethod,
+      preferredOperatorId: operatorPreference || PLATFORM_OPERATOR_CODE, // Always set
     };
 
     if (operatorPreference) {

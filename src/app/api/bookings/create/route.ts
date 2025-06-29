@@ -69,7 +69,14 @@ export async function POST(req: Request) {
     data.createdAt = Timestamp.now();
     data.status = "pending_assignment"; // or "active" if that's your logic
     data.bookingTimestamp = Timestamp.now();
-    data.ridePin = generateFourDigitPin();
+
+    if (data.paymentMethod === "account") {
+      data.ridePin = generateFourDigitPin();
+    } else {
+      data.ridePin = null;
+    }
+
+    data.originatingOperatorId = data.preferredOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
 
     // Write to Firestore
     const docRef = await db.collection('bookings').add(data);

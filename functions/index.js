@@ -44,35 +44,53 @@ exports.autoAssignOnBookingCreate = onDocumentCreated({
   timeoutSeconds: 60,
 }, async (event) => {
   const snap = event.data;
-  if (!snap) return;
+  if (!snap) {
+    logger.info('No snapshot data.');
+    return;
+  }
   const booking = snap.data();
-  if (!booking || booking.status !== 'pending_assignment') return;
+  logger.info('Booking created:', booking);
 
-  // Get operator ID
+  if (!booking || booking.status !== 'pending_assignment') {
+    logger.info('Booking missing or not pending_assignment:', booking);
+    return;
+  }
+
   const operatorId = booking.originatingOperatorId || booking.preferredOperatorId;
-  if (!operatorId) return;
+  logger.info('Operator ID:', operatorId);
+  if (!operatorId) {
+    logger.info('No operatorId found.');
+    return;
+  }
 
-  // Fetch operator settings
   const operatorSettingsSnap = await db.collection('operatorSettings').doc(operatorId).get();
   const operatorSettings = operatorSettingsSnap.data();
-  if (!operatorSettings || !operatorSettings.autoDispatchEnabled) return;
+  logger.info('Operator settings:', operatorSettings);
+  if (!operatorSettings || !operatorSettings.autoDispatchEnabled) {
+    logger.info('Auto dispatch not enabled or missing operator settings.');
+    return;
+  }
 
-  // Get pickup location
   const pickup = booking.pickupLocation;
-  if (!pickup || typeof pickup.latitude !== 'number' || typeof pickup.longitude !== 'number') return;
+  logger.info('Pickup location:', pickup);
+  if (!pickup || typeof pickup.latitude !== 'number' || typeof pickup.longitude !== 'number') {
+    logger.info('Invalid pickup location.');
+    return;
+  }
 
-  // Query drivers for this operator, status Active
   const driversSnap = await db.collection('drivers')
     .where('status', '==', 'Active')
     .where('operatorCode', '==', operatorId)
     .get();
 
+  logger.info('Drivers found:', driversSnap.size);
+
   let nearestDriver = null;
   let minDistance = Infinity;
   driversSnap.forEach((doc) => {
     const driver = doc.data();
+    logger.info('Checking driver:', driver);
     let lat, lng;
-    // Support both array and object location formats
     if (Array.isArray(driver.location) && driver.location.length === 2) {
       lat = driver.location[0];
       lng = driver.location[1];
@@ -82,6 +100,7 @@ exports.autoAssignOnBookingCreate = onDocumentCreated({
     }
     if (typeof lat === 'number' && typeof lng === 'number') {
       const dist = haversineDistance(pickup.latitude, pickup.longitude, lat, lng);
+      logger.info(`Driver ${doc.id} distance: ${dist}`);
       if (dist < minDistance) {
         minDistance = dist;
         nearestDriver = { id: doc.id, ...driver };
@@ -89,7 +108,12 @@ exports.autoAssignOnBookingCreate = onDocumentCreated({
     }
   });
 
-  if (!nearestDriver) return;
+  if (!nearestDriver) {
+    logger.info('No suitable driver found.');
+    return;
+  }
+
+  logger.info('Assigning driver:', nearestDriver);
 
   // Update booking with assigned driver
   await db.collection('bookings').doc(event.params.bookingId).update({

@@ -1,18 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
-import {
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-  getDoc,
-  // orderBy, // Removed orderBy
-} from 'firebase/firestore';
 import { z } from 'zod';
 import type { UserRole } from '@/contexts/auth-context';
 
@@ -67,21 +55,20 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Removed orderBy('createdAt', 'desc') to avoid index error. Sorting will be done client-side.
-    const q = query(collection(db, 'userBlocks'), where('blockerId', '==', userId));
-    const querySnapshot = await getDocs(q);
+    const q = db.collection('userBlocks').where('blockerId', '==', userId);
+    const querySnapshot = await q.get();
 
     const blockedUsersDisplay: BlockedUserDisplay[] = [];
 
     for (const blockDoc of querySnapshot.docs) {
       const blockData = blockDoc.data() as Omit<UserBlock, 'id'>;
-      const blockedUserDocRef = doc(db, 'users', blockData.blockedId);
-      const blockedUserSnap = await getDoc(blockedUserDocRef);
+      const blockedUserDocRef = db.collection('users').doc(blockData.blockedId);
+      const blockedUserSnap = await blockedUserDocRef.get();
 
       let blockedUserName = 'Unknown User';
       let blockedUserRole: UserRole = 'passenger'; // Default role
 
-      if (blockedUserSnap.exists()) {
+      if (blockedUserSnap.exists) {
         const blockedUserData = blockedUserSnap.data();
         blockedUserName = blockedUserData.name || 'Unnamed User';
         blockedUserRole = blockedUserData.role || 'passenger';
@@ -104,7 +91,6 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error('Error fetching blocked users:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    // Removed check for 'failed-precondition' as orderBy is removed
     return NextResponse.json({ message: 'Failed to fetch blocked users', details: errorMessage }, { status: 500 });
   }
 }
