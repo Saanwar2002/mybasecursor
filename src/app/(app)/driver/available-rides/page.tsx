@@ -253,10 +253,25 @@ const STOP_WAITING_CHARGE_PER_MINUTE = 0.25;
 
 const FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER = 10;
 
+// Add a type for hazard markers
+interface HazardMarker {
+  id: string;
+  position: { lat: number; lng: number };
+  title: string;
+  label: string;
+  iconUrl: string;
+  iconScaledSize: { width: number; height: number };
+}
 
 export default function AvailableRidesPage() {
   const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
-  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
+ const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
+ const isOnARide = !!activeRide && [
+  'driver_assigned',
+  'arrived_at_pickup',
+  'in_progress',
+  'in_progress_wait_and_return'
+].includes(activeRide.status?.toLowerCase() ?? '');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -273,6 +288,53 @@ export default function AvailableRidesPage() {
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (
+        document.visibilityState === 'visible' &&
+        isDriverOnline &&
+        geolocationError &&
+        geolocationError.toLowerCase().includes('location access denied')
+      ) {
+        if (navigator.geolocation && driverUser) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              setGeolocationError(null);
+              setDriverLocation({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              });
+              // Restart watcher
+              if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+              }
+              watchIdRef.current = navigator.geolocation.watchPosition(
+                (pos) => {
+                  setDriverLocation({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                  });
+                  setGeolocationError(null);
+                },
+                (error) => {
+                  setGeolocationError(error.message);
+                },
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
+              );
+            },
+            (error) => {
+              setGeolocationError('Location access denied. You must allow location to go online.');
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isDriverOnline, geolocationError, driverUser]);
+  
 
   const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
@@ -306,9 +368,9 @@ const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10
 const [isRequestingWR, setIsRequestingWR] = useState(false);
 
 // Hazard markers state (must be inside component)
-const [hazardMarkers, setHazardMarkers] = useState([]);
-const [hazardConfirmationDialog, setHazardConfirmationDialog] = useState({ open: false, hazard: null });
-const [recentlyPromptedHazardIds, setRecentlyPromptedHazardIds] = useState([]);
+const [hazardMarkers, setHazardMarkers] = useState<HazardMarker[]>([]);
+const [hazardConfirmationDialog, setHazardConfirmationDialog] = useState<{ open: boolean; hazard: HazardMarker | null }>({ open: false, hazard: null });
+const [recentlyPromptedHazardIds, setRecentlyPromptedHazardIds] = useState<string[]>([]);
 
 useEffect(() => {
   if (!driverLocation || !hazardMarkers.length) return;
@@ -318,13 +380,13 @@ useEffect(() => {
     const distance = getDistanceBetweenPointsInMeters(driverLocation, marker.position);
     if (distance < NEARBY_DISTANCE_METERS && !recentlyPromptedHazardIds.includes(marker.id)) {
       setHazardConfirmationDialog({ open: true, hazard: marker });
-      setRecentlyPromptedHazardIds(ids => [...ids, marker.id]);
+      setRecentlyPromptedHazardIds((ids: string[]) => [...ids, marker.id]);
       break;
     }
   }
 }, [driverLocation, hazardMarkers]);
 
-const handleHazardFeedback = async (hazardId, isPresent) => {
+const handleHazardFeedback = async (hazardId: string, isPresent: boolean) => {
   try {
     await fetch('/api/driver/map-hazards/feedback', {
       method: 'POST',
@@ -501,8 +563,8 @@ useEffect(() => {
     where('status', '==', 'pending'),
   );
   const unsubscribe = onSnapshot(offersQuery, (snapshot) => {
-    const offers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    if (offers.length > 0) {
+    const offers = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
+    if (offers.length > 0 && offers[0].offerDetails) {
       setCurrentOfferDetails(offers[0].offerDetails);
       setIsOfferModalOpen(true);
     }
@@ -560,7 +622,7 @@ const mapDisplayElements = useMemo(() => {
       return { markers, labels };
     }
 
-    const currentStatusLower = activeRide.status.toLowerCase();
+    const currentStatusLower = activeRide?.status ? activeRide.status.toLowerCase() : "";
     const currentLegIdx = localCurrentLegIndex;
 
     const currentLocToDisplay = isDriverOnline && watchIdRef.current && driverLocation
@@ -596,14 +658,14 @@ const mapDisplayElements = useMemo(() => {
       if (isEnRouteToPickup || isAtPickup) {
         markers.push({
             position: {lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude},
-            title: `Pickup: ${activeRide.pickupLocation.address}`,
+            title: `Pickup: ${activeRide.pickupLocation?.address}`,
             label: { text: "P", color: "white", fontWeight: "bold"}
         });
       }
       if (isEnRouteToPickup || isAtPickup) {
         labels.push({
             position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
-            content: formatAddressForMapLabel(activeRide.pickupLocation.address, 'Pickup'),
+            content: formatAddressForMapLabel(activeRide.pickupLocation?.address, 'Pickup'),
             type: 'pickup',
             variant: (isAtPickup && (currentLegIdx === 0 || journeyPoints.length === 2)) ? 'default' : 'compact'
         });
@@ -801,7 +863,7 @@ const mapDisplayElements = useMemo(() => {
       }
       if (data?.completedStopWaitCharges) {
         setCompletedStopWaitCharges(data.completedStopWaitCharges);
-        setAccumulatedStopWaitingCharges(Object.values(data.completedStopWaitCharges).reduce((sum, charge) => sum + charge, 0));
+        setAccumulatedStopWaitingCharges(Object.values(data.completedStopWaitCharges).reduce((sum: number, charge: number) => sum + charge, 0));
       }
 
 
@@ -1457,7 +1519,10 @@ const mapDisplayElements = useMemo(() => {
     ) {
         chargeForPreviousStop = currentStopTimerDisplay.charge;
         setCompletedStopWaitCharges(prev => ({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop }));
-        setAccumulatedStopWaitingCharges(prev => Object.values({...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop}).reduce((sum, val) => sum + (val || 0), 0));
+        setAccumulatedStopWaitingCharges((prev) => {
+          const updated = { ...prev, [currentStopArrayIndexForChargeCalc]: chargeForPreviousStop };
+          return Object.values(updated).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
+        });
     }
 
 
@@ -1776,10 +1841,17 @@ const mapDisplayElements = useMemo(() => {
     return false;
   };
   const mainButtonIsDisabledValue = isMainButtonDisabled();
-  const isSosButtonVisible = activeRide && ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
+  const isSosButtonVisible =
+    !!activeRide &&
+    !!activeRide.status &&
+    ['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase());
 
   const CurrentNavigationLegBar = () => {
-    if (!activeRide || !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())) {
+    if (
+      !activeRide ||
+      !activeRide.status ||
+      !['driver_assigned', 'arrived_at_pickup', 'in_progress', 'in_progress_wait_and_return'].includes(activeRide.status.toLowerCase())
+    ) {
       return null;
     }
     const currentLeg = journeyPoints[localCurrentLegIndex];
@@ -2067,8 +2139,8 @@ const mapDisplayElements = useMemo(() => {
         const data = await response.json();
         if (data && Array.isArray(data.hazards)) {
   const RADIUS_METERS = 500;
-  const getDistance = (lat1, lng1, lat2, lng2) => {
-    const toRad = x => x * Math.PI / 180;
+  const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const toRad = (x: number) => x * Math.PI / 180;
     const R = 6371000;
     const dLat = toRad(lat2 - lat1);
     const dLng = toRad(lng2 - lng1);
@@ -2514,45 +2586,89 @@ const mapDisplayElements = useMemo(() => {
             </Card>
         )}
 
-      {!activeRide && !isLoading && (
-        <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border max-h-40 relative">
-           <div className="absolute top-3 left-3 z-10 flex items-center space-x-1 p-1 bg-background/70 backdrop-blur-sm rounded-md">
-            <Switch id="speed-limit-mock-toggle-main" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI" className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 data-[state=checked]:[&>span]:translate-x-3 data-[state=unchecked]:[&>span]:translate-x-0.5" />
-            <Label htmlFor="speed-limit-mock-toggle-main" className="text-xs font-medium text-muted-foreground">Speed Mock</Label>
-          </div>
-          <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}>
-            <CardTitle className={cn( "font-bold text-lg", isDriverOnline ? "text-green-600" : "text-red-600")}>
-              <span>{isDriverOnline ? "Online - Awaiting Offers" : "Offline"}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
-        {geolocationError && isDriverOnline && (
+      <Card className="flex-1 flex flex-col rounded-xl shadow-lg bg-card border max-h-40 relative">
+        <div className="absolute top-3 left-3 z-10 flex items-center space-x-1 p-1 bg-background/70 backdrop-blur-sm rounded-md">
+          <Switch id="speed-limit-mock-toggle-main" checked={isSpeedLimitFeatureEnabled} onCheckedChange={setIsSpeedLimitFeatureEnabled} aria-label="Toggle speed limit mock UI" className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 data-[state=checked]:[&>span]:translate-x-3 data-[state=unchecked]:[&>span]:translate-x-0.5" />
+          <Label htmlFor="speed-limit-mock-toggle-main" className="text-xs font-medium text-muted-foreground">Speed Mock</Label>
+        </div>
+        <CardHeader className={cn( "p-2 border-b text-center", isDriverOnline ? "border-green-500" : "border-red-500")}> 
+          <CardTitle className={cn( "font-bold text-lg", isDriverOnline ? "text-green-600" : "text-red-600")}> 
+            <span>
+              {isDriverOnline
+                ? isOnARide
+                  ? "On a Ride"
+                  : "Online - Awaiting Offers"
+                : "Offline"}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-3 space-y-1">
+          {geolocationError && isDriverOnline && (
             <Alert variant="destructive" className="mb-2 text-xs">
-                <AlertTriangle className="h-4 w-4" />
-                <ShadAlertTitle className="font-bold"><span>Location Error</span></ShadAlertTitle>
-                <ShadAlertDescription><span>{geolocationError}</span></ShadAlertDescription>
+              <AlertTriangle className="h-4 w-4" />
+              <ShadAlertTitle className="font-bold"><span>Location Error</span></ShadAlertTitle>
+              <ShadAlertDescription><span>{geolocationError}</span></ShadAlertDescription>
             </Alert>
-        )}
-        {isDriverOnline ? ( !geolocationError && ( <> <Loader2 className="w-6 h-6 text-primary animate-spin" /> <p className="font-bold text-xs text-muted-foreground text-center">Actively searching for ride offers for you...</p> </>) ) : ( <> <Power className="w-8 h-8 text-muted-foreground" /> <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p> </>) } <div className="flex items-center space-x-2 pt-1"> <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} /> <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} > <span>{isDriverOnline ? "Online" : "Offline"}</span> </Label> </div>
-        {isDriverOnline && (
-          <div className={`flex items-center justify-between w-full mt-2 rounded-xl px-3 py-1 transition-colors duration-200 ${pauseOffers ? 'bg-red-200 border border-red-400' : 'bg-green-50'}`}>
-            <Label htmlFor="pause-offers-switch-main" className="text-xs font-medium">Pause Ride Offers</Label>
-            <Switch
-              id="pause-offers-switch-main"
-              checked={pauseOffers}
-              onCheckedChange={setPauseOffers}
-              className="ml-2"
-            />
+          )}
+          {isDriverOnline && !geolocationError && (
+            !isOnARide ? (
+              <>
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                <p className="font-bold text-xs text-muted-foreground text-center">Waiting for ride offers...</p>
+              </>
+            ) : (
+              <p className="font-bold text-xs text-muted-foreground text-center">You are currently on a ride.</p>
+            )
+          )}
+          {!isDriverOnline && (
+            <>
+              <Power className="w-8 h-8 text-muted-foreground" />
+              <p className="font-bold text-sm text-muted-foreground">You are currently offline.</p>
+            </>
+          )}
+          <div className="flex items-center space-x-2 pt-1">
+            <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} />
+            <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} >
+              <span>{isDriverOnline ? "Online" : "Offline"}</span>
+            </Label>
           </div>
-        )}
-        {isDriverOnline && ( <Button variant="outline" size="sm" onClick={() => {
-            if (!activeRide) {
-              handleSimulateOffer();
-            } else {
-              toast({ title: "Action Not Allowed", description: "Please complete your current ride before simulating a new offer.", variant: "default" });
-            }
-          }} className="mt-2 text-xs h-8 px-3 py-1 font-bold" disabled={!!activeRide}> <span>Simulate Incoming Ride Offer (Test)</span> </Button> )} </CardContent> </Card>
-      )}
+          {isDriverOnline && (
+            <div className={`flex items-center justify-between w-full mt-2 rounded-xl px-3 py-1 transition-colors duration-200 ${pauseOffers ? 'bg-red-200 border border-red-400' : 'bg-green-50'}`}>
+              <Label htmlFor="pause-offers-switch-main" className="text-xs font-medium">Pause Ride Offers</Label>
+              <Switch
+                id="pause-offers-switch-main"
+                checked={pauseOffers}
+                onCheckedChange={setPauseOffers}
+                className="ml-2"
+              />
+            </div>
+          )}
+          {isDriverOnline && !activeRide && !isLoading && !geolocationError && (
+            <>
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              <p className="font-bold text-xs text-muted-foreground text-center">Waiting for ride offers...</p>
+            </>
+          )}
+          {isDriverOnline && !activeRide && activeRide && geolocationError && (
+            <Alert variant="destructive" className="mb-2 text-xs">
+              <AlertTriangle className="h-4 w-4" />
+              <ShadAlertTitle className="font-bold"><span>Location Error</span></ShadAlertTitle>
+              <ShadAlertDescription><span>{geolocationError}</span></ShadAlertDescription>
+            </Alert>
+          )}
+          {isDriverOnline && !activeRide && (
+            <Button variant="outline" size="sm" onClick={() => {
+              if (!activeRide) {
+                handleSimulateOffer();
+              } else {
+                toast({ title: "Action Not Allowed", description: "Please complete your current ride before simulating a new offer.", variant: "default" });
+              }
+            }} className="mt-2 text-xs h-8 px-3 py-1 font-bold" disabled={!!activeRide}>
+              <span>Simulate Incoming Ride Offer (Test)</span>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
       <RideOfferModal
         isOpen={isOfferModalOpen}
         onClose={() => {
@@ -2570,7 +2686,7 @@ const mapDisplayElements = useMemo(() => {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <ShadAlertDialogTitleForDialog className="font-bold flex items-center gap-2"><Navigation className="w-5 h-5 text-primary" /> <span>Time to Go!</span></ShadAlertDialogTitleForDialog>
-                <ShadAlertDialogDescriptionForDialog><span>Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation.address || 'the specified address'}.</span></ShadAlertDialogDescriptionForDialog>
+                <ShadAlertDialogDescriptionForDialog><span>Please proceed to the pickup location for {activeRide?.passengerName || 'the passenger'} at {activeRide?.pickupLocation?.address || 'the specified address'}.</span></ShadAlertDialogDescriptionForDialog>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogAction onClick={() => setIsStationaryReminderVisible(false)}>
@@ -2619,7 +2735,7 @@ const mapDisplayElements = useMemo(() => {
                   <AlertDialogHeader>
                       <ShadAlertDialogTitleForDialog className="font-bold text-destructive"><span>Confirm Passenger No-Show</span></ShadAlertDialogTitleForDialog>
                       <ShadAlertDialogDescriptionForDialog>
-                          <span>Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.</span>
+                          <span>Are you sure the passenger ({rideToReportNoShow?.passengerName || 'N/A'}) did not show up at the pickup location ({rideToReportNoShow?.pickupLocation?.address || 'N/A'})? This will cancel the ride and may impact the passenger's account.</span>
                       </ShadAlertDialogDescriptionForDialog>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -2741,11 +2857,11 @@ const mapDisplayElements = useMemo(() => {
                         <span>{legType}</span>
                       </p>
                       <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
-                        <span>{point.address}</span>
+                        <span>{point?.address || 'N/A'}</span>
                       </p>
-                      {point.doorOrFlat && (
+                      {point?.doorOrFlat && (
                         <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
-                          <span>(Unit/Flat: {point.doorOrFlat})</span>
+                          <span>(Unit/Flat: {point?.doorOrFlat})</span>
                         </p>
                       )}
                     </div>
