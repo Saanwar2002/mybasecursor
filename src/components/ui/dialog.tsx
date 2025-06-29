@@ -129,15 +129,55 @@ const DialogDescription = React.forwardRef<
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 
+// Debug wrapper for asChild components
+function debugAsChild(name: string, props: any) {
+  const child = props.children;
+  if (Array.isArray(child)) {
+    console.error(`${name} asChild received an array:`, child);
+  } else if (!React.isValidElement(child)) {
+    console.error(`${name} asChild received a non-element:`, child);
+  }
+}
+
+const DebugDialogTrigger = React.forwardRef(function DebugDialogTrigger(props: any, ref) {
+  debugAsChild('DialogTrigger', props);
+  return <DialogPrimitive.Trigger ref={ref} {...props}>{props.children}</DialogPrimitive.Trigger>;
+});
+
+const DebugDialogContent = React.forwardRef(function DebugDialogContent(props: any, ref) {
+  debugAsChild('DialogContent', props);
+  return <DialogPrimitive.Content ref={ref} {...props}>{props.children}</DialogPrimitive.Content>;
+});
+
+const DebugDialogHeader = (props: any) => {
+  debugAsChild('DialogHeader', props);
+  return <div {...props}>{props.children}</div>;
+};
+
+const DebugDialogFooter = (props: any) => {
+  debugAsChild('DialogFooter', props);
+  return <div {...props}>{props.children}</div>;
+};
+
+const DebugDialogTitle = React.forwardRef(function DebugDialogTitle(props: any, ref) {
+  debugAsChild('DialogTitle', props);
+  return <DialogPrimitive.Title ref={ref} {...props}>{props.children}</DialogPrimitive.Title>;
+});
+
+const DebugDialogDescription = React.forwardRef(function DebugDialogDescription(props: any, ref) {
+  debugAsChild('DialogDescription', props);
+  return <DialogPrimitive.Description ref={ref} {...props}>{props.children}</DialogPrimitive.Description>;
+});
+
 export {
   Dialog,
   DialogPortal,
   DialogOverlay,
   DebugDialogClose as DialogClose,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
+  DebugDialogTrigger as DialogTrigger,
+  DebugDialogContent as DialogContent,
+  DebugDialogHeader as DialogHeader,
+  DebugDialogFooter as DialogFooter,
+  DebugDialogTitle as DialogTitle,
+  DebugDialogDescription as DialogDescription,
 }

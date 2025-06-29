@@ -159,7 +159,7 @@ function ManagePlatformOperatorsContent() {
             <CardDescription> View, approve, and manage platform operators and admins. {isPlatformAdminUser ? " As platform admin, you can approve new operators and admins." : " (Approval rights restricted)"} </CardDescription>
           </div>
           <Dialog open={isAddOperatorDialogOpen} onOpenChange={setIsAddOperatorDialogOpen}>
-            <DialogTrigger asChild> <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0"> <UserPlus className="mr-2 h-4 w-4" /> Add New Operator </Button> </DialogTrigger>
+            <DialogTrigger asChild><Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0"><UserPlus className="mr-2 h-4 w-4" /> Add New Operator</Button></DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <div>
                 <DialogHeader> <DialogTitle>Add New Platform Operator</DialogTitle> <DialogDescription> Enter the details for the new taxi base operator. They will be created with 'Pending Approval' status. </DialogDescription> </DialogHeader>
