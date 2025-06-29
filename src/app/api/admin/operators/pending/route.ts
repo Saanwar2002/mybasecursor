@@ -4,16 +4,16 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export async function GET(request: NextRequest) {
   try {
-    // Query for all pending operators
-    const operatorsRef = collection(db, 'users');
+    // Query for all pending operators and admins
+    const usersRef = collection(db, 'users');
     const q = query(
-      operatorsRef,
-      where('role', '==', 'operator'),
+      usersRef,
+      where('role', 'in', ['operator', 'admin']),
       where('status', '==', 'Pending Approval')
     );
 
     const querySnapshot = await getDocs(q);
-    const operators = querySnapshot.docs.map(doc => {
+    const pendingUsers = querySnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -22,13 +22,13 @@ export async function GET(request: NextRequest) {
         phone: data.phone,
         companyName: data.companyName,
         status: data.status,
-        createdAt: data.createdAt,
-        role: data.role
+        role: data.role,
+        createdAt: data.createdAt
       };
     });
 
     // Sort by creation date (newest first)
-    operators.sort((a, b) => {
+    pendingUsers.sort((a, b) => {
       const aTime = a.createdAt?._seconds || 0;
       const bTime = b.createdAt?._seconds || 0;
       return bTime - aTime;
@@ -36,11 +36,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      operators 
+      pendingUsers 
     });
 
   } catch (error) {
-    console.error('Error fetching pending operators:', error);
+    console.error('Error fetching pending users:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

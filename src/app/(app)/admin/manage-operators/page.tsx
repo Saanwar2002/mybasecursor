@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback, Suspense } from 'react'; // Added Suspense
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -156,8 +155,8 @@ function ManagePlatformOperatorsContent() {
       <Card className="shadow-lg">
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div>
-            <CardTitle className="text-3xl font-headline flex items-center gap-2"> <BuildingIcon className="w-8 h-8 text-primary" /> Manage Operators </CardTitle>
-            <CardDescription> View, approve, and manage platform operators. {isPlatformAdminUser ? " As platform admin, you can approve new operators." : " (Approval rights restricted)"} </CardDescription>
+            <CardTitle className="text-3xl font-headline flex items-center gap-2"> <BuildingIcon className="w-8 h-8 text-primary" /> Manage Users </CardTitle>
+            <CardDescription> View, approve, and manage platform operators and admins. {isPlatformAdminUser ? " As platform admin, you can approve new operators and admins." : " (Approval rights restricted)"} </CardDescription>
           </div>
           <Dialog open={isAddOperatorDialogOpen} onOpenChange={setIsAddOperatorDialogOpen}>
             <DialogTrigger asChild> <Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0"> <UserPlus className="mr-2 h-4 w-4" /> Add New Operator </Button> </DialogTrigger>

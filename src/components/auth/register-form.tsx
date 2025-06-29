@@ -130,28 +130,6 @@ export function RegisterForm() {
     }
   };
 
-  const generateSequentialAdminId = async (): Promise<string> => {
-    try {
-      const response = await fetch('/api/users/generate-admin-id', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        return data.adminId;
-      } else {
-        throw new Error(data.error || 'Failed to generate admin ID');
-      }
-    } catch (error) {
-      console.error('Error generating admin ID:', error);
-      // Fallback to old method if API fails
-      return `AD-mock-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    }
-  };
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -229,17 +207,15 @@ export function RegisterForm() {
           email: values.email,
           role: values.role as UserRole,
           createdAt: serverTimestamp(),
-          status: (values.role === 'driver' || values.role === 'operator') ? 'Pending Approval' : 'Active',
+          status: (values.role === 'driver' || values.role === 'operator' || values.role === 'admin') ? 'Pending Approval' : 'Active',
         };
         
         // Generate sequential IDs based on role
         if (values.role === 'passenger') {
           const passengerId = await generateSequentialPassengerId();
           userProfile.customId = passengerId;
-        } else if (values.role === 'admin') {
-          const adminId = await generateSequentialAdminId();
-          userProfile.customId = adminId;
         }
+        // Note: Admin and operator IDs will be assigned after approval
         
         if (values.role === 'driver') {
           if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
@@ -301,7 +277,7 @@ export function RegisterForm() {
             userProfile.operatorCode,
             userProfile.driverIdentifier
           );
-          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''}` });
+          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''} ${values.role === 'admin' || values.role === 'operator' ? 'Your account is pending approval. You will be notified once approved.' : ''}` });
           setIsSubmitting(false);
         }
 
