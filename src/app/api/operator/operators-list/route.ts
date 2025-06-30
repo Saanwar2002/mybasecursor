@@ -12,6 +12,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const usersRef = db.collection('users');
     let query = usersRef.where('role', '==', 'operator');
+    const status = searchParams.get('status');
+    if (status) {
+      query = query.where('status', '==', status);
+    }
     const snapshot = await query.get();
     const operators = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json({ operators });

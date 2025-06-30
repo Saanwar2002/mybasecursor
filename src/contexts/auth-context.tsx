@@ -124,8 +124,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             isSuperAdmin: firestoreUser.isSuperAdmin || false, // <-- Add this line to set super admin status
           };
           // --- Status check for approval ---
-          if ((userData.role === 'operator' || userData.role === 'driver' || userData.role === 'admin') && userData.status !== 'Active') {
-            let reason = userData.status === 'Pending Approval' ? 'Your account is pending approval by an administrator.' : 'Your account has been suspended.';
+          if (
+            (userData.role === 'operator' || userData.role === 'driver' || userData.role === 'admin') &&
+            (typeof userData.status !== 'string' || userData.status.trim().toLowerCase() !== 'active')
+          ) {
+            let reason = (typeof userData.status === 'string' && userData.status.trim().toLowerCase() === 'pending approval')
+              ? 'Your account is pending approval by an administrator.'
+              : 'Your account has been suspended.';
             toast({ title: 'Account Restricted', description: reason, variant: 'destructive' });
             if (auth) await signOut(auth);
             setUser(null);

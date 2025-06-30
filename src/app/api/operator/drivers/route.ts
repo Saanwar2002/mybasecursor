@@ -47,9 +47,19 @@ interface Driver {
 
 export async function GET(req: NextRequest) {
   try {
-    const driversRef = db.collection('drivers');
-    const snapshot = await driversRef.get();
-    const drivers = snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() }));
+    const { searchParams } = new URL(req.url);
+    const operatorCode = searchParams.get('operatorCode');
+    const status = searchParams.get('status');
+    const usersRef = db.collection('users');
+    let query = usersRef.where('role', '==', 'driver');
+    if (operatorCode) {
+      query = query.where('operatorCode', '==', operatorCode);
+    }
+    if (status && status !== 'all') {
+      query = query.where('status', '==', status);
+    }
+    const snapshot = await query.get();
+    const drivers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json({ drivers });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch drivers', details: error instanceof Error ? error.message : String(error) }, { status: 500 });

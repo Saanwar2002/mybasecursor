@@ -17,7 +17,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { useOperators } from "@/hooks/useOperators";
 import Link from "next/link";
 import { Car, Loader2, PhoneOutcome, Briefcase, Shield, ShieldCheck } from "lucide-react"; 
 import React, { useState, useEffect, useRef } from "react";
@@ -99,7 +98,8 @@ interface UserProfile {
 export function RegisterForm() {
   const { login: contextLogin, updateUserProfileInContext } = useAuth();
   const { toast } = useToast();
-  const { operators, loading: operatorsLoading } = useOperators();
+  const router = useRouter();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationStep, setRegistrationStep] = useState<RegistrationStep>('initial');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -107,30 +107,10 @@ export function RegisterForm() {
   
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
-  const router = useRouter();
 
-  // Helper functions to generate sequential IDs
-  const generateSequentialPassengerId = async (): Promise<string> => {
-    try {
-      const response = await fetch('/api/users/generate-passenger-id', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        return data.passengerId;
-      } else {
-        throw new Error(data.error || 'Failed to generate passenger ID');
-      }
-    } catch (error) {
-      console.error('Error generating passenger ID:', error);
-      // Fallback to old method if API fails
-      return `CU-mock-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    }
-  };
+  // State for active operators
+  const [activeOperators, setActiveOperators] = useState<{ operatorCode: string, name: string }[]>([]);
+  const [operatorsLoading, setOperatorsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -187,6 +167,22 @@ export function RegisterForm() {
     };
   }, []);
 
+  // Fetch active operators for driver registration
+  useEffect(() => {
+    if (watchedRole !== 'driver') return;
+    setOperatorsLoading(true);
+    fetch('/api/operator/operators-list?status=Active')
+      .then(res => res.json())
+      .then(data => {
+        setActiveOperators(
+          (data.operators || [])
+            .filter((op: any) => op.operatorCode && op.name)
+            .map((op: any) => ({ operatorCode: op.operatorCode, name: op.name }))
+        );
+      })
+      .catch(() => setActiveOperators([]))
+      .finally(() => setOperatorsLoading(false));
+  }, [watchedRole]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!auth || !db) {
@@ -425,7 +421,7 @@ export function RegisterForm() {
                             <SelectValue placeholder={operatorsLoading ? "Loading operators..." : "Select an operator"} />
                           </SelectTrigger>
                           <SelectContent>
-                            {operators.map((operator) => (
+                            {activeOperators.map((operator) => (
                               <SelectItem key={operator.operatorCode} value={operator.operatorCode}>
                                 {operator.name} ({operator.operatorCode})
                               </SelectItem>

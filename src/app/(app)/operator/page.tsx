@@ -291,7 +291,17 @@ export default function OperatorDashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-3xl font-headline">Taxi Base Control Panel</CardTitle>
-            <CardDescription>Welcome, {user?.name || 'Operator'} ({user?.operatorCode || user?.customId || "ID N/A"}). Manage your fleet and operations efficiently.</CardDescription>
+            <CardDescription>
+              <span className="flex items-center gap-2">
+                <Badge className="bg-purple-700 text-white px-3 py-1 text-sm font-bold rounded-full shadow-md">
+                  {user?.name || 'Operator'}
+                </Badge>
+                <Badge className="bg-purple-700 text-white px-3 py-1 text-sm font-bold rounded-full shadow-md">
+                  {user?.operatorCode || user?.customId || "ID N/A"}
+                </Badge>
+              </span>
+              <span className="block mt-1">Manage your fleet and operations efficiently.</span>
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col md:flex-row items-center gap-6">
             <div className="flex-1 space-y-4">

@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,29 +59,25 @@ export default function OperatorManageDriversPage() {
       if (cursor) {
         params.append('startAfter', cursor);
       }
+      params.append('operatorCode', currentOperatorCodeForDemo);
       if (filterStatus !== "all") {
         params.append('status', filterStatus);
       }
       if (searchTerm.trim() !== "") {
         params.append('searchName', searchTerm.trim());
       }
-      // TODO: In a real app, the API should automatically filter by the logged-in operator's ID.
-      // For this prototype, we fetch all and then filter on client if needed, or rely on operatorCode for approval logic.
-      
       const response = await fetch(`/api/operator/drivers?${params.toString()}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Failed to fetch drivers: ${response.status}`);
       }
       const data = await response.json();
-      
       const fetchedDrivers = (data.drivers || []).map((d: any) => ({
         ...d,
         status: d.status || 'Inactive' 
       }));
       setDrivers(fetchedDrivers);
       setNextCursor(data.nextCursor || null);
-
       if (direction === 'filter') {
         setCurrentPage(1);
         setPrevCursors([]);
@@ -91,7 +86,6 @@ export default function OperatorManageDriversPage() {
            setPrevCursors(prev => [...prev, drivers[0]?.id || null]);
         }
       }
-
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(message);
@@ -100,12 +94,12 @@ export default function OperatorManageDriversPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterStatus, searchTerm, toast, drivers]); 
+  }, [filterStatus, searchTerm, toast, drivers, currentOperatorCodeForDemo]); 
 
   useEffect(() => {
     fetchDrivers(null, 'filter');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatus, searchTerm]); // fetchDrivers removed from deps to avoid loop, as it depends on `drivers` for prevCursor.
+  }, [filterStatus, searchTerm]);
 
 
   const handleNextPage = () => {
@@ -259,7 +253,21 @@ export default function OperatorManageDriversPage() {
                   <Label htmlFor="insuranceNumber" className="text-right">Insurance Number</Label>
                   <Input id="insuranceNumber" name="insuranceNumber" className="col-span-3" disabled={actionLoading['addDriver']} />
                 </div>
-                {/* Operator Code is implicitly the current operator's code */}
+                <div className="flex items-center gap-4 mt-4">
+                  <Label htmlFor="statusFilter" className="text-right">Status</Label>
+                  <Select value={filterStatus} onValueChange={handleFilterChange}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                      <SelectItem value="Pending Approval">Pending Approval</SelectItem>
+                      <SelectItem value="Suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <DialogFooter>
                   <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addDriver']}>Cancel</Button></DialogClose>
                   <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addDriver']}>
