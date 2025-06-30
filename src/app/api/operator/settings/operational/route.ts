@@ -61,8 +61,15 @@ export async function POST(req: Request) {
     }
     const updates = await req.json();
     const docRef = db.collection('operatorSettings').doc(operatorId);
-    await docRef.update(updates);
-    return NextResponse.json({ message: 'Operator settings updated successfully' });
+    await docRef.update({ ...updates, lastUpdated: Timestamp.now() });
+
+    const updatedDoc = await docRef.get();
+    const updatedSettings = updatedDoc.data();
+
+    return NextResponse.json({ 
+      message: 'Operator settings updated successfully',
+      settings: updatedSettings
+    });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update operator settings', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

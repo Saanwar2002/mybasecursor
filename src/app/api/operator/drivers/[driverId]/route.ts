@@ -27,12 +27,12 @@ interface Driver {
   status: 'Active' | 'Inactive' | 'Pending Approval' | 'Suspended';
   rating?: number;
   totalRides?: number;
-  role: 'driver' | 'admin';
+  role: 'driver' | 'admin' | 'operator';
   operatorCode?: string; // Added operatorCode
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
   lastLogin?: { _seconds: number; _nanoseconds: number } | null;
   operatorUpdatedAt?: { _seconds: number; _nanoseconds: number } | null;
-  statusReason?: string; 
+  statusReason?: string;
 }
 
 interface GetContext {
@@ -58,7 +58,7 @@ export async function GET(req: Request, { params }: { params: { driverId: string
 const driverUpdateSchema = z.object({
   name: z.string().min(2, {message: "Name must be at least 2 characters."}).optional(),
   email: z.string().email({message: "Invalid email format."}).optional(),
-  phone: z.string().optional(), 
+  phone: z.string().optional(),
   vehicleModel: z.string().optional(),
   licensePlate: z.string().optional(),
   status: z.enum(['Active', 'Inactive', 'Pending Approval', 'Suspended']).optional(),
@@ -66,13 +66,28 @@ const driverUpdateSchema = z.object({
   operatorCode: z.string().optional(), // Allow updating operatorCode if necessary
   customId: z.string().optional(), // <-- allow updating customId
   driverIdentifier: z.string().optional(), // <-- allow updating driverIdentifier
-  role: z.enum(['driver', 'admin']).optional(), // Allow updating role
+  role: z.enum(['driver', 'admin', 'operator']).optional(), // Allow updating role
   isSuperAdmin: z.boolean().optional(), // Allow setting super admin flag
   approvedAt: z.string().optional(), // Allow setting approval timestamp
   approvedBy: z.string().optional(), // Allow setting who approved
 }).refine(obj => Object.keys(obj).length > 0, { message: "At least one field must be provided for update." });
 
 export type DriverUpdatePayload = z.infer<typeof driverUpdateSchema>;
+
+// Function to generate sequential operator ID
+async function generateSequentialOperatorId(): Promise<string> {
+  const counterRef = db.collection('counters').doc('operatorId');
+  let currentId = 1;
+  const counterSnap = await counterRef.get();
+  if (counterSnap.exists) {
+    const data = counterSnap.data();
+    if (data && typeof data.currentId === 'number') {
+      currentId = data.currentId + 1;
+    }
+  }
+  await counterRef.set({ currentId }, { merge: true });
+  return `OP${currentId.toString().padStart(3, '0')}`;
+}
 
 export async function POST(request: NextRequest, context: { params: { driverId: string } }) {
   if (!db) {
@@ -96,7 +111,7 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
     const driverRef = db.collection('users').doc(driverId);
     const driverSnap = await driverRef.get();
 
-    if (!driverSnap.exists()) {
+    if (!driverSnap.exists) {
       return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
     }
 
@@ -104,15 +119,17 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
     if (!driverData) {
       return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
     }
-    if (driverData.role !== 'driver' && driverData.role !== 'admin') {
-      return NextResponse.json({ message: `User with ID ${driverId} is not a driver or admin and cannot be updated via this endpoint.` }, { status: 403 });
+    const isOperator = driverData.role === 'operator';
+    const entity = isOperator ? 'Operator' : 'Driver';
+    if (driverData.role !== 'driver' && driverData.role !== 'admin' && driverData.role !== 'operator') {
+      return NextResponse.json({ message: `User with ID ${driverId} is not a ${entity.toLowerCase()}, admin, or operator and cannot be updated via this endpoint.` }, { status: 403 });
     }
     // Prevent activating guest drivers
     if (driverData.role === 'driver' && driverData.email && driverData.email.startsWith('guest-') && updateDataFromPayload.status === 'Active') {
       return NextResponse.json({ message: `Guest drivers cannot be activated.` }, { status: 403 });
     }
 
-    const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp, statusUpdatedAt: Timestamp }> = {
+    const updatePayload: Partial<DriverUpdatePayload & { operatorUpdatedAt: Timestamp; statusUpdatedAt: Timestamp; statusReason?: string }> = {
       ...updateDataFromPayload,
       operatorUpdatedAt: Timestamp.fromDate(new Date()),
     };
@@ -124,13 +141,32 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
     }
     // Remove undefined fields from updatePayload
     Object.keys(updatePayload).forEach(key => {
-      if (updatePayload[key] === undefined) {
-        delete updatePayload[key];
+        const K = key as keyof typeof updatePayload;
+      if (updatePayload[K] === undefined) {
+        delete updatePayload[K];
       }
     });
-    await driverRef.update(updatePayload as any);
+
+    // In POST handler, after confirming operator approval
+    if (
+      driverData.role === 'operator' &&
+      updateDataFromPayload.status === 'Active' &&
+      (!driverData.operatorCode && !driverData.customId)
+    ) {
+      // Generate and assign operator code
+      const newOperatorCode = await generateSequentialOperatorId();
+      updatePayload.operatorCode = newOperatorCode;
+      updatePayload.customId = newOperatorCode;
+    }
+
+    await driverRef.update(updatePayload);
     const updatedDriverSnap = await driverRef.get();
-    const updatedDriverData = updatedDriverSnap.data()!;
+    const updatedDriverData = updatedDriverSnap.data();
+
+    if(!updatedDriverData) {
+        return NextResponse.json({ message: `Could not retrieve updated ${entity.toLowerCase()} data for ID ${driverId}` }, { status: 404 });
+    }
+    
     const serializedUpdatedDriver: Driver = {
       id: updatedDriverSnap.id,
       name: updatedDriverData.name || 'N/A',
@@ -148,14 +184,19 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
       operatorUpdatedAt: serializeTimestamp(updatedDriverData.operatorUpdatedAt as Timestamp | undefined),
       statusReason: updatedDriverData.statusReason,
     };
-    return NextResponse.json({ message: 'Driver details updated successfully', driver: serializedUpdatedDriver }, { status: 200 });
+    return NextResponse.json({ message: `${entity} details updated successfully`, driver: serializedUpdatedDriver }, { status: 200 });
   } catch (error) {
     console.error(`Error updating driver ${driverId}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    let entity = 'user';
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Invalid update payload.', errors: error.format() }, { status: 400 });
     }
-    return NextResponse.json({ message: `Failed to update driver ${driverId}`, details: errorMessage }, { status: 500 });
+    return NextResponse.json({ 
+      message: `Failed to update ${entity} ${driverId}`, 
+      details: errorMessage, 
+      error: JSON.stringify(error, Object.getOwnPropertyNames(error)) 
+    }, { status: 500 });
   }
 }
 
@@ -170,15 +211,15 @@ export async function DELETE(request: NextRequest, context: GetContext) {
   try {
     const driverRef = db.collection('users').doc(driverId);
     const driverSnap = await driverRef.get();
-    if (!driverSnap.exists()) {
+    if (!driverSnap.exists) {
       return NextResponse.json({ message: `Driver with ID ${driverId} not found.` }, { status: 404 });
     }
     const driverData = driverSnap.data();
-    if (driverData.role !== 'driver') {
+    if (!driverData || driverData.role !== 'driver') {
       return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be deleted via this endpoint.` }, { status: 403 });
     }
     await driverRef.delete();
-    return NextResponse.json({ message: `Driver ${driverId} deleted successfully.` }, { status: 200 });
+    return NextResponse.json({ message: `${entity} ${driverId} deleted successfully.` }, { status: 200 });
   } catch (error) {
     console.error('UNHANDLED ERROR in API route:', error);
     return NextResponse.json({ message: 'Unhandled server error', details: error instanceof Error ? error.message : String(error) }, { status: 500 });

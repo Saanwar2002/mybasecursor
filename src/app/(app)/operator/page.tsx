@@ -1,4 +1,3 @@
-
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -99,11 +98,17 @@ export default function OperatorDashboardPage() {
   }, []);
 
   const fetchOperatorSettings = useCallback(async () => {
+    if (!user?.operatorCode) {
+      toast({ title: "Authentication Error", description: "Operator code not found. Cannot load settings.", variant: "destructive" });
+      setIsLoadingOperatorSettings(false);
+      return;
+    }
     setIsLoadingOperatorSettings(true);
     try {
+      const operatorId = user.operatorCode;
       const [dispatchRes, operationalRes] = await Promise.all([
-        fetch('/api/operator/settings/dispatch-mode'),
-        fetch('/api/operator/settings/operational')
+        fetch(`/api/operator/settings/dispatch-mode?operatorId=${operatorId}`),
+        fetch(`/api/operator/settings/operational?operatorId=${operatorId}`)
       ]);
 
       if (!dispatchRes.ok || !operationalRes.ok) {
@@ -127,7 +132,7 @@ export default function OperatorDashboardPage() {
     } finally {
       setIsLoadingOperatorSettings(false);
     }
-  }, [toast]);
+  }, [toast, user?.operatorCode]);
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoadingStats(true);
@@ -228,6 +233,42 @@ export default function OperatorDashboardPage() {
   
   const issuesReported = operatorActionItems.reduce((acc, category) => 
     acc + category.items.filter(item => !item.completed && item.priority === 'high').length, 0);
+
+  useEffect(() => {
+    if (!user?.operatorCode) return;
+
+    const q = query(
+      collection(db, 'mapHazards'),
+      where('operatorId', '==', user.operatorCode),
+      where('status', '==', 'active')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const emergencies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      setOperatorActionItems(prev => {
+        const filtered = prev.filter(cat => cat.name !== 'Emergencies');
+        if (emergencies.length === 0) return filtered;
+
+        const newEmergenciesCategory: ActionableCategory = {
+          id: 'emergencies',
+          name: 'Emergencies',
+          icon: AlertTriangle,
+          items: emergencies.map((emergency: any) => ({
+            id: emergency.id,
+            label: emergency.details || 'New emergency reported',
+            completed: false,
+            priority: 'high',
+            iconName: 'AlertTriangle',
+            link: `/operator/map?hazard=${emergency.id}`
+          })),
+        };
+        return [...filtered, newEmergenciesCategory];
+      });
+    });
+
+    return () => unsubscribe();
+  }, [user?.operatorCode]);
 
   const JobIntakeStatusDisplay = () => {
     if (isLoadingOperatorSettings) {
@@ -461,40 +502,3 @@ function FeatureCard({ title, description, icon: Icon, link, actionText, notific
     </Card>
   );
 }
-
-// Listen for unresolved emergency reports
-const q = query(
-  collection(db, 'hazardReports'),
-  where('resolved', '==', false),
-  where('hazardType', '==', 'emergency')
-);
-const unsubscribe = onSnapshot(q, (snapshot) => {
-  const emergencies = snapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      label: `EMERGENCY: ${data.reportedByDriverId || 'Unknown Driver'} at (${data.location?.lat?.toFixed(5)}, ${data.location?.lng?.toFixed(5)})`,
-      completed: false,
-      priority: 'high',
-      details: `Reported at: ${data.reportedAt instanceof Timestamp ? data.reportedAt.toDate().toLocaleString() : ''}`,
-      iconName: 'AlertTriangle',
-      category: 'Emergencies',
-      link: `/operator/emergency/${doc.id}`
-    };
-  });
-  setOperatorActionItems(prev => {
-    // Remove old emergencies
-    const filtered = prev.filter(cat => cat.name !== 'Emergencies');
-    if (emergencies.length === 0) return filtered;
-    return [
-      {
-        id: 'emergencies',
-        name: 'Emergencies',
-        icon: AlertTriangle,
-        items: emergencies
-      },
-      ...filtered
-    ];
-  });
-});
-// Removed: return () => unsubscribe();

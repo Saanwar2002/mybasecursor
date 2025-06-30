@@ -33,6 +33,7 @@ import {
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp, updateDoc, Timestamp, getDoc, deleteField } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
@@ -106,6 +107,7 @@ export function RegisterForm() {
   
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const router = useRouter();
 
   // Helper functions to generate sequential IDs
   const generateSequentialPassengerId = async (): Promise<string> => {
@@ -248,23 +250,19 @@ export function RegisterForm() {
             if (shouldVerifyPhone && recaptchaVerifierRef.current) {
               toast({ title: "Account Created!", description: "Next, verify your phone number."});
               const appVerifier = recaptchaVerifierRef.current;
+              const phoneProvider = new PhoneAuthProvider(auth);
+              
               try {
-                const result = await linkWithPhoneNumber(user, values.phoneNumber!, appVerifier);
-                setConfirmationResult(result);
+                const confirmation = await phoneProvider.verifyPhoneNumber(values.phoneNumber!, appVerifier);
+                setConfirmationResult(confirmation);
                 setRegistrationStep('verifyingPhone');
-                setIsSubmitting(false);
-                form.setFocus("verificationCode");
-              } catch (phoneLinkError: any) {
-                if (recaptchaVerifierRef.current) {
-                  recaptchaVerifierRef.current.render().then((widgetId) => {
-                    if (typeof window !== 'undefined' && (window as any).grecaptcha) {
-                      (window as any).grecaptcha.reset(widgetId);
-                    }
-                  }).catch(e => console.error("Error resetting reCAPTCHA widget after phone link error:", e));
-                }
-                handleRegistrationError(phoneLinkError);
-                setIsSubmitting(false);
-                setFirebaseUserForLinking(null);
+                setIsSubmitting(false); 
+              } catch (phoneError: any) {
+                console.error("Error sending phone verification code:", phoneError);
+                toast({ title: "Phone Verification Failed", description: `Could not send verification code: ${phoneError.message || phoneError}`, variant: "destructive", duration: 7000 });
+                // Even if phone fails, proceed to login
+                toast({ title: "Registration complete", description: "You can now log in."});
+                router.push('/login');
               }
             } else {
               contextLogin(
@@ -290,8 +288,12 @@ export function RegisterForm() {
         handleRegistrationError(error);
         setIsSubmitting(false);
         setFirebaseUserForLinking(null);
+      } finally {
+        if (registrationStep === 'initial') { // Only set if we haven't moved to phone verification
+          setIsSubmitting(false);
+        }
       }
-    } else if (registrationStep === 'verifyingPhone' && firebaseUserForLinking) {
+    } else if (registrationStep === 'verifyingPhone' && confirmationResult && firebaseUserForLinking) {
       if (!values.verificationCode || !confirmationResult) {
         toast({ title: "Missing Info", description: "Please enter the verification code.", variant: "default" });
         setIsSubmitting(false);

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -38,10 +37,11 @@ export default function OperatorOperationalSettingsPage() {
   const { toast } = useToast();
 
   const fetchOperationalSettings = useCallback(async () => {
+    if (!user?.operatorCode) return;
     setIsLoadingSettings(true);
     setErrorSettings(null);
     try {
-      const response = await fetch('/api/operator/settings/operational');
+      const response = await fetch(`/api/operator/settings/operational?operatorId=${user.operatorCode}`);
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ message: 'Failed to load operational settings.'}));
         throw new Error(errData.message);
@@ -62,13 +62,14 @@ export default function OperatorOperationalSettingsPage() {
     } finally {
       setIsLoadingSettings(false);
     }
-  }, [toast]);
+  }, [toast, user?.operatorCode]);
 
   const fetchDispatchSettings = useCallback(async () => {
+    if (!user?.operatorCode) return;
     setIsLoadingDispatch(true);
     setErrorDispatch(null);
     try {
-      const response = await fetch('/api/operator/settings/dispatch-mode');
+      const response = await fetch(`/api/operator/settings/dispatch-mode?operatorId=${user.operatorCode}`);
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ message: 'Failed to load dispatch settings.'}));
         throw new Error(errData.message);
@@ -83,20 +84,32 @@ export default function OperatorOperationalSettingsPage() {
     } finally {
       setIsLoadingDispatch(false);
     }
-  }, [toast]);
+  }, [toast, user?.operatorCode]);
 
   useEffect(() => {
-    fetchOperationalSettings();
-    fetchDispatchSettings();
-  }, [fetchOperationalSettings, fetchDispatchSettings]);
+    if (user?.operatorCode) {
+      fetchOperationalSettings();
+      fetchDispatchSettings();
+    } else if (user) {
+      // If user is loaded but has no operator code, stop loading and show an error/prompt.
+      setIsLoadingSettings(false);
+      setIsLoadingDispatch(false);
+      setErrorSettings("Operator details not found. Cannot load settings.");
+      setErrorDispatch("Operator details not found. Cannot load settings.");
+    }
+  }, [user, fetchOperationalSettings, fetchDispatchSettings]);
 
   const handleSaveSetting = async (settingKey: keyof OperationalSettingsData, value: any, settingType: 'toggle' | 'value') => {
+    if (!user?.operatorCode) {
+      toast({ title: "Error", description: "Operator details not found. Cannot save setting.", variant: "destructive" });
+      return;
+    }
     if (settingType === 'toggle') setIsSavingToggle(settingKey);
     else setIsSavingValue(settingKey);
     setErrorSettings(null);
 
     try {
-      const response = await fetch('/api/operator/settings/operational', {
+      const response = await fetch(`/api/operator/settings/operational?operatorId=${user.operatorCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [settingKey]: value }),
@@ -106,13 +119,10 @@ export default function OperatorOperationalSettingsPage() {
         throw new Error(errData.message);
       }
       const data = await response.json();
-      setOperationalSettings(prev => ({
-        ...prev,
-        enableSurgePricing: data.settings.enableSurgePricing,
-        operatorSurgePercentage: data.settings.operatorSurgePercentage,
-        maxAutoAcceptWaitTimeMinutes: data.settings.maxAutoAcceptWaitTimeMinutes,
-      }));
-      if (settingKey === 'operatorSurgePercentage') setSurgePercentageInput(String(data.settings.operatorSurgePercentage));
+      setOperationalSettings(data.settings || {});
+      if (settingKey === 'operatorSurgePercentage') {
+        setSurgePercentageInput(String(data.settings?.operatorSurgePercentage || 0));
+      }
       
       toast({ title: "Setting Updated", description: `${settingKey.replace(/([A-Z])/g, ' $1').trim()} updated successfully.` });
     } catch (err) {
@@ -127,12 +137,16 @@ export default function OperatorOperationalSettingsPage() {
   };
 
   const handleToggleAutoDispatch = async (newSetting: boolean) => {
+    if (!user?.operatorCode) {
+      toast({ title: "Error", description: "Operator details not found. Cannot save setting.", variant: "destructive" });
+      return;
+    }
     setIsSavingToggle('dispatchMode'); // Use a unique key for dispatch toggle
     setErrorDispatch(null);
     const newDispatchMode = newSetting ? 'auto' : 'manual';
     try {
-      const response = await fetch('/api/operator/settings/dispatch-mode', {
-        method: 'POST',
+      const response = await fetch(`/api/operator/settings/dispatch-mode?operatorId=${user.operatorCode}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dispatchMode: newDispatchMode }),
       });

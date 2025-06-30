@@ -1,4 +1,3 @@
-
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Users, Clock, DollarSign, MapPin, Loader2, AlertTriangle, BrainCircuit } from "lucide-react"; // Added BrainCircuit
@@ -59,7 +58,7 @@ export default function OperatorAnalyticsPage() {
           throw new Error(errorData.message || `Failed to fetch daily rides: ${response.status}`);
         }
         const data = await response.json();
-        setDailyRidesData(data.dailyRideCounts);
+        setDailyRidesData(data.dailyRideCounts || []);
       } catch (err) {
         const message = err instanceof Error ? err.message : "An unknown error occurred while fetching daily rides.";
         setErrorDailyRides(message);
@@ -79,7 +78,7 @@ export default function OperatorAnalyticsPage() {
           throw new Error(errorData.message || `Failed to fetch hourly activity: ${response.status}`);
         }
         const data = await response.json();
-        setHourlyActivityData(data.hourlyActivity);
+        setHourlyActivityData(data.hourlyActivity || []);
       } catch (err) {
         const message = err instanceof Error ? err.message : "An unknown error occurred while fetching hourly activity.";
         setErrorHourlyActivity(message);
@@ -99,7 +98,7 @@ export default function OperatorAnalyticsPage() {
           throw new Error(errorData.message || `Failed to fetch monthly revenue: ${response.status}`);
         }
         const data = await response.json();
-        setMonthlyRevenueData(data.monthlyRevenue);
+        setMonthlyRevenueData(data.monthlyRevenue || []);
       } catch (err) {
         const message = err instanceof Error ? err.message : "An unknown error occurred while fetching monthly revenue.";
         setErrorMonthlyRevenue(message);
@@ -119,7 +118,7 @@ export default function OperatorAnalyticsPage() {
           throw new Error(errorData.message || `Failed to fetch popular addresses: ${response.status}`);
         }
         const data = await response.json();
-        setPopularAddressesData(data.popularAddresses);
+        setPopularAddressesData(data.popularAddresses || []);
       } catch (err) {
         const message = err instanceof Error ? err.message : "An unknown error occurred while fetching popular addresses.";
         setErrorPopularAddresses(message);
@@ -186,7 +185,7 @@ export default function OperatorAnalyticsPage() {
               <p>Error: {errorHourlyActivity}</p>
             </div>
           )}
-          {!isLoadingHourlyActivity && !errorHourlyActivity && hourlyActivityData.length > 0 && (
+          {!isLoadingHourlyActivity && !errorHourlyActivity && hourlyActivityData && hourlyActivityData.length > 0 && (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={hourlyActivityData}>
                 <CartesianGrid strokeDasharray="3 3" />

@@ -130,7 +130,7 @@ function ManagePlatformOperatorsContent() {
         
         setOperators(prevOperators => prevOperators.map(op => op.id === operatorId ? { ...op, status: updatedOperatorData.driver.status } : op));
         toast({ title: "Operator Status Updated", description: `Operator ${updatedOperatorData.driver.name || operatorId} status set to ${newStatus}.`});
-    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error during status update."; toast({ title: "Status Update Failed", description: message, variant: "destructive" });
+    } catch (err) { const message = err instanceof Error ? err.message : "Unknown error during status update."; toast({ title: "Operator Status Update Failed", description: message, variant: "destructive" });
     } finally { setActionLoading(prev => ({ ...prev, [operatorId]: false })); }
   };
 
