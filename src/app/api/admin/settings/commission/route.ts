@@ -32,8 +32,15 @@ export async function PATCH(req: Request) {
   try {
     const updates = await req.json();
     const docRef = db.collection('companySettings').doc('commission');
-    await docRef.update(updates);
-    return NextResponse.json({ message: 'Commission settings updated successfully' });
+    await docRef.update({
+      ...updates,
+      lastUpdated: Timestamp.now(),
+    });
+    const updatedDoc = await docRef.get();
+    return NextResponse.json({
+      message: 'Commission settings updated successfully',
+      settings: updatedDoc.data(),
+    });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update commission settings', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
