@@ -13,6 +13,10 @@ import { useAuth } from '@/contexts/auth-context';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DateRange } from 'react-day-picker';
+import { addDays } from 'date-fns';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const SUPER_ADMIN_UID = "qWDHrEVDBfWu3A2F5qY6N9tGgnI3";
 
@@ -67,6 +71,14 @@ function PlatformUsersContent() {
   // Operator code to name mapping
   const [operatorMap, setOperatorMap] = useState<Record<string, string>>({});
 
+  const [driverIdSearch, setDriverIdSearch] = useState<string>("");
+  const [registrationDateRange, setRegistrationDateRange] = useState<DateRange | undefined>();
+
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const allSelected = users.length > 0 && selectedUserIds.length === users.length;
+  const toggleSelectAll = () => setSelectedUserIds(allSelected ? [] : users.map(u => u.id));
+  const toggleSelectUser = (id: string) => setSelectedUserIds(ids => ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]);
+
   // Fetch all operators for mapping
   useEffect(() => {
     async function fetchOperators() {
@@ -108,6 +120,15 @@ function PlatformUsersContent() {
       if (searchId.trim() !== "") {
         params.append('searchId', searchId.trim());
       }
+      if (driverIdSearch.trim() !== "") {
+        params.append('driverIdContains', driverIdSearch.trim());
+      }
+      if (registrationDateRange?.from) {
+        params.append('registeredAfter', format(registrationDateRange.from, 'yyyy-MM-dd'));
+      }
+      if (registrationDateRange?.to) {
+        params.append('registeredBefore', format(registrationDateRange.to, 'yyyy-MM-dd'));
+      }
       
       const response = await fetch(`/api/admin/users?${params.toString()}`);
       if (!response.ok) {
@@ -136,7 +157,7 @@ function PlatformUsersContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterRole, filterStatus, searchName, searchEmail, searchId, toast, users]);
+  }, [filterRole, filterStatus, searchName, searchEmail, searchId, toast, users, driverIdSearch, registrationDateRange]);
 
   useEffect(() => {
     setFilterRole(roleFromUrl || "all");
@@ -207,6 +228,32 @@ function PlatformUsersContent() {
     }
   };
 
+  const [selectedDriver, setSelectedDriver] = useState<PlatformUser | null>(null);
+  const [isDriverDetailsModalOpen, setIsDriverDetailsModalOpen] = useState(false);
+
+  const handleBulkUpdate = async (status: string) => {
+    if (selectedUserIds.length === 0) return;
+    const confirmMsg = `Are you sure you want to set status to '${status}' for ${selectedUserIds.length} user(s)?`;
+    if (!window.confirm(confirmMsg)) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/users/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: selectedUserIds, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Bulk update failed');
+      toast({ title: 'Bulk Update Complete', description: `${data.results.filter((r: any) => r.success).length} succeeded, ${data.results.filter((r: any) => !r.success).length} failed.`, variant: 'default' });
+      setSelectedUserIds([]);
+      fetchUsers(null, 'filter');
+    } catch (err) {
+      toast({ title: 'Bulk Update Failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (currentAdminUser?.role !== 'admin') {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -236,7 +283,7 @@ function PlatformUsersContent() {
       </Card>
 
       <Card>
-        <CardHeader className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardHeader className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex items-center gap-1">
                 <Search className="w-4 h-4 text-muted-foreground" />
                 <Input 
@@ -262,6 +309,31 @@ function PlatformUsersContent() {
                   value={searchEmail}
                   onChange={(e) => setSearchEmail(e.target.value)}
                   className="h-9 text-sm"
+                />
+            </div>
+            <div className="flex items-center gap-1">
+                <Search className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by Driver ID..."
+                  value={driverIdSearch}
+                  onChange={(e) => setDriverIdSearch(e.target.value)}
+                  className="h-9 text-sm"
+                />
+            </div>
+            <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">Reg. Date:</span>
+                <Input
+                  type="date"
+                  value={registrationDateRange?.from ? format(registrationDateRange.from, 'yyyy-MM-dd') : ''}
+                  onChange={e => setRegistrationDateRange(r => ({ from: e.target.value ? new Date(e.target.value) : undefined, to: r?.to }))}
+                  className="h-9 text-sm w-[120px]"
+                />
+                <span className="mx-1">-</span>
+                <Input
+                  type="date"
+                  value={registrationDateRange?.to ? format(registrationDateRange.to, 'yyyy-MM-dd') : ''}
+                  onChange={e => setRegistrationDateRange(r => ({ from: r?.from, to: e.target.value ? new Date(e.target.value) : undefined }))}
+                  className="h-9 text-sm w-[120px]"
                 />
             </div>
             <div className="flex items-center gap-1">
@@ -306,9 +378,21 @@ function PlatformUsersContent() {
           )}
           {!isLoading && !error && users.length > 0 && (
             <>
+              {/* Bulk Actions Bar */}
+              {selectedUserIds.length > 0 && (
+                <div className="flex items-center gap-4 mb-2 p-2 bg-muted rounded shadow">
+                  <span className="font-semibold text-sm">{selectedUserIds.length} selected</span>
+                  <Button size="sm" variant="outline" className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200" onClick={() => handleBulkUpdate('Active')}>Approve</Button>
+                  <Button size="sm" variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200" onClick={() => handleBulkUpdate('Suspended')}>Suspend</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedUserIds([])}>Clear</Button>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>
+                      <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} aria-label="Select all" />
+                    </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email / Custom ID / Op. Code</TableHead>
                     <TableHead>Driver ID</TableHead>
@@ -322,12 +406,27 @@ function PlatformUsersContent() {
                 <TableBody>
                   {users.map((userToList) => (
                     <TableRow key={userToList.id} className={userToList.id === currentAdminUser?.id ? "bg-primary/5" : ""}>
+                      <TableCell>
+                        <Checkbox checked={selectedUserIds.includes(userToList.id)} onCheckedChange={() => toggleSelectUser(userToList.id)} aria-label={`Select ${userToList.name}`} />
+                      </TableCell>
                       <TableCell className="font-medium">{userToList.name} {userToList.id === currentAdminUser?.id && <Badge variant="outline" className="ml-1 border-primary text-primary text-xs">You</Badge>}</TableCell>
                       <TableCell>
                         <div>{userToList.email}</div>
                         <div className="text-xs text-muted-foreground">{userToList.customId || userToList.operatorCode || userToList.id}</div>
                       </TableCell>
-                      <TableCell>{userToList.role === 'driver' ? (userToList.driverIdentifier || userToList.customId || 'N/A') : 'N/A'}</TableCell>
+                      <TableCell>
+                        {userToList.role === 'driver' ? (
+                          <button
+                            className="text-blue-600 underline hover:text-blue-800 cursor-pointer"
+                            onClick={() => {
+                              setSelectedDriver(userToList);
+                              setIsDriverDetailsModalOpen(true);
+                            }}
+                          >
+                            {userToList.driverIdentifier || userToList.customId || 'N/A'}
+                          </button>
+                        ) : 'N/A'}
+                      </TableCell>
                       <TableCell>{userToList.role === 'driver' ? (operatorMap[userToList.operatorCode || ''] || 'N/A') : 'N/A'}</TableCell>
                       <TableCell>
                         <Badge 
@@ -400,6 +499,28 @@ function PlatformUsersContent() {
           )}
         </CardContent>
       </Card>
+
+      {/* Driver Details Modal */}
+      <Dialog open={isDriverDetailsModalOpen} onOpenChange={setIsDriverDetailsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Driver Details</DialogTitle>
+          </DialogHeader>
+          {selectedDriver ? (
+            <div className="space-y-2">
+              <div><strong>Name:</strong> {selectedDriver.name}</div>
+              <div><strong>Email:</strong> {selectedDriver.email}</div>
+              <div><strong>Phone:</strong> {selectedDriver.phone || 'N/A'}</div>
+              <div><strong>Driver ID:</strong> {selectedDriver.driverIdentifier || selectedDriver.customId || 'N/A'}</div>
+              <div><strong>Operator:</strong> {operatorMap[selectedDriver.operatorCode || ''] || 'N/A'} ({selectedDriver.operatorCode || 'N/A'})</div>
+              <div><strong>Status:</strong> {selectedDriver.status}</div>
+              {/* Add more fields or quick actions as needed */}
+            </div>
+          ) : (
+            <div>No driver selected.</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

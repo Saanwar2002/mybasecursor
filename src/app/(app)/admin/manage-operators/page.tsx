@@ -201,7 +201,17 @@ function ManagePlatformOperatorsContent() {
                 <TableBody>
                   {operators.map((operator) => (
                     <TableRow key={operator.id}>
-                      <TableCell className="font-medium">{operator.name}</TableCell> <TableCell>{operator.email}</TableCell> <TableCell>{operator.operatorCode || (operator.name === 'MyBase App' ? 'OP001' : operator.customId) || 'N/A'}</TableCell>
+                      <TableCell className="font-medium">
+                        <Badge className="bg-purple-700 text-white px-3 py-1 text-sm font-bold rounded-full shadow-md">
+                          {operator.name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{operator.email}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-purple-700 text-white px-3 py-1 text-sm font-bold rounded-full shadow-md">
+                          {operator.operatorCode || (operator.name === 'MyBase App' ? 'OP001' : operator.customId) || 'N/A'}
+                        </Badge>
+                      </TableCell>
                       <TableCell> <Badge variant={ operator.status === 'Active' ? 'default' : operator.status === 'Pending Approval' ? 'secondary' : operator.status === 'Suspended' ? 'destructive' : 'outline' } className={ operator.status === 'Active' ? 'bg-green-500/80 text-green-950 hover:bg-green-500/70' : operator.status === 'Pending Approval' ? 'bg-yellow-400/80 text-yellow-900 hover:bg-yellow-400/70' : operator.status === 'Suspended' ? 'bg-red-600 text-white hover:bg-red-700' : 'border-slate-500 text-slate-500 hover:bg-slate-500/10' } > {operator.status} </Badge> </TableCell>
                       <TableCell className="text-center space-x-1">
                         {actionLoading[operator.id] ? ( <Loader2 className="h-5 w-5 animate-spin inline-block" /> ) : (

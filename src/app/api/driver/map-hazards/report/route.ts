@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { notifyDriverEmergency } from '@/lib/notifications';
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,6 +9,9 @@ export async function POST(req: NextRequest) {
     const { hazardType, location, reportedByDriverId, reportedAt, status } = data;
     if (!hazardType || !location || !reportedByDriverId || !reportedAt) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+    }
+    if (!db) {
+      return NextResponse.json({ error: "Firestore not initialized." }, { status: 500 });
     }
     const hazardId = `${reportedByDriverId}_${Date.now()}`;
     const hazardDocRef = doc(db, "hazardReports", hazardId);
@@ -19,6 +23,13 @@ export async function POST(req: NextRequest) {
       status,
       resolved: false,
       createdAt: Timestamp.now(),
+    });
+    // Trigger notification for admin(s) and operator(s)
+    await notifyDriverEmergency({
+      toRole: 'admin',
+      driverName: reportedByDriverId,
+      location: typeof location === 'string' ? location : JSON.stringify(location),
+      link: '/admin/server-monitoring'
     });
     return NextResponse.json({ success: true, hazardId });
   } catch (error) {

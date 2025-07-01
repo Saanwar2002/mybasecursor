@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
+import { notifyNewSignup } from '@/lib/notifications';
 
 if (!getApps().length) {
   initializeApp({ credential: applicationDefault() });
@@ -112,6 +113,9 @@ export async function POST(request: NextRequest) {
     const docRef = await usersRef.add(newDriver);
     const createdSnap = await docRef.get();
     const createdData = createdSnap.data();
+    if (!createdData) {
+      return NextResponse.json({ message: 'Failed to retrieve created driver data.' }, { status: 500 });
+    }
     const serializedDriver = {
       id: docRef.id,
       name: createdData.name,
@@ -129,6 +133,13 @@ export async function POST(request: NextRequest) {
       customId: createdData.customId,
       driverIdentifier: createdData.driverIdentifier,
     };
+    // Trigger notification for admin(s)
+    await notifyNewSignup({
+      toRole: 'admin',
+      driverName: createdData.name,
+      operatorName: createdData.operatorCode,
+      link: '/admin/manage-drivers'
+    });
     return NextResponse.json({ message: 'Driver created successfully', driver: serializedDriver }, { status: 201 });
   } catch (error) {
     console.error('Error creating driver:', error);

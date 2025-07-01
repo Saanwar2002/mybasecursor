@@ -294,10 +294,7 @@ export default function OperatorDashboardPage() {
             <CardDescription>
               <span className="flex items-center gap-2">
                 <Badge className="bg-purple-700 text-white px-3 py-1 text-sm font-bold rounded-full shadow-md">
-                  {user?.name || 'Operator'}
-                </Badge>
-                <Badge className="bg-purple-700 text-white px-3 py-1 text-sm font-bold rounded-full shadow-md">
-                  {user?.operatorCode || user?.customId || "ID N/A"}
+                  {user?.name || 'Operator'} ({user?.operatorCode || user?.customId || "ID N/A"})
                 </Badge>
               </span>
               <span className="block mt-1">Manage your fleet and operations efficiently.</span>

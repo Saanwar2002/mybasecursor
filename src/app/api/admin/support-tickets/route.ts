@@ -1,7 +1,9 @@
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { formatISO } from 'date-fns';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+import { notifySupportTicket } from '@/lib/notifications';
 
 interface SupportTicket {
   id: string;
@@ -27,6 +29,11 @@ const serverMockTickets: SupportTicket[] = [
   { id: 'TICKET005', submitterId: 'driverW5', submitterName: 'Will Byers', submitterRole: 'driver', driverOperatorCode: 'OP001', driverOperatorName: 'City Cabs (Mock)', category: 'Safety Concern', details: 'Street lighting on Elm St is very poor, making night pickups difficult.', submittedAt: new Date(Date.now() - 86400000 * 0.5).toISOString(), status: 'Pending' },
 ];
 
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
+}
+const db = getFirestore();
+
 export async function GET(request: NextRequest) {
   // TODO: Implement admin authentication
   // For now, directly return the mock tickets
@@ -40,8 +47,44 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST could be used to create new tickets in a real scenario
-// export async function POST(request: NextRequest) {
-//   // ... implementation ...
-// }
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    // Basic validation (expand as needed)
+    if (!body.submitterId || !body.submitterName || !body.submitterRole || !body.category || !body.details) {
+      return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
+    }
+    const now = Timestamp.now();
+    const newTicket = {
+      submitterId: body.submitterId,
+      submitterName: body.submitterName,
+      submitterRole: body.submitterRole,
+      driverOperatorCode: body.driverOperatorCode || null,
+      driverOperatorName: body.driverOperatorName || null,
+      category: body.category,
+      details: body.details,
+      submittedAt: now,
+      status: 'Pending',
+      lastUpdated: now,
+      assignedTo: null,
+    };
+    const docRef = await db.collection('supportTickets').add(newTicket);
+    const createdSnap = await docRef.get();
+    const createdData = createdSnap.data();
+    if (!createdData) {
+      return NextResponse.json({ message: 'Failed to retrieve created ticket data.' }, { status: 500 });
+    }
+    // Trigger notification for admin(s)
+    await notifySupportTicket({
+      toRole: 'admin',
+      ticketId: docRef.id,
+      subject: createdData.category,
+      link: `/admin/support-tickets/${docRef.id}`
+    });
+    return NextResponse.json({ message: 'Support ticket created successfully', ticket: { id: docRef.id, ...createdData } }, { status: 201 });
+  } catch (error) {
+    console.error('Error creating support ticket:', error);
+    return NextResponse.json({ message: 'Failed to create support ticket', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+  }
+}
     

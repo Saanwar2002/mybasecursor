@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from '@/contexts/auth-context'; 
 import { useAuth } from '@/contexts/auth-context'; // To potentially get current operator's code
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Driver {
   id: string;
@@ -46,7 +47,13 @@ export default function OperatorManageDriversPage() {
   // --- Moved hooks for edit/delete dialog logic here ---
   const [isEditDriverDialogOpen, setIsEditDriverDialogOpen] = useState(false);
   const [editDriverData, setEditDriverData] = useState<Driver | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [isDriverDetailsModalOpen, setIsDriverDetailsModalOpen] = useState(false);
   const DRIVERS_PER_PAGE = 10;
+  const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>([]);
+  const allDriversSelected = drivers.length > 0 && selectedDriverIds.length === drivers.length;
+  const toggleSelectAllDrivers = () => setSelectedDriverIds(allDriversSelected ? [] : drivers.map(d => d.id));
+  const toggleSelectDriver = (id: string) => setSelectedDriverIds(ids => ids.includes(id) ? ids.filter(i => i !== id) : [...ids, id]);
 
   // For demo purposes, assume the logged-in operator's code.
   // In a real app, this would come from currentOperatorUser.operatorCode or similar.
@@ -199,6 +206,85 @@ export default function OperatorManageDriversPage() {
     }
   };
 
+  function openEditDriverDialog(driver: Driver) {
+    setEditDriverData(driver);
+    setIsEditDriverDialogOpen(true);
+  }
+
+  const handleEditDriverSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editDriverData) return;
+    setActionLoading(prev => ({ ...prev, editDriver: true }));
+    const formData = new FormData(event.currentTarget);
+    const updatedData = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      phone: formData.get('phone') as string,
+      vehicleModel: formData.get('vehicleModel') as string,
+      licensePlate: formData.get('licensePlate') as string,
+      vehicleCategory: formData.get('vehicleCategory') as string,
+      arNumber: formData.get('arNumber') as string,
+      insuranceNumber: formData.get('insuranceNumber') as string,
+    };
+    // Remove undefined, empty string, or null fields
+    Object.keys(updatedData).forEach(
+      key => (
+        updatedData[key] === undefined ||
+        updatedData[key] === '' ||
+        updatedData[key] === null
+      ) && delete updatedData[key]
+    );
+    // Prevent sending an empty payload
+    if (Object.keys(updatedData).length === 0) {
+      toast({ title: 'No Changes', description: 'Please update at least one field before saving.', variant: 'destructive' });
+      setActionLoading(prev => ({ ...prev, editDriver: false }));
+      return;
+    }
+    try {
+      const response = await fetch(`/api/operator/drivers/${editDriverData.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update driver.');
+      }
+      toast({ title: 'Driver Updated', description: `${updatedData.name} updated successfully.` });
+      setIsEditDriverDialogOpen(false);
+      setEditDriverData(null);
+      fetchDrivers(null, 'filter');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error updating driver.';
+      toast({ title: 'Update Driver Failed', description: message, variant: 'destructive' });
+    } finally {
+      setActionLoading(prev => ({ ...prev, editDriver: false }));
+    }
+  };
+
+  const handleBulkDriverUpdate = async (status: string) => {
+    if (selectedDriverIds.length === 0) return;
+    const confirmMsg = `Are you sure you want to set status to '${status}' for ${selectedDriverIds.length} driver(s)?`;
+    if (!window.confirm(confirmMsg)) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/users/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: selectedDriverIds, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Bulk update failed');
+      toast({ title: 'Bulk Update Complete', description: `${data.results.filter((r: any) => r.success).length} succeeded, ${data.results.filter((r: any) => !r.success).length} failed.`, variant: 'default' });
+      setSelectedDriverIds([]);
+      fetchDrivers(null, 'filter');
+    } catch (err) {
+      toast({ title: 'Bulk Update Failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -329,9 +415,21 @@ export default function OperatorManageDriversPage() {
           )}
           {!isLoading && !error && drivers.length > 0 && (
             <>
+              {/* Bulk Actions Bar */}
+              {selectedDriverIds.length > 0 && (
+                <div className="flex items-center gap-4 mb-2 p-2 bg-muted rounded shadow">
+                  <span className="font-semibold text-sm">{selectedDriverIds.length} selected</span>
+                  <Button size="sm" variant="outline" className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200" onClick={() => handleBulkDriverUpdate('Active')}>Approve</Button>
+                  <Button size="sm" variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200" onClick={() => handleBulkDriverUpdate('Suspended')}>Suspend</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedDriverIds([])}>Clear</Button>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>
+                      <Checkbox checked={allDriversSelected} onCheckedChange={toggleSelectAllDrivers} aria-label="Select all" />
+                    </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Driver ID</TableHead>
@@ -343,12 +441,25 @@ export default function OperatorManageDriversPage() {
                 <TableBody>
                   {drivers.map((driver) => (
                     <TableRow key={driver.id}>
+                      <TableCell>
+                        <Checkbox checked={selectedDriverIds.includes(driver.id)} onCheckedChange={() => toggleSelectDriver(driver.id)} aria-label={`Select ${driver.name}`} />
+                      </TableCell>
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell>
                         <div>{driver.email}</div>
                         <div className="text-xs text-muted-foreground">{driver.phone || 'N/A'}</div>
                       </TableCell>
-                      <TableCell>{driver.driverIdentifier || driver.customId || 'N/A'}</TableCell>
+                      <TableCell>
+                        <button
+                          className="text-blue-600 underline hover:text-blue-800 cursor-pointer"
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setIsDriverDetailsModalOpen(true);
+                          }}
+                        >
+                          {driver.driverIdentifier || driver.customId || 'N/A'}
+                        </button>
+                      </TableCell>
                       <TableCell>{driver.operatorCode || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant={
@@ -426,6 +537,61 @@ export default function OperatorManageDriversPage() {
           )}
         </CardContent>
       </Card>
+      {/* Edit Driver Dialog */}
+      <Dialog open={isEditDriverDialogOpen} onOpenChange={setIsEditDriverDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Driver</DialogTitle>
+            <DialogDescription>
+              Update the details for this driver.
+            </DialogDescription>
+          </DialogHeader>
+          {editDriverData && (
+            <form onSubmit={handleEditDriverSubmit} className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
+                <Input id="name" name="name" className="col-span-3" defaultValue={editDriverData.name} required />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">Email</Label>
+                <Input id="email" name="email" type="email" className="col-span-3" defaultValue={editDriverData.email} required />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone" className="text-right">Phone</Label>
+                <Input id="phone" name="phone" type="tel" className="col-span-3" defaultValue={editDriverData.phone} />
+              </div>
+              {/* Add more fields as needed */}
+              <DialogFooter>
+                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* Driver Details Modal */}
+      <Dialog open={isDriverDetailsModalOpen} onOpenChange={setIsDriverDetailsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Driver Details</DialogTitle>
+          </DialogHeader>
+          {selectedDriver ? (
+            <div className="space-y-2">
+              <div><strong>Name:</strong> {selectedDriver.name}</div>
+              <div><strong>Email:</strong> {selectedDriver.email}</div>
+              <div><strong>Phone:</strong> {selectedDriver.phone || 'N/A'}</div>
+              <div><strong>Driver ID:</strong> {selectedDriver.driverIdentifier || selectedDriver.customId || 'N/A'}</div>
+              <div><strong>Operator Code:</strong> {selectedDriver.operatorCode || 'N/A'}</div>
+              <div><strong>Status:</strong> {selectedDriver.status}</div>
+              {/* Add more fields or quick actions as needed */}
+            </div>
+          ) : (
+            <div>No driver selected.</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -446,42 +612,5 @@ async function handleDeleteDriver(driverId: string) {
     toast({ title: 'Delete Driver Failed', description: message, variant: 'destructive' });
   } finally {
     setActionLoading(prev => ({ ...prev, [driverId]: false }));
-  }
-}
-
-async function handleEditDriverSubmit(event: React.FormEvent<HTMLFormElement>) {
-  event.preventDefault();
-  if (!editDriverData) return;
-  setActionLoading(prev => ({ ...prev, editDriver: true }));
-  const formData = new FormData(event.currentTarget);
-  const updatedData = {
-    name: formData.get('name') as string,
-    email: formData.get('email') as string,
-    phone: formData.get('phone') as string,
-    vehicleModel: formData.get('vehicleModel') as string,
-    licensePlate: formData.get('licensePlate') as string,
-    vehicleCategory: formData.get('vehicleCategory') as string,
-    arNumber: formData.get('arNumber') as string,
-    insuranceNumber: formData.get('insuranceNumber') as string,
-  };
-  try {
-    const response = await fetch(`/api/operator/drivers/${editDriverData.id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedData),
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update driver.');
-    }
-    toast({ title: 'Driver Updated', description: `${updatedData.name} updated successfully.` });
-    setIsEditDriverDialogOpen(false);
-    setEditDriverData(null);
-    fetchDrivers(null, 'filter');
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error updating driver.';
-    toast({ title: 'Update Driver Failed', description: message, variant: 'destructive' });
-  } finally {
-    setActionLoading(prev => ({ ...prev, editDriver: false }));
   }
 }

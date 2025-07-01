@@ -8,7 +8,7 @@ import { useAuth, UserRole } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase, Bell } from 'lucide-react';
+import { LogOut, Menu, Settings, UserCircle, ChevronDown, ChevronUp, ListChecks, CheckCircle, ShieldAlert, DatabaseZap, UserCog as UserCogIcon, Layers, Wrench, MessageSquareHeart, Palette, BrainCircuit, Activity, Users, Lightbulb, TrendingUp, Flag, Briefcase, Bell, BellOff, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getNavItemsForRole, NavItem } from './sidebar-nav-items';
@@ -22,6 +22,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import * as LucideIcons from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { useOperatorNotifications } from '@/hooks/useOperatorNotifications';
+import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 
 
 interface TaskItem {
@@ -56,6 +59,113 @@ const mapPriorityToStyle = (priority?: 'high' | 'medium' | 'low') => {
     default: return '';
   }
 };
+
+function NotificationBell() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const isOperator = user?.role === 'operator';
+  const notifHook = isAdmin ? useAdminNotifications : useOperatorNotifications;
+  const { notifications, unreadCount, loading, markAsRead } = notifHook();
+  const [open, setOpen] = React.useState(false);
+  const [muted, setMuted] = React.useState(() => localStorage.getItem('notifMuted') === 'true');
+  const [volume, setVolume] = React.useState(() => {
+    const v = localStorage.getItem('notifVolume');
+    return v ? Number(v) : 0.7;
+  });
+  const audioRef = React.useRef(typeof Audio !== 'undefined' ? new Audio('/notification.mp3') : null);
+  const prevNotifCount = React.useRef(notifications.length);
+
+  React.useEffect(() => {
+    localStorage.setItem('notifMuted', muted);
+  }, [muted]);
+  React.useEffect(() => {
+    localStorage.setItem('notifVolume', String(volume));
+  }, [volume]);
+
+  React.useEffect(() => {
+    if (!muted && notifications.length > prevNotifCount.current) {
+      if (audioRef.current) {
+        audioRef.current.volume = volume;
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {}); // Ignore play errors
+      }
+    }
+    prevNotifCount.current = notifications.length;
+  }, [notifications.length, muted, volume]);
+
+  if (!isAdmin && !isOperator) return null;
+
+  return (
+    <div className="relative">
+      <button
+        className="relative p-2 rounded-full bg-primary text-white hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+        aria-label="Notifications"
+        onClick={() => setOpen((o) => !o)}
+      >
+        {muted ? <BellOff className="w-6 h-6" /> : <Bell className="w-6 h-6" />}
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 border-2 border-primary">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-80 bg-white shadow-lg rounded-lg z-50 border border-gray-200">
+          <div className="p-3 border-b font-semibold text-primary flex items-center justify-between">
+            <span>Notifications</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setMuted((m: boolean) => !m)}
+                className="p-1 rounded-full bg-gray-200 hover:bg-gray-300"
+                aria-label={muted ? 'Unmute notifications' : 'Mute notifications'}
+              >
+                {muted ? <BellOff className="w-5 h-5 text-gray-600" /> : <Bell className="w-5 h-5 text-gray-600" />}
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1 rounded-full bg-gray-200 hover:bg-gray-300 ml-1"
+                aria-label="Close notifications"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+          </div>
+          <div className="px-3 py-2 flex items-center gap-2 border-b">
+            <span className="text-xs text-gray-500">Volume</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              onChange={e => setVolume(Number(e.target.value))}
+              className="w-24"
+              disabled={muted}
+            />
+            <span className="text-xs text-gray-500">{Math.round(volume * 100)}%</span>
+          </div>
+          <ul className="max-h-80 overflow-y-auto divide-y">
+            {loading ? (
+              <li className="p-4 text-center text-gray-500">Loading...</li>
+            ) : notifications.length === 0 ? (
+              <li className="p-4 text-center text-gray-500">No notifications</li>
+            ) : notifications.map((notif) => (
+              <li key={notif.id} className={`p-3 hover:bg-gray-50 cursor-pointer flex flex-col gap-1 ${!notif.read ? 'bg-gray-100' : ''}`}
+                  onClick={async () => { await markAsRead(notif.id); setOpen(false); if (notif.link) window.location.href = notif.link; }}>
+                <div className="font-medium text-sm text-primary flex items-center gap-2">
+                  {notif.title}
+                  {!notif.read && <Badge className="bg-red-500 text-white ml-2">New</Badge>}
+                </div>
+                <div className="text-xs text-gray-700">{notif.body}</div>
+                <div className="text-[10px] text-gray-400 mt-1">{notif.createdAt && (typeof notif.createdAt.toDate === 'function' ? notif.createdAt.toDate().toLocaleString() : String(notif.createdAt))}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout, loading } = useAuth();
@@ -189,6 +299,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
     return (
       <>
+        {/* Operator Badge at top of sidebar for operator users */}
+        {user.role === 'operator' && (
+          <div className="flex flex-col items-center py-4">
+            <Badge className="bg-purple-700 text-white px-3 py-1 text-sm font-bold rounded-full shadow-md">
+              {user.name} ({user.operatorCode || user.customId || 'ID N/A'})
+            </Badge>
+          </div>
+        )}
         <div className={cn("p-4 border-b flex items-center", shouldShowLabels ? "justify-between" : "justify-center")}>
           {shouldShowLabels && (
             <Link href="/" className="flex items-center" aria-label="MyBase Home" onClick={() => isMobileView && setIsMobileSheetOpen(false)}>
@@ -240,29 +358,32 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </SheetContent>
         </Sheet>
         <div className="flex-1 md:grow-0"></div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
-              <Avatar>
-                <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile" />
-                <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild><Link href="/profile"><span className="flex items-center gap-2 w-full"><UserCircle className="h-4 w-4" /> Profile</span></Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/settings"><span className="flex items-center gap-2 w-full"><Settings className="h-4 w-4" /> Settings</span></Link></DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive"><span className="flex items-center gap-2 w-full"><LogOut className="h-4 w-4" /> Logout</span></DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
+                <Avatar>
+                  <AvatarImage src={user?.avatarUrl || `https://placehold.co/32x32.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar profile" />
+                  <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{user.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild><Link href="/profile"><span className="flex items-center gap-2 w-full"><UserCircle className="h-4 w-4" /> Profile</span></Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/settings"><span className="flex items-center gap-2 w-full"><Settings className="h-4 w-4" /> Settings</span></Link></DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive"><span className="flex items-center gap-2 w-full"><LogOut className="h-4 w-4" /> Logout</span></DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </header>
       <div className="flex flex-1 overflow-hidden">
         <aside className={cn("hidden md:flex flex-col border-r bg-card transition-all duration-300", isSidebarExpanded ? "w-64" : "w-16")}>
