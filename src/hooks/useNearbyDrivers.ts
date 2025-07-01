@@ -9,10 +9,11 @@ export interface DriverMarker {
   [key: string]: any;
 }
 
-export function useNearbyDrivers() {
+export function useNearbyDrivers(operatorCode?: string, fallbackToAny: boolean = false) {
   const [drivers, setDrivers] = useState<DriverMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
 
   useEffect(() => {
     if (!db) {
@@ -21,14 +22,24 @@ export function useNearbyDrivers() {
       return;
     }
     setLoading(true);
-    const q = query(
-      collection(db, 'drivers'),
-      where('status', '==', 'Active')
-    );
+    setUsedFallback(false);
+    let q;
+    if (operatorCode) {
+      q = query(
+        collection(db, 'drivers'),
+        where('status', '==', 'Active'),
+        where('operatorCode', '==', operatorCode)
+      );
+    } else {
+      q = query(
+        collection(db, 'drivers'),
+        where('status', '==', 'Active')
+      );
+    }
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const driverMarkers: DriverMarker[] = snapshot.docs
+        let driverMarkers: DriverMarker[] = snapshot.docs
           .map((doc) => {
             const data = doc.data();
             if (data.location && typeof data.location.lat === 'number' && typeof data.location.lng === 'number') {
@@ -37,8 +48,38 @@ export function useNearbyDrivers() {
             return null;
           })
           .filter(Boolean) as DriverMarker[];
-        setDrivers(driverMarkers);
-        setLoading(false);
+        if (operatorCode && fallbackToAny && driverMarkers.length === 0) {
+          // Fallback to any active driver
+          const fallbackQ = query(
+            collection(db, 'drivers'),
+            where('status', '==', 'Active')
+          );
+          const fallbackUnsub = onSnapshot(
+            fallbackQ,
+            (fallbackSnap) => {
+              const fallbackDrivers: DriverMarker[] = fallbackSnap.docs
+                .map((doc) => {
+                  const data = doc.data();
+                  if (data.location && typeof data.location.lat === 'number' && typeof data.location.lng === 'number') {
+                    return { id: doc.id, ...data } as DriverMarker;
+                  }
+                  return null;
+                })
+                .filter(Boolean) as DriverMarker[];
+              setDrivers(fallbackDrivers);
+              setUsedFallback(true);
+              setLoading(false);
+            },
+            (err) => {
+              setError(err.message);
+              setLoading(false);
+            }
+          );
+          return () => fallbackUnsub();
+        } else {
+          setDrivers(driverMarkers);
+          setLoading(false);
+        }
       },
       (err) => {
         setError(err.message);
@@ -46,7 +87,7 @@ export function useNearbyDrivers() {
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [operatorCode, fallbackToAny]);
 
-  return { drivers, loading, error };
+  return { drivers, loading, error, usedFallback };
 } 

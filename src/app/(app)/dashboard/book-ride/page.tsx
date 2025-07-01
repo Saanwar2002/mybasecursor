@@ -38,6 +38,7 @@ import { Switch } from "@/components/ui/switch";
 import { useOperators } from '@/hooks/useOperators';
 import { useNearbyDrivers } from '@/hooks/useNearbyDrivers';
 import Link from 'next/link';
+import * as React from 'react';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -299,7 +300,6 @@ export default function BookRidePage() {
   const pinPeekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { operators, loading: loadingOperators, error: errorOperators } = useOperators();
-  const { drivers, loading: loadingDrivers, error: errorDrivers } = useNearbyDrivers();
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -381,7 +381,15 @@ export default function BookRidePage() {
     }
   }, [isPriorityFeeDialogOpen]);
 
- useEffect(() => {
+  // Move this block to the top of the component, before any useEffect that uses drivers, loadingDrivers, or errorDrivers
+  const operatorCode = operatorPreference || 'OP001';
+  const isMyBaseApp = !operatorPreference || operatorPreference === 'OP001';
+  const { drivers, loading: loadingDrivers, error: errorDrivers, usedFallback } = useNearbyDrivers(
+    pickupCoords ? operatorCode : undefined,
+    isMyBaseApp
+  );
+
+  useEffect(() => {
     if (loadingDrivers) {
       setAvailabilityStatusLevel('loading');
       setAvailabilityStatusMessage('Checking availability in your area...');
@@ -1519,7 +1527,9 @@ export default function BookRidePage() {
     };
   }, [toast, form, geocodeAiAddress, playSound, isListening]);
 
-  const handleMicMouseDown = async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMicMouseDown = async (
+    event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement> | any
+  ) => {
     if (!recognitionRef.current) {
         toast({ title: "Voice Input Unavailable", description: "Speech recognition is not supported or initialized.", variant: "destructive" });
         return;
@@ -1544,7 +1554,9 @@ export default function BookRidePage() {
     playSound('start');
   };
 
-  const handleMicMouseUpOrLeave = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMicMouseUpOrLeave = (
+    event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement> | any
+  ) => {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
     }
@@ -1828,6 +1840,55 @@ const handleProceedToConfirmation = async () => {
   // Set availability status based on real driver data
   // Note: availabilityStatusLevel and availabilityStatusMessage are managed by React state
   // and updated via useEffect based on drivers, loadingDrivers, and errorDrivers
+
+  const PLATFORM_OPERATOR_CODE = 'OP001';
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [showBookAnyway, setShowBookAnyway] = useState(false);
+  const [fallbackSuggestion, setFallbackSuggestion] = useState(false);
+
+  // Watch for pickupCoords and driver availability
+  useEffect(() => {
+    if (!pickupCoords) {
+      setShowBookingForm(false);
+      setShowBookAnyway(false);
+      setFallbackSuggestion(false);
+      return;
+    }
+    if (loadingDrivers) {
+      setShowBookingForm(false);
+      setShowBookAnyway(false);
+      setFallbackSuggestion(false);
+      return;
+    }
+    if (errorDrivers) {
+      setShowBookingForm(false);
+      setShowBookAnyway(false);
+      setFallbackSuggestion(false);
+      return;
+    }
+    if (drivers.length > 0 && !usedFallback) {
+      setShowBookingForm(true);
+      setShowBookAnyway(false);
+      setFallbackSuggestion(false);
+    } else if (drivers.length > 0 && usedFallback) {
+      setShowBookingForm(true);
+      setShowBookAnyway(false);
+      setFallbackSuggestion(true);
+    } else {
+      setShowBookingForm(false);
+      setShowBookAnyway(true);
+      setFallbackSuggestion(false);
+    }
+  }, [pickupCoords, drivers, loadingDrivers, errorDrivers, usedFallback]);
+
+  // Handler for Book Anyway button
+  const handleBookAnyway = () => {
+    setShowBookingForm(true);
+    setShowBookAnyway(false);
+  };
+
+  // 1. Add a new state for booking queued confirmation
+  const [bookingQueued, setBookingQueued] = useState(false);
 
   return (
     <div>
@@ -2687,6 +2748,47 @@ const handleProceedToConfirmation = async () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {pickupCoords && (
+            loadingDrivers ? (
+              <div className="bg-gray-200 text-gray-700 p-2 rounded mb-2">Checking driver availability...</div>
+            ) : errorDrivers ? (
+              <div className="bg-red-200 text-red-700 p-2 rounded mb-2">Error loading driver availability.</div>
+            ) : drivers.length > 0 && !usedFallback ? (
+              <div className="bg-green-200 text-green-700 p-2 rounded mb-2">
+                {drivers.length} driver{drivers.length > 1 ? 's' : ''} available in your area. ETA: {/* TODO: calculate ETA */} 
+              </div>
+            ) : drivers.length > 0 && usedFallback ? (
+              <div className="bg-blue-200 text-blue-700 p-2 rounded mb-2">
+                No drivers for your selected operator, but {drivers.length} other driver{drivers.length > 1 ? 's are' : ' is'} available nearby. ETA: {/* TODO: calculate ETA */}
+                <button className="ml-2 underline text-blue-900" onClick={() => setShowBookingForm(true)}>Let MyBase App choose driver</button>
+              </div>
+            ) : (
+              <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded mb-2">
+                <strong>No drivers are currently available.</strong><br />
+                You can book now and we'll assign your ride as soon as a driver becomes available.
+                {showBookAnyway && (
+                  <button className="ml-2 underline text-yellow-900 font-semibold" onClick={handleBookAnyway}>Book and wait for next available driver</button>
+                )}
+              </div>
+            )
+          )}
+
+          {showBookingForm && (
+            <Form {...form}>
+              {/* Place the actual booking form fields and submit button here, as previously implemented */}
+              {/* ...existing booking form JSX... */}
+            </Form>
+          )}
+
+          {bookingQueued && (
+            <div className="mb-4 p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-800 rounded">
+              <p>
+                Your booking has been received and is waiting for the next available driver.<br />
+                We'll notify you as soon as your ride is assigned.
+              </p>
+            </div>
+          )}
 
         </div>
       ) : null}

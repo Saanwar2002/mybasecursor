@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, GeoPoint } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 import { z } from 'zod';
 
@@ -478,10 +478,25 @@ export async function POST(request: NextRequest, context: PostContext) {
           return NextResponse.json({ message: 'Booking does not have a valid pickup location.' }, { status: 400 });
         }
 
+        // 1.5. Check operator's dispatchMode
+        const preferredOperatorId = existingBookingDbData?.preferredOperatorId || existingBookingDbData?.originatingOperatorId || PLATFORM_OPERATOR_CODE_FOR_ID;
+        let dispatchMode = 'auto'; // default fallback
+        try {
+          const operatorSettingsSnap = await getDoc(doc(db, 'operatorSettings', preferredOperatorId));
+          if (operatorSettingsSnap.exists()) {
+            const operatorSettings = operatorSettingsSnap.data();
+            if (operatorSettings && typeof operatorSettings.dispatchMode === 'string') {
+              dispatchMode = operatorSettings.dispatchMode;
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to fetch operatorSettings for dispatchMode, defaulting to auto:', err);
+        }
+        if (dispatchMode !== 'auto') {
+          return NextResponse.json({ message: `Auto-assign is disabled for this operator. Manual assignment required.`, dispatchMode }, { status: 200 });
+        }
+
         // 2. Determine which operator to filter by
-        const preferredOperatorId = existingBookingDbData?.preferredOperatorId || existingBookingDbData?.originatingOperatorId;
-        
-        // 3. Query drivers collection for active drivers with a location
         const driversRef = firestoreCollection(db, 'drivers');
         let driversQuery;
         

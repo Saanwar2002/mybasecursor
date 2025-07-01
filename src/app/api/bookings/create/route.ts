@@ -103,6 +103,26 @@ export async function POST(req: Request) {
     const displayBookingId = await generateBookingId(data.originatingOperatorId);
     data.displayBookingId = displayBookingId;
 
+    // Find available drivers (status: 'Active') for the operator
+    let assignedDriver = null;
+    let driverQuery = db.collection('users')
+      .where('role', '==', 'driver')
+      .where('status', '==', 'Active');
+    if (typeof data?.originatingOperatorId === 'string' && data.originatingOperatorId.length > 0) {
+      driverQuery = driverQuery.where('operatorCode', '==', data.originatingOperatorId);
+    }
+    const availableDriversSnap = await driverQuery.get();
+    if (!availableDriversSnap.empty) {
+      // Pick the first available driver (or random, or closest if you add location logic)
+      const driverDoc = availableDriversSnap.docs[0];
+      assignedDriver = driverDoc.id;
+      data.driverId = assignedDriver;
+      data.status = "assigned";
+    } else {
+      // No drivers available, keep status as pending_assignment
+      data.status = "pending_assignment";
+    }
+
     // Write to Firestore
     const docRef = await db.collection('bookings').add(data);
 
@@ -113,7 +133,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       success: true, 
       bookingId: docRef.id,
-      displayBookingId: displayBookingId
+      displayBookingId: displayBookingId,
+      assignedDriver: assignedDriver,
+      message: assignedDriver ? "Ride assigned to driver." : "No drivers available. Your ride is queued."
     });
   } catch (error) {
     console.error("Error creating booking:", error);
