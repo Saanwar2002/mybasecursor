@@ -89,6 +89,27 @@ async function generateSequentialOperatorId(): Promise<string> {
   return `OP${currentId.toString().padStart(3, '0')}`;
 }
 
+// Function to generate sequential driver ID for an operator
+async function generateSequentialDriverId(operatorCode: string): Promise<string> {
+  const counterRef = db.collection('counters').doc(`driverId_${operatorCode}`);
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      if (!counterDoc.exists) {
+        transaction.set(counterRef, { currentId: 1 });
+        return 1;
+      }
+      const currentId = counterDoc.data().currentId;
+      transaction.update(counterRef, { currentId: currentId + 1 });
+      return currentId + 1;
+    });
+    return `${operatorCode}/DR${result.toString().padStart(4, '0')}`;
+  } catch (error) {
+    console.error('Error generating driver ID:', error);
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest, context: { params: { driverId: string } }) {
   if (!db) {
     return NextResponse.json({ message: 'Database connection failed: Firestore not initialized.' }, { status: 500 });
@@ -157,6 +178,18 @@ export async function POST(request: NextRequest, context: { params: { driverId: 
       const newOperatorCode = await generateSequentialOperatorId();
       updatePayload.operatorCode = newOperatorCode;
       updatePayload.customId = newOperatorCode;
+    }
+    // If approving a driver and driverIdentifier is missing, generate and assign it
+    if (
+      driverData.role === 'driver' &&
+      updateDataFromPayload.status === 'Active' &&
+      (!driverData.driverIdentifier || driverData.driverIdentifier === '' || typeof driverData.driverIdentifier !== 'string') &&
+      driverData.operatorCode
+    ) {
+      // Generate next driver ID for this operator
+      const driverId = await generateSequentialDriverId(driverData.operatorCode);
+      updatePayload.driverIdentifier = driverId;
+      updatePayload.customId = driverId;
     }
 
     await driverRef.update(updatePayload);

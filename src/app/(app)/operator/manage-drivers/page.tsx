@@ -26,6 +26,8 @@ interface Driver {
   createdAt?: { _seconds: number; _nanoseconds: number } | null;
   role: UserRole; 
   operatorCode?: string; // Added for operator association
+  driverIdentifier?: string;
+  customId?: string;
 }
 
 export default function OperatorManageDriversPage() {
@@ -332,6 +334,7 @@ export default function OperatorManageDriversPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Contact</TableHead>
+                    <TableHead>Driver ID</TableHead>
                     <TableHead>Operator Code</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
@@ -345,6 +348,7 @@ export default function OperatorManageDriversPage() {
                         <div>{driver.email}</div>
                         <div className="text-xs text-muted-foreground">{driver.phone || 'N/A'}</div>
                       </TableCell>
+                      <TableCell>{driver.driverIdentifier || driver.customId || 'N/A'}</TableCell>
                       <TableCell>{driver.operatorCode || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant={

@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +27,7 @@ interface PlatformUser {
   phone?: string;
   operatorCode?: string;
   customId?: string;
+  driverIdentifier?: string;
 }
 
 const formatDateFromTimestamp = (timestamp?: { _seconds: number; _nanoseconds: number } | null): string => {
@@ -63,6 +63,26 @@ function PlatformUsersContent() {
   const USERS_PER_PAGE = 15;
 
   const isSuperAdmin = currentAdminUser?.id === SUPER_ADMIN_UID;
+
+  // Operator code to name mapping
+  const [operatorMap, setOperatorMap] = useState<Record<string, string>>({});
+
+  // Fetch all operators for mapping
+  useEffect(() => {
+    async function fetchOperators() {
+      try {
+        const res = await fetch('/api/operator/operators-list?status=Active');
+        if (!res.ok) return;
+        const data = await res.json();
+        const map: Record<string, string> = {};
+        (data.operators || []).forEach((op: any) => {
+          if (op.operatorCode && op.name) map[op.operatorCode] = op.name;
+        });
+        setOperatorMap(map);
+      } catch {}
+    }
+    fetchOperators();
+  }, []);
 
   const fetchUsers = useCallback(async (cursor?: string | null, direction: 'next' | 'prev' | 'filter' = 'filter') => {
     setIsLoading(true);
@@ -291,6 +311,8 @@ function PlatformUsersContent() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email / Custom ID / Op. Code</TableHead>
+                    <TableHead>Driver ID</TableHead>
+                    <TableHead>Operator Name</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Registered</TableHead>
@@ -305,6 +327,8 @@ function PlatformUsersContent() {
                         <div>{userToList.email}</div>
                         <div className="text-xs text-muted-foreground">{userToList.customId || userToList.operatorCode || userToList.id}</div>
                       </TableCell>
+                      <TableCell>{userToList.role === 'driver' ? (userToList.driverIdentifier || userToList.customId || 'N/A') : 'N/A'}</TableCell>
+                      <TableCell>{userToList.role === 'driver' ? (operatorMap[userToList.operatorCode || ''] || 'N/A') : 'N/A'}</TableCell>
                       <TableCell>
                         <Badge 
                             variant={
