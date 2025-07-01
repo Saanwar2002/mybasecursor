@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -154,7 +153,7 @@ export default function AdminGlobalSettingsPage() {
     try {
       const rateAsDecimal = values.directDriverRatePercentage / 100;
       const response = await fetch('/api/admin/settings/commission', {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ directDriverRate: rateAsDecimal }),
       });
@@ -185,7 +184,7 @@ export default function AdminGlobalSettingsPage() {
     try {
       const rateAsDecimal = values.operatorAffiliatedRatePercentage / 100;
       const response = await fetch('/api/admin/settings/commission', {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operatorAffiliatedDriverRate: rateAsDecimal }),
       });
