@@ -55,6 +55,7 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   updateUserProfileInContext: (updatedProfileData: Partial<User>) => void;
+  phoneVerificationRequired: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -64,6 +65,7 @@ const PLATFORM_OPERATOR_CODE = "OP001";
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [phoneVerificationRequired, setPhoneVerificationRequired] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -101,7 +103,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             phoneVerified: firestoreUser.phoneVerified || false,
             status: firestoreUser.status || 'Active',
             phoneVerificationDeadline: firestoreUser.phoneVerificationDeadline
-              ? (firestoreUser.phoneVerificationDeadline as Timestamp).toDate().toISOString()
+              ? (firestoreUser.phoneVerificationDeadline instanceof Timestamp
+                  ? firestoreUser.phoneVerificationDeadline.toDate().toISOString()
+                  : new Date(
+                      firestoreUser.phoneVerificationDeadline.seconds * 1000 +
+                      Math.floor(firestoreUser.phoneVerificationDeadline.nanoseconds / 1e6)
+                    ).toISOString())
               : null,
             acceptsPetFriendlyJobs: firestoreUser.acceptsPetFriendlyJobs || false,
             acceptsPlatformJobs: firestoreUser.operatorCode === PLATFORM_OPERATOR_CODE ? true : (firestoreUser.acceptsPlatformJobs || false),
@@ -139,6 +146,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
           setUser(userData);
+          // --- Phone verification check ---
+          if (
+            userData.role === 'passenger' &&
+            userData.phoneVerified === false &&
+            userData.phoneVerificationDeadline &&
+            new Date(userData.phoneVerificationDeadline) < new Date()
+          ) {
+            setPhoneVerificationRequired(true);
+          } else {
+            setPhoneVerificationRequired(false);
+          }
           console.log("AuthContext.setUserContextAndRedirect: Firestore profile found. User context set:", userData.email, userData.role);
 
         } else {
@@ -383,7 +401,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, loginWithEmail, loginAsGuest, logout, loading, updateUserProfileInContext }}>
+    <AuthContext.Provider value={{
+      user,
+      loginWithEmail,
+      loginAsGuest,
+      logout,
+      loading,
+      updateUserProfileInContext,
+      phoneVerificationRequired,
+    }}>
       {children}
     </AuthContext.Provider>
   );

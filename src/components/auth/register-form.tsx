@@ -38,6 +38,14 @@ const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
 );
 
+function formatPhoneNumber(phone: string): string {
+  let cleaned = phone.replace(/[\s-]/g, '');
+  if (/^07\d{9}$/.test(cleaned)) {
+    return '+44' + cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
@@ -45,7 +53,10 @@ const formSchema = z.object({
   role: z.enum(["passenger", "driver", "operator", "admin"], { required_error: "You must select a role." }), 
   vehicleCategory: z.string().optional(),
   operatorCode: z.string().optional(), 
-  phoneNumber: z.string().optional(),
+  phoneNumber: z.string().optional().refine(value =>
+    !value || /^07\d{9}$/.test(value) || /^\+44\d{10}$/.test(value),
+    { message: "Enter a valid UK phone number (e.g., 07885743132 or +447885743132)." }
+  ),
   verificationCode: z.string().optional().refine(value => !value || /^\d{6}$/.test(value), {
     message: "Verification code must be 6 digits."
   }),
@@ -65,14 +76,6 @@ const formSchema = z.object({
 }, {
   message: "Please select an operator for drivers.",
   path: ["operatorCode"],
-}).refine(data => {
-  if (data.role === 'passenger') {
-    return !!data.phoneNumber && data.phoneNumber.trim() !== "" && phoneRegex.test(data.phoneNumber);
-  }
-  return !data.phoneNumber || data.phoneNumber.trim() === "" || phoneRegex.test(data.phoneNumber);
-}, {
-  message: "Valid phone number (e.g., +14155552671) is required for passengers.",
-  path: ["phoneNumber"],
 });
 
 type RegistrationStep = 'initial' | 'verifyingPhone';
@@ -129,8 +132,21 @@ export function RegisterForm() {
   const watchedRole = form.watch("role");
 
   useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (auth && recaptchaContainerRef.current && !recaptchaVerifierRef.current && registrationStep === 'initial') {
       try {
+        if (typeof window !== 'undefined' && window.recaptchaVerifier) {
+          window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+        }
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
           'size': 'invisible',
           'callback': (response: any) => {
@@ -185,6 +201,7 @@ export function RegisterForm() {
   }, [watchedRole]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log("onSubmit called with values:", values);
     if (!auth || !db) {
       toast({ title: "Registration Error", description: "Firebase services not initialized.", variant: "destructive", duration: 7000 });
       setIsSubmitting(false);
@@ -196,96 +213,120 @@ export function RegisterForm() {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const firebaseUser = userCredential.user;
+        console.log("User created in Firebase Auth:", firebaseUser.uid);
         await updateFirebaseUserProfile(firebaseUser, { displayName: values.name });
         setFirebaseUserForLinking(firebaseUser);
 
-        // Wait for auth state to be established before writing to Firestore
-        const unsubscribe = auth.onAuthStateChanged(async (user) => {
-          if (user) {
-            unsubscribe(); // Prevent multiple triggers
-            const userProfile: UserProfile = {
-              uid: user.uid,
-              name: values.name,
-              email: values.email,
-              role: values.role as UserRole,
-              createdAt: serverTimestamp(),
-              status: (values.role === 'driver' || values.role === 'operator' || values.role === 'admin') ? 'Pending Approval' : 'Active',
-            };
-            if (values.role === 'passenger') {
-              const passengerId = await generateSequentialPassengerId();
-              userProfile.customId = passengerId;
-            }
-            if (values.role === 'driver') {
-              if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
-              if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
-              userProfile.driverIdentifier = `DR-mock-${user.uid.slice(0,4)}`;
-            }
-            if (values.phoneNumber && values.phoneNumber.trim() !== "") {
-              userProfile.phoneNumberInput = values.phoneNumber.trim();
-            }
-            if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") {
-              userProfile.phoneVerified = false;
-              const deadline = new Date();
-              deadline.setDate(deadline.getDate() + 7);
-              userProfile.phoneVerificationDeadline = Timestamp.fromDate(deadline);
-            }
-            try {
-              await setDoc(doc(db, "users", user.uid), userProfile);
-              console.log("User profile written to Firestore for UID:", user.uid, userProfile);
-            } catch (e) {
-              console.error("Error writing user profile to Firestore for UID:", user.uid, e);
-              toast({ title: "Profile Creation Error", description: `Could not create user profile: ${e.message || e}`, variant: "destructive" });
-              setIsSubmitting(false);
-              unsubscribe();
-              return;
-            }
-
-            const shouldVerifyPhone = (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") ||
-              ((values.role === 'driver' || values.role === 'operator' || values.role === 'admin') && values.phoneNumber && values.phoneNumber.trim() !== "");
-
-            if (shouldVerifyPhone && recaptchaVerifierRef.current) {
-              toast({ title: "Account Created!", description: "Next, verify your phone number."});
-              const appVerifier = recaptchaVerifierRef.current;
-              const phoneProvider = new PhoneAuthProvider(auth);
-              
-              try {
-                const confirmation = await phoneProvider.verifyPhoneNumber(values.phoneNumber!, appVerifier);
-                setConfirmationResult(confirmation);
-                setRegistrationStep('verifyingPhone');
-                setIsSubmitting(false); 
-              } catch (phoneError: any) {
-                console.error("Error sending phone verification code:", phoneError);
-                toast({ title: "Phone Verification Failed", description: `Could not send verification code: ${phoneError.message || phoneError}`, variant: "destructive", duration: 7000 });
-                // Even if phone fails, proceed to login
-                toast({ title: "Registration complete", description: "You can now log in."});
-                router.push('/login');
-              }
-            } else {
-              contextLogin(
-                user.uid,
-                user.email || values.email,
-                values.name,
-                values.role as UserRole,
-                userProfile.vehicleCategory,
-                userProfile.phoneNumberInput,
-                false,
-                userProfile.status,
-                userProfile.phoneVerificationDeadline,
-                userProfile.customId,
-                userProfile.operatorCode,
-                userProfile.driverIdentifier
-              );
-              toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''} ${values.role === 'admin' || values.role === 'operator' ? 'Your account is pending approval. You will be notified once approved.' : ''}` });
-              setIsSubmitting(false);
-            }
+        // Build user profile directly using firebaseUser
+        const userProfile: UserProfile = {
+          uid: firebaseUser.uid,
+          name: values.name,
+          email: values.email,
+          role: values.role as UserRole,
+          createdAt: serverTimestamp(),
+          status: (values.role === 'driver' || values.role === 'operator' || values.role === 'admin') ? 'Pending Approval' : 'Active',
+        };
+        if (values.role === 'passenger') {
+          // Fetch the passenger ID from the API
+          const res = await fetch('/api/users/generate-passenger-id', { method: 'POST' });
+          const data = await res.json();
+          console.log("Passenger ID API response:", data);
+          const passengerId = data.passengerId;
+          if (passengerId) {
+            userProfile.customId = passengerId;
           }
-        });
+        }
+        if (values.role === 'driver') {
+          if (values.vehicleCategory) userProfile.vehicleCategory = values.vehicleCategory;
+          if (values.operatorCode) userProfile.operatorCode = values.operatorCode;
+          userProfile.driverIdentifier = `DR-mock-${firebaseUser.uid.slice(0,4)}`;
+        }
+        if (values.phoneNumber) {
+          userProfile.phoneNumberInput = formatPhoneNumber(values.phoneNumber.trim());
+        }
+        if (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") {
+          userProfile.phoneVerified = false;
+          const deadline = new Date();
+          deadline.setHours(deadline.getHours() + 48);
+          userProfile.phoneVerificationDeadline = Timestamp.fromDate(deadline);
+        }
+        console.log("Sending profile to backend API:", { uid: firebaseUser.uid, userProfile });
+        // Remove undefined fields from userProfile before sending
+        Object.keys(userProfile).forEach(
+          (key) => (userProfile as any)[key] === undefined && delete (userProfile as any)[key]
+        );
+        try {
+          const profileRes = await fetch('/api/users/create-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: firebaseUser.uid, userProfile }),
+          });
+          const profileData = await profileRes.json();
+          if (!profileRes.ok) {
+            throw new Error(profileData.error || 'Failed to create user profile');
+          }
+          console.log("User profile written to Firestore via backend API for UID:", firebaseUser.uid, userProfile);
+        } catch (e) {
+          console.error("Error writing user profile to Firestore via backend API for UID:", firebaseUser.uid, e);
+          toast({ title: "Profile Creation Error", description: `Could not create user profile: ${e.message || e}`, variant: "destructive" });
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Continue with phone verification only if needed
+        const shouldVerifyPhone = (values.role === 'passenger' && values.phoneNumber && values.phoneNumber.trim() !== "") ||
+          ((values.role === 'driver' || values.role === 'operator' || values.role === 'admin') && values.phoneNumber && values.phoneNumber.trim() !== "");
+
+        if (shouldVerifyPhone) {
+          // Only initialize reCAPTCHA here if needed
+          if (!window.recaptchaVerifier) {
+            window.recaptchaVerifier = new RecaptchaVerifier('recaptcha-container', {
+              'size': 'invisible',
+              'callback': () => {},
+            }, auth);
+          }
+          if (process.env.NODE_ENV === 'development' && window.recaptchaVerifier) {
+            window.recaptchaVerifier.appVerificationDisabledForTesting = true;
+          }
+          toast({ title: "Account Created!", description: "Next, verify your phone number."});
+          const appVerifier = window.recaptchaVerifier;
+          const phoneProvider = new PhoneAuthProvider(auth);
+          try {
+            const confirmation = await phoneProvider.verifyPhoneNumber(formatPhoneNumber(values.phoneNumber!), appVerifier);
+            setConfirmationResult(confirmation);
+            setRegistrationStep('verifyingPhone');
+            setIsSubmitting(false);
+          } catch (phoneError: any) {
+            console.error("Error sending phone verification code:", phoneError);
+            toast({ title: "Phone Verification Failed", description: `Could not send verification code: ${phoneError.message || phoneError}`, variant: "destructive", duration: 7000 });
+            // Even if phone fails, proceed to login
+            toast({ title: "Registration complete", description: "You can now log in."});
+            router.push('/login');
+          }
+        } else {
+          contextLogin(
+            firebaseUser.uid,
+            firebaseUser.email || values.email,
+            values.name,
+            values.role as UserRole,
+            userProfile.vehicleCategory,
+            userProfile.phoneNumberInput,
+            false,
+            userProfile.status,
+            userProfile.phoneVerificationDeadline,
+            userProfile.customId,
+            userProfile.operatorCode,
+            userProfile.driverIdentifier
+          );
+          toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''} ${values.role === 'admin' || values.role === 'operator' ? 'Your account is pending approval. You will be notified once approved.' : ''}` });
+          setIsSubmitting(false);
+        }
       } catch (error: any) {
         handleRegistrationError(error);
         setIsSubmitting(false);
         setFirebaseUserForLinking(null);
       } finally {
-        if (registrationStep === 'initial') { // Only set if we haven't moved to phone verification
+        if (registrationStep === 'initial') {
           setIsSubmitting(false);
         }
       }
@@ -441,10 +482,10 @@ export function RegisterForm() {
             )}
             <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    Phone Number {watchedRole === 'passenger' && <span className="text-destructive font-bold">*</span>} { (watchedRole === 'driver' || watchedRole === 'operator' || watchedRole === 'admin') && '(Optional)' }
-                  </FormLabel>
-                  <FormControl><Input type="tel" placeholder="+16505551234" {...field} disabled={isSubmitting || (watchedRole !== 'passenger' && !field.value && !form.formState.dirtyFields.phoneNumber) } /></FormControl>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Phone number required" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
             )} />
@@ -462,7 +503,9 @@ export function RegisterForm() {
           </>
         )}
         
-        {registrationStep === 'initial' && <div ref={recaptchaContainerRef} id="recaptcha-container-register"></div>}
+        {registrationStep === 'verifyingPhone' && (
+          <div id="recaptcha-container"></div>
+        )}
 
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
