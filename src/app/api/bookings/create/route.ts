@@ -45,6 +45,7 @@ function generateFourDigitPin(): string {
 
 const PLATFORM_OPERATOR_CODE_FOR_ID = "OP001";
 const PLATFORM_OPERATOR_ID_PREFIX = "001";
+const BOOKING_TIMEOUT_MINUTES = 30; // 30-minute timeout for queued bookings
 
 function getOperatorPrefix(operatorCode?: string | null): string {
   if (operatorCode && operatorCode.startsWith("OP") && operatorCode.length >= 5) {
@@ -69,12 +70,28 @@ async function generateBookingId(operatorCode: string): Promise<string> {
       return 1;
     }
     
-    const currentId = counterDoc.data().currentId;
+    const currentId = counterDoc.data()?.currentId || 0;
     transaction.update(counterRef, { currentId: currentId + 1 });
     return currentId + 1;
   });
   
   return `${operatorCode}/${result.toString().padStart(8, '0')}`;
+}
+
+// Function to check operator's dispatch mode
+async function getOperatorDispatchMode(operatorId: string): Promise<'auto' | 'manual'> {
+  try {
+    const operatorSettingsDoc = await db.collection('operatorSettings').doc(operatorId).get();
+    if (operatorSettingsDoc.exists) {
+      const settings = operatorSettingsDoc.data();
+      if (settings && typeof settings.dispatchMode === 'string') {
+        return settings.dispatchMode === 'manual' ? 'manual' : 'auto';
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch operator dispatch mode, defaulting to auto:', error);
+  }
+  return 'auto'; // Default to auto
 }
 
 export async function POST(req: Request) {
@@ -88,7 +105,7 @@ export async function POST(req: Request) {
 
     // Add server-generated fields
     data.createdAt = Timestamp.now();
-    data.status = "pending_assignment"; // or "active" if that's your logic
+    data.status = "pending_assignment"; // Default to pending_assignment
     data.bookingTimestamp = Timestamp.now();
 
     if (data.paymentMethod === "account") {
@@ -103,39 +120,78 @@ export async function POST(req: Request) {
     const displayBookingId = await generateBookingId(data.originatingOperatorId);
     data.displayBookingId = displayBookingId;
 
-    // Find available drivers (status: 'Active') for the operator
+    // Check operator's dispatch mode
+    const dispatchMode = await getOperatorDispatchMode(data.originatingOperatorId);
+    
     let assignedDriver = null;
-    let driverQuery = db.collection('users')
-      .where('role', '==', 'driver')
-      .where('status', '==', 'Active');
-    if (typeof data?.originatingOperatorId === 'string' && data.originatingOperatorId.length > 0) {
-      driverQuery = driverQuery.where('operatorCode', '==', data.originatingOperatorId);
-    }
-    const availableDriversSnap = await driverQuery.get();
-    if (!availableDriversSnap.empty) {
-      // Pick the first available driver (or random, or closest if you add location logic)
-      const driverDoc = availableDriversSnap.docs[0];
-      assignedDriver = driverDoc.id;
-      data.driverId = assignedDriver;
-      data.status = "assigned";
+    let bookingStatus = "pending_assignment";
+    let assignmentMethod = "queued";
+
+    // Only attempt auto-assignment if dispatch mode is 'auto'
+    if (dispatchMode === 'auto') {
+      // Find available drivers (status: 'Active' and availability: 'online') for the operator
+      let driverQuery = db.collection('drivers')
+        .where('status', '==', 'Active')
+        .where('availability', '==', 'online');
+      
+      if (typeof data?.originatingOperatorId === 'string' && data.originatingOperatorId.length > 0) {
+        driverQuery = driverQuery.where('operatorCode', '==', data.originatingOperatorId);
+      }
+      
+      const availableDriversSnap = await driverQuery.get();
+      if (!availableDriversSnap.empty) {
+        // Pick the first available driver (or random, or closest if you add location logic)
+        const driverDoc = availableDriversSnap.docs[0];
+        assignedDriver = driverDoc.id;
+        data.driverId = assignedDriver;
+        bookingStatus = "driver_assigned";
+        assignmentMethod = "auto_immediate";
+      }
     } else {
-      // No drivers available, keep status as pending_assignment
-      data.status = "pending_assignment";
+      // Manual dispatch mode - always queue for manual assignment
+      assignmentMethod = "manual_queued";
+    }
+
+    // Set final status and assignment details
+    data.status = bookingStatus;
+    data.assignmentMethod = assignmentMethod;
+    data.dispatchMode = dispatchMode;
+    
+    // Add timeout information for queued bookings
+    if (bookingStatus === "pending_assignment") {
+      const timeoutAt = new Date();
+      timeoutAt.setMinutes(timeoutAt.getMinutes() + BOOKING_TIMEOUT_MINUTES);
+      data.timeoutAt = Timestamp.fromDate(timeoutAt);
+      data.queuedAt = Timestamp.now();
     }
 
     // Write to Firestore
     const docRef = await db.collection('bookings').add(data);
 
     // Log for debugging
-    console.log("Booking created:", docRef.id, "Display ID:", displayBookingId, data);
+    console.log("Booking created:", docRef.id, "Display ID:", displayBookingId, {
+      status: bookingStatus,
+      assignmentMethod,
+      dispatchMode,
+      assignedDriver,
+      timeoutAt: data.timeoutAt
+    });
 
-    // Return consistent response
+    // Return consistent response with enhanced information
     return NextResponse.json({ 
       success: true, 
       bookingId: docRef.id,
       displayBookingId: displayBookingId,
       assignedDriver: assignedDriver,
-      message: assignedDriver ? "Ride assigned to driver." : "No drivers available. Your ride is queued."
+      status: bookingStatus,
+      assignmentMethod,
+      dispatchMode,
+      timeoutAt: data.timeoutAt,
+      message: assignedDriver 
+        ? "Ride assigned to driver." 
+        : dispatchMode === 'manual'
+        ? "Booking queued for manual assignment by operator."
+        : "No drivers available. Your ride is queued and will be assigned as soon as a driver becomes available."
     });
   } catch (error) {
     console.error("Error creating booking:", error);

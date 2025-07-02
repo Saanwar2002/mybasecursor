@@ -46,6 +46,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
 import { formatAddressForMapLabel, formatAddressForDisplay } from '@/lib/utils';
+import * as RadixSwitch from "@radix-ui/react-switch";
 
 if (!importedDb) {
   throw new Error('Firestore db is not initialized. Check your Firebase config.');
@@ -515,6 +516,7 @@ useEffect(() => {
 
   // Update handleToggleOnlineStatus to start/stop watcher
   const handleToggleOnlineStatus = (newOnlineStatus: boolean) => {
+    console.log('[handleToggleOnlineStatus] Toggle changed:', newOnlineStatus);
     setIsDriverOnline(newOnlineStatus);
     if (newOnlineStatus) {
       setConsecutiveMissedOffers(0);
@@ -527,7 +529,7 @@ useEffect(() => {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             const location = getDriverLocationFromPosition(position);
-            console.log('Attempting to set driver online with location:', location);
+            console.log('[handleToggleOnlineStatus] Attempting to set driver online with location:', location);
             try {
               await setDoc(
                 doc(db, 'drivers', driverUser.id),
@@ -542,16 +544,16 @@ useEffect(() => {
                 },
                 { merge: true }
               );
-              console.log('Driver location written to Firestore:', location);
+              console.log('[handleToggleOnlineStatus] Driver location written to Firestore:', location);
               await updateDoc(doc(db, 'users', driverUser.id), { status: 'Active' });
-              console.log('Driver status set to Active in both collections.');
+              console.log('[handleToggleOnlineStatus] Driver status set to Active in both collections.');
               startLocationWatcher(); // Start real-time updates
             } catch (err) {
-              console.error('Error setting driver online:', err);
+              console.error('[handleToggleOnlineStatus] Error setting driver online:', err);
             }
           },
           (error) => {
-            console.error('Geolocation error:', error);
+            console.error('[handleToggleOnlineStatus] Geolocation error:', error);
           },
           { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
         );
@@ -565,6 +567,7 @@ useEffect(() => {
         watchIdRef.current = null;
       }
       setPauseOffers(false); // Auto-reset Pause Ride Offers when going offline
+      console.log('[handleToggleOnlineStatus] Set driver offline, stopped polling and location watcher.');
     }
   };
 
@@ -2673,9 +2676,15 @@ const mapDisplayElements = useMemo(() => {
             </>
           )}
           <div className="flex items-center space-x-2 pt-1">
-            <Switch id="driver-online-toggle" checked={isDriverOnline} onCheckedChange={handleToggleOnlineStatus} aria-label="Toggle driver online status" className={cn(!isDriverOnline && "data-[state=checked]:bg-red-600 data-[state=unchecked]:bg-muted-foreground")} />
-            <Label htmlFor="driver-online-toggle" className={cn("font-bold text-sm", isDriverOnline ? 'text-green-600' : 'text-red-600')} >
-              <span>{isDriverOnline ? "Online" : "Offline"}</span>
+            <input
+              type="checkbox"
+              id="driver-online-toggle"
+              checked={isDriverOnline}
+              onChange={e => handleToggleOnlineStatus(e.target.checked)}
+              className="h-5 w-5 text-primary focus:ring-primary border-gray-300 rounded"
+            />
+            <Label htmlFor="driver-online-toggle" className={isDriverOnline ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+              {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>
           {isDriverOnline && (

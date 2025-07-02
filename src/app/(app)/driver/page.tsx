@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { DriverAccountHealthCard } from '@/components/driver/DriverAccountHealthCard'; 
 import { useRouter } from 'next/navigation'; 
-import { collection, query, where, onSnapshot, Timestamp, doc, setDoc, updateDoc, serverTimestamp, GeoPoint, deleteField } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, setDoc, updateDoc, serverTimestamp, GeoPoint, deleteField, getDocs } from 'firebase/firestore';
 import { db as importedDb } from '@/lib/firebase';
 
 if (!importedDb) {
@@ -88,10 +88,30 @@ export default function DriverDashboardPage() {
     return () => unsubscribe();
   }, [user]);
 
+  // Sync isOnline state with Firestore in real time
+  useEffect(() => {
+    if (!user || !db) return;
+    const driverRef = doc(db, 'drivers', user.id);
+    const unsubscribe = onSnapshot(driverRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        console.log('[onSnapshot] Firestore driver doc:', data);
+        setIsOnline(data.status === 'Active' && data.availability === 'online');
+      } else {
+        console.log('[onSnapshot] Firestore driver doc does not exist for UID:', user.id);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const handleOnlineStatusChange = async (checked: boolean) => {
+    console.log('[handleOnlineStatusChange] Toggle changed:', checked);
     setIsOnline(checked);
-    if (!user || !db) return;
+    if (!user || !db) {
+      console.log('[handleOnlineStatusChange] User or db missing');
+      return;
+    }
+    console.log('[handleOnlineStatusChange] Current UID:', user.id, 'Current Email:', user.email);
 
     if (checked) {
       // Get driver's current location
@@ -105,14 +125,16 @@ export default function DriverDashboardPage() {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude
               };
-              console.log('Attempting to set driver online with location:', location);
-              // Update the driver's document in the 'drivers' collection
+              console.log('[handleOnlineStatusChange] Attempting to set driver online with location:', location);
+              // Update the driver's document in the 'drivers' collection using ID
               await setDoc(
                 doc(db, 'drivers', user.id),
                 {
+                  uid: user.id, // Store UID in the document for migration safety
                   name: user.name,
                   email: user.email,
                   status: 'Active',
+                  availability: 'online',
                   location,
                   createdAt: serverTimestamp(),
                   vehicleCategory: user.vehicleCategory || '',
@@ -121,18 +143,18 @@ export default function DriverDashboardPage() {
                 },
                 { merge: true }
               );
-              console.log('Driver location written to Firestore:', location);
+              console.log('[handleOnlineStatusChange] Driver location written to Firestore:', location);
               // Also update status in the users collection
               await updateDoc(doc(db, 'users', user.id), { status: 'Active' });
-              console.log('Driver status set to Active in both collections.');
+              console.log('[handleOnlineStatusChange] Driver status set to Active in both collections.');
             } catch (err) {
-              console.error('Error setting driver online:', err);
+              console.error('[handleOnlineStatusChange] Error setting driver online:', err);
               alert('Failed to set driver online. See console for details.');
               setIsOnline(false);
             }
           },
           (error) => {
-            console.error('Geolocation error:', error);
+            console.error('[handleOnlineStatusChange] Geolocation error:', error);
             alert('Location access denied. You must allow location to go online.');
             setIsOnline(false);
           },
@@ -143,11 +165,31 @@ export default function DriverDashboardPage() {
     } else {
       try {
         if (!db) throw new Error('Firestore db is not initialized');
-        await updateDoc(doc(db, 'drivers', user.id), { status: 'Inactive', location: deleteField() });
+        console.log('[handleOnlineStatusChange] Going offline - trying email-based lookup for:', user.email);
+        // Find driver document by email instead of UID
+        const driversRef = collection(db, 'drivers');
+        const q = query(driversRef, where('email', '==', user.email));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+          console.error('[handleOnlineStatusChange] No driver document found with email:', user.email);
+          alert('Driver document not found. Please contact support.');
+          setIsOnline(true);
+          return;
+        }
+        const driverDoc = querySnapshot.docs[0];
+        console.log('[handleOnlineStatusChange] Found driver document with ID:', driverDoc.id, 'for email:', user.email);
+        // Update the found document
+        await updateDoc(driverDoc.ref, { 
+          status: 'Inactive', 
+          availability: 'offline', 
+          location: deleteField() 
+        });
+        console.log('[handleOnlineStatusChange] Driver document updated to offline in Firestore using email lookup');
+        // Also update status in the users collection (still using UID)
         await updateDoc(doc(db, 'users', user.id), { status: 'Inactive' });
-        console.log('Driver status set to Inactive and location removed in drivers collection.');
+        console.log('[handleOnlineStatusChange] User document updated to offline in Firestore');
       } catch (err) {
-        console.error('Error setting driver offline:', err);
+        console.error('[handleOnlineStatusChange] Error setting driver offline:', err);
         alert('Failed to set driver offline. See console for details.');
         setIsOnline(true);
       }
@@ -162,16 +204,20 @@ export default function DriverDashboardPage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle className="text-3xl font-headline">Welcome, {user?.name || 'Driver'}!</CardTitle>
+                          <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Switch 
-                  id="online-status" 
-                  checked={isOnline} 
-                  onCheckedChange={handleOnlineStatusChange} 
+                <input
+                  type="checkbox"
+                  id="online-status"
+                  checked={isOnline}
+                  onChange={e => handleOnlineStatusChange(e.target.checked)}
+                  className="h-5 w-5 text-primary focus:ring-primary border-gray-300 rounded"
                 />
                 <Label htmlFor="online-status" className={isOnline ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
                   {isOnline ? "Online" : "Offline"}
                 </Label>
               </div>
+            </div>
             </div>
             <CardDescription>Manage your rides, track earnings, and stay connected.</CardDescription>
           </CardHeader>

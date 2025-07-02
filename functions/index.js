@@ -12,6 +12,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
+const functions = require('firebase-functions');
 
 // Initialize Firebase Admin (only once)
 initializeApp();
@@ -283,3 +284,56 @@ async function generateBookingId(operatorCode) {
     throw error;
   }
 }
+
+// Function to handle booking timeouts
+exports.processBookingTimeouts = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
+  const now = Timestamp.now();
+  const timeoutThreshold = new Date(now.toDate().getTime() - (30 * 60 * 1000)); // 30 minutes ago
+  
+  try {
+    // Find bookings that have been pending for more than 30 minutes
+    const timeoutBookings = await db.collection('bookings')
+      .where('status', '==', 'pending_assignment')
+      .where('timeoutAt', '<', now)
+      .get();
+
+    console.log(`Found ${timeoutBookings.size} bookings that have timed out`);
+
+    const batch = db.batch();
+    const notifications = [];
+
+    timeoutBookings.forEach((doc) => {
+      const booking = doc.data();
+      
+      // Update booking status to cancelled
+      batch.update(doc.ref, {
+        status: 'cancelled_no_driver',
+        cancelledAt: now,
+        cancellationReason: 'timeout_no_driver_available'
+      });
+
+      // Create notification for passenger
+      if (booking.passengerId) {
+        const notificationRef = db.collection('notifications').doc();
+        batch.set(notificationRef, {
+          userId: booking.passengerId,
+          type: 'booking_timeout',
+          title: 'Booking Cancelled - No Driver Available',
+          message: `Your booking ${booking.displayBookingId || booking.id} has been cancelled as no driver was available within 30 minutes. Please try booking again.`,
+          bookingId: doc.id,
+          createdAt: now,
+          read: false
+        });
+        notifications.push(notificationRef.id);
+      }
+    });
+
+    await batch.commit();
+    console.log(`Processed ${timeoutBookings.size} timed out bookings and created ${notifications.length} notifications`);
+    
+    return { success: true, processed: timeoutBookings.size, notifications: notifications.length };
+  } catch (error) {
+    console.error('Error processing booking timeouts:', error);
+    throw error;
+  }
+});

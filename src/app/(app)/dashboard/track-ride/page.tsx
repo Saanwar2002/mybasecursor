@@ -97,6 +97,13 @@ interface ActiveRide {
   driverCurrentLegIndex?: number; 
   currentLegEntryTimestamp?: SerializedTimestamp | string | null; 
   completedStopWaitCharges?: Record<number, number>;
+  // New fields for enhanced booking tracking
+  assignmentMethod?: string;
+  dispatchMode?: string;
+  timeoutAt?: SerializedTimestamp | null;
+  queuedAt?: SerializedTimestamp | null;
+  cancelledAt?: SerializedTimestamp | null;
+  cancellationReason?: string;
 }
 
 const formatDate = (timestamp?: SerializedTimestamp | string | null, isoString?: string | null): string => {
@@ -251,6 +258,13 @@ export default function MyActiveRidePage() {
     driverCurrentLegIndex: bookings[0].driverCurrentLegIndex || bookings[0].driver_current_leg_index || 0,
     currentLegEntryTimestamp: bookings[0].currentLegEntryTimestamp || bookings[0].current_leg_entry_timestamp || null,
     completedStopWaitCharges: bookings[0].completedStopWaitCharges || bookings[0].completed_stop_wait_charges || {},
+    // New fields mapping
+    assignmentMethod: bookings[0].assignmentMethod || bookings[0].assignment_method || '',
+    dispatchMode: bookings[0].dispatchMode || bookings[0].dispatch_mode || '',
+    timeoutAt: bookings[0].timeoutAt || bookings[0].timeout_at || null,
+    queuedAt: bookings[0].queuedAt || bookings[0].queued_at || null,
+    cancelledAt: bookings[0].cancelledAt || bookings[0].cancelled_at || null,
+    cancellationReason: bookings[0].cancellationReason || bookings[0].cancellation_reason || '',
   } : null;
 
   const activeRide = mappedActiveRide;
@@ -308,6 +322,10 @@ export default function MyActiveRidePage() {
   const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
   const [cancellationSuccess, setCancellationSuccess] = useState(false);
 
+  // Timeout countdown state
+  const [timeoutCountdown, setTimeoutCountdown] = useState<number | null>(null);
+  const [timeoutCountdownInterval, setTimeoutCountdownInterval] = useState<NodeJS.Timeout | null>(null);
+
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
     resolver: zodResolver(editDetailsFormSchema),
@@ -331,6 +349,46 @@ export default function MyActiveRidePage() {
       }
     }
   }, [isMapSdkLoaded]);
+
+  // Timeout countdown effect for queued bookings
+  useEffect(() => {
+    if (timeoutCountdownInterval) {
+      clearInterval(timeoutCountdownInterval);
+      setTimeoutCountdownInterval(null);
+    }
+
+    if (activeRide?.status === 'pending_assignment' && activeRide?.timeoutAt) {
+      const timeoutDate = new Date(activeRide.timeoutAt._seconds * 1000);
+      
+      const updateCountdown = () => {
+        const now = new Date();
+        const timeLeft = Math.max(0, Math.floor((timeoutDate.getTime() - now.getTime()) / (1000 * 60)));
+        setTimeoutCountdown(timeLeft);
+        
+        if (timeLeft <= 0) {
+          clearInterval(timeoutCountdownInterval!);
+          setTimeoutCountdownInterval(null);
+          // Show notification when timeout is reached
+          toast({
+            title: "Booking Timeout",
+            description: "No driver was found within 30 minutes. You can continue waiting or cancel and try again.",
+            variant: "destructive",
+            duration: 10000
+          });
+        }
+      };
+
+      updateCountdown(); // Initial call
+      const interval = setInterval(updateCountdown, 60000); // Update every minute
+      setTimeoutCountdownInterval(interval);
+
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    } else {
+      setTimeoutCountdown(null);
+    }
+  }, [activeRide?.status, activeRide?.timeoutAt, toast]);
 
 
   useEffect(() => {
@@ -768,12 +826,29 @@ export default function MyActiveRidePage() {
   const getStatusMessage = (ride: ActiveRide | null) => {
     if (!ride || !ride.status) return "Loading status...";
     switch (ride.status.toLowerCase()) {
-        case 'pending_assignment': return "Finding you a driver...";
+        case 'pending_assignment': 
+          // Enhanced messaging for queued bookings
+          if (ride.assignmentMethod === 'manual_queued') {
+            return "Your booking is queued for manual assignment by the operator. You'll be notified when a driver is assigned.";
+          } else if (ride.timeoutAt) {
+            const timeoutDate = new Date(ride.timeoutAt._seconds * 1000);
+            const now = new Date();
+            const timeLeft = Math.max(0, Math.floor((timeoutDate.getTime() - now.getTime()) / (1000 * 60)));
+            if (timeLeft > 0) {
+              return `Finding you a driver... If no driver is found within ${timeLeft} minutes, you'll be notified.`;
+            } else {
+              return "Finding you a driver... You can continue waiting or cancel and try again.";
+            }
+          } else {
+            return "Finding you a driver...";
+          }
         case 'driver_assigned': return `Driver ${ride.driver || 'N/A'} is en route. ETA: ${ride.driverEtaMinutes ?? 'calculating...'} min.`;
         case 'arrived_at_pickup': return `Driver ${ride.driver || 'N/A'} has arrived at your pickup location.`;
         case 'in_progress': return "Your ride is in progress. Enjoy!";
         case 'pending_driver_wait_and_return_approval': return `Wait & Return requested for an additional ${ride.estimatedAdditionalWaitTimeMinutes || 0} mins. Awaiting driver confirmation.`;
         case 'in_progress_wait_and_return': return `Ride in progress (Wait & Return). Driver will wait ~${ride.estimatedAdditionalWaitTimeMinutes || 0} mins at dropoff.`;
+        case 'cancelled_no_driver': return "Your booking was cancelled as no driver was available within 30 minutes. Please try booking again.";
+        case 'cancelled_by_operator': return "Your booking was cancelled by the operator. Please contact support if you have questions.";
         default: return `Status: ${ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
     }
   };
@@ -787,6 +862,8 @@ export default function MyActiveRidePage() {
         case 'in_progress': return 'default';
         case 'pending_driver_wait_and_return_approval': return 'secondary';
         case 'in_progress_wait_and_return': return 'default';
+        case 'cancelled_no_driver': return 'destructive';
+        case 'cancelled_by_operator': return 'destructive';
         default: return 'secondary';
     }
   };
@@ -800,6 +877,8 @@ export default function MyActiveRidePage() {
         case 'in_progress': return 'bg-green-600 text-white hover:bg-green-700';
         case 'pending_driver_wait_and_return_approval': return 'bg-purple-400/80 text-purple-900 hover:bg-purple-400/70';
         case 'in_progress_wait_and_return': return 'bg-teal-500 text-white hover:bg-teal-600';
+        case 'cancelled_no_driver': return 'bg-red-500 text-white hover:bg-red-600';
+        case 'cancelled_by_operator': return 'bg-red-500 text-white hover:bg-red-600';
         default: return '';
     }
   };
@@ -1019,6 +1098,32 @@ export default function MyActiveRidePage() {
             </CardHeader>
             <CardContent className="space-y-3">
                 <p className="text-base text-muted-foreground">{getStatusMessage(activeRide)}</p>
+                
+                {/* Timeout countdown for queued bookings */}
+                {activeRide.status === 'pending_assignment' && timeoutCountdown !== null && timeoutCountdown > 0 && (
+                  <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
+                    <Timer className="h-4 w-4 text-current" />
+                    <ShadAlertTitle className="font-semibold text-current text-sm">
+                      Driver Search Timeout
+                    </ShadAlertTitle>
+                    <ShadAlertDescriptionForAlert className="text-sm text-current/80">
+                      If no driver is found within <strong>{timeoutCountdown} minutes</strong>, you'll be notified and can choose to keep waiting or cancel.
+                    </ShadAlertDescriptionForAlert>
+                  </Alert>
+                )}
+
+                {/* Timeout reached notification */}
+                {activeRide.status === 'pending_assignment' && timeoutCountdown !== null && timeoutCountdown <= 0 && (
+                  <Alert variant="destructive" className="bg-red-100 dark:bg-red-800/30 border-red-400 dark:border-red-600 text-red-700 dark:text-red-300">
+                    <AlertTriangle className="h-4 w-4 text-current" />
+                    <ShadAlertTitle className="font-semibold text-current text-sm">
+                      No Driver Found
+                    </ShadAlertTitle>
+                    <ShadAlertDescriptionForAlert className="text-sm text-current/80">
+                      No driver was found within 30 minutes. You can continue waiting or cancel and try again.
+                    </ShadAlertDescriptionForAlert>
+                  </Alert>
+                )}
                 
                 {activeRide.paymentMethod === 'account' && activeRide.accountJobPin && (
                   <div className="my-2 p-2.5 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-md text-center shadow-sm">

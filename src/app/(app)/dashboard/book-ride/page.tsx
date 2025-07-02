@@ -223,6 +223,14 @@ const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml
 // Fix for linter: declare window for TypeScript
 declare const window: any;
 
+// Fix for linter: declare window for TypeScript
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 export default function BookRidePage() {
   const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
   const [totalFareEstimate, setTotalFareEstimate] = useState<number | null>(null);
@@ -259,7 +267,7 @@ export default function BookRidePage() {
 
   const [isListening, setIsListening] = useState(false);
   const [isProcessingAi, setIsProcessingAi] = useState(false);
-  const recognitionRef = useRef<window.SpeechRecognition | window.webkitSpeechRecognition | null>(null);
+  const recognitionRef = useRef<Window['SpeechRecognition'] | Window['webkitSpeechRecognition'] | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ pickupLocation: string } | null>(null);
@@ -497,22 +505,19 @@ export default function BookRidePage() {
   }, [toast]);
 
   useEffect(() => {
-    // Generate mock available driver markers
-    const generatedMarkers: MapMarker[] = [];
-    const numMarkers = Math.floor(Math.random() * 3) + 3; // 3 to 5 markers
-    for (let i = 0; i < numMarkers; i++) {
-      generatedMarkers.push({
-        position: {
-          lat: huddersfieldCenter.lat + (Math.random() - 0.5) * 0.025, // Slightly wider spread
-          lng: huddersfieldCenter.lng + (Math.random() - 0.5) * 0.035,
-        },
-        title: `Available Taxi ${i + 1}`,
-        iconUrl: driverCarIconDataUrl,
-        iconScaledSize: { width: 30, height: 45 },
-      });
+    if (drivers && drivers.length > 0) {
+      setMapMarkers(
+        drivers.map(driver => ({
+          position: driver.location,
+          title: driver.name ? `Driver: ${driver.name}` : 'Available Driver',
+          iconUrl: driverCarIconDataUrl,
+          iconScaledSize: { width: 30, height: 45 },
+        }))
+      );
+    } else {
+      setMapMarkers([]);
     }
-    setMapMarkers(generatedMarkers);
-  }, []);
+  }, [drivers]);
 
 
   const handleManualGpsRequest = async () => {
@@ -1171,11 +1176,31 @@ export default function BookRidePage() {
 
       const result = await response.json();
 
+      // Check if booking was queued (no driver assigned immediately)
+      if (!result.assignedDriver) {
+        setBookingQueued(true);
+      }
+
       let toastDescription = `Ride ID: ${result.displayBookingId || result.bookingId}. `;
-      if (values.bookingType === 'asap' && !scheduledPickupAt) {
-          toastDescription += `We'll notify you when your driver is on the way. `;
+      
+      // Enhanced messaging based on assignment method and dispatch mode
+      if (result.assignedDriver) {
+        if (values.bookingType === 'asap' && !scheduledPickupAt) {
+            toastDescription += `We'll notify you when your driver is on the way. `;
+        } else {
+            toastDescription += `Your driver will be assigned shortly for the scheduled time. `;
+        }
       } else {
-          toastDescription += `Your driver will be assigned shortly for the scheduled time. `;
+        if (result.dispatchMode === 'manual') {
+          toastDescription += `Your booking has been queued for manual assignment by the operator. `;
+        } else {
+          toastDescription += `Your booking has been queued and will be assigned as soon as a driver becomes available. `;
+          if (result.timeoutAt) {
+            const timeoutDate = new Date(result.timeoutAt._seconds * 1000);
+            const timeoutTime = timeoutDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            toastDescription += `If no driver is found by ${timeoutTime}, you'll be notified and can choose to keep waiting or cancel. `;
+          }
+        }
       }
 
       if (values.paymentMethod === 'cash') toastDescription += `Payment: Cash to driver.`;
@@ -1470,7 +1495,7 @@ export default function BookRidePage() {
     recognitionRef.current.interimResults = false;
     recognitionRef.current.lang = 'en-GB';
 
-    recognitionRef.current.onresult = async (event) => {
+    recognitionRef.current.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       toast({ title: "Voice Input Received", description: `Processing: "${transcript}"`});
       setIsProcessingAi(true);
@@ -1499,7 +1524,7 @@ export default function BookRidePage() {
       }
     };
 
-    recognitionRef.current.onerror = (event) => {
+    recognitionRef.current.onerror = (event: any) => {
       console.error("Speech recognition error", event.error);
       let errorMsg = "Speech recognition error.";
       if (event.error === 'no-speech') errorMsg = "No speech detected. Please try again.";
@@ -1667,7 +1692,8 @@ export default function BookRidePage() {
 const handleProceedToConfirmation = async () => {
     const pickupValid = await form.trigger("pickupLocation");
     const dropoffValid = await form.trigger("dropoffLocation");
-    if (form.getValues("stops") && form.getValues("stops").length > 0) {
+    const stops = form.getValues("stops");
+    if (stops && stops.length > 0) {
       await form.trigger("stops");
     }
 
@@ -1881,14 +1907,92 @@ const handleProceedToConfirmation = async () => {
     }
   }, [pickupCoords, drivers, loadingDrivers, errorDrivers, usedFallback]);
 
-  // Handler for Book Anyway button
-  const handleBookAnyway = () => {
-    setShowBookingForm(true);
-    setShowBookAnyway(false);
-  };
-
   // 1. Add a new state for booking queued confirmation
   const [bookingQueued, setBookingQueued] = useState(false);
+  const [estimatedWaitTime, setEstimatedWaitTime] = useState<number | null>(null);
+  const [isQueuedBookingDialogOpen, setIsQueuedBookingDialogOpen] = useState(false);
+
+  // Enhanced handler for Book Anyway button
+  const handleBookAnyway = () => {
+    setIsQueuedBookingDialogOpen(true);
+  };
+
+  // Handler for confirming queued booking
+  const handleConfirmQueuedBooking = () => {
+    setShowBookingForm(true);
+    setShowBookAnyway(false);
+    setIsQueuedBookingDialogOpen(false);
+    toast({ 
+      title: "Booking Mode Enabled", 
+      description: "You can now proceed with your booking. It will be queued and assigned as soon as a driver becomes available.",
+      duration: 5000
+    });
+  };
+
+  // Calculate estimated wait time based on time of day and area
+  useEffect(() => {
+    if (drivers.length === 0 && pickupCoords) {
+      const now = new Date();
+      const hour = now.getHours();
+      let estimatedMinutes = 15; // Default 15 minutes
+      
+      // Adjust based on time of day
+      if (hour >= 7 && hour <= 9) { // Morning rush
+        estimatedMinutes = 25;
+      } else if (hour >= 16 && hour <= 18) { // Evening rush
+        estimatedMinutes = 30;
+      } else if (hour >= 22 || hour <= 6) { // Late night
+        estimatedMinutes = 35;
+      }
+      
+      setEstimatedWaitTime(estimatedMinutes);
+    } else {
+      setEstimatedWaitTime(null);
+    }
+  }, [drivers.length, pickupCoords]);
+
+  // Enhanced availability status messages
+  const getAvailabilityMessage = () => {
+    if (loadingDrivers) {
+      return {
+        message: "Checking driver availability in your area...",
+        type: "loading" as const,
+        icon: <Loader2 className="w-4 h-4 animate-spin" />
+      };
+    }
+    
+    if (errorDrivers) {
+      return {
+        message: "Unable to check driver availability. Please try again.",
+        type: "error" as const,
+        icon: <AlertTriangle className="w-4 h-4" />
+      };
+    }
+    
+    if (drivers.length > 0 && !usedFallback) {
+      return {
+        message: `${drivers.length} driver${drivers.length > 1 ? 's' : ''} available in your area`,
+        type: "available" as const,
+        icon: <BadgeCheck className="w-4 h-4" />
+      };
+    }
+    
+    if (drivers.length > 0 && usedFallback) {
+      return {
+        message: `No drivers for ${operatorPreference || 'your selected operator'}, but ${drivers.length} other driver${drivers.length > 1 ? 's are' : ' is'} available nearby`,
+        type: "fallback" as const,
+        icon: <Info className="w-4 h-4" />
+      };
+    }
+    
+    return {
+      message: `No drivers currently available${operatorPreference ? ` for ${operatorPreference}` : ''} in your area`,
+      type: "unavailable" as const,
+      icon: <AlertTriangle className="w-4 h-4" />
+    };
+  };
+
+  const availabilityInfo = getAvailabilityMessage();
 
   return (
     <div>
@@ -1983,28 +2087,60 @@ const handleProceedToConfirmation = async () => {
                      />
                   </div>
 
+                {/* Enhanced Driver Availability Status */}
                 <Card className={cn(
                     "mb-4 shadow-sm",
-                    availabilityStatusLevel === 'unavailable' && "bg-red-500",
-                    availabilityStatusLevel === 'high_demand' && "bg-yellow-500",
-                    availabilityStatusLevel === 'available' && "bg-green-500",
-                    availabilityStatusLevel === 'loading' && "bg-primary/5 border-primary/20"
+                    availabilityInfo.type === 'unavailable' && "bg-red-500",
+                    availabilityInfo.type === 'fallback' && "bg-blue-500",
+                    availabilityInfo.type === 'available' && "bg-green-500",
+                    availabilityInfo.type === 'loading' && "bg-primary/5 border-primary/20",
+                    availabilityInfo.type === 'error' && "bg-red-500"
                     )}>
-                    <CardContent className="p-3 text-center">
-                        {availabilityStatusLevel === 'loading' ? (
-                            <div className="flex items-center justify-center text-sm text-primary">
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                {availabilityStatusMessage}
-                            </div>
-                        ) : (
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-center gap-2">
+                            {availabilityInfo.icon}
                             <p className={cn(
-                                "text-sm font-bold flex items-center justify-center gap-1.5 text-white",
+                                "text-sm font-bold text-white",
                                 )}>
-                               {availabilityStatusLevel === 'unavailable' && <AlertTriangle className="w-4 h-4 text-white" />}
-                               {availabilityStatusLevel === 'high_demand' && <AlertTriangle className="w-4 h-4 text-white" />}
-                               {availabilityStatusLevel === 'available' && <BadgeCheck className="w-4 h-4 text-white" />}
-                               {availabilityStatusMessage}
+                               {availabilityInfo.message}
                             </p>
+                        </div>
+                        
+                        {/* Show estimated wait time when no drivers available */}
+                        {availabilityInfo.type === 'unavailable' && estimatedWaitTime && (
+                            <div className="mt-2 text-center">
+                                <p className="text-xs text-white/90">
+                                    Estimated wait time: ~{estimatedWaitTime} minutes
+                                </p>
+                            </div>
+                        )}
+                        
+                        {/* Show fallback option when other drivers are available */}
+                        {availabilityInfo.type === 'fallback' && (
+                            <div className="mt-2 text-center">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => setShowBookingForm(true)}
+                                    className="text-white border-white hover:bg-white hover:text-blue-600"
+                                >
+                                    Let MyBase App choose driver
+                                </Button>
+                            </div>
+                        )}
+                        
+                        {/* Show Book Anyway option when no drivers available */}
+                        {availabilityInfo.type === 'unavailable' && showBookAnyway && (
+                            <div className="mt-3 text-center">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={handleBookAnyway}
+                                    className="text-white border-white hover:bg-white hover:text-red-600 font-semibold"
+                                >
+                                    Book and wait for next available driver
+                                </Button>
+                            </div>
                         )}
                     </CardContent>
                 </Card>
@@ -2749,36 +2885,84 @@ const handleProceedToConfirmation = async () => {
             </DialogContent>
           </Dialog>
 
-          {pickupCoords && (
-            loadingDrivers ? (
-              <div className="bg-gray-200 text-gray-700 p-2 rounded mb-2">Checking driver availability...</div>
-            ) : errorDrivers ? (
-              <div className="bg-red-200 text-red-700 p-2 rounded mb-2">Error loading driver availability.</div>
-            ) : drivers.length > 0 && !usedFallback ? (
-              <div className="bg-green-200 text-green-700 p-2 rounded mb-2">
-                {drivers.length} driver{drivers.length > 1 ? 's' : ''} available in your area. ETA: {/* TODO: calculate ETA */} 
-              </div>
-            ) : drivers.length > 0 && usedFallback ? (
-              <div className="bg-blue-200 text-blue-700 p-2 rounded mb-2">
-                No drivers for your selected operator, but {drivers.length} other driver{drivers.length > 1 ? 's are' : ' is'} available nearby. ETA: {/* TODO: calculate ETA */}
-                <button className="ml-2 underline text-blue-900" onClick={() => setShowBookingForm(true)}>Let MyBase App choose driver</button>
-              </div>
-            ) : (
-              <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded mb-2">
-                <strong>No drivers are currently available.</strong><br />
-                You can book now and we'll assign your ride as soon as a driver becomes available.
-                {showBookAnyway && (
-                  <button className="ml-2 underline text-yellow-900 font-semibold" onClick={handleBookAnyway}>Book and wait for next available driver</button>
+          {/* Enhanced Queued Booking Dialog */}
+          <Dialog open={isQueuedBookingDialogOpen} onOpenChange={setIsQueuedBookingDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <ShadDialogTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-orange-500" />
+                  Book and Wait for Driver
+                </ShadDialogTitle>
+                <ShadDialogDescription>
+                  No drivers are currently available in your area. You can proceed with your booking and it will be assigned as soon as a driver becomes available.
+                  {operatorPreference && ` Your booking will be prioritized for ${operatorPreference} drivers.`}
+                </ShadDialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-orange-600 mt-0.5" />
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-orange-800">What happens next?</h4>
+                      <ul className="text-sm text-orange-700 space-y-1">
+                        <li>• Your booking will be queued in our system</li>
+                        <li>• We'll notify you as soon as a driver is assigned</li>
+                        <li>• Estimated wait time: ~{estimatedWaitTime || 15} minutes</li>
+                        <li>• If no driver is found within 30 minutes, you'll be notified</li>
+                        <li>• You can cancel anytime before driver assignment</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                
+                {operatorPreference && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm text-blue-800">
+                        Booking with <strong>{operatorPreference}</strong> - will be assigned to their drivers when available
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
-            )
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsQueuedBookingDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmQueuedBooking} className="bg-orange-500 hover:bg-orange-600">
+                  Proceed with Booking
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Booking Queued Confirmation */}
+          {bookingQueued && (
+            <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200">
+              <Clock className="h-5 w-5 text-blue-600" />
+              <ShadAlertTitle className="text-blue-800 font-semibold">Booking Queued Successfully!</ShadAlertTitle>
+              <AlertDescription className="text-blue-700">
+                Your ride has been queued and will be assigned as soon as a driver becomes available. 
+                We'll notify you when your driver is on the way.
+                {estimatedWaitTime && (
+                  <span className="block mt-1 font-medium">
+                    Estimated wait time: ~{estimatedWaitTime} minutes
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
 
           {showBookingForm && (
-            <Form {...form}>
-              {/* Place the actual booking form fields and submit button here, as previously implemented */}
-              {/* ...existing booking form JSX... */}
-            </Form>
+            <div>
+              {/* The booking form is already rendered above, so we don't need to duplicate it here */}
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Booking form is ready. Please fill in your journey details above.
+              </p>
+            </div>
           )}
 
           {bookingQueued && (
@@ -2789,6 +2973,8 @@ const handleProceedToConfirmation = async () => {
               </p>
             </div>
           )}
+
+
 
         </div>
       ) : null}
