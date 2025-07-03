@@ -13,6 +13,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
 const functions = require('firebase-functions');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 // Initialize Firebase Admin (only once)
 initializeApp();
@@ -39,7 +40,7 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 
 exports.autoAssignOnBookingCreate = onDocumentCreated({
   document: 'bookings/{bookingId}',
-  region: 'us-central1',
+  region: 'europe-west2',
   memory: '256MiB',
   cpu: 1,
   timeoutSeconds: 60,
@@ -69,6 +70,10 @@ exports.autoAssignOnBookingCreate = onDocumentCreated({
   logger.info('Operator settings:', operatorSettings);
   if (!operatorSettings || !operatorSettings.autoDispatchEnabled) {
     logger.info('Auto dispatch not enabled or missing operator settings.');
+    return;
+  }
+  if (operatorSettings.dispatchMode && operatorSettings.dispatchMode !== 'auto') {
+    logger.info(`Operator dispatchMode is '${operatorSettings.dispatchMode}', not 'auto'. Skipping auto-assignment.`);
     return;
   }
 
@@ -286,54 +291,49 @@ async function generateBookingId(operatorCode) {
 }
 
 // Function to handle booking timeouts
-exports.processBookingTimeouts = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
-  const now = Timestamp.now();
-  const timeoutThreshold = new Date(now.toDate().getTime() - (30 * 60 * 1000)); // 30 minutes ago
-  
-  try {
-    // Find bookings that have been pending for more than 30 minutes
-    const timeoutBookings = await db.collection('bookings')
-      .where('status', '==', 'pending_assignment')
-      .where('timeoutAt', '<', now)
-      .get();
-
-    console.log(`Found ${timeoutBookings.size} bookings that have timed out`);
-
-    const batch = db.batch();
-    const notifications = [];
-
-    timeoutBookings.forEach((doc) => {
-      const booking = doc.data();
-      
-      // Update booking status to cancelled
-      batch.update(doc.ref, {
-        status: 'cancelled_no_driver',
-        cancelledAt: now,
-        cancellationReason: 'timeout_no_driver_available'
-      });
-
-      // Create notification for passenger
-      if (booking.passengerId) {
-        const notificationRef = db.collection('notifications').doc();
-        batch.set(notificationRef, {
-          userId: booking.passengerId,
-          type: 'booking_timeout',
-          title: 'Booking Cancelled - No Driver Available',
-          message: `Your booking ${booking.displayBookingId || booking.id} has been cancelled as no driver was available within 30 minutes. Please try booking again.`,
-          bookingId: doc.id,
-          createdAt: now,
-          read: false
+exports.processBookingTimeouts = onSchedule(
+  { schedule: 'every 5 minutes' },
+  async (event) => {
+    const now = Timestamp.now();
+    const timeoutThreshold = new Date(now.toDate().getTime() - (30 * 60 * 1000)); // 30 minutes ago
+    try {
+      // Find bookings that have been pending for more than 30 minutes
+      const timeoutBookings = await db.collection('bookings')
+        .where('status', '==', 'pending_assignment')
+        .where('timeoutAt', '<', now)
+        .get();
+      console.log(`Found ${timeoutBookings.size} bookings that have timed out`);
+      const batch = db.batch();
+      const notifications = [];
+      timeoutBookings.forEach((doc) => {
+        const booking = doc.data();
+        // Update booking status to cancelled
+        batch.update(doc.ref, {
+          status: 'cancelled_no_driver',
+          cancelledAt: now,
+          cancellationReason: 'timeout_no_driver_available'
         });
-        notifications.push(notificationRef.id);
-      }
-    });
-
-    await batch.commit();
-    console.log(`Processed ${timeoutBookings.size} timed out bookings and created ${notifications.length} notifications`);
-    
-    return { success: true, processed: timeoutBookings.size, notifications: notifications.length };
-  } catch (error) {
-    console.error('Error processing booking timeouts:', error);
-    throw error;
+        // Create notification for passenger
+        if (booking.passengerId) {
+          const notificationRef = db.collection('notifications').doc();
+          batch.set(notificationRef, {
+            userId: booking.passengerId,
+            type: 'booking_timeout',
+            title: 'Booking Cancelled - No Driver Available',
+            message: `Your booking ${booking.displayBookingId || booking.id} has been cancelled as no driver was available within 30 minutes. Please try booking again.`,
+            bookingId: doc.id,
+            createdAt: now,
+            read: false
+          });
+          notifications.push(notificationRef.id);
+        }
+      });
+      await batch.commit();
+      console.log(`Processed ${timeoutBookings.size} timed out bookings and created ${notifications.length} notifications`);
+      return { success: true, processed: timeoutBookings.size, notifications: notifications.length };
+    } catch (error) {
+      console.error('Error processing booking timeouts:', error);
+      throw error;
+    }
   }
-});
+);

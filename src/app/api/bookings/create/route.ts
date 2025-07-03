@@ -168,6 +168,30 @@ export async function POST(req: Request) {
     // Write to Firestore
     const docRef = await db.collection('bookings').add(data);
 
+    // Always create a rideOffers document if a driver is assigned, regardless of dispatch mode
+    if (assignedDriver) {
+      try {
+        console.log("Attempting to create rideOffers document for driver:", assignedDriver);
+        await db.collection('rideOffers').add({
+          driverId: assignedDriver,
+          bookingId: docRef.id,
+          status: 'pending',
+          createdAt: Timestamp.now(),
+          offerDetails: {
+            pickupLocation: data.pickupLocation,
+            dropoffLocation: data.dropoffLocation,
+            fareEstimate: data.fareEstimate,
+            vehicleType: data.vehicleType,
+            passengerName: data.passengerName,
+            // Add more fields as needed
+          }
+        });
+        console.log("rideOffers document created successfully.");
+      } catch (err) {
+        console.error("Failed to create rideOffers document:", err);
+      }
+    }
+
     // Log for debugging
     console.log("Booking created:", docRef.id, "Display ID:", displayBookingId, {
       status: bookingStatus,

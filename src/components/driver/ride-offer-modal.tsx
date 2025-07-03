@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -398,7 +397,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
               </span>
 
-              {rideDetails.distanceMiles !== undefined && (
+              {typeof rideDetails.distanceMiles === 'number' && (
                 <span className="font-bold text-white text-base">
                   (~{rideDetails.distanceMiles.toFixed(1)} mi)
                 </span>

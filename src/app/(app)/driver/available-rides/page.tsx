@@ -1371,9 +1371,15 @@ const mapDisplayElements = useMemo(() => {
       return;
     }
 
-    const currentActionRideId = offerToAccept.id;
-    console.log(`[handleAcceptOffer] Setting actionLoading for ${currentActionRideId} to true`);
-    setActionLoading(prev => ({ ...prev, [currentActionRideId]: true }));
+    // Patch: Ensure all required fields are present and non-null
+    const safeOfferDetails = {
+      ...offerToAccept,
+      id: offerToAccept.id || rideId || "", // must be string
+      passengerPhone: offerToAccept.passengerPhone ?? "",
+      notes: offerToAccept.notes ?? "",
+      distanceMiles: typeof offerToAccept.distanceMiles === 'number' ? offerToAccept.distanceMiles : 0,
+      accountJobPin: offerToAccept.accountJobPin ?? "",
+    };
 
     const updatePayload: any = {
         driverId: driverUser.id,
@@ -1381,32 +1387,37 @@ const mapDisplayElements = useMemo(() => {
         status: 'driver_assigned',
         vehicleType: driverUser.vehicleCategory || 'Car',
         driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        offerDetails: { ...offerToAccept },
+        offerDetails: safeOfferDetails,
         isPriorityPickup: offerToAccept.isPriorityPickup,
         priorityFeeAmount: offerToAccept.priorityFeeAmount,
         dispatchMethod: offerToAccept.dispatchMethod,
         driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null,
-        accountJobPin: offerToAccept.accountJobPin,
+        accountJobPin: offerToAccept.accountJobPin ?? "",
       };
-    console.log(`[handleAcceptOffer] Sending accept payload for ${currentActionRideId}:`, JSON.stringify(updatePayload, null, 2));
+    console.log(`[handleAcceptOffer] Sending accept payload for ${rideId}:`, JSON.stringify(updatePayload, null, 2));
 
 
     try {
-      const response = await fetch(`/api/operator/bookings/${offerToAccept.id}`, {
+      const bookingId = offerToAccept.id || rideId;
+      if (!bookingId) {
+        toast({ title: "Error", description: "Booking ID missing for ride acceptance.", variant: "destructive" });
+        return;
+      }
+      const response = await fetch(`/api/operator/bookings/${bookingId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload),
       });
-      console.log(`[handleAcceptOffer] Accept offer response status for ${currentActionRideId}: ${response.status}`);
+      console.log(`[handleAcceptOffer] Accept offer response status for ${rideId}: ${response.status}`);
 
       let updatedBookingDataFromServer;
       if (response.ok) {
         updatedBookingDataFromServer = await response.json();
         if (!updatedBookingDataFromServer || !updatedBookingDataFromServer.booking) {
-            console.error(`[handleAcceptOffer] Accept offer for ${currentActionRideId}: Server OK but booking data missing.`);
+            console.error(`[handleAcceptOffer] Accept offer for ${rideId}: Server OK but booking data missing.`);
             throw new Error("Server returned success but booking data was missing in response.");
         }
-        console.log(`[handleAcceptOffer] Accept offer for ${currentActionRideId}: Server returned booking data:`, JSON.stringify(updatedBookingDataFromServer.booking, null, 2));
+        console.log(`[handleAcceptOffer] Accept offer for ${rideId}: Server returned booking data:`, JSON.stringify(updatedBookingDataFromServer.booking, null, 2));
       } else {
         const clonedResponse = response.clone();
         let errorDetailsText = `Server responded with status: ${response.status}.`;
@@ -1422,10 +1433,10 @@ const mapDisplayElements = useMemo(() => {
                 errorDetailsText += " Additionally, failed to read response body as text.";
             }
         }
-        console.error(`[handleAcceptOffer] Accept offer for ${currentActionRideId} - Server error:`, errorDetailsText);
+        console.error(`[handleAcceptOffer] Accept offer for ${rideId} - Server error:`, errorDetailsText);
         toast({ title: "Acceptance Failed on Server", description: errorDetailsText, variant: "destructive", duration: 7000 });
-        setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
-        console.log(`[handleAcceptOffer] Reset actionLoading for ${currentActionRideId} to false after server error.`);
+        setActionLoading(prev => ({ ...prev, [rideId]: true }));
+        console.log(`[handleAcceptOffer] Reset actionLoading for ${rideId} to false after server error.`);
         setIsOfferModalOpen(false);
         setCurrentOfferDetails(null);
         setIsPollingEnabled(true);
@@ -1469,7 +1480,7 @@ const mapDisplayElements = useMemo(() => {
         accountJobPin: serverBooking.accountJobPin,
         distanceMiles: offerToAccept.distanceMiles,
       };
-      console.log(`[handleAcceptOffer] Accept offer for ${currentActionRideId}: Setting activeRide:`, JSON.stringify(newActiveRideFromServer, null, 2));
+      console.log(`[handleAcceptOffer] Accept offer for ${rideId}: Setting activeRide:`, JSON.stringify(newActiveRideFromServer, null, 2));
       setActiveRide(newActiveRideFromServer);
       setLocalCurrentLegIndex(0);
       setRideRequests([]);
@@ -1487,7 +1498,7 @@ const mapDisplayElements = useMemo(() => {
       toast({title: "Ride Accepted!", description: toastDesc});
 
     } catch(error: any) {
-      console.error(`[handleAcceptOffer] Error in handleAcceptOffer process for ${currentActionRideId} (outer catch):`, error);
+      console.error(`[handleAcceptOffer] Error in handleAcceptOffer process for ${rideId} (outer catch):`, error);
 
       let detailedMessage = "An unknown error occurred during ride acceptance.";
       if (error instanceof Error) {
@@ -1503,8 +1514,8 @@ const mapDisplayElements = useMemo(() => {
       setCurrentOfferDetails(null);
       setIsPollingEnabled(true);
     } finally {
-      console.log(`[handleAcceptOffer] Resetting actionLoading for ${currentActionRideId} to false in finally block.`);
-      setActionLoading(prev => ({ ...prev, [currentActionRideId]: false }));
+      console.log(`[handleAcceptOffer] Resetting actionLoading for ${rideId} to false in finally block.`);
+      setActionLoading(prev => ({ ...prev, [rideId]: false }));
     }
   };
 
@@ -2280,7 +2291,7 @@ const mapDisplayElements = useMemo(() => {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Confirm Hazard</DialogTitle>
-                    <DialogDescription>Are you near a reported hazard ({hazardConfirmationDialog.hazard.title})? Is it still present?</DialogDescription>
+                    <ShadDialogDescriptionDialog>Are you near a reported hazard ({hazardConfirmationDialog.hazard.title})? Is it still present?</ShadDialogDescriptionDialog>
                   </DialogHeader>
                   <div className="flex gap-2 mt-4">
                     <Button onClick={() => handleHazardFeedback(hazardConfirmationDialog.hazard.id, true)} className="bg-green-500 text-white">Yes, still there</Button>

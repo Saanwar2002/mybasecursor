@@ -271,7 +271,9 @@ export default function OperatorManageRidesPage() {
             driverId: driverToAssign.id, 
             driverName: driverToAssign.name,
             driverVehicleDetails: vehicleDetails,
-            status: 'driver_assigned' 
+            status: 'driver_assigned',
+            operatorUserId: operatorUser?.id,
+            operatorUserRole: operatorUser?.role
         }), 
       });
       if (!response.ok) {

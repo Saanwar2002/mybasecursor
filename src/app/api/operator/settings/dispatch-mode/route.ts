@@ -34,7 +34,7 @@ export async function PATCH(req: Request) {
     }
     const updates = await req.json();
     const docRef = db.collection('operatorSettings').doc(operatorId);
-    await docRef.update(updates);
+    await docRef.update({ ...updates, lastUpdated: Timestamp.now() });
 
     const updatedDoc = await docRef.get();
     const updatedSettings = updatedDoc.data();
