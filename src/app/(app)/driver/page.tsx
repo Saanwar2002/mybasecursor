@@ -206,12 +206,11 @@ export default function DriverDashboardPage() {
               <CardTitle className="text-3xl font-headline">Welcome, {user?.name || 'Driver'}!</CardTitle>
                           <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
+                <Switch
                   id="online-status"
                   checked={isOnline}
-                  onChange={e => handleOnlineStatusChange(e.target.checked)}
-                  className="h-5 w-5 text-primary focus:ring-primary border-gray-300 rounded"
+                  onCheckedChange={handleOnlineStatusChange}
+                  className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                 />
                 <Label htmlFor="online-status" className={isOnline ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
                   {isOnline ? "Online" : "Offline"}

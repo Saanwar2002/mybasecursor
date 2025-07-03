@@ -41,7 +41,7 @@ import { Input } from '@/components/ui/input';
 import { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from '@/components/ui/separator';
 import { db as importedDb } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, setDoc, serverTimestamp, Timestamp, GeoPoint, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, serverTimestamp, Timestamp, GeoPoint, updateDoc, getDoc, deleteField } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
@@ -418,7 +418,8 @@ useEffect(() => {
       const data = await response.json();
       if (data && Array.isArray(data.hazards)) {
         setHazardMarkers(
-          data.hazards.map((hazard) => ({
+          (data.hazards as any[]).map((hazard: any) => ({
+            id: hazard.id || hazard.hazardId || String(Math.random()), // Ensure id is present
             position: { lat: hazard.location.latitude, lng: hazard.location.longitude },
             title: hazard.hazardType,
             label: hazard.hazardType[0],
@@ -537,6 +538,7 @@ useEffect(() => {
                   name: driverUser.name,
                   email: driverUser.email,
                   status: 'Active',
+                  availability: 'online', // <-- Add this line
                   location: useMockLocationRef.current ? HUDDERSFIELD_LOCATION : location,
                   createdAt: serverTimestamp(),
                   vehicleCategory: driverUser.vehicleCategory || '',
@@ -567,6 +569,26 @@ useEffect(() => {
         watchIdRef.current = null;
       }
       setPauseOffers(false); // Auto-reset Pause Ride Offers when going offline
+      // --- Update Firestore to set driver offline ---
+      if (driverUser && db) {
+        (async () => {
+          try {
+            // Find driver document by email (for safety, but use ID if possible)
+            const driverDocRef = doc(db, 'drivers', driverUser.id);
+            await updateDoc(driverDocRef, {
+              status: 'Inactive',
+              availability: 'offline',
+              location: deleteField(),
+            });
+            console.log('[handleToggleOnlineStatus] Driver document updated to offline in Firestore');
+            // Also update status in the users collection
+            await updateDoc(doc(db, 'users', driverUser.id), { status: 'Inactive' });
+            console.log('[handleToggleOnlineStatus] User document updated to offline in Firestore');
+          } catch (err) {
+            console.error('[handleToggleOnlineStatus] Error setting driver offline:', err);
+          }
+        })();
+      }
       console.log('[handleToggleOnlineStatus] Set driver offline, stopped polling and location watcher.');
     }
   };
@@ -2676,14 +2698,13 @@ const mapDisplayElements = useMemo(() => {
             </>
           )}
           <div className="flex items-center space-x-2 pt-1">
-            <input
-              type="checkbox"
-              id="driver-online-toggle"
+            <Switch
+              id="online-status"
               checked={isDriverOnline}
-              onChange={e => handleToggleOnlineStatus(e.target.checked)}
-              className="h-5 w-5 text-primary focus:ring-primary border-gray-300 rounded"
+              onCheckedChange={handleToggleOnlineStatus}
+              className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
             />
-            <Label htmlFor="driver-online-toggle" className={isDriverOnline ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+            <Label htmlFor="online-status" className={isDriverOnline ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
               {isDriverOnline ? "Online" : "Offline"}
             </Label>
           </div>

@@ -21,7 +21,7 @@ export function useOperatorNotifications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db || !user) return;
+    if (!db || !user) return () => {};
     // Listen for notifications for this operator (by UID or by role)
     const q = query(
       collection(db, 'notifications'),
