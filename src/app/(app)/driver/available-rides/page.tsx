@@ -492,8 +492,23 @@ useEffect(() => {
             console.log('Interval geolocation:', position.coords);
             const location = getDriverLocationFromPosition(position);
             try {
+              // Update driver location in drivers collection
               await updateDoc(doc(db, 'drivers', driverUser.id), { location });
               console.log('Driver location updated in Firestore:', location);
+              
+              // If driver is on an active ride, also update the booking document for passenger tracking
+              if (activeRide && activeRide.id && isOnARide) {
+                try {
+                  await updateDoc(doc(db, 'bookings', activeRide.id), {
+                    driverCurrentLocation: location,
+                    updatedAt: serverTimestamp()
+                  });
+                  console.log('Driver location updated in booking document for passenger tracking:', location);
+                } catch (bookingUpdateErr) {
+                  console.error('Error updating driver location in booking document:', bookingUpdateErr);
+                  // Don't fail the entire location update if booking update fails
+                }
+              }
             } catch (err) {
               console.error('Error updating driver location:', err);
             }
@@ -2797,28 +2812,30 @@ const mapDisplayElements = useMemo(() => {
           )}
         </CardContent>
       </Card>
-      <RideOfferModal
-        isOpen={isOfferModalOpen}
-        onClose={() => {
+      {currentOfferDetails && (
+        <RideOfferModal
+          isOpen={isOfferModalOpen}
+          onClose={() => {
             setIsOfferModalOpen(false);
             setCurrentOfferDetails(null);
             setIsPollingEnabled(true);
-        }}
-        onAccept={() => {
-          console.log('[RideOfferModal] Accept clicked. currentOfferDetails:', currentOfferDetails);
-          handleAcceptOffer(currentOfferDetails?.id || currentOfferDetails?.bookingId || "");
-          setCurrentOfferDetails(null);
-          setIsOfferModalOpen(false);
-          setIsPollingEnabled(true);
-        }}
-        onDecline={(rideId) => {
-          handleDeclineOffer(rideId);
-          setCurrentOfferDetails(null);
-          setIsOfferModalOpen(false);
-          setIsPollingEnabled(true);
-        }}
-        rideDetails={currentOfferDetails}
-      />
+          }}
+          onAccept={() => {
+            console.log('[RideOfferModal] Accept clicked. currentOfferDetails:', currentOfferDetails);
+            handleAcceptOffer(currentOfferDetails?.id || currentOfferDetails?.bookingId || "");
+            setCurrentOfferDetails(null);
+            setIsOfferModalOpen(false);
+            setIsPollingEnabled(true);
+          }}
+          onDecline={(rideId) => {
+            handleDeclineOffer(rideId);
+            setCurrentOfferDetails(null);
+            setIsOfferModalOpen(false);
+            setIsPollingEnabled(true);
+          }}
+          rideDetails={currentOfferDetails}
+        />
+      )}
           <AlertDialog
             open={isStationaryReminderVisible}
             onOpenChange={setIsStationaryReminderVisible}

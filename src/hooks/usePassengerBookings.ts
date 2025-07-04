@@ -17,12 +17,31 @@ export function usePassengerBookings(userId: string | undefined | null, statusFi
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Defensive checks
     if (!db || !userId) {
       setBookings([]);
       setLoading(false);
       setError(null);
       return;
     }
+    if (Array.isArray(statusFilter)) {
+      if (statusFilter.length === 0) {
+        console.warn('usePassengerBookings: statusFilter is an empty array, skipping query.');
+        setBookings([]);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+      if (statusFilter.length > 10) {
+        console.warn('usePassengerBookings: statusFilter has more than 10 values, skipping query.');
+        setBookings([]);
+        setLoading(false);
+        setError('Too many status filters.');
+        return;
+      }
+    }
+    // Log parameters for debugging
+    console.log('usePassengerBookings: userId', userId, 'statusFilter', statusFilter);
     setLoading(true);
     let q;
     if (Array.isArray(statusFilter) && statusFilter.length > 0) {

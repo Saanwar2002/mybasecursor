@@ -8,9 +8,9 @@
  */
 
 // Firebase Functions v2 modular API for 2nd Gen deployment
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue, Timestamp, collection, query, where, getDocs, updateDoc, GeoPoint } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
 const functions = require('firebase-functions');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -337,3 +337,88 @@ exports.processBookingTimeouts = onSchedule(
     }
   }
 );
+
+// Cloud Function to update driver location in active booking documents for passenger tracking
+exports.updateDriverLocationInBookings = onDocumentUpdated({
+  document: 'drivers/{driverId}',
+  region: 'europe-west2',
+  memory: '256MiB',
+  cpu: 1,
+  timeoutSeconds: 30,
+}, async (event) => {
+  const beforeData = event.data.before.data();
+  const afterData = event.data.after.data();
+  
+  // Only proceed if location actually changed
+  if (!beforeData || !afterData || !afterData.location) {
+    return;
+  }
+  
+  const beforeLocation = beforeData.location;
+  const afterLocation = afterData.location;
+  
+  // Check if location actually changed (avoid unnecessary updates)
+  if (beforeLocation && 
+      beforeLocation.lat === afterLocation.lat && 
+      beforeLocation.lng === afterLocation.lng) {
+    return;
+  }
+  
+  const driverId = event.params.driverId;
+  logger.info(`Driver ${driverId} location updated:`, afterLocation);
+  
+  try {
+    // Find all active bookings for this driver
+    const activeBookingsQuery = query(
+      collection(db, 'bookings'),
+      where('driverId', '==', driverId),
+      where('status', 'in', [
+        'driver_assigned',
+        'arrived_at_pickup', 
+        'in_progress',
+        'in_progress_wait_and_return'
+      ])
+    );
+    
+    const activeBookingsSnap = await getDocs(activeBookingsQuery);
+    
+    if (activeBookingsSnap.empty) {
+      logger.info(`No active bookings found for driver ${driverId}`);
+      return;
+    }
+    
+    // Update all active bookings with the new driver location and ETA
+    const updatePromises = activeBookingsSnap.docs.map(async (bookingDoc) => {
+      try {
+        const bookingData = bookingDoc.data();
+        const updateData = {
+          driverCurrentLocation: new GeoPoint(afterLocation.lat, afterLocation.lng),
+          updatedAt: FieldValue.serverTimestamp()
+        };
+        
+        // Calculate ETA for driver_assigned status (en route to pickup)
+        if (bookingData.status === 'driver_assigned' && bookingData.pickupLocation) {
+          const distance = haversineDistance(
+            afterLocation.lat, afterLocation.lng,
+            bookingData.pickupLocation.latitude, bookingData.pickupLocation.longitude
+          );
+          // Assume average speed of 30 km/h in urban areas
+          const estimatedMinutes = Math.max(1, Math.round(distance / 1000 / 30 * 60));
+          updateData.driverEtaMinutes = estimatedMinutes;
+          logger.info(`Calculated ETA for booking ${bookingDoc.id}: ${estimatedMinutes} minutes`);
+        }
+        
+        await updateDoc(bookingDoc.ref, updateData);
+        logger.info(`Updated booking ${bookingDoc.id} with driver location and ETA for passenger tracking`);
+      } catch (updateErr) {
+        logger.error(`Failed to update booking ${bookingDoc.id}:`, updateErr);
+      }
+    });
+    
+    await Promise.all(updatePromises);
+    logger.info(`Successfully updated ${activeBookingsSnap.size} active bookings with driver location and ETA`);
+    
+  } catch (error) {
+    logger.error('Error updating driver location in bookings:', error);
+  }
+});

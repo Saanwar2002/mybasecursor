@@ -1133,6 +1133,20 @@ export default function MyActiveRidePage() {
                   </div>
                 )}
 
+                {activeRide.status === 'driver_assigned' && activeRide.driverEtaMinutes && activeRide.driverEtaMinutes > 0 && (
+                  <Alert variant="default" className="bg-blue-100 dark:bg-blue-700/40 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-200 p-2">
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-current" />
+                            <span className="font-semibold text-current">Driver En Route</span>
+                        </div>
+                        <span className="font-bold text-white bg-blue-600 dark:bg-blue-700 px-2 py-1 rounded text-sm font-mono tracking-wider">
+                            ETA: {activeRide.driverEtaMinutes} min{activeRide.driverEtaMinutes !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                  </Alert>
+                )}
+
                 {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && passengerAckWindowSecondsLeft !== null && passengerAckWindowSecondsLeft > 0 && (
                   <Alert variant="default" className="bg-orange-100 dark:bg-orange-700/40 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-200 p-1.5 text-xs">
                     <div className="flex items-center justify-between w-full">
@@ -1216,7 +1230,14 @@ export default function MyActiveRidePage() {
                   </Alert>
                 )}
                 
-                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> </div> <Button asChild variant="outline" size="sm" className="ml-auto"><Link href="/dashboard/chat" className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link></Button> </div> )}
+                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div className="flex-1"> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> {activeRide.status === 'driver_assigned' && activeRide.driverEtaMinutes && activeRide.driverEtaMinutes > 0 && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Clock className="w-3 h-3 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-600">
+                      ETA: {activeRide.driverEtaMinutes} min{activeRide.driverEtaMinutes !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )} </div> <Button asChild variant="outline" size="sm" className="ml-auto"><Link href="/dashboard/chat" className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link></Button> </div> )}
                 <Separator />
                 <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop: LocationPoint, index: number): JSX.Element => (
   <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p>

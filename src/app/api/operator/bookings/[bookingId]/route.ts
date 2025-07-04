@@ -456,6 +456,28 @@ export async function POST(request: NextRequest, context: PostContext) {
             }
           }
           // --- CREDIT ACCOUNT UPDATE LOGIC END ---
+
+          // --- Ride Offer Status Update Logic ---
+          if (updateDataFromPayload.action === 'accept_ride') {
+            // Mark the ride offer as accepted
+            try {
+              const offerRef = db.collection('rideOffers').doc(bookingIdForHandler);
+              await offerRef.update({ status: 'accepted', acceptedAt: FieldValue.serverTimestamp() });
+              console.log(`Ride offer for booking ${bookingIdForHandler} marked as accepted.`);
+            } catch (err) {
+              console.error(`Failed to update ride offer status to accepted for booking ${bookingIdForHandler}:`, err);
+            }
+          }
+          if (updateDataFromPayload.action === 'complete_ride') {
+            // Mark the ride offer as completed (or delete it)
+            try {
+              const offerRef = db.collection('rideOffers').doc(bookingIdForHandler);
+              await offerRef.update({ status: 'completed', completedAt: FieldValue.serverTimestamp() });
+              console.log(`Ride offer for booking ${bookingIdForHandler} marked as completed.`);
+            } catch (err) {
+              console.error(`Failed to update ride offer status to completed for booking ${bookingIdForHandler}:`, err);
+            }
+          }
       } else if (updateDataFromPayload.action === 'cancel_active') {
           updatePayloadFirestore.status = 'cancelled_by_driver';
           updatePayloadFirestore.cancelledAt = FieldValue.serverTimestamp();

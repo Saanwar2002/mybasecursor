@@ -196,7 +196,7 @@ function getDistanceInMiles(
   return d * 0.621371;
 }
 
-type AvailabilityStatusLevel = 'available' | 'high_demand' | 'unavailable' | 'loading';
+type AvailabilityStatusLevel = 'available' | 'high_demand' | 'unavailable' | 'loading' | 'fallback' | 'error';
 
 const passengerLocationIconSvg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 24 34">
@@ -393,7 +393,8 @@ export default function BookRidePage() {
   const operatorCode = operatorPreference || 'OP001';
   const isMyBaseApp = !operatorPreference || operatorPreference === 'OP001';
   const { drivers, loading: loadingDrivers, error: errorDrivers, usedFallback } = useNearbyDrivers(
-    pickupCoords ? operatorCode : undefined,
+    pickupCoords ?? undefined,
+    operatorCode,
     isMyBaseApp
   );
 
@@ -504,20 +505,101 @@ export default function BookRidePage() {
     });
   }, [toast]);
 
+  // 1. Place all useMemo hooks for icons here
+  const driverCarIconDataUrl = useMemo(() => {
+    if (typeof window === 'undefined') return undefined;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
+      <path d="M15 45 L10 30 H20 Z" fill="black"/>
+      <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
+      <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/>
+      <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/>
+    </svg>`;
+    return `data:image/svg+xml;base64,${window.btoa(svg)}`;
+  }, []);
+
+  const passengerLocationIconDataUrl = useMemo(() => {
+    if (typeof window === 'undefined') return undefined;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 24 34">
+      <circle cx="12" cy="12" r="11" fill="#2D3748"/>
+      <circle cx="12" cy="9.5" r="3" stroke="#FFFFFF" stroke-width="1.5" fill="none"/>
+      <path d="M8,15 Q12,12.5 16,15" stroke="#FFFFFF" stroke-width="1.5" fill="none" transform="translate(0, -0.5)"/>
+      <line x1="12" y1="23" x2="12" y2="30" stroke="#2D3748" stroke-width="3"/>
+      <circle cx="12" cy="31.5" r="2.5" fill="#2D3748"/>
+    </svg>`;
+    return `data:image/svg+xml;base64,${window.btoa(svg)}`;
+  }, []);
+
+  const dropoffIconDataUrl = useMemo(() => {
+    if (typeof window === 'undefined') return undefined;
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='40' viewBox='0 0 24 34'>
+      <circle cx='12' cy='12' r='11' fill='#B91C1C'/>
+      <text x='12' y='18' text-anchor='middle' font-size='16' fill='white' font-family='Arial' font-weight='bold'>D</text>
+      <line x1='12' y1='23' x2='12' y2='30' stroke='#B91C1C' stroke-width='3'/>
+      <circle cx='12' cy='31.5' r='2.5' fill='#B91C1C'/>
+    </svg>`;
+    return `data:image/svg+xml;base64,${window.btoa(svg)}`;
+  }, []);
+
+  const stopIconDataUrl = useMemo(() => {
+    if (typeof window === 'undefined') return undefined;
+    // S will be replaced with S1, S2, etc. dynamically
+    return (label: string) => {
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='40' viewBox='0 0 24 34'>
+        <circle cx='12' cy='12' r='11' fill='#F59E42'/>
+        <text x='12' y='18' text-anchor='middle' font-size='16' fill='white' font-family='Arial' font-weight='bold'>${label}</text>
+        <line x1='12' y1='23' x2='12' y2='30' stroke='#F59E42' stroke-width='3'/>
+        <circle cx='12' cy='31.5' r='2.5' fill='#F59E42'/>
+      </svg>`;
+      return `data:image/svg+xml;base64,${window.btoa(svg)}`;
+    };
+  }, []);
+
+  // 2. Now place the useEffect for mapMarkers here, after the useMemo hooks
   useEffect(() => {
-    if (drivers && drivers.length > 0) {
-      setMapMarkers(
-        drivers.map(driver => ({
+    const markers: MapMarker[] = [];
+    if (pickupCoords && passengerLocationIconDataUrl) {
+      markers.push({
+        position: pickupCoords,
+        title: 'Pickup Location',
+        label: 'P',
+        iconUrl: passengerLocationIconDataUrl,
+        iconScaledSize: { width: 28, height: 40 },
+      });
+    }
+    if (dropoffCoords && dropoffIconDataUrl) {
+      markers.push({
+        position: dropoffCoords,
+        title: 'Drop-off Location',
+        label: 'D',
+        iconUrl: dropoffIconDataUrl,
+        iconScaledSize: { width: 28, height: 40 },
+      });
+    }
+    if (stopAutocompleteData && stopAutocompleteData.length > 0 && stopIconDataUrl) {
+      stopAutocompleteData.forEach((stop, idx) => {
+        if (stop.coords) {
+          markers.push({
+            position: stop.coords,
+            title: `Stop ${idx + 1}`,
+            label: `S${idx + 1}`,
+            iconUrl: stopIconDataUrl(`S${idx + 1}`),
+            iconScaledSize: { width: 28, height: 40 },
+          });
+        }
+      });
+    }
+    if (drivers && drivers.length > 0 && driverCarIconDataUrl) {
+      markers.push(
+        ...drivers.map(driver => ({
           position: driver.location,
           title: driver.name ? `Driver: ${driver.name}` : 'Available Driver',
-        iconUrl: driverCarIconDataUrl,
-        iconScaledSize: { width: 30, height: 45 },
+          iconUrl: driverCarIconDataUrl,
+          iconScaledSize: { width: 30, height: 45 },
         }))
       );
-    } else {
-      setMapMarkers([]);
     }
-  }, [drivers]);
+    setMapMarkers(markers);
+  }, [drivers, pickupCoords, dropoffCoords, stopAutocompleteData, driverCarIconDataUrl, passengerLocationIconDataUrl, dropoffIconDataUrl, stopIconDataUrl]);
 
 
   const handleManualGpsRequest = async () => {
@@ -2088,62 +2170,47 @@ const handleProceedToConfirmation = async () => {
               </div>
 
                 {/* Enhanced Driver Availability Status */}
-            <Card className={cn(
+            {availabilityInfo.type !== 'fallback' && (
+              <Card className={cn(
                 "mb-4 shadow-sm",
-                    availabilityInfo.type === 'unavailable' && "bg-red-500",
-                    availabilityInfo.type === 'fallback' && "bg-blue-500",
-                    availabilityInfo.type === 'available' && "bg-green-500",
-                    availabilityInfo.type === 'loading' && "bg-primary/5 border-primary/20",
-                    availabilityInfo.type === 'error' && "bg-red-500"
-                )}>
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-center gap-2">
-                            {availabilityInfo.icon}
-                        <p className={cn(
-                                "text-sm font-bold text-white",
-                                )}>
-                               {availabilityInfo.message}
-                            </p>
-                        </div>
-                        
-                        {/* Show estimated wait time when no drivers available */}
-                        {availabilityInfo.type === 'unavailable' && estimatedWaitTime && (
-                            <div className="mt-2 text-center">
-                                <p className="text-xs text-white/90">
-                                    Estimated wait time: ~{estimatedWaitTime} minutes
-                                </p>
-                            </div>
-                        )}
-                        
-                        {/* Show fallback option when other drivers are available */}
-                        {availabilityInfo.type === 'fallback' && (
-                            <div className="mt-2 text-center">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={() => setShowBookingForm(true)}
-                                    className="text-white border-white hover:bg-white hover:text-blue-600"
-                                >
-                                    Let MyBase App choose driver
-                                </Button>
-                            </div>
-                        )}
-                        
-                        {/* Show Book Anyway option when no drivers available */}
-                        {availabilityInfo.type === 'unavailable' && showBookAnyway && (
-                            <div className="mt-3 text-center">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={handleBookAnyway}
-                                    className="text-white border-white hover:bg-white hover:text-red-600 font-semibold"
-                                >
-                                    Book and wait for next available driver
-                                </Button>
-                            </div>
-                    )}
+                availabilityInfo.type === 'unavailable' && "bg-red-500",
+                availabilityInfo.type === 'available' && "bg-green-500",
+                availabilityInfo.type === 'loading' && "bg-primary/5 border-primary/20",
+                availabilityInfo.type === 'error' && "bg-red-500"
+              )}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-center gap-2">
+                    {availabilityInfo.icon}
+                    <p className={cn(
+                      "text-sm font-bold text-white",
+                    )}>
+                      {availabilityInfo.message}
+                    </p>
+                  </div>
+                  {/* Show estimated wait time when no drivers available */}
+                  {availabilityInfo.type === 'unavailable' && estimatedWaitTime && (
+                    <div className="mt-2 text-center">
+                      <p className="text-xs text-white/90">
+                        Estimated wait time: ~{estimatedWaitTime} minutes
+                      </p>
+                    </div>
+                  )}
+                  {/* Show Book Anyway option when no drivers available */}
+                  {availabilityInfo.type === 'unavailable' && showBookAnyway && (
+                    <div className="mt-3 text-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleBookAnyway}
+                        className="bg-white text-red-600 font-bold border-white hover:bg-white hover:text-red-700"
+                      >
+                        Book and wait for next available driver
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
-            </Card>
+              </Card>
+            )}
 
             <div>
               <Form {...form}>
