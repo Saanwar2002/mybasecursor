@@ -360,9 +360,10 @@ export async function POST(request: NextRequest, context: PostContext) {
             },
             status: 'pending',
             createdAt: FieldValue.serverTimestamp(),
-            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30000)) // 30s expiry
+            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30000)), // 30s expiry
+            dispatchMethod: 'manual_operator',
           };
-          await db.collection('rideOffers').add(rideOffer);
+          await db.collection('rideOffers').doc(bookingIdForHandler).set(rideOffer);
           console.log(`Ride offer created for driver ${updateDataFromPayload.driverId} for booking ${bookingIdForHandler}`);
         } catch (offerErr) {
           console.error('Failed to create ride offer document:', offerErr);
@@ -552,8 +553,8 @@ export async function POST(request: NextRequest, context: PostContext) {
         
         // 4. Assign the ride to the nearest driver
         updatePayloadFirestore.driverId = nearestDriver.id;
-        updatePayloadFirestore.status = 'driver_assigned';
-        updatePayloadFirestore.dispatchMethod = 'auto_system';
+        updatePayloadFirestore.status = 'pending_assignment';
+        updatePayloadFirestore.dispatchMethod = 'manual_operator';
         
         // Add driver details
         updatePayloadFirestore.driverName = nearestDriver.name;
@@ -591,9 +592,10 @@ export async function POST(request: NextRequest, context: PostContext) {
             },
             status: 'pending',
             createdAt: FieldValue.serverTimestamp(),
-            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30000)) // 30s expiry
+            expiresAt: Timestamp.fromDate(new Date(Date.now() + 30000)), // 30s expiry
+            dispatchMethod: 'manual_operator',
           };
-          await db.collection('rideOffers').add(rideOffer);
+          await db.collection('rideOffers').doc(bookingIdForHandler).set(rideOffer);
           console.log(`Auto-assign: Ride offer created for driver ${nearestDriver.id} for booking ${bookingIdForHandler}`);
         } catch (offerErr) {
           console.error('Auto-assign: Failed to create ride offer document:', offerErr);
@@ -646,8 +648,11 @@ export async function POST(request: NextRequest, context: PostContext) {
       return NextResponse.json({ message: 'Booking updated successfully', booking: responseData }, { status: 200 });
     }
 
-    if (updateDataFromPayload.driverId && updateDataFromPayload.status === 'driver_assigned') {
-      console.log(`LOG: Booking ${bookingIdForHandler} is being updated to driver_assigned by operator. Payload:`, JSON.stringify(updateDataFromPayload, null, 2));
+    if (updateDataFromPayload.driverId && updateDataFromPayload.action === 'accept_ride') {
+      updatePayloadFirestore.status = 'driver_assigned';
+    }
+    if (updateDataFromPayload.driverId && updateDataFromPayload.action !== 'accept_ride') {
+      updatePayloadFirestore.status = 'pending_assignment';
     }
 
   } catch (error: any) {

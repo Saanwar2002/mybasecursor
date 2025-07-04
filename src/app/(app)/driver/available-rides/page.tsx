@@ -602,10 +602,26 @@ useEffect(() => {
     where('status', '==', 'pending'),
   );
   const unsubscribe = onSnapshot(offersQuery, (snapshot) => {
-    const offers = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
-    if (offers.length > 0 && offers[0].offerDetails) {
-      setCurrentOfferDetails(offers[0].offerDetails);
+    console.log('[RideOfferLoader] Firestore snapshot received:', snapshot.docs.map(doc => doc.id));
+    const offers = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: data.bookingId, // Always use bookingId as id
+      };
+    });
+    if (offers.length > 0 && (offers[0].offerDetails || offers[0].id)) {
+      const freshOffer = {
+        ...((offers[0].offerDetails || {})),
+        id: offers[0].id || offers[0].bookingId || "",
+      };
+      console.log('[RideOfferLoader] Setting currentOfferDetails:', freshOffer);
+      setCurrentOfferDetails(freshOffer);
       setIsOfferModalOpen(true);
+    } else {
+      // No offers, clear modal and state
+      setCurrentOfferDetails(null);
+      setIsOfferModalOpen(false);
     }
   });
   return () => unsubscribe();
@@ -1364,43 +1380,68 @@ const mapDisplayElements = useMemo(() => {
     }
     setConsecutiveMissedOffers(0);
 
-    const offerToAccept = currentOfferDetails;
-
-    if (!offerToAccept || !driverUser) {
+    if (!rideId || !driverUser) {
       toast({title: "Error Accepting Ride", description: "Offer details or driver session missing.", variant: "destructive"});
+      return;
+    }
+
+    // Fetch the latest offer from Firestore
+    let offerToAccept = null;
+    try {
+      const offerDocRef = doc(db, 'rideOffers', rideId);
+      const offerDocSnap = await getDoc(offerDocRef);
+      if (offerDocSnap.exists()) {
+        offerToAccept = { ...offerDocSnap.data(), id: offerDocSnap.id };
+        console.log('[handleAcceptOffer] Fetched latest offer from Firestore:', offerToAccept);
+      } else {
+        toast({ title: "Error", description: "Ride offer not found in Firestore.", variant: "destructive" });
+        setIsOfferModalOpen(false);
+        setCurrentOfferDetails(null);
+        setIsPollingEnabled(true);
+        return;
+      }
+    } catch (err) {
+      console.error('[handleAcceptOffer] Error fetching offer from Firestore:', err);
+      toast({ title: "Error", description: "Failed to fetch latest ride offer.", variant: "destructive" });
+      setIsOfferModalOpen(false);
+      setCurrentOfferDetails(null);
+      setIsPollingEnabled(true);
       return;
     }
 
     // Patch: Ensure all required fields are present and non-null
     const safeOfferDetails = {
-      ...offerToAccept,
+      ...offerToAccept.offerDetails,
       id: offerToAccept.id || rideId || "", // must be string
-      passengerPhone: offerToAccept.passengerPhone ?? "",
-      notes: offerToAccept.notes ?? "",
-      distanceMiles: typeof offerToAccept.distanceMiles === 'number' ? offerToAccept.distanceMiles : 0,
-      accountJobPin: offerToAccept.accountJobPin ?? "",
+      passengerPhone: offerToAccept.offerDetails?.passengerPhone ?? "",
+      notes: offerToAccept.offerDetails?.notes ?? "",
+      distanceMiles: typeof offerToAccept.offerDetails?.distanceMiles === 'number' ? offerToAccept.offerDetails.distanceMiles : 0,
+      accountJobPin: offerToAccept.offerDetails?.accountJobPin ?? "",
     };
 
     const updatePayload: any = {
-        driverId: driverUser.id,
-        driverName: driverUser.name || "Driver",
-        status: 'driver_assigned',
-        vehicleType: driverUser.vehicleCategory || 'Car',
-        driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
-        offerDetails: safeOfferDetails,
-        isPriorityPickup: offerToAccept.isPriorityPickup,
-        priorityFeeAmount: offerToAccept.priorityFeeAmount,
-        dispatchMethod: offerToAccept.dispatchMethod,
-        driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null,
-        accountJobPin: offerToAccept.accountJobPin ?? "",
-      };
+      driverId: driverUser.id,
+      driverName: driverUser.name || "Driver",
+      status: 'driver_assigned',
+      vehicleType: driverUser.vehicleCategory || 'Car',
+      driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
+      offerDetails: safeOfferDetails,
+      isPriorityPickup: offerToAccept.offerDetails?.isPriorityPickup,
+      priorityFeeAmount: offerToAccept.offerDetails?.priorityFeeAmount,
+      dispatchMethod: offerToAccept.dispatchMethod,
+      driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null,
+      accountJobPin: offerToAccept.offerDetails?.accountJobPin ?? "",
+    };
     console.log(`[handleAcceptOffer] Sending accept payload for ${rideId}:`, JSON.stringify(updatePayload, null, 2));
 
 
     try {
-      const bookingId = offerToAccept.id || rideId;
+      const bookingId = offerToAccept.id || offerToAccept.bookingId || rideId;
       if (!bookingId) {
         toast({ title: "Error", description: "Booking ID missing for ride acceptance.", variant: "destructive" });
+        setIsOfferModalOpen(false);
+        setCurrentOfferDetails(null);
+        setIsPollingEnabled(true);
         return;
       }
       const response = await fetch(`/api/operator/bookings/${bookingId}`, {
@@ -2761,9 +2802,21 @@ const mapDisplayElements = useMemo(() => {
         onClose={() => {
             setIsOfferModalOpen(false);
             setCurrentOfferDetails(null);
+            setIsPollingEnabled(true);
         }}
-        onAccept={handleAcceptOffer}
-        onDecline={handleDeclineOffer}
+        onAccept={() => {
+          console.log('[RideOfferModal] Accept clicked. currentOfferDetails:', currentOfferDetails);
+          handleAcceptOffer(currentOfferDetails?.id || currentOfferDetails?.bookingId || "");
+          setCurrentOfferDetails(null);
+          setIsOfferModalOpen(false);
+          setIsPollingEnabled(true);
+        }}
+        onDecline={(rideId) => {
+          handleDeclineOffer(rideId);
+          setCurrentOfferDetails(null);
+          setIsOfferModalOpen(false);
+          setIsPollingEnabled(true);
+        }}
         rideDetails={currentOfferDetails}
       />
           <AlertDialog
