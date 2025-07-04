@@ -191,46 +191,48 @@ export default function OperatorCreditAccountsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create New Credit Account</DialogTitle>
-                <DialogDescription>
-                  Set up a new credit account. Actual balance management and invoicing are backend features.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...addAccountForm}>
-                <form onSubmit={addAccountForm.handleSubmit(onAddAccountSubmit)} className="space-y-4 py-2">
-                  <FormField control={addAccountForm.control} name="accountHolderName" render={({ field }) => (
-                      <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="e.g., Corporate Client Ltd" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={addAccountForm.control} name="associatedUserId" render={({ field }) => (
-                      <FormItem><FormLabel>Associated Passenger User ID <span className="text-red-500">*</span></FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} required /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={addAccountForm.control} name="creditLimit" render={({ field }) => (
-                      <FormItem><FormLabel>Credit Limit (£)</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={addAccountForm.control} name="billingCycle" render={({ field }) => (
-                      <FormItem><FormLabel>Billing Cycle</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Select billing cycle" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="Weekly">Weekly</SelectItem>
-                            <SelectItem value="Fortnightly">Fortnightly</SelectItem>
-                            <SelectItem value="Monthly">Monthly</SelectItem>
-                          </SelectContent>
-                        </Select><FormMessage />
-                      </FormItem>
-                  )} />
-                  <FormField control={addAccountForm.control} name="pin" render={({ field }) => (
-                      <FormItem><FormLabel>6-digit Account PIN</FormLabel><FormControl><Input type="password" inputMode="numeric" pattern="\d{6}" maxLength={6} placeholder="e.g., 123456" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <DialogFooter className="pt-4">
-                    <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Account
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
+              <>
+                <DialogHeader>
+                  <DialogTitle>Create New Credit Account</DialogTitle>
+                  <DialogDescription>
+                    Set up a new credit account. Actual balance management and invoicing are backend features.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...addAccountForm}>
+                  <form onSubmit={addAccountForm.handleSubmit(onAddAccountSubmit)} className="space-y-4 py-2">
+                    <FormField control={addAccountForm.control} name="accountHolderName" render={({ field }) => (
+                        <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="e.g., Corporate Client Ltd" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={addAccountForm.control} name="associatedUserId" render={({ field }) => (
+                        <FormItem><FormLabel>Associated Passenger User ID <span className="text-red-500">*</span></FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} required /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={addAccountForm.control} name="creditLimit" render={({ field }) => (
+                        <FormItem><FormLabel>Credit Limit (£)</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={addAccountForm.control} name="billingCycle" render={({ field }) => (
+                        <FormItem><FormLabel>Billing Cycle</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select billing cycle" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Weekly">Weekly</SelectItem>
+                              <SelectItem value="Fortnightly">Fortnightly</SelectItem>
+                              <SelectItem value="Monthly">Monthly</SelectItem>
+                            </SelectContent>
+                          </Select><FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={addAccountForm.control} name="pin" render={({ field }) => (
+                        <FormItem><FormLabel>6-digit Account PIN</FormLabel><FormControl><Input type="password" inputMode="numeric" pattern="\d{6}" maxLength={6} placeholder="e.g., 123456" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <DialogFooter className="pt-4">
+                      <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                      <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Account
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </>
             </DialogContent>
           </Dialog>
         </CardHeader>
@@ -306,94 +308,100 @@ export default function OperatorCreditAccountsPage() {
       {/* Dialogs for delete and suspend */}
       <Dialog open={!!deleteAccount} onOpenChange={v => !v && setDeleteAccount(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Credit Account</DialogTitle>
-            <DialogDescription>Are you sure you want to delete the account for <b>{deleteAccount?.accountHolderName}</b>? This action cannot be undone.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteAccount(null)} disabled={isProcessing}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={isProcessing}>{isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</Button>
-          </DialogFooter>
+          <>
+            <DialogHeader>
+              <DialogTitle>Delete Credit Account</DialogTitle>
+              <DialogDescription>Are you sure you want to delete the account for <b>{deleteAccount?.accountHolderName}</b>? This action cannot be undone.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteAccount(null)} disabled={isProcessing}>Cancel</Button>
+              <Button variant="destructive" onClick={confirmDelete} disabled={isProcessing}>{isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</Button>
+            </DialogFooter>
+          </>
         </DialogContent>
       </Dialog>
       <Dialog open={!!suspendAccount} onOpenChange={v => !v && setSuspendAccount(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{suspendAccount?.status === 'Suspended' ? 'Activate' : 'Suspend'} Credit Account</DialogTitle>
-            <DialogDescription>Are you sure you want to {suspendAccount?.status === 'Suspended' ? 'activate' : 'suspend'} the account for <b>{suspendAccount?.accountHolderName}</b>?</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSuspendAccount(null)} disabled={isProcessing}>Cancel</Button>
-            <Button variant={suspendAccount?.status === 'Suspended' ? 'default' : 'destructive'} onClick={confirmSuspend} disabled={isProcessing}>{isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} {suspendAccount?.status === 'Suspended' ? 'Activate' : 'Suspend'}</Button>
-          </DialogFooter>
+          <>
+            <DialogHeader>
+              <DialogTitle>{suspendAccount?.status === 'Suspended' ? 'Activate' : 'Suspend'} Credit Account</DialogTitle>
+              <DialogDescription>Are you sure you want to {suspendAccount?.status === 'Suspended' ? 'activate' : 'suspend'} the account for <b>{suspendAccount?.accountHolderName}</b>?</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSuspendAccount(null)} disabled={isProcessing}>Cancel</Button>
+              <Button variant={suspendAccount?.status === 'Suspended' ? 'default' : 'destructive'} onClick={confirmSuspend} disabled={isProcessing}>{isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} {suspendAccount?.status === 'Suspended' ? 'Activate' : 'Suspend'}</Button>
+            </DialogFooter>
+          </>
         </DialogContent>
       </Dialog>
       {/* Edit Account Dialog */}
       <Dialog open={!!editAccount} onOpenChange={v => !v && setEditAccount(null)}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Credit Account</DialogTitle>
-            <DialogDescription>
-              Update the details for <b>{editAccount?.accountHolderName}</b>.
-            </DialogDescription>
-          </DialogHeader>
-          {editAccount && (
-            <Form {...addAccountForm}>
-              <form
-                onSubmit={addAccountForm.handleSubmit(async (values) => {
-                  setIsSubmitting(true);
-                  try {
-                    const res = await fetch('/api/operator/credit-accounts', {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ id: editAccount.id, ...values }),
-                    });
-                    if (!res.ok) throw new Error('Failed to update account');
-                    const data = await res.json();
-                    setAccounts(prev => prev.map(acc => acc.id === editAccount.id ? data.account : acc));
-                    toast({ title: 'Account Updated', description: `Credit account for "${values.accountHolderName}" has been updated.` });
-                    setEditAccount(null);
-                  } catch (e) {
-                    toast({ title: 'Error', description: 'Failed to update account.' });
-                  } finally {
-                    setIsSubmitting(false);
-                  }
-                })}
-                className="space-y-4 py-2"
-              >
-                <FormField control={addAccountForm.control} name="accountHolderName" render={({ field }) => (
-                  <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="e.g., Corporate Client Ltd" {...field} defaultValue={editAccount.accountHolderName} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={addAccountForm.control} name="associatedUserId" render={({ field }) => (
-                  <FormItem><FormLabel>Associated Passenger User ID <span className="text-red-500">*</span></FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} defaultValue={editAccount.associatedUserId} required /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={addAccountForm.control} name="creditLimit" render={({ field }) => (
-                  <FormItem><FormLabel>Credit Limit (£)</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} defaultValue={editAccount.creditLimit} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={addAccountForm.control} name="billingCycle" render={({ field }) => (
-                  <FormItem><FormLabel>Billing Cycle</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={editAccount.billingCycle}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select billing cycle" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Weekly">Weekly</SelectItem>
-                        <SelectItem value="Fortnightly">Fortnightly</SelectItem>
-                        <SelectItem value="Monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select><FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={addAccountForm.control} name="pin" render={({ field }) => (
-                  <FormItem><FormLabel>6-digit Account PIN</FormLabel><FormControl><Input type="password" inputMode="numeric" pattern="\d{6}" maxLength={6} placeholder="e.g., 123456" {...field} defaultValue={editAccount.pin} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <DialogFooter className="pt-4">
-                  <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          )}
+          <>
+            <DialogHeader>
+              <DialogTitle>Edit Credit Account</DialogTitle>
+              <DialogDescription>
+                Update the details for <b>{editAccount?.accountHolderName}</b>.
+              </DialogDescription>
+            </DialogHeader>
+            {editAccount && (
+              <Form {...addAccountForm}>
+                <form
+                  onSubmit={addAccountForm.handleSubmit(async (values) => {
+                    setIsSubmitting(true);
+                    try {
+                      const res = await fetch('/api/operator/credit-accounts', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: editAccount.id, ...values }),
+                      });
+                      if (!res.ok) throw new Error('Failed to update account');
+                      const data = await res.json();
+                      setAccounts(prev => prev.map(acc => acc.id === editAccount.id ? data.account : acc));
+                      toast({ title: 'Account Updated', description: `Credit account for "${values.accountHolderName}" has been updated.` });
+                      setEditAccount(null);
+                    } catch (e) {
+                      toast({ title: 'Error', description: 'Failed to update account.' });
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  })}
+                  className="space-y-4 py-2"
+                >
+                  <FormField control={addAccountForm.control} name="accountHolderName" render={({ field }) => (
+                    <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="e.g., Corporate Client Ltd" {...field} defaultValue={editAccount.accountHolderName} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={addAccountForm.control} name="associatedUserId" render={({ field }) => (
+                    <FormItem><FormLabel>Associated Passenger User ID <span className="text-red-500">*</span></FormLabel><FormControl><Input placeholder="User's MyBase ID" {...field} defaultValue={editAccount.associatedUserId} required /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={addAccountForm.control} name="creditLimit" render={({ field }) => (
+                    <FormItem><FormLabel>Credit Limit (£)</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} defaultValue={editAccount.creditLimit} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={addAccountForm.control} name="billingCycle" render={({ field }) => (
+                    <FormItem><FormLabel>Billing Cycle</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={editAccount.billingCycle}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select billing cycle" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="Weekly">Weekly</SelectItem>
+                          <SelectItem value="Fortnightly">Fortnightly</SelectItem>
+                          <SelectItem value="Monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select><FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={addAccountForm.control} name="pin" render={({ field }) => (
+                    <FormItem><FormLabel>6-digit Account PIN</FormLabel><FormControl><Input type="password" inputMode="numeric" pattern="\d{6}" maxLength={6} placeholder="e.g., 123456" {...field} defaultValue={editAccount.pin} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <DialogFooter className="pt-4">
+                    <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            )}
+          </>
         </DialogContent>
       </Dialog>
     </div>

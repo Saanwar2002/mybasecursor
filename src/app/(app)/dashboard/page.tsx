@@ -37,6 +37,10 @@ const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" hei
 
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
+// Passenger marker SVG (Google-style, dark circle with person)
+const passengerIconSvg = `<svg width="40" height="54" viewBox="0 0 40 54" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="18" y="28" width="4" height="18" rx="2" fill="#232B3A"/><circle cx="20" cy="20" r="16" fill="#232B3A" stroke="white" stroke-width="2"/><circle cx="20" cy="17" r="4" fill="white"/><rect x="14" y="22" width="12" height="5" rx="2.5" fill="white"/></svg>`;
+const passengerIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(passengerIconSvg)}` : '';
+
 interface MapMarker {
   position: google.maps.LatLngLiteral;
   title?: string;
@@ -52,6 +56,9 @@ export default function PassengerDashboardPage() {
   const { operators, loading: loadingOperators, error: errorOperators } = useOperators();
   const { drivers, loading: loadingDrivers, error: errorDrivers } = useNearbyDrivers();
 
+  // Add passenger location state
+  const [passengerLocation, setPassengerLocation] = useState<google.maps.LatLngLiteral | null>(null);
+
   const bookRideHref = bookingPreference === 'specific_operator' && selectedOperator
     ? `/dashboard/book-ride?operator_preference=${encodeURIComponent(selectedOperator)}`
     : '/dashboard/book-ride';
@@ -64,6 +71,22 @@ export default function PassengerDashboardPage() {
       setMapBusynessLevel(busynessLevels[currentIndex]);
     }, 4000); 
     return () => clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setPassengerLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+        },
+        (err) => {
+          console.warn('Geolocation error:', err);
+        }
+      );
+    }
   }, []);
 
   const mapContainerClasses = cn(
@@ -165,12 +188,20 @@ export default function PassengerDashboardPage() {
             <GoogleMapDisplay
               center={huddersfieldCenter}
               zoom={13}
-              markers={drivers.map(driver => ({
-                position: driver.location,
-                title: driver.name || 'Available Taxi',
-                iconUrl: driverCarIconDataUrl,
-                iconScaledSize: { width: 30, height: 45 },
-              }))}
+              markers={[
+                ...drivers.map(driver => ({
+                  position: driver.location,
+                  title: driver.name || 'Available Taxi',
+                  iconUrl: driverCarIconDataUrl,
+                  iconScaledSize: { width: 30, height: 45 },
+                })),
+                ...(passengerLocation ? [{
+                  position: passengerLocation,
+                  title: 'You',
+                  iconUrl: passengerIconDataUrl,
+                  iconScaledSize: { width: 40, height: 54 },
+                }] : [])
+              ]}
               className="w-full h-full"
               disableDefaultUI={true}
             />

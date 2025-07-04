@@ -302,68 +302,70 @@ export default function OperatorManageDriversPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New Driver</DialogTitle>
-                <DialogDescription>
-                  Fill in the details to onboard a new driver. They will be set to 'Pending Approval' under your operator code: {currentOperatorCodeForDemo}.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleAddDriverSubmit} className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" name="name" className="col-span-3" required disabled={actionLoading['addDriver']} />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">Email</Label>
-                  <Input id="email" name="email" type="email" className="col-span-3" required disabled={actionLoading['addDriver']} />
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="phone" className="text-right">Phone</Label>
-                  <Input id="phone" name="phone" type="tel" className="col-span-3" disabled={actionLoading['addDriver']} />
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="vehicleModel" className="text-right">Vehicle</Label>
-                  <Input id="vehicleModel" name="vehicleModel" className="col-span-3" disabled={actionLoading['addDriver']} />
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="licensePlate" className="text-right">License</Label>
-                  <Input id="licensePlate" name="licensePlate" className="col-span-3" disabled={actionLoading['addDriver']} />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="vehicleCategory" className="text-right">Vehicle Category</Label>
-                  <Input id="vehicleCategory" name="vehicleCategory" className="col-span-3" disabled={actionLoading['addDriver']} />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="arNumber" className="text-right">AR Number</Label>
-                  <Input id="arNumber" name="arNumber" className="col-span-3" disabled={actionLoading['addDriver']} />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="insuranceNumber" className="text-right">Insurance Number</Label>
-                  <Input id="insuranceNumber" name="insuranceNumber" className="col-span-3" disabled={actionLoading['addDriver']} />
-                </div>
-                <div className="flex items-center gap-4 mt-4">
-                  <Label htmlFor="statusFilter" className="text-right">Status</Label>
-                  <Select value={filterStatus} onValueChange={handleFilterChange}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
-                      <SelectItem value="Pending Approval">Pending Approval</SelectItem>
-                      <SelectItem value="Suspended">Suspended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <DialogFooter>
-                  <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addDriver']}>Cancel</Button></DialogClose>
-                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addDriver']}>
-                    {actionLoading['addDriver'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add Driver
-                  </Button>
-                </DialogFooter>
-              </form>
+              <>
+                <DialogHeader>
+                  <DialogTitle>Add New Driver</DialogTitle>
+                  <DialogDescription>
+                    Fill in the details to onboard a new driver. They will be set to 'Pending Approval' under your operator code: {currentOperatorCodeForDemo}.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleAddDriverSubmit} className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Name</Label>
+                    <Input id="name" name="name" className="col-span-3" required disabled={actionLoading['addDriver']} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">Email</Label>
+                    <Input id="email" name="email" type="email" className="col-span-3" required disabled={actionLoading['addDriver']} />
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="phone" className="text-right">Phone</Label>
+                    <Input id="phone" name="phone" type="tel" className="col-span-3" disabled={actionLoading['addDriver']} />
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="vehicleModel" className="text-right">Vehicle</Label>
+                    <Input id="vehicleModel" name="vehicleModel" className="col-span-3" disabled={actionLoading['addDriver']} />
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="licensePlate" className="text-right">License</Label>
+                    <Input id="licensePlate" name="licensePlate" className="col-span-3" disabled={actionLoading['addDriver']} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="vehicleCategory" className="text-right">Vehicle Category</Label>
+                    <Input id="vehicleCategory" name="vehicleCategory" className="col-span-3" disabled={actionLoading['addDriver']} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="arNumber" className="text-right">AR Number</Label>
+                    <Input id="arNumber" name="arNumber" className="col-span-3" disabled={actionLoading['addDriver']} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="insuranceNumber" className="text-right">Insurance Number</Label>
+                    <Input id="insuranceNumber" name="insuranceNumber" className="col-span-3" disabled={actionLoading['addDriver']} />
+                  </div>
+                  <div className="flex items-center gap-4 mt-4">
+                    <Label htmlFor="statusFilter" className="text-right">Status</Label>
+                    <Select value={filterStatus} onValueChange={handleFilterChange}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Inactive">Inactive</SelectItem>
+                        <SelectItem value="Pending Approval">Pending Approval</SelectItem>
+                        <SelectItem value="Suspended">Suspended</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="outline" disabled={actionLoading['addDriver']}>Cancel</Button></DialogClose>
+                    <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={actionLoading['addDriver']}>
+                      {actionLoading['addDriver'] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Add Driver
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </>
             </DialogContent>
           </Dialog>
         </CardHeader>
@@ -540,56 +542,60 @@ export default function OperatorManageDriversPage() {
       {/* Edit Driver Dialog */}
       <Dialog open={isEditDriverDialogOpen} onOpenChange={setIsEditDriverDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Driver</DialogTitle>
-            <DialogDescription>
-              Update the details for this driver.
-            </DialogDescription>
-          </DialogHeader>
-          {editDriverData && (
-            <form onSubmit={handleEditDriverSubmit} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" className="col-span-3" defaultValue={editDriverData.name} required />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">Email</Label>
-                <Input id="email" name="email" type="email" className="col-span-3" defaultValue={editDriverData.email} required />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">Phone</Label>
-                <Input id="phone" name="phone" type="tel" className="col-span-3" defaultValue={editDriverData.phone} />
-              </div>
-              {/* Add more fields as needed */}
-              <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  Save Changes
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
+          <>
+            <DialogHeader>
+              <DialogTitle>Edit Driver</DialogTitle>
+              <DialogDescription>
+                Update the details for this driver.
+              </DialogDescription>
+            </DialogHeader>
+            {editDriverData && (
+              <form onSubmit={handleEditDriverSubmit} className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">Name</Label>
+                  <Input id="name" name="name" className="col-span-3" defaultValue={editDriverData.name} required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">Email</Label>
+                  <Input id="email" name="email" type="email" className="col-span-3" defaultValue={editDriverData.email} required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone" className="text-right">Phone</Label>
+                  <Input id="phone" name="phone" type="tel" className="col-span-3" defaultValue={editDriverData.phone} />
+                </div>
+                {/* Add more fields as needed */}
+                <DialogFooter>
+                  <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    Save Changes
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </>
         </DialogContent>
       </Dialog>
       {/* Driver Details Modal */}
       <Dialog open={isDriverDetailsModalOpen} onOpenChange={setIsDriverDetailsModalOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Driver Details</DialogTitle>
-          </DialogHeader>
-          {selectedDriver ? (
-            <div className="space-y-2">
-              <div><strong>Name:</strong> {selectedDriver.name}</div>
-              <div><strong>Email:</strong> {selectedDriver.email}</div>
-              <div><strong>Phone:</strong> {selectedDriver.phone || 'N/A'}</div>
-              <div><strong>Driver ID:</strong> {selectedDriver.driverIdentifier || selectedDriver.customId || 'N/A'}</div>
-              <div><strong>Operator Code:</strong> {selectedDriver.operatorCode || 'N/A'}</div>
-              <div><strong>Status:</strong> {selectedDriver.status}</div>
-              {/* Add more fields or quick actions as needed */}
-            </div>
-          ) : (
-            <div>No driver selected.</div>
-          )}
+          <>
+            <DialogHeader>
+              <DialogTitle>Driver Details</DialogTitle>
+            </DialogHeader>
+            {selectedDriver ? (
+              <div className="space-y-2">
+                <div><strong>Name:</strong> {selectedDriver.name}</div>
+                <div><strong>Email:</strong> {selectedDriver.email}</div>
+                <div><strong>Phone:</strong> {selectedDriver.phone || 'N/A'}</div>
+                <div><strong>Driver ID:</strong> {selectedDriver.driverIdentifier || selectedDriver.customId || 'N/A'}</div>
+                <div><strong>Operator Code:</strong> {selectedDriver.operatorCode || 'N/A'}</div>
+                <div><strong>Status:</strong> {selectedDriver.status}</div>
+                {/* Add more fields or quick actions as needed */}
+              </div>
+            ) : (
+              <div>No driver selected.</div>
+            )}
+          </>
         </DialogContent>
       </Dialog>
     </div>

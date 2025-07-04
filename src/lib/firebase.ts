@@ -1,6 +1,5 @@
-
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 
 // Fallback Firebase configuration (using user-confirmed working key for Maps as API key fallback)
@@ -73,6 +72,18 @@ if (firebaseConfigError) {
         try {
           db = getFirestore(app);
           console.log("Firestore instance (db) obtained successfully.");
+          
+          // Add error handling for Firestore initialization
+          if (db) {
+            // Set up error handling for Firestore
+            const originalOnError = (db as any).app.options.onError;
+            (db as any).app.options.onError = (error: any) => {
+              console.error("Firestore internal error caught:", error);
+              if (originalOnError) {
+                originalOnError(error);
+              }
+            };
+          }
         } catch (dbError: any) {
           console.error("CRITICAL: Failed to initialize Firestore (db). Error Code:", dbError.code, "Message:", dbError.message);
           // db remains null (already initialized to null above)

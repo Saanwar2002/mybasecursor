@@ -2345,14 +2345,16 @@ const mapDisplayElements = useMemo(() => {
             {hazardConfirmationDialog.open && hazardConfirmationDialog.hazard && (
               <Dialog open={hazardConfirmationDialog.open} onOpenChange={open => setHazardConfirmationDialog(d => ({ ...d, open }))}>
                 <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Confirm Hazard</DialogTitle>
-                    <ShadDialogDescriptionDialog>Are you near a reported hazard ({hazardConfirmationDialog.hazard.title})? Is it still present?</ShadDialogDescriptionDialog>
-                  </DialogHeader>
-                  <div className="flex gap-2 mt-4">
-                    <Button onClick={() => handleHazardFeedback(hazardConfirmationDialog.hazard.id, true)} className="bg-green-500 text-white">Yes, still there</Button>
-                    <Button onClick={() => handleHazardFeedback(hazardConfirmationDialog.hazard.id, false)} className="bg-red-500 text-white">No, it's gone</Button>
-                  </div>
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>Confirm Hazard</DialogTitle>
+                      <ShadDialogDescriptionDialog>Are you near a reported hazard ({hazardConfirmationDialog.hazard.title})? Is it still present?</ShadDialogDescriptionDialog>
+                    </DialogHeader>
+                    <div className="flex gap-2 mt-4">
+                      <Button onClick={() => handleHazardFeedback(hazardConfirmationDialog.hazard.id, true)} className="bg-green-500 text-white">Yes, still there</Button>
+                      <Button onClick={() => handleHazardFeedback(hazardConfirmationDialog.hazard.id, false)} className="bg-red-500 text-white">No, it's gone</Button>
+                    </div>
+                  </>
                 </DialogContent>
               </Dialog>
             )}
@@ -2911,127 +2913,133 @@ const mapDisplayElements = useMemo(() => {
           </AlertDialog>
          <Dialog open={isWRRequestDialogOpen} onOpenChange={setIsWRRequestDialogOpen}>
           <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="font-bold text-xl flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> <span>Request Wait & Return</span></DialogTitle>
-              <ShadDialogDescriptionDialog>
-                <span>Estimate additional waiting time at current drop-off. {FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER} mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.</span>
-              </ShadDialogDescriptionDialog>
-            </DialogHeader>
-            <div className="py-4 space-y-2">
-              <Label htmlFor="wr-wait-time-input" className="font-bold"><span>Additional Wait Time (minutes)</span></Label>
-              <Input
-                id="wr-wait-time-input"
-                type="number"
-                min="0"
-                value={wrRequestDialogMinutes}
-                onChange={(e) => setWrRequestDialogMinutes(e.target.value)}
-                placeholder="e.g., 15"
-                disabled={isRequestingWR}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
-                <span>Cancel</span>
-              </Button>
-              <Button type="button" onClick={handleRequestWaitAndReturnAction} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
-                {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                <span>Request</span>
-              </Button>
-            </DialogFooter>
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-bold text-xl flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary"/> <span>Request Wait & Return</span></DialogTitle>
+                <ShadDialogDescriptionDialog>
+                  <span>Estimate additional waiting time at current drop-off. {FREE_WAITING_TIME_MINUTES_AT_DESTINATION_WR_DRIVER} mins free, then £{STOP_WAITING_CHARGE_PER_MINUTE.toFixed(2)}/min. Passenger must approve.</span>
+                </ShadDialogDescriptionDialog>
+              </DialogHeader>
+              <div className="py-4 space-y-2">
+                <Label htmlFor="wr-wait-time-input" className="font-bold"><span>Additional Wait Time (minutes)</span></Label>
+                <Input
+                  id="wr-wait-time-input"
+                  type="number"
+                  min="0"
+                  value={wrRequestDialogMinutes}
+                  onChange={(e) => setWrRequestDialogMinutes(e.target.value)}
+                  placeholder="e.g., 15"
+                  disabled={isRequestingWR}
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsWRRequestDialogOpen(false)} disabled={isRequestingWR}>
+                  <span>Cancel</span>
+                </Button>
+                <Button type="button" onClick={handleRequestWaitAndReturnAction} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isRequestingWR}>
+                  {isRequestingWR ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  <span>Request</span>
+                </Button>
+              </DialogFooter>
+            </>
           </DialogContent>
         </Dialog>
 
       <Dialog open={isAccountJobPinDialogOpen} onOpenChange={setIsAccountJobPinDialogOpen}>
         <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="font-bold flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" /><span>Account Job PIN Required</span></DialogTitle>
-            <ShadDialogDescriptionDialog>
-              <span>Ask the passenger for their 4-digit Job PIN to start this account ride.</span>
-            </ShadDialogDescriptionDialog>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="account-job-pin-input" className="font-bold"><span>Enter 4-Digit Job PIN</span></Label>
-            <Input
-              id="account-job-pin-input"
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              value={enteredAccountJobPin}
-              onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
-              placeholder="••••"
-              className="text-center text-xl tracking-[0.3em]"
-              disabled={isVerifyingAccountJobPin}
-            />
-          </div>
-          <DialogFooter className="grid grid-cols-1 gap-2">
-            <div className="flex justify-between">
-                <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
-                <span>Cancel</span>
-                </Button>
-                <Button type="button" onClick={verifyAndStartAccountJobRide} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
-                  {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  <span>Verify & Start Ride</span>
-                </Button>
+          <>
+            <DialogHeader>
+              <DialogTitle className="font-bold flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary" /><span>Account Job PIN Required</span></DialogTitle>
+              <ShadDialogDescriptionDialog>
+                <span>Ask the passenger for their 4-digit Job PIN to start this account ride.</span>
+              </ShadDialogDescriptionDialog>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+              <Label htmlFor="account-job-pin-input" className="font-bold"><span>Enter 4-Digit Job PIN</span></Label>
+              <Input
+                id="account-job-pin-input"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={enteredAccountJobPin}
+                onChange={(e) => setEnteredAccountJobPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                placeholder="••••"
+                className="text-center text-xl tracking-[0.3em]"
+                disabled={isVerifyingAccountJobPin}
+              />
             </div>
-            <Button type="button" variant="link" size="sm" className="font-bold text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
-              <span>Problem with PIN? Start ride manually.</span>
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="grid grid-cols-1 gap-2">
+              <div className="flex justify-between">
+                  <Button type="button" variant="outline" onClick={() => {setIsAccountJobPinDialogOpen(false); setEnteredAccountJobPin("");}} disabled={isVerifyingAccountJobPin}>
+                  <span>Cancel</span>
+                  </Button>
+                  <Button type="button" onClick={verifyAndStartAccountJobRide} className="font-bold bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isVerifyingAccountJobPin || enteredAccountJobPin.length !== 4}>
+                    {isVerifyingAccountJobPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    <span>Verify & Start Ride</span>
+                  </Button>
+              </div>
+              <Button type="button" variant="link" size="sm" className="font-bold text-xs text-muted-foreground hover:text-primary h-auto p-1 mt-2" onClick={handleStartRideWithManualPinOverride} disabled={isVerifyingAccountJobPin}>
+                <span>Problem with PIN? Start ride manually.</span>
+              </Button>
+            </DialogFooter>
+          </>
         </DialogContent>
       </Dialog>
        <Dialog open={isJourneyDetailsModalOpen} onOpenChange={setIsJourneyDetailsModalOpen}>
           <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> <span>Full Journey Details</span></DialogTitle>
-              <ShadDialogDescriptionDialog>
-                <span>Overview of all legs for the current ride (ID: {activeRide?.displayBookingId || activeRide?.id || 'N/A'}).</span>
-              </ShadDialogDescriptionDialog>
-            </DialogHeader>
-            <ScrollArea className="max-h-[60vh] p-1 -mx-1">
-              <div className="p-4 space-y-3">
-                {activeRide && journeyPoints.map((point, index) => {
-                  const isCurrentLeg = index === localCurrentLegIndex;
-                  const isPastLeg = index < localCurrentLegIndex;
-                  let legType = "";
-                  const Icon = MapPin;
-                  let iconColor = "text-muted-foreground";
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-bold text-xl flex items-center gap-2"><Route className="w-5 h-5 text-primary" /> <span>Full Journey Details</span></DialogTitle>
+                <ShadDialogDescriptionDialog>
+                  <span>Overview of all legs for the current ride (ID: {activeRide?.displayBookingId || activeRide?.id || 'N/A'}).</span>
+                </ShadDialogDescriptionDialog>
+              </DialogHeader>
+              <ScrollArea className="max-h-[60vh] p-1 -mx-1">
+                <div className="p-4 space-y-3">
+                  {activeRide && journeyPoints.map((point, index) => {
+                    const isCurrentLeg = index === localCurrentLegIndex;
+                    const isPastLeg = index < localCurrentLegIndex;
+                    let legType = "";
+                    const Icon = MapPin;
+                    let iconColor = "text-muted-foreground";
 
-                  if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
-                  else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
-                  else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
+                    if (index === 0) { legType = "Pickup"; iconColor = "text-green-500"; }
+                    else if (index === journeyPoints.length - 1) { legType = "Dropoff"; iconColor = "text-orange-500"; }
+                    else { legType = `Stop ${index}`; iconColor = "text-blue-500"; }
 
-                  return (
-                    <div
-                      key={`modal-leg-${index}`}
-                      className={cn(
-                        "p-2.5 rounded-md border",
-                        isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card",
-                        isCurrentLeg && "ring-2 ring-primary shadow-md"
-                      )}
-                    >
-                      <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}>
-                        <Icon className="w-4 h-4 shrink-0" />
-                        <span>{legType}</span>
-                      </p>
-                      <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
-                        <span>{point?.address || 'N/A'}</span>
-                      </p>
-                      {point?.doorOrFlat && (
-                        <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
-                          <span>(Unit/Flat: {point?.doorOrFlat})</span>
+                    return (
+                      <div
+                        key={`modal-leg-${index}`}
+                        className={cn(
+                          "p-2.5 rounded-md border",
+                          isPastLeg ? "bg-muted/30 border-muted-foreground/30" : "bg-card",
+                          isCurrentLeg && "ring-2 ring-primary shadow-md"
+                        )}
+                      >
+                        <p className={cn("font-bold flex items-center gap-2", iconColor, isPastLeg && "line-through text-muted-foreground/70")}>
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span>{legType}</span>
                         </p>
-                      )}
-                    </div>
-                  );
-                })}
-                {!activeRide && <p><span>No active ride details to display.</span></p>}
-              </div>
-            </ScrollArea>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary" className="font-bold"><span>Close</span></Button>
-              </DialogClose>
-            </DialogFooter>
+                        <p className={cn("font-bold text-sm text-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                          <span>{point?.address || 'N/A'}</span>
+                        </p>
+                        {point?.doorOrFlat && (
+                          <p className={cn("font-bold text-xs text-muted-foreground pl-6", isPastLeg && "line-through text-muted-foreground/70")}>
+                            <span>(Unit/Flat: {point?.doorOrFlat})</span>
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {!activeRide && <p><span>No active ride details to display.</span></p>}
+                </div>
+              </ScrollArea>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary" className="font-bold"><span>Close</span></Button>
+                </DialogClose>
+              </DialogFooter>
+            </>
           </DialogContent>
         </Dialog>
     </div>

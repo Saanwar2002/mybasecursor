@@ -2677,146 +2677,148 @@ const handleProceedToConfirmation = async () => {
 
                   <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
                     <DialogContent className="book-ride-confirmation-dialog sm:max-w-md grid grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh] p-0">
-                      <DialogHeader className="p-6 pb-4 border-b">
-                        <ShadDialogTitle className="text-xl font-headline">Confirm Your Booking</ShadDialogTitle>
-                        <ShadDialogDescription>
-                          Please review your ride details and confirm payment.
-                        </ShadDialogDescription>
-                      </DialogHeader>
-                      <ScrollArea className="overflow-y-auto">
-                        <div className="px-6 pt-6 pb-2 space-y-3">
-                          <Card className="w-full text-center shadow-md bg-primary/10 border-primary/30">
-                            <CardHeader className="p-3">
-                              <CardTitle className="text-lg font-bold font-headline flex items-center justify-center gap-2">
-                                <DollarSign className="w-5 h-5 text-primary" /> Fare Details
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 pt-0 space-y-1">
-                              {anyFetchingDetails && pickupCoords ? (
-                                <div className="flex flex-col items-center justify-center space-y-1">
-                                    <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
-                                    <p className="text-lg font-bold text-muted-foreground">Calculating...</p>
-                                </div>
-                              ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
-                                <>
-                                  <p className="text-sm text-muted-foreground font-bold">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
-                                  {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400 font-bold">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
-                                  {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">Wheelchair Access surcharge applied</p>}
-                                  {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
-                                    <p className="text-sm text-orange-600 dark:text-orange-400 font-bold">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
-                                  ) : null}
-                                  <div className="text-2xl font-bold text-white bg-green-600 px-3 py-1.5 rounded-md inline-block my-1">Total: £{totalFareEstimate.toFixed(2)}</div>
-                                  {isSurgeActive && (
-                                    <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
-                                      <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                      <>
+                        <DialogHeader className="p-6 pb-4 border-b">
+                          <ShadDialogTitle className="text-xl font-headline">Confirm Your Booking</ShadDialogTitle>
+                          <ShadDialogDescription>
+                            Please review your ride details and confirm payment.
+                          </ShadDialogDescription>
+                        </DialogHeader>
+                        <ScrollArea className="overflow-y-auto">
+                          <div className="px-6 pt-6 pb-2 space-y-3">
+                            <Card className="w-full text-center shadow-md bg-primary/10 border-primary/30">
+                              <CardHeader className="p-3">
+                                <CardTitle className="text-lg font-bold font-headline flex items-center justify-center gap-2">
+                                  <DollarSign className="w-5 h-5 text-primary" /> Fare Details
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="p-3 pt-0 space-y-1">
+                                {anyFetchingDetails && pickupCoords ? (
+                                  <div className="flex flex-col items-center justify-center space-y-1">
+                                      <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+                                      <p className="text-lg font-bold text-muted-foreground">Calculating...</p>
+                                  </div>
+                                ) : baseFareEstimate !== null && totalFareEstimate !== null ? (
+                                  <>
+                                    <p className="text-sm text-muted-foreground font-bold">Base Fare: £{baseFareEstimate.toFixed(2)}</p>
+                                    {(watchedVehicleType === "pet_friendly_car" || watchedVehicleType === "minibus_6_pet_friendly" || watchedVehicleType === "minibus_8_pet_friendly") && <p className="text-sm text-green-600 dark:text-green-400 font-bold">Pet Fee: + £{PET_FRIENDLY_SURCHARGE.toFixed(2)}</p>}
+                                    {watchedVehicleType === "disable_wheelchair_access" && <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">Wheelchair Access surcharge applied</p>}
+                                    {watchedIsPriorityPickup && watchedPriorityFeeAmount ? (
+                                      <p className="text-sm text-orange-600 dark:text-orange-400 font-bold">Priority Fee: + £{watchedPriorityFeeAmount.toFixed(2)}</p>
+                                    ) : null}
+                                    <div className="text-2xl font-bold text-white bg-green-600 px-3 py-1.5 rounded-md inline-block my-1">Total: £{totalFareEstimate.toFixed(2)}</div>
+                                    {isSurgeActive && (
+                                      <p className="text-xs font-semibold text-orange-500 flex items-center justify-center gap-1">
+                                        <Zap className="w-3 h-3" /> Surge Pricing Applied ({currentSurgeMultiplier}x)
+                                      </p>
+                                    )}
+                                     {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1 font-bold">(Includes Wait & Return Surcharges)</p>}
+                                     <p className="text-xs text-muted-foreground mt-1 font-bold">
+                                        Estimates may vary based on real-time conditions.
                                     </p>
-                                  )}
-                                   {watchedWaitAndReturn && <p className="text-xs text-blue-500 dark:text-blue-400 mt-1 font-bold">(Includes Wait & Return Surcharges)</p>}
-                                   <p className="text-xs text-muted-foreground mt-1 font-bold">
-                                      Estimates may vary based on real-time conditions.
-                                  </p>
-                                </>
-                              ) : (
-                                <p className="text-lg text-muted-foreground font-bold">Enter pickup & drop-off to see fare.</p>
-                              )}
-                            </CardContent>
-                          </Card>
-
-                          <Card className="shadow-md bg-accent/5 border-accent/20">
-                            <CardHeader className="p-3">
-                              <CardTitle className="text-lg font-bold font-headline flex items-center gap-2">
-                                <CreditCard className="w-5 h-5 text-primary" /> Payment Method
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-2 pt-0"> 
-                              <FormField
-                                control={form.control}
-                                name="paymentMethod"
-                                render={({ field }) => (
-                                  <FormItem className="space-y-2"> 
-                                    <FormControl>
-                                      <RadioGroup
-                                        onValueChange={(value) => {
-                                          const currentVal = form.getValues("paymentMethod");
-                                          setPreviousPaymentMethod(currentVal);
-                                          field.onChange(value);
-                                          if (value === "account") {
-                                            setIsAccountJobAuthPinVerified(false);
-                                            setIsAccountJobAuthPinDialogOpen(true);
-                                          } else {
-                                            setIsAccountJobAuthPinVerified(false);
-                                          }
-                                        }}
-                                        value={field.value}
-                                        className="grid grid-cols-1 gap-1.5" 
-                                      >
-                                        <FormItem className="flex-1">
-                                          <FormControl>
-                                            <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
-                                          </FormControl>
-                                          <Label
-                                            htmlFor="dialog-card"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                          >
-                                            <CreditCard className="mb-0.5 h-5 w-5 text-primary peer-data-[state=checked]:text-primary" />
-                                            Pay by Card
-                                            <span className="text-xs text-muted-foreground"> (pay driver directly)</span>
-                                          </Label>
-                                        </FormItem>
-                                        <FormItem className="flex-1">
-                                          <FormControl>
-                                            <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
-                                          </FormControl>
-                                          <Label
-                                            htmlFor="dialog-cash"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                          >
-                                            <Coins className="mb-0.5 h-5 w-5 text-green-600 peer-data-[state=checked]:text-green-600" />
-                                            Pay with Cash
-                                            <span className="text-xs text-muted-foreground"> (pay cash to driver)</span>
-                                          </Label>
-                                        </FormItem>
-                                         <FormItem className="flex-1">
-                                          <FormControl>
-                                            <RadioGroupItem value="account" id="dialog-account" className="sr-only peer" />
-                                          </FormControl>
-                                          <Label
-                                            htmlFor="dialog-account"
-                                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                          >
-                                            <Briefcase className="mb-0.5 h-5 w-5 text-purple-600 peer-data-[state=checked]:text-purple-600" />
-                                              Account
-                                              {field.value === "account" && isAccountJobAuthPinVerified 
-                                                ? <span className="text-xs text-green-500">(PIN Verified)</span>
-                                                : <span className="text-xs text-orange-500">(PIN Required)</span>
-                                              }
-                                            <span className="text-xs text-muted-foreground">(Operator will bill)</span>
-                                          </Label>
-                                        </FormItem>
-                                      </RadioGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
+                                  </>
+                                ) : (
+                                  <p className="text-lg text-muted-foreground font-bold">Enter pickup & drop-off to see fare.</p>
                                 )}
-                              />
-                            </CardContent>
-                          </Card>
-                        </div> 
-                      </ScrollArea>
-                      <DialogFooter className="p-6 pt-4 border-t">
-                        <DialogClose asChild>
-                          <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
-                        </DialogClose>
-                        <Button
-                          type="button"
-                          onClick={() => form.handleSubmit(handleBookRide)()}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                          disabled={!totalFareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking || (form.getValues("paymentMethod") === "account" && !isAccountJobAuthPinVerified)}
-                        >
-                          {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                          {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
-                        </Button>
-                      </DialogFooter>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="shadow-md bg-accent/5 border-accent/20">
+                              <CardHeader className="p-3">
+                                <CardTitle className="text-lg font-bold font-headline flex items-center gap-2">
+                                  <CreditCard className="w-5 h-5 text-primary" /> Payment Method
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="p-2 pt-0"> 
+                                <FormField
+                                  control={form.control}
+                                  name="paymentMethod"
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-2"> 
+                                      <FormControl>
+                                        <RadioGroup
+                                          onValueChange={(value) => {
+                                            const currentVal = form.getValues("paymentMethod");
+                                            setPreviousPaymentMethod(currentVal);
+                                            field.onChange(value);
+                                            if (value === "account") {
+                                              setIsAccountJobAuthPinVerified(false);
+                                              setIsAccountJobAuthPinDialogOpen(true);
+                                            } else {
+                                              setIsAccountJobAuthPinVerified(false);
+                                            }
+                                          }}
+                                          value={field.value}
+                                          className="grid grid-cols-1 gap-1.5" 
+                                        >
+                                          <FormItem className="flex-1">
+                                            <FormControl>
+                                              <RadioGroupItem value="card" id="dialog-card" className="sr-only peer" />
+                                            </FormControl>
+                                            <Label
+                                              htmlFor="dialog-card"
+                                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            >
+                                              <CreditCard className="mb-0.5 h-5 w-5 text-primary peer-data-[state=checked]:text-primary" />
+                                              Pay by Card
+                                              <span className="text-xs text-muted-foreground"> (pay driver directly)</span>
+                                            </Label>
+                                          </FormItem>
+                                          <FormItem className="flex-1">
+                                            <FormControl>
+                                              <RadioGroupItem value="cash" id="dialog-cash" className="sr-only peer" />
+                                            </FormControl>
+                                            <Label
+                                              htmlFor="dialog-cash"
+                                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            >
+                                              <Coins className="mb-0.5 h-5 w-5 text-green-600 peer-data-[state=checked]:text-green-600" />
+                                              Pay with Cash
+                                              <span className="text-xs text-muted-foreground"> (pay cash to driver)</span>
+                                            </Label>
+                                          </FormItem>
+                                           <FormItem className="flex-1">
+                                            <FormControl>
+                                              <RadioGroupItem value="account" id="dialog-account" className="sr-only peer" />
+                                            </FormControl>
+                                            <Label
+                                              htmlFor="dialog-account"
+                                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover px-2 py-1.5 hover:bg-accent/80 hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                            >
+                                              <Briefcase className="mb-0.5 h-5 w-5 text-purple-600 peer-data-[state=checked]:text-purple-600" />
+                                                Account
+                                                {field.value === "account" && isAccountJobAuthPinVerified 
+                                                  ? <span className="text-xs text-green-500">(PIN Verified)</span>
+                                                  : <span className="text-xs text-orange-500">(PIN Required)</span>
+                                                }
+                                              <span className="text-xs text-muted-foreground">(Operator will bill)</span>
+                                            </Label>
+                                          </FormItem>
+                                        </RadioGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </CardContent>
+                            </Card>
+                          </div> 
+                        </ScrollArea>
+                        <DialogFooter className="p-6 pt-4 border-t">
+                          <DialogClose asChild>
+                            <Button type="button" variant="outline" disabled={isBooking}>Back to Edit</Button>
+                          </DialogClose>
+                          <Button
+                            type="button"
+                            onClick={() => form.handleSubmit(handleBookRide)()}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                            disabled={!totalFareEstimate || form.formState.isSubmitting || anyFetchingDetails || isBooking || (form.getValues("paymentMethod") === "account" && !isAccountJobAuthPinVerified)}
+                          >
+                            {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                            {isBooking ? 'Processing Booking...' : 'Confirm & Book Ride'}
+                          </Button>
+                        </DialogFooter>
+                      </>
                     </DialogContent>
                   </Dialog>
 
@@ -2829,84 +2831,90 @@ const handleProceedToConfirmation = async () => {
 
       <Dialog open={saveRouteDialogOpen} onOpenChange={setSaveRouteDialogOpen}>
         <DialogContent>
-          <ShadDialogTitle>Save Current Route</ShadDialogTitle>
-          <ShadDialogDescription>
-            Enter a label for this route (e.g., Home to Work, Airport Trip).
-          </ShadDialogDescription>
-          <div className="py-4">
-            <Label htmlFor="routeLabel" className="sr-only">Route Label</Label>
-            <Input
-              id="routeLabel"
-              value={newRouteLabel}
-              onChange={(e) => setNewRouteLabel(e.target.value)}
-              placeholder="e.g., My Daily Commute"
-              disabled={isSavingRoute}
-            />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isSavingRoute}>Cancel</Button>
-            </DialogClose>
-            <Button onClick={submitSaveRoute} disabled={isSavingRoute || !newRouteLabel.trim()}>
-              {isSavingRoute ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Route
-            </Button>
-          </DialogFooter>
+          <>
+            <ShadDialogTitle>Save Current Route</ShadDialogTitle>
+            <ShadDialogDescription>
+              Enter a label for this route (e.g., Home to Work, Airport Trip).
+            </ShadDialogDescription>
+            <div className="py-4">
+              <Label htmlFor="routeLabel" className="sr-only">Route Label</Label>
+              <Input
+                id="routeLabel"
+                value={newRouteLabel}
+                onChange={(e) => setNewRouteLabel(e.target.value)}
+                placeholder="e.g., My Daily Commute"
+                disabled={isSavingRoute}
+              />
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={isSavingRoute}>Cancel</Button>
+              </DialogClose>
+              <Button onClick={submitSaveRoute} disabled={isSavingRoute || !newRouteLabel.trim()}>
+                {isSavingRoute ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Route
+              </Button>
+            </DialogFooter>
+          </>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isWaitTimeDialogOpen} onOpenChange={setIsWaitTimeDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <ShadDialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</ShadDialogTitle>
-          <ShadDialogDescription>
-            How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
-            (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
-          </ShadDialogDescription>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
-            <Input
-              id="wait-time-input"
-              ref={waitTimeInputRef}
-              type="number"
-              min="0"
-              value={estimatedWaitMinutesInput}
-              onChange={(e) => setEstimatedWaitMinutesInput(e.target.value)}
-              placeholder="e.g., 15"
-            />
-            <p className="text-xs text-muted-foreground">
-              If actual wait exceeds this, extra charges may apply.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleWaitAndReturnDialogCancel}>Cancel W&R</Button>
-            <Button type="button" onClick={handleWaitAndReturnDialogConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm Wait Time</Button>
-          </DialogFooter>
+          <>
+            <ShadDialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</ShadDialogTitle>
+            <ShadDialogDescription>
+              How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
+              (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
+            </ShadDialogDescription>
+            <div className="py-4 space-y-2">
+              <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
+              <Input
+                id="wait-time-input"
+                ref={waitTimeInputRef}
+                type="number"
+                min="0"
+                value={estimatedWaitMinutesInput}
+                onChange={(e) => setEstimatedWaitMinutesInput(e.target.value)}
+                placeholder="e.g., 15"
+              />
+              <p className="text-xs text-muted-foreground">
+                If actual wait exceeds this, extra charges may apply.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleWaitAndReturnDialogCancel}>Cancel W&R</Button>
+              <Button type="button" onClick={handleWaitAndReturnDialogConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm Wait Time</Button>
+            </DialogFooter>
+          </>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isPriorityFeeDialogOpen} onOpenChange={setIsPriorityFeeDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <ShadDialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-300"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
-          <ShadDialogDescription>
-            Offer an extra amount to prioritize your booking. This will be added to your total fare. Minimum £0.50.
-          </ShadDialogDescription>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="priority-fee-input">Extra Amount (£)</Label>
-            <Input
-              id="priority-fee-input"
-              ref={priorityFeeInputRef}
-              type="number"
-              min="0.50"
-              step="0.50"
-              value={priorityFeeInput}
-              onChange={(e) => setPriorityFeeInput(e.target.value)}
-              placeholder="e.g., 2.00"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>Cancel Priority</Button>
-            <Button type="button" onClick={handlePriorityFeeDialogConfirm} className="bg-orange-500 hover:bg-orange-600 text-white">Set Priority Fee</Button>
-          </DialogFooter>
+          <>
+            <ShadDialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-300"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
+            <ShadDialogDescription>
+              Offer an extra amount to prioritize your booking. This will be added to your total fare. Minimum £0.50.
+            </ShadDialogDescription>
+            <div className="py-4 space-y-2">
+              <Label htmlFor="priority-fee-input">Extra Amount (£)</Label>
+              <Input
+                id="priority-fee-input"
+                ref={priorityFeeInputRef}
+                type="number"
+                min="0.50"
+                step="0.50"
+                value={priorityFeeInput}
+                onChange={(e) => setPriorityFeeInput(e.target.value)}
+                placeholder="e.g., 2.00"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>Cancel Priority</Button>
+              <Button type="button" onClick={handlePriorityFeeDialogConfirm} className="bg-orange-500 hover:bg-orange-600 text-white">Set Priority Fee</Button>
+            </DialogFooter>
+          </>
         </DialogContent>
       </Dialog>
       
@@ -2919,90 +2927,94 @@ const handleProceedToConfirmation = async () => {
         setIsAccountJobAuthPinDialogOpen(isOpen);
       }}>
         <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <ShadDialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary"/> Account Job Authorization</ShadDialogTitle>
-            <ShadDialogDescription>
-              Please enter your 6-digit authorization PIN for account bookings. (Hint: 123456)
-            </ShadDialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="account-job-auth-pin">Enter 6-Digit PIN</Label>
-            <Input
-              id="account-job-auth-pin"
-              type={accountJobAuthPinInputType}
-              inputMode="numeric"
-              value={accountJobAuthPinInput}
-              onChange={handleAccountAuthPinInputChange}
-              maxLength={6}
-              placeholder="••••••"
-              className="text-center text-xl tracking-[0.3em]"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => {
-              form.setValue("paymentMethod", previousPaymentMethod);
-              setIsAccountJobAuthPinVerified(false);
-              setAccountJobAuthPinInput("");
-              setAccountJobAuthPinInputType('password');
-              setIsAccountJobAuthPinDialogOpen(false);
-              toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
-            }}>Cancel & Change Payment</Button>
-            <Button type="button" onClick={handleAccountJobAuthPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm PIN</Button>
-          </DialogFooter>
+          <>
+            <DialogHeader>
+              <ShadDialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary"/> Account Job Authorization</ShadDialogTitle>
+              <ShadDialogDescription>
+                Please enter your 6-digit authorization PIN for account bookings. (Hint: 123456)
+              </ShadDialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+              <Label htmlFor="account-job-auth-pin">Enter 6-Digit PIN</Label>
+              <Input
+                id="account-job-auth-pin"
+                type={accountJobAuthPinInputType}
+                inputMode="numeric"
+                value={accountJobAuthPinInput}
+                onChange={handleAccountAuthPinInputChange}
+                maxLength={6}
+                placeholder="••••••"
+                className="text-center text-xl tracking-[0.3em]"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => {
+                form.setValue("paymentMethod", previousPaymentMethod);
+                setIsAccountJobAuthPinVerified(false);
+                setAccountJobAuthPinInput("");
+                setAccountJobAuthPinInputType('password');
+                setIsAccountJobAuthPinDialogOpen(false);
+                toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
+              }}>Cancel & Change Payment</Button>
+              <Button type="button" onClick={handleAccountJobAuthPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm PIN</Button>
+            </DialogFooter>
+          </>
         </DialogContent>
       </Dialog>
 
           {/* Enhanced Queued Booking Dialog */}
           <Dialog open={isQueuedBookingDialogOpen} onOpenChange={setIsQueuedBookingDialogOpen}>
             <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <ShadDialogTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-orange-500" />
-                  Book and Wait for Driver
-                </ShadDialogTitle>
-                <ShadDialogDescription>
-                  No drivers are currently available in your area. You can proceed with your booking and it will be assigned as soon as a driver becomes available.
-                  {operatorPreference && ` Your booking will be prioritized for ${operatorPreference} drivers.`}
-                </ShadDialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4 py-4">
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-orange-600 mt-0.5" />
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-orange-800">What happens next?</h4>
-                      <ul className="text-sm text-orange-700 space-y-1">
-                        <li>• Your booking will be queued in our system</li>
-                        <li>• We'll notify you as soon as a driver is assigned</li>
-                        <li>• Estimated wait time: ~{estimatedWaitTime || 15} minutes</li>
-                        <li>• If no driver is found within 30 minutes, you'll be notified</li>
-                        <li>• You can cancel anytime before driver assignment</li>
-                      </ul>
+              <>
+                <DialogHeader>
+                  <ShadDialogTitle className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-orange-500" />
+                    Book and Wait for Driver
+                  </ShadDialogTitle>
+                  <ShadDialogDescription>
+                    No drivers are currently available in your area. You can proceed with your booking and it will be assigned as soon as a driver becomes available.
+                    {operatorPreference && ` Your booking will be prioritized for ${operatorPreference} drivers.`}
+                  </ShadDialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Info className="w-5 h-5 text-orange-600 mt-0.5" />
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-orange-800">What happens next?</h4>
+                        <ul className="text-sm text-orange-700 space-y-1">
+                          <li>• Your booking will be queued in our system</li>
+                          <li>• We'll notify you as soon as a driver is assigned</li>
+                          <li>• Estimated wait time: ~{estimatedWaitTime || 15} minutes</li>
+                          <li>• If no driver is found within 30 minutes, you'll be notified</li>
+                          <li>• You can cancel anytime before driver assignment</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
+                  
+                  {operatorPreference && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Building className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm text-blue-800">
+                          Booking with <strong>{operatorPreference}</strong> - will be assigned to their drivers when available
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
-                {operatorPreference && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2">
-                      <Building className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-blue-800">
-                        Booking with <strong>{operatorPreference}</strong> - will be assigned to their drivers when available
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsQueuedBookingDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleConfirmQueuedBooking} className="bg-orange-500 hover:bg-orange-600">
-                  Proceed with Booking
-                </Button>
-              </DialogFooter>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsQueuedBookingDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleConfirmQueuedBooking} className="bg-orange-500 hover:bg-orange-600">
+                    Proceed with Booking
+                  </Button>
+                </DialogFooter>
+              </>
             </DialogContent>
           </Dialog>
 
