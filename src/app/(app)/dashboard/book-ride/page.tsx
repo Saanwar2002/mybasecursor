@@ -2011,27 +2011,46 @@ const handleProceedToConfirmation = async () => {
     });
   };
 
-  // Calculate estimated wait time based on time of day and area
+  // Calculate estimated wait time based on real driver locations and average speed
   useEffect(() => {
-    if (drivers.length === 0 && pickupCoords) {
+    if (drivers.length > 0 && pickupCoords) {
+      const averageSpeedKmh = 20; // You can adjust this value as needed
+      const averageSpeedKmMin = averageSpeedKmh / 60;
+      // Haversine formula in km
+      function getDistanceInKm(coord1, coord2) {
+        const R = 6371;
+        const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
+        const dLon = (coord2.lng - coord1.lng) * Math.PI / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+      const etas = drivers.map(driver => {
+        const distance = getDistanceInKm(pickupCoords, driver.location);
+        return distance / averageSpeedKmMin; // in minutes
+      });
+      const minEta = Math.round(Math.min(...etas));
+      setEstimatedWaitTime(minEta);
+    } else if (drivers.length === 0 && pickupCoords) {
+      // Fallback: time-of-day logic
       const now = new Date();
       const hour = now.getHours();
       let estimatedMinutes = 15; // Default 15 minutes
-      
-      // Adjust based on time of day
-      if (hour >= 7 && hour <= 9) { // Morning rush
+      if (hour >= 7 && hour <= 9) {
         estimatedMinutes = 25;
-      } else if (hour >= 16 && hour <= 18) { // Evening rush
+      } else if (hour >= 16 && hour <= 18) {
         estimatedMinutes = 30;
-      } else if (hour >= 22 || hour <= 6) { // Late night
+      } else if (hour >= 22 || hour <= 6) {
         estimatedMinutes = 35;
       }
-      
       setEstimatedWaitTime(estimatedMinutes);
     } else {
       setEstimatedWaitTime(null);
     }
-  }, [drivers.length, pickupCoords]);
+  }, [drivers, pickupCoords]);
 
   // Enhanced availability status messages
   const getAvailabilityMessage = () => {
@@ -2170,7 +2189,14 @@ const handleProceedToConfirmation = async () => {
               </div>
 
                 {/* Enhanced Driver Availability Status */}
-            {availabilityInfo.type !== 'fallback' && (
+            {(!pickupCoords || !form.getValues('pickupLocation')) && (
+              <div className="mb-4 rounded-md flex items-center justify-center py-3 px-4 shadow-sm bg-gray-400">
+                <span className="text-white font-bold text-sm text-center">
+                  CHOOSE YOUR LOCATION/PICKUP ADDRESS TO SEE AVAILABLE DRIVERS
+                </span>
+              </div>
+            )}
+            {pickupCoords && form.getValues('pickupLocation') && availabilityInfo.type !== 'fallback' && (
               <Card className={cn(
                 "mb-4 shadow-sm",
                 availabilityInfo.type === 'unavailable' && "bg-red-500",

@@ -42,7 +42,11 @@ export function useOperatorNotifications() {
       setNotifications(notifs);
       setLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, [user]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
