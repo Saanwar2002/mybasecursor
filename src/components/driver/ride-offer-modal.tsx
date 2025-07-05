@@ -332,7 +332,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               <div className="p-2 rounded-md bg-slate-100 dark:bg-slate-800">
                 <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                   <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                  <span className="font-bold">{rideDetails.pickupLocation || "Pickup N/A"}</span>
+                  <span className="font-bold">{typeof rideDetails.pickupLocation === 'object' ? rideDetails.pickupLocation.address : rideDetails.pickupLocation || "Pickup N/A"}</span>
                 </p>
                 {rideDetails.stops && rideDetails.stops.length > 0 && (
                   <div className="ml-2 my-0.5 border-l-2 border-dashed border-slate-400 dark:border-slate-600 pl-2.5">
@@ -346,7 +346,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
                 )}
                 <p className="flex items-start gap-1.5 text-sm text-slate-700 dark:text-slate-200">
                   <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                  <span className="font-bold">{rideDetails.dropoffLocation || "Dropoff N/A"}</span>
+                  <span className="font-bold">{typeof rideDetails.dropoffLocation === 'object' ? rideDetails.dropoffLocation.address : rideDetails.dropoffLocation || "Dropoff N/A"}</span>
                 </p>
               </div>
 
