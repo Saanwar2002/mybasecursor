@@ -36,8 +36,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { usePassengerBookings } from '@/hooks/usePassengerBookings';
 import { useFavoriteDrivers, addFavoriteDriver } from '@/hooks/useFavoriteDrivers';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 interface JsonTimestamp {
@@ -177,19 +178,20 @@ export default function MyRidesPage() {
   const handleRateRide = (ride: Ride) => { setSelectedRideForRating(ride); setCurrentRating(ride.rating || 0); };
   
   const submitRating = async () => {
-    if (!selectedRideForRating || !user) return;
-    
-    const updatedRides = bookings.map(r => r.id === selectedRideForRating.id ? { ...r, rating: currentRating } : r);
-    // Assuming usePassengerBookings updates the state
-    // If not, you might want to update the state here
-
-    const toastDescription = `You rated your ride ${currentRating} stars. (Ride ID: ${selectedRideForRating.displayBookingId || selectedRideForRating.id})`;
-    
-    toast({
-      title: "Rating Submitted (Mock)",
-      description: toastDescription,
-    });
-
+    if (!selectedRideForRating || !user || !db) return;
+    try {
+      await updateDoc(doc(db, 'bookings', selectedRideForRating.id), { rating: currentRating });
+      toast({
+        title: "Rating Submitted",
+        description: `You rated your ride ${currentRating} stars. (Ride ID: ${selectedRideForRating.displayBookingId || selectedRideForRating.id})`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error submitting rating",
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      });
+    }
     setSelectedRideForRating(null);
     setCurrentRating(0);
   };
@@ -273,178 +275,196 @@ export default function MyRidesPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>View your past completed or cancelled rides. ({displayedRides.length} found)</CardDescription></CardHeader></Card>
-      {displayedRides.length === 0 && !loading && !error && ( <Card><CardContent className="pt-6 text-center text-muted-foreground">You have no completed or cancelled rides yet.</CardContent></Card> )}
-      {error && displayedRides.length > 0 && ( <div className="p-4 mb-4 text-sm text-destructive-foreground bg-destructive rounded-md shadow-lg"><p><strong>Error:</strong> {error}</p><p className="text-xs">Displaying cached or partially loaded data.</p></div> )}
-
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-        {displayedRides.map((ride) => (
-          <Card key={ride.id} className="shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                    <CardTitle className="text-xl flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> {ride.vehicleType?.charAt(0).toUpperCase() + ride.vehicleType?.slice(1).replace(/_/g, ' ') || 'Vehicle'}</CardTitle>
-                    <CardDescription className="flex items-center gap-1 text-sm"><CalendarIconLucide className="w-4 h-4" /> Booked: {formatDate(ride.bookingTimestamp)}</CardDescription>
-                    <CardDescription className="text-xs mt-1">
-                      Booking ID: {ride.displayBookingId || ride.id}
-                    </CardDescription>
-                </div>
-                <Badge variant={
-                    ride.status === 'completed' ? 'default' :
-                    ride.status === 'cancelled' || ride.status === 'cancelled_by_driver' ? 'destructive' :
-                    'secondary'
-                  }
-                  className={cn(
-                    ride.status === 'completed' && 'bg-green-500/80 text-green-950',
-                    (ride.status === 'cancelled' || ride.status === 'cancelled_by_driver') && 'bg-red-500/80 text-red-950'
-                  )}
-                >
-                  {ride.status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {/* Always show driver details for completed rides */}
-              {ride.status === 'completed' && (
-                <div className="flex items-center gap-2 mb-2">
-                  <Image
-                    src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver?.charAt(0) || '?'}`}
-                    alt={ride.driver || 'Driver'}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                    data-ai-hint="driver avatar"
-                  />
-                  <div>
-                    <p className="font-medium">{ride.driver || <span className="italic text-gray-400">Unknown Driver</span>}</p>
-                    <p className="text-xs text-muted-foreground">Driver</p>
-                    {ride.driverId && driverCustomIds[ride.driverId] && (
-                      <p className="text-xs text-gray-400 select-all">ID: {driverCustomIds[ride.driverId]}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {/* Always show booking timestamp */}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                <CalendarIconLucide className="w-4 h-4" />
-                <span>Booked: {formatDate(ride.bookingTimestamp)}</span>
-              </div>
-              <Separator />
-              <div className="text-sm space-y-1">
-                <p className="flex items-start gap-1"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
-                {ride.stops && ride.stops.length > 0 && ride.stops.map((stop, index) => ( <p key={index} className="flex items-start gap-1 pl-5"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>Stop {index+1}:</strong> {stop.address}</p> ))}
-                <p className="flex items-start gap-1"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>To:</strong> {ride.dropoffLocation.address}</p>
-                {/* --- BEGIN: Passenger Ride Summary Card --- */}
-                {ride.status === 'completed' && (
-                  <div className="my-3 p-4 rounded-lg bg-green-50 border border-green-400 shadow-md">
-                    <div className="flex flex-col items-center mb-2">
-                      <span className="text-3xl font-bold text-green-700">£{(() => {
-                        // Calculate total fare as in driver summary
-                        const baseFare = ride.fareEstimate ?? 0;
-                        const pickupWaiting = ride.pickupWaitingCharge ?? 0;
-                        const stopWaiting = typeof ride.accumulatedStopWaitingCharges === 'number' ? ride.accumulatedStopWaitingCharges : 0;
-                        let waitAndReturnSurcharge = 0;
-                        if (ride.isSurgeApplied && typeof ride.estimatedAdditionalWaitTimeMinutes === 'number') {
-                          const wrBaseMultiplier = 0.70;
-                          const waitingChargePerMinute = 0.20;
-                          const freeWaitMinutes = 10;
-                          const chargeableWait = Math.max(0, ride.estimatedAdditionalWaitTimeMinutes - freeWaitMinutes);
-                          waitAndReturnSurcharge = (baseFare * wrBaseMultiplier) + (chargeableWait * waitingChargePerMinute);
-                        }
-                        const priority = ride.isPriorityPickup && ride.priorityFeeAmount ? ride.priorityFeeAmount : 0;
-                        // Prefer backend-calculated finalCalculatedFare if present
-                        const total = typeof ride.finalCalculatedFare === 'number'
-                          ? ride.finalCalculatedFare
-                          : baseFare + pickupWaiting + stopWaiting + waitAndReturnSurcharge + priority;
-                        return total.toFixed(2);
-                      })()}</span>
-                      <span className="text-xs text-green-700 font-semibold">Total Fare Paid</span>
+      <TooltipProvider>
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-3xl font-headline">Rides History</CardTitle>
+            <CardDescription>View your past completed or cancelled rides. ({displayedRides.length} found)</CardDescription>
+          </CardHeader>
+          {displayedRides.length === 0 && !loading && !error && (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                You have no completed or cancelled rides yet.
+              </CardContent>
+            </Card>
+          )}
+          {loading && (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                <p className="mt-2 text-muted-foreground">Loading your rides...</p>
+              </CardContent>
+            </Card>
+          )}
+          {error && (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <AlertTriangle className="h-8 w-8 text-red-500 mx-auto" />
+                <p className="mt-2 text-red-600">Error loading rides: {error}</p>
+              </CardContent>
+            </Card>
+          )}
+          {!loading && !error && displayedRides.length > 0 && (
+            <div className="space-y-4 p-6">
+              {displayedRides.map((ride) => (
+                <Card key={ride.id} className="shadow-md hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant={ride.status === 'completed' ? 'default' : 'secondary'}>
+                            {ride.status === 'completed' ? 'Completed' : 'Cancelled'}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(ride.bookingTimestamp?.toDate?.() || ride.bookingTimestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <CardDescription className="text-xs mt-1">
+                          Booking ID: {ride.displayBookingId || ride.id}
+                        </CardDescription>
+                        {ride.driverId && driverCustomIds[ride.driverId] && (
+                          <CardDescription className="text-xs">
+                            Driver ID: {driverCustomIds[ride.driverId]}
+                          </CardDescription>
+                        )}
+                        {ride.driver && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                              {ride.driver.avatarUrl ? (
+                                <Image
+                                  src={ride.driver.avatarUrl}
+                                  alt={ride.driver.name || 'Driver'}
+                                  width={32}
+                                  height={32}
+                                  className="rounded-full"
+                                />
+                              ) : (
+                                <UserX className="w-5 h-5 text-gray-500" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">{ride.driver.name || 'Driver'}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {ride.driver.vehicleMakeModel || 'Vehicle info not available'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="mt-3 space-y-1">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-green-500 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">Pickup</p>
+                              <p className="text-xs text-muted-foreground">
+                                {typeof ride.pickupLocation === 'string' ? ride.pickupLocation : ride.pickupLocation?.address || 'Location not available'}
+                              </p>
+                            </div>
+                          </div>
+                          {ride.stops && ride.stops.length > 0 && ride.stops.map((stop: any, index: number) => (
+                            <div key={index} className="flex items-start gap-2">
+                              <MapPin className="w-4 h-4 text-blue-500 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">Stop {index + 1}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {typeof stop === 'string' ? stop : stop?.address || 'Location not available'}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-red-500 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">Dropoff</p>
+                              <p className="text-xs text-muted-foreground">
+                                {typeof ride.dropoffLocation === 'string' ? ride.dropoffLocation : ride.dropoffLocation?.address || 'Location not available'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <TooltipProvider>
+                          <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
+                            {ride.status === 'completed' && (
+                              ride.rating ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-colors shadow flex items-center gap-2"
+                                      onClick={() => handleRateRide(ride)}
+                                    >
+                                      <span>You rated this driver</span>
+                                      <span className="flex items-center ml-1">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star key={i} className={`w-4 h-4 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                                        ))}
+                                      </span>
+                                      <Edit className="w-3 h-3 ml-1" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Edit your rating for this driver</TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Rate your experience with this driver</TooltipContent>
+                                </Tooltip>
+                              )
+                            )}
+                            {ride.status === 'completed' && ride.driverId && ride.driver && (
+                              <div className="flex gap-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors shadow
+                                        ${favoriteDrivers.some(fd => fd.driverId === ride.driverId)
+                                          ? 'bg-green-500 text-white cursor-default'
+                                          : 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500'}`}
+                                      disabled={favoriteActionLoading[ride.driverId] || favoriteDrivers.some(fd => fd.driverId === ride.driverId)}
+                                      onClick={() => handleAddFavoriteDriver(ride)}
+                                    >
+                                      {favoriteActionLoading[ride.driverId]
+                                        ? 'Adding...'
+                                        : favoriteDrivers.some(fd => fd.driverId === ride.driverId)
+                                          ? 'Already in Favourites'
+                                          : 'Add to Favourite Drivers'}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {favoriteDrivers.some(fd => fd.driverId === ride.driverId)
+                                      ? 'You have already added this driver to your favourites.'
+                                      : 'Add this driver to your favourites for future rides.'}
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <button
+                                          className="px-3 py-1 rounded-full text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors shadow"
+                                          disabled={actionLoading[`block-${ride.driverId}`]}
+                                        >
+                                          {actionLoading[`block-${ride.driverId}`] ? 'Blocking...' : 'Block Driver'}
+                                        </button>
+                                      </AlertDialogTrigger>
+                                      <EnhancedBlockDriverDialog ride={ride} onBlock={handleBlockDriver} loading={actionLoading[`block-${ride.driverId}`]} />
+                                    </AlertDialog>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Block this driver to avoid being matched in the future</TooltipContent>
+                                </Tooltip>
+                              </div>
+                            )}
+                          </div>
+                        </TooltipProvider>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-700">
-                      <div>Base Journey Fare: £{ride.fareEstimate.toFixed(2)}</div>
-                      {typeof pickupWaiting === 'number' && pickupWaiting > 0 && (
-                        <div className="text-yellow-700">Pickup Waiting Time: +£{pickupWaiting.toFixed(2)}</div>
-                      )}
-                      {typeof stopWaiting === 'number' && stopWaiting > 0 && (
-                        <div className="text-yellow-700">Stop(s) Waiting Time: +£{stopWaiting.toFixed(2)}</div>
-                      )}
-                      {ride.isSurgeApplied && (
-                        <div className="text-orange-700">Surge Pricing Applied</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {/* --- END: Passenger Ride Summary Card --- */}
-                <div className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-muted-foreground" /><strong>Fare:</strong> £{ride.fareEstimate.toFixed(2)}{ride.isSurgeApplied && <Badge variant="outline" className="ml-1 border-orange-500 text-orange-500">Surge</Badge>}</div>
-                 {ride.paymentMethod && (
-                  <div className="flex items-center gap-1">
-                    {ride.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-muted-foreground" />}
-                    <strong>Payment:</strong> {ride.paymentMethod === 'card' ? 'Card (Mock Paid)' : 'Cash to Driver'}
-                  </div>
-                )}
-              </div>
-              <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
-                {ride.status === 'completed' && (ride.rating ? (<div className="flex items-center"><p className="text-sm mr-2">Your Rating:</p>{[...Array(5)].map((_, i) => (<Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />))}</div>) : (<Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>))}
-                {ride.status === 'completed' && ride.driverId && ride.driver && (
-                  <div className="flex gap-2">
-                    <button
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors shadow
-                        ${favoriteDrivers.some(fd => fd.driverId === ride.driverId)
-                          ? 'bg-green-500 text-white cursor-default'
-                          : 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500'}`}
-                      disabled={favoriteActionLoading[ride.driverId] || favoriteDrivers.some(fd => fd.driverId === ride.driverId)}
-                      onClick={() => handleAddFavoriteDriver(ride)}
-                    >
-                      {favoriteActionLoading[ride.driverId]
-                        ? 'Adding...'
-                        : favoriteDrivers.some(fd => fd.driverId === ride.driverId)
-                          ? 'Already in Favourites'
-                          : 'Add to Favourite Drivers'}
-                    </button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button
-                          className="px-3 py-1 rounded-full text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors shadow"
-                          disabled={actionLoading[`block-${ride.driverId}`]}
-                        >
-                          {actionLoading[`block-${ride.driverId}`] ? 'Blocking...' : 'Block Driver'}
-                        </button>
-                      </AlertDialogTrigger>
-                      <EnhancedBlockDriverDialog ride={ride} onBlock={handleBlockDriver} loading={actionLoading[`block-${ride.driverId}`]} />
-                    </AlertDialog>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {selectedRideForRating && ( 
-        <Card className="fixed inset-0 m-auto w-full max-w-md h-fit z-50 shadow-xl">
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedRideForRating(null)} />
-          <div className="relative bg-card rounded-lg p-6">
-            <CardHeader>
-              <CardTitle>Rate ride with {selectedRideForRating.driver || 'driver'}</CardTitle>
-              <CardDescription>{formatDate(selectedRideForRating.bookingTimestamp)} - {selectedRideForRating.pickupLocation.address} to {selectedRideForRating.dropoffLocation.address} (ID: {selectedRideForRating.displayBookingId || selectedRideForRating.id})</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-center space-x-1 py-2">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-8 h-8 cursor-pointer ${i < currentRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`} onClick={() => setCurrentRating(i + 1)}/>
-                ))}
-              </div>
-              <p className="text-sm text-center text-muted-foreground">
-                Enjoyed your ride? Consider tipping your driver directly next time!
-              </p>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setSelectedRideForRating(null)}>Cancel</Button>
-              <Button onClick={submitRating} className="bg-primary hover:bg-primary/90 text-primary-foreground">Submit</Button>
-            </CardFooter>
-          </div>
-        </Card> 
-      )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Card>
+      </TooltipProvider>
     </div>
   );
 }

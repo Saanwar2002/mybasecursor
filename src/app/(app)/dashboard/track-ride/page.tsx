@@ -41,6 +41,7 @@ import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelTyp
 import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
 import { formatAddressForMapLabel } from '@/lib/utils';
 import { usePassengerBookings } from '@/hooks/usePassengerBookings';
+import { useRouter } from 'next/navigation';
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -327,6 +328,8 @@ export default function MyActiveRidePage() {
   const [timeoutCountdown, setTimeoutCountdown] = useState<number | null>(null);
   const [timeoutCountdownInterval, setTimeoutCountdownInterval] = useState<NodeJS.Timeout | null>(null);
 
+  const router = useRouter();
+
 
   const editDetailsForm = useForm<EditDetailsFormValues>({
     resolver: zodResolver(editDetailsFormSchema),
@@ -539,6 +542,12 @@ export default function MyActiveRidePage() {
     };
   }, [activeRide?.status]);
 
+  useEffect(() => {
+    if (activeRide && activeRide.status === 'completed') {
+      router.replace(`/dashboard/ride-summary/${activeRide.id}`);
+    }
+  }, [activeRide, router]);
+
 
   const handleOpenEditDetailsDialog = (ride: ActiveRide) => {
     setRideToEditDetails(ride);
@@ -679,7 +688,7 @@ export default function MyActiveRidePage() {
         if (!stop.suggestions?.length && !stop.isFetchingSuggestions && isMapSdkLoaded) { 
             fetchAddressSuggestions(stop.inputValue, 
                 (sugg) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, suggestions: sugg} : item)),
-                (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrIndex ? {...item, isFetchingSuggestions: fetch} : item))
+                (fetch) => setDialogStopAutocompleteData(prev => prev.map((item,idx) => idx === fieldNameOrStopIndex ? {...item, isFetchingSuggestions: fetch} : item))
             );
         }
       }
