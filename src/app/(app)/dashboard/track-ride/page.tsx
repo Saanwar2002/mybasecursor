@@ -216,6 +216,7 @@ export default function MyActiveRidePage() {
   const { toast } = useToast();
   const activeStatuses = useMemo(() => [
     'pending_assignment',
+    'pending_offer',
     'driver_assigned',
     'arrived_at_pickup',
     'in_progress',

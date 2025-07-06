@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, addDoc } from 'firebase/firestore';
 
 export interface FavoriteDriver {
   id: string;
@@ -8,6 +8,7 @@ export interface FavoriteDriver {
   name?: string;
   avatarUrl?: string;
   vehicleInfo?: string;
+  customId?: string;
 }
 
 export function useFavoriteDrivers(userId: string | undefined | null) {
@@ -42,11 +43,13 @@ export function useFavoriteDrivers(userId: string | undefined | null) {
                 const driverData = driverDoc.data();
                 name = name || driverData.name;
                 avatarUrl = avatarUrl || driverData.avatarUrl;
-                vehicleInfo = vehicleInfo || driverData.vehicleMakeModel + (driverData.vehicleRegistration ? ` - ${driverData.vehicleRegistration}` : '');
+                vehicleInfo = vehicleInfo || (driverData.vehicleMakeModel ? driverData.vehicleMakeModel : '') + (driverData.vehicleRegistration ? ` - ${driverData.vehicleRegistration}` : '');
+                // Fetch customId (OP001/DR...)
+                var customId = driverData.customId || driverData.driverIdentifier || '';
               }
             } catch {}
           }
-          favs.push({ id: docSnap.id, driverId, name, avatarUrl, vehicleInfo });
+          favs.push({ id: docSnap.id, driverId, name, avatarUrl, vehicleInfo, customId });
         }
         setFavoriteDrivers(favs);
         setLoading(false);
@@ -60,4 +63,10 @@ export function useFavoriteDrivers(userId: string | undefined | null) {
   }, [userId]);
 
   return { favoriteDrivers, loading, error };
+}
+
+export async function addFavoriteDriver(userId: string, driverId: string, driverName?: string) {
+  if (!db || !userId || !driverId) throw new Error('Missing user or driver ID');
+  const favRef = collection(db, 'users', userId, 'favoriteDrivers');
+  await addDoc(favRef, { driverId, name: driverName || '' });
 } 

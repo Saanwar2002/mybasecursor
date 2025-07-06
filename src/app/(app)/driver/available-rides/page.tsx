@@ -1424,28 +1424,49 @@ const mapDisplayElements = useMemo(() => {
       return;
     }
 
-    // Patch: Ensure all required fields are present and non-null
+    // Patch: Ensure all required fields are present and non-null for offerDetailsSchema
     const safeOfferDetails = {
-      ...offerToAccept.offerDetails,
-      id: offerToAccept.id || rideId || "", // must be string
-      passengerPhone: offerToAccept.offerDetails?.passengerPhone ?? "",
-      notes: offerToAccept.offerDetails?.notes ?? "",
+      id: offerToAccept.id || rideId || "",
+      pickupLocation: offerToAccept.offerDetails?.pickupLocation?.address || offerToAccept.offerDetails?.pickupLocation || "",
+      pickupCoords: offerToAccept.offerDetails?.pickupCoords || (offerToAccept.offerDetails?.pickupLocation && offerToAccept.offerDetails?.pickupLocation.latitude && offerToAccept.offerDetails?.pickupLocation.longitude ? { lat: offerToAccept.offerDetails.pickupLocation.latitude, lng: offerToAccept.offerDetails.pickupLocation.longitude } : { lat: 0, lng: 0 }),
+      dropoffLocation: offerToAccept.offerDetails?.dropoffLocation?.address || offerToAccept.offerDetails?.dropoffLocation || "",
+      dropoffCoords: offerToAccept.offerDetails?.dropoffCoords || (offerToAccept.offerDetails?.dropoffLocation && offerToAccept.offerDetails?.dropoffLocation.latitude && offerToAccept.offerDetails?.dropoffLocation.longitude ? { lat: offerToAccept.offerDetails.dropoffLocation.latitude, lng: offerToAccept.offerDetails.dropoffLocation.longitude } : { lat: 0, lng: 0 }),
+      stops: Array.isArray(offerToAccept.offerDetails?.stops) ? offerToAccept.offerDetails.stops.map((s: any) => ({ address: s.address || "", coords: s.coords || (s.latitude && s.longitude ? { lat: s.latitude, lng: s.longitude } : { lat: 0, lng: 0 }) })) : [],
+      fareEstimate: typeof offerToAccept.offerDetails?.fareEstimate === 'number' ? offerToAccept.offerDetails.fareEstimate : 0,
+      passengerCount: typeof offerToAccept.offerDetails?.passengerCount === 'number' ? offerToAccept.offerDetails.passengerCount : 1,
+      passengerId: offerToAccept.offerDetails?.passengerId || "",
+      passengerName: offerToAccept.offerDetails?.passengerName || "",
+      passengerPhone: offerToAccept.offerDetails?.passengerPhone || "",
+      notes: offerToAccept.offerDetails?.notes || "",
+      requiredOperatorId: offerToAccept.offerDetails?.requiredOperatorId || "",
       distanceMiles: typeof offerToAccept.offerDetails?.distanceMiles === 'number' ? offerToAccept.offerDetails.distanceMiles : 0,
-      accountJobPin: offerToAccept.offerDetails?.accountJobPin ?? "",
+      paymentMethod: offerToAccept.offerDetails?.paymentMethod || 'card',
+      isPriorityPickup: !!offerToAccept.offerDetails?.isPriorityPickup,
+      priorityFeeAmount: typeof offerToAccept.offerDetails?.priorityFeeAmount === 'number' ? offerToAccept.offerDetails.priorityFeeAmount : 0,
+      dispatchMethod: offerToAccept.offerDetails?.dispatchMethod || 'auto_system',
+      accountJobPin: offerToAccept.offerDetails?.accountJobPin || "",
     };
 
     const updatePayload: any = {
-      driverId: driverUser.id,
+      driverId: driverUser.id || "",
       driverName: driverUser.name || "Driver",
       status: 'driver_assigned',
       vehicleType: driverUser.vehicleCategory || 'Car',
       driverVehicleDetails: `${driverUser.vehicleCategory || 'Car'} - ${driverUser.customId || 'MOCKREG'}`,
       offerDetails: safeOfferDetails,
-      isPriorityPickup: offerToAccept.offerDetails?.isPriorityPickup,
-      priorityFeeAmount: offerToAccept.offerDetails?.priorityFeeAmount,
-      dispatchMethod: offerToAccept.dispatchMethod,
-      driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null,
+      isPriorityPickup: !!offerToAccept.offerDetails?.isPriorityPickup,
+      priorityFeeAmount: typeof offerToAccept.offerDetails?.priorityFeeAmount === 'number' ? offerToAccept.offerDetails.priorityFeeAmount : 0,
+      dispatchMethod: offerToAccept.dispatchMethod || '',
+      driverCurrentLocation: driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : { lat: 0, lng: 0 },
       accountJobPin: offerToAccept.offerDetails?.accountJobPin ?? "",
+      waitAndReturn: false,
+      estimatedAdditionalWaitTimeMinutes: null,
+      noShowFeeApplicable: false,
+      cancellationFeeApplicable: false,
+      cancellationType: '',
+      updatedLegDetails: undefined,
+      pickupWaitingCharge: undefined,
+      action: undefined,
     };
     console.log(`[handleAcceptOffer] Sending accept payload for ${rideId}:`, JSON.stringify(updatePayload, null, 2));
 

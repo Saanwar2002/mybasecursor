@@ -4,19 +4,21 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThumbsUp, Trash2, Car, Info, Loader2 } from "lucide-react";
+import { ThumbsUp, Trash2, Car, Info, Loader2, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFavoriteDrivers } from '@/hooks/useFavoriteDrivers';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
 interface FavoriteDriver {
   id: string;
   name: string;
   avatarText: string; // For placeholder
   vehicleInfo: string; // e.g., "Toyota Prius - AB12 CDE"
+  customId?: string;
 }
 
 const mockFavoriteDrivers: FavoriteDriver[] = [
@@ -79,8 +81,10 @@ export default function FavoriteDriversPage() {
         <Card><CardContent className="pt-6 text-center text-destructive">Failed to load favorite drivers</CardContent></Card>
       ) : favoriteDrivers.length === 0 ? (
         <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            <p>You haven't added any favorite drivers yet.</p>
+          <CardContent className="pt-6 text-center text-muted-foreground flex flex-col items-center">
+            <ThumbsUp className="w-12 h-12 mb-2 text-sky-400" />
+            <p className="font-semibold text-lg mb-1">No Favorite Drivers Yet</p>
+            <p className="text-sm">Add drivers from your Rides History after a completed ride.</p>
           </CardContent>
         </Card>
       ) : (
@@ -92,31 +96,64 @@ export default function FavoriteDriversPage() {
                   {driver.avatarUrl ? (
                     <AvatarImage src={driver.avatarUrl} alt={driver.name || 'Driver'} data-ai-hint="driver avatar" />
                   ) : (
-                    <AvatarFallback>{driver.name ? driver.name.split(' ').map(n => n[0]).join('') : 'DR'}</AvatarFallback>
+                    <AvatarFallback>{driver.name ? driver.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() : 'DR'}</AvatarFallback>
                   )}
                 </Avatar>
                 <div>
                   <CardTitle className="text-lg">{driver.name || 'Driver'}</CardTitle>
+                  <div className="text-xs text-gray-400 select-all mb-1">
+                    {driver.customId ? (
+                      <>ID: {driver.customId}</>
+                    ) : (
+                      <>ID: {driver.id}</>
+                    )}
+                  </div>
                   <CardDescription className="text-xs flex items-center gap-1">
-                    <Car className="w-3 h-3"/> {driver.vehicleInfo || ''}
+                    <Car className="w-3 h-3"/>
+                    {driver.vehicleInfo ? driver.vehicleInfo : <span className="italic text-gray-400">Vehicle info not available</span>}
                   </CardDescription>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star className="w-4 h-4 text-yellow-400" />
+                    <span className="text-xs text-gray-600 italic">No rating yet</span>
+                  </div>
                 </div>
               </CardHeader>
               <CardFooter className="pt-3 border-t">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="w-full bg-destructive/90 hover:bg-destructive"
-                  onClick={() => handleRemoveFavorite(driver.id)}
-                  disabled={removingDriverId === driver.id}
-                >
-                  {removingDriverId === driver.id ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="mr-2 h-4 w-4" />
-                  )}
-                  Remove from Favorites
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full bg-destructive/90 hover:bg-destructive"
+                      disabled={removingDriverId === driver.id}
+                    >
+                      {removingDriverId === driver.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" />
+                      )}
+                      Remove from Favorites
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove {driver.name || 'this driver'} from favorites?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to remove this driver from your favorites? You can add them again from your ride history.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-red-500 hover:bg-red-600 text-white"
+                        onClick={() => handleRemoveFavorite(driver.id)}
+                        disabled={removingDriverId === driver.id}
+                      >
+                        {removingDriverId === driver.id ? 'Removing...' : 'Remove'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </CardFooter>
             </Card>
           ))}

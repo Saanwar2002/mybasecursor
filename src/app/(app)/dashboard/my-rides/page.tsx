@@ -35,6 +35,9 @@ import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescr
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { usePassengerBookings } from '@/hooks/usePassengerBookings';
+import { useFavoriteDrivers, addFavoriteDriver } from '@/hooks/useFavoriteDrivers';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 interface JsonTimestamp {
@@ -147,6 +150,10 @@ export default function MyRidesPage() {
 
   const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
 
+  const [favoriteActionLoading, setFavoriteActionLoading] = useState<Record<string, boolean>>({});
+  const [driverCustomIds, setDriverCustomIds] = useState<Record<string, string>>({});
+  const { favoriteDrivers } = useFavoriteDrivers(user?.id);
+
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) { console.warn("Google Maps API Key missing."); return; }
     const loader = new Loader({ 
@@ -161,7 +168,11 @@ export default function MyRidesPage() {
     }).catch(e => console.error("Failed to load Google Maps API for MyRidesPage", e));
   }, []);
 
-  const displayedRides = bookings.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver');
+  const displayedRides = bookings.filter(ride => ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'cancelled_by_driver')
+    .map(ride => ({
+      ...ride,
+      driver: ride.driver || ride.driverName || ride.driver_name || '',
+    }));
 
   const handleRateRide = (ride: Ride) => { setSelectedRideForRating(ride); setCurrentRating(ride.rating || 0); };
   
@@ -224,6 +235,38 @@ export default function MyRidesPage() {
     }
   };
 
+  const handleAddFavoriteDriver = async (ride: Ride) => {
+    if (!user || !ride.driverId || !ride.driver) {
+      toast({ title: "Cannot Favorite", description: "Driver information is missing for this ride.", variant: "destructive" });
+      return;
+    }
+    setFavoriteActionLoading(prev => ({ ...prev, [ride.driverId!]: true }));
+    try {
+      await addFavoriteDriver(user.id, ride.driverId!, ride.driver);
+      toast({ title: "Driver Favorited", description: `${ride.driver} has been added to your favorite drivers.` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error while adding favorite driver.";
+      toast({ title: "Favorite Failed", description: message, variant: "destructive" });
+    } finally {
+      setFavoriteActionLoading(prev => ({ ...prev, [ride.driverId!]: false }));
+    }
+  };
+
+  useEffect(() => {
+    // Fetch customId for each unique driverId in completed rides
+    const uniqueDriverIds = Array.from(new Set(displayedRides.filter(r => r.driverId).map(r => r.driverId)));
+    uniqueDriverIds.forEach(async (driverId) => {
+      if (!driverId || driverCustomIds[driverId]) return;
+      try {
+        const driverDoc = await getDoc(doc(db, 'users', driverId));
+        if (driverDoc.exists()) {
+          const data = driverDoc.data();
+          const customId = data.customId || data.driverIdentifier || '';
+          setDriverCustomIds(prev => ({ ...prev, [driverId]: customId }));
+        }
+      } catch {}
+    });
+  }, [displayedRides]);
 
   if (loading) return ( <div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>Loading your past rides...</CardDescription></CardHeader></Card><div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div></div> );
   if (error && displayedRides.length === 0) return ( <div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Rides History</CardTitle><CardDescription>View past completed or cancelled rides.</CardDescription></CardHeader></Card><Card className="border-destructive bg-destructive/10"><CardContent className="pt-6 text-center text-destructive"><AlertTriangle className="w-12 h-12 mx-auto mb-2" /><p className="font-semibold">Could not load rides history.</p><p className="text-sm">{error}</p><Button variant="outline" onClick={() => window.location.reload()} className="mt-4">Try Again</Button></CardContent></Card></div> );
@@ -242,7 +285,9 @@ export default function MyRidesPage() {
                 <div>
                     <CardTitle className="text-xl flex items-center gap-2"><Car className="w-5 h-5 text-primary" /> {ride.vehicleType?.charAt(0).toUpperCase() + ride.vehicleType?.slice(1).replace(/_/g, ' ') || 'Vehicle'}</CardTitle>
                     <CardDescription className="flex items-center gap-1 text-sm"><CalendarIconLucide className="w-4 h-4" /> Booked: {formatDate(ride.bookingTimestamp)}</CardDescription>
-                    <CardDescription className="text-xs mt-1">ID: {ride.displayBookingId || ride.id}</CardDescription> {/* Added displayBookingId here */}
+                    <CardDescription className="text-xs mt-1">
+                      Booking ID: {ride.displayBookingId || ride.id}
+                    </CardDescription>
                 </div>
                 <Badge variant={
                     ride.status === 'completed' ? 'default' :
@@ -259,8 +304,31 @@ export default function MyRidesPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {ride.driver && (<div className="flex items-center gap-2"><Image src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver.charAt(0)}`} alt={ride.driver} width={40} height={40} className="rounded-full" data-ai-hint="driver avatar" /><div><p className="font-medium">{ride.driver}</p><p className="text-xs text-muted-foreground">Driver</p></div></div>)}
-              {ride.scheduledPickupAt && (<div className="mt-2"><p className="text-xs font-medium text-muted-foreground mb-1">Originally Scheduled For:</p><div className="flex items-center gap-2 text-sm bg-muted/50 border border-muted px-3 py-1.5 rounded-lg shadow-sm"><Clock className="w-5 h-5" /> <span className="font-semibold">{formatDate(null, ride.scheduledPickupAt)}</span></div></div>)}
+              {/* Always show driver details for completed rides */}
+              {ride.status === 'completed' && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Image
+                    src={ride.driverAvatar || `https://placehold.co/40x40.png?text=${ride.driver?.charAt(0) || '?'}`}
+                    alt={ride.driver || 'Driver'}
+                    width={40}
+                    height={40}
+                    className="rounded-full"
+                    data-ai-hint="driver avatar"
+                  />
+                  <div>
+                    <p className="font-medium">{ride.driver || <span className="italic text-gray-400">Unknown Driver</span>}</p>
+                    <p className="text-xs text-muted-foreground">Driver</p>
+                    {ride.driverId && driverCustomIds[ride.driverId] && (
+                      <p className="text-xs text-gray-400 select-all">ID: {driverCustomIds[ride.driverId]}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Always show booking timestamp */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <CalendarIconLucide className="w-4 h-4" />
+                <span>Booked: {formatDate(ride.bookingTimestamp)}</span>
+              </div>
               <Separator />
               <div className="text-sm space-y-1">
                 <p className="flex items-start gap-1"><MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" /> <strong>From:</strong> {ride.pickupLocation.address}</p>
@@ -318,28 +386,33 @@ export default function MyRidesPage() {
               <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
                 {ride.status === 'completed' && (ride.rating ? (<div className="flex items-center"><p className="text-sm mr-2">Your Rating:</p>{[...Array(5)].map((_, i) => (<Star key={i} className={`w-5 h-5 ${i < ride.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />))}</div>) : (<Button variant="outline" size="sm" onClick={() => handleRateRide(ride)}>Rate Ride</Button>))}
                 {ride.status === 'completed' && ride.driverId && ride.driver && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" className="bg-destructive/80 hover:bg-destructive text-destructive-foreground" disabled={actionLoading[`block-${ride.driverId}`]}>
-                        <span className="flex items-center">
-                          {actionLoading[`block-${ride.driverId}`] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
-                          Block Driver
-                        </span>
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Block {ride.driver}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to block this driver? You will not be matched with them for future rides. This action can be undone in your profile settings.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleBlockDriver(ride)} className="bg-destructive hover:bg-destructive/90">Block Driver</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <div className="flex gap-2">
+                    <button
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors shadow
+                        ${favoriteDrivers.some(fd => fd.driverId === ride.driverId)
+                          ? 'bg-green-500 text-white cursor-default'
+                          : 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500'}`}
+                      disabled={favoriteActionLoading[ride.driverId] || favoriteDrivers.some(fd => fd.driverId === ride.driverId)}
+                      onClick={() => handleAddFavoriteDriver(ride)}
+                    >
+                      {favoriteActionLoading[ride.driverId]
+                        ? 'Adding...'
+                        : favoriteDrivers.some(fd => fd.driverId === ride.driverId)
+                          ? 'Already in Favourites'
+                          : 'Add to Favourite Drivers'}
+                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className="px-3 py-1 rounded-full text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors shadow"
+                          disabled={actionLoading[`block-${ride.driverId}`]}
+                        >
+                          {actionLoading[`block-${ride.driverId}`] ? 'Blocking...' : 'Block Driver'}
+                        </button>
+                      </AlertDialogTrigger>
+                      <EnhancedBlockDriverDialog ride={ride} onBlock={handleBlockDriver} loading={actionLoading[`block-${ride.driverId}`]} />
+                    </AlertDialog>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -373,6 +446,68 @@ export default function MyRidesPage() {
         </Card> 
       )}
     </div>
+  );
+}
+
+function EnhancedBlockDriverDialog({ ride, onBlock, loading }: { ride: any, onBlock: (ride: any, reason: string) => void, loading: boolean }) {
+  const [reason, setReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [confirmText, setConfirmText] = useState('');
+  const reasons = [
+    '',
+    'Rude behavior',
+    'Unsafe driving',
+    'Vehicle issue',
+    'Other',
+  ];
+  const isOther = reason === 'Other';
+  const isValid = (reason && (reason !== 'Other' || customReason.trim().length > 2)) && confirmText === 'BLOCK';
+  return (
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Block {ride.driver}?</AlertDialogTitle>
+        <AlertDialogDescription>
+          Are you sure you want to block this driver? You will not be matched with them for future rides. This action can be undone in your profile settings.<br /><br />
+          <span className="font-semibold">Please select a reason for blocking:</span>
+          <select
+            className="block w-full mt-2 p-2 border rounded"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+          >
+            {reasons.map(r => <option key={r} value={r}>{r || 'Select a reason...'}</option>)}
+          </select>
+          {isOther && (
+            <input
+              className="block w-full mt-2 p-2 border rounded"
+              type="text"
+              placeholder="Enter custom reason"
+              value={customReason}
+              onChange={e => setCustomReason(e.target.value)}
+            />
+          )}
+          <div className="mt-4">
+            <span className="font-semibold">Type <span className="bg-gray-200 px-1 rounded">BLOCK</span> to confirm:</span>
+            <input
+              className="block w-full mt-2 p-2 border rounded"
+              type="text"
+              placeholder="Type BLOCK to confirm"
+              value={confirmText}
+              onChange={e => setConfirmText(e.target.value)}
+            />
+          </div>
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction
+          disabled={!isValid || loading}
+          className="bg-red-500 hover:bg-red-600 text-white"
+          onClick={() => onBlock(ride, isOther ? customReason : reason)}
+        >
+          {loading ? 'Blocking...' : 'Block Driver'}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
   );
 }
 

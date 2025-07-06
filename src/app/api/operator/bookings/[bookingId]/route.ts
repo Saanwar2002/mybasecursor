@@ -501,6 +501,15 @@ export async function POST(request: NextRequest, context: PostContext) {
           }
           updatePayloadFirestore.status = 'cancelled_by_operator';
           updatePayloadFirestore.cancelledAt = FieldValue.serverTimestamp();
+      } else if (updateDataFromPayload.status === 'driver_assigned') {
+        // When a driver accepts a ride, update the rideOffers status to 'accepted'
+        try {
+          const offerRef = db.collection('rideOffers').doc(bookingIdForHandler);
+          await offerRef.update({ status: 'accepted', acceptedAt: FieldValue.serverTimestamp() });
+          console.log(`Ride offer for booking ${bookingIdForHandler} marked as accepted (driver_assigned).`);
+        } catch (err) {
+          console.error(`Failed to update ride offer status to accepted for booking ${bookingIdForHandler}:`, err);
+        }
       } else if (updateDataFromPayload.status) {
           updatePayloadFirestore.status = updateDataFromPayload.status;
       }

@@ -144,7 +144,7 @@ export async function POST(req: Request) {
         const driverDoc = availableDriversSnap.docs[0];
         assignedDriver = driverDoc.id;
         data.driverId = assignedDriver;
-        bookingStatus = "driver_assigned";
+        bookingStatus = "pending_offer";
         assignmentMethod = "auto_immediate";
       }
     } else {
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
     if (assignedDriver) {
       try {
         console.log("Attempting to create rideOffers document for driver:", assignedDriver);
-        await db.collection('rideOffers').add({
+        await db.collection('rideOffers').doc(docRef.id).set({
           driverId: assignedDriver,
           bookingId: docRef.id,
           status: 'pending',
