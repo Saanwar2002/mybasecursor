@@ -508,11 +508,16 @@ export default function BookRidePage() {
   // 1. Place all useMemo hooks for icons here
   const driverCarIconDataUrl = useMemo(() => {
     if (typeof window === 'undefined') return undefined;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
-      <path d="M15 45 L10 30 H20 Z" fill="black"/>
-      <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
-      <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/>
-      <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/>
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
+      <path d="M20 50 L15 35 H25 Z" fill="black"/>
+      <circle cx="20" cy="18" r="15" fill="#FFD700" stroke="black" stroke-width="2"/>
+      <rect x="18" y="8" width="4" height="3" fill="black" rx="1"/>
+      <rect x="14" y="12" width="12" height="6" fill="white" stroke="black" stroke-width="1" rx="2"/>
+      <rect x="15" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+      <rect x="22" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+      <circle cx="16" cy="20" r="2" fill="black"/>
+      <circle cx="24" cy="20" r="2" fill="black"/>
+      <rect x="19" y="10" width="2" height="1" fill="#FF6B35"/>
     </svg>`;
     return `data:image/svg+xml;base64,${window.btoa(svg)}`;
   }, []);
@@ -594,7 +599,7 @@ export default function BookRidePage() {
           position: driver.location,
           title: driver.name ? `Driver: ${driver.name}` : 'Available Driver',
           iconUrl: driverCarIconDataUrl,
-          iconScaledSize: { width: 30, height: 45 },
+          iconScaledSize: { width: 40, height: 50 },
         }))
       );
     }

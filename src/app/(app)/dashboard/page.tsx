@@ -25,14 +25,23 @@ const huddersfieldCenter: google.maps.LatLngLiteral = { lat: 53.6450, lng: -1.78
 type MapBusynessLevel = 'idle' | 'moderate' | 'high';
 
 // Define the driver car icon SVG and Data URL (copied from driver's available-rides page)
-const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
   <!-- Pin Needle (Black) -->
-  <path d="M15 45 L10 30 H20 Z" fill="black"/>
-  <!-- Blue Circle with Thick Black Border -->
-  <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
-  <!-- White Car Silhouette -->
-  <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
-  <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
+  <path d="M20 50 L15 35 H25 Z" fill="black"/>
+  <!-- Yellow Taxi Circle with Black Border -->
+  <circle cx="20" cy="18" r="15" fill="#FFD700" stroke="black" stroke-width="2"/>
+  <!-- Taxi Sign on Top -->
+  <rect x="18" y="8" width="4" height="3" fill="black" rx="1"/>
+  <!-- White Taxi Body -->
+  <rect x="14" y="12" width="12" height="6" fill="white" stroke="black" stroke-width="1" rx="2"/>
+  <!-- Taxi Windows -->
+  <rect x="15" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+  <rect x="22" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+  <!-- Taxi Wheels -->
+  <circle cx="16" cy="20" r="2" fill="black"/>
+  <circle cx="24" cy="20" r="2" fill="black"/>
+  <!-- Taxi Light -->
+  <rect x="19" y="10" width="2" height="1" fill="#FF6B35"/>
 </svg>`;
 
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -193,7 +202,7 @@ export default function PassengerDashboardPage() {
                   position: driver.location,
                   title: driver.name || 'Available Taxi',
                   iconUrl: driverCarIconDataUrl,
-                  iconScaledSize: { width: 30, height: 45 },
+                  iconScaledSize: { width: 40, height: 50 },
                 })),
                 ...(passengerLocation ? [{
                   position: passengerLocation,

@@ -49,7 +49,17 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
   loading: () => <Skeleton className="w-full h-full rounded-md" />,
 });
 
-const carIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#2563EB" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
+const carIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
+  <path d="M20 50 L15 35 H25 Z" fill="black"/>
+  <circle cx="20" cy="18" r="15" fill="#FFD700" stroke="black" stroke-width="2"/>
+  <rect x="18" y="8" width="4" height="3" fill="black" rx="1"/>
+  <rect x="14" y="12" width="12" height="6" fill="white" stroke="black" stroke-width="1" rx="2"/>
+  <rect x="15" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+  <rect x="22" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+  <circle cx="16" cy="20" r="2" fill="black"/>
+  <circle cx="24" cy="20" r="2" fill="black"/>
+  <rect x="19" y="10" width="2" height="1" fill="#FF6B35"/>
+</svg>`;
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(carIconSvg)}` : '';
 
 
@@ -838,20 +848,7 @@ export default function MyActiveRidePage() {
     switch (ride.status.toLowerCase()) {
         case 'pending_assignment': 
           // Enhanced messaging for queued bookings
-          if (ride.assignmentMethod === 'manual_queued') {
-            return "Your booking is queued for manual assignment by the operator. You'll be notified when a driver is assigned.";
-          } else if (ride.timeoutAt) {
-            const timeoutDate = new Date(ride.timeoutAt._seconds * 1000);
-            const now = new Date();
-            const timeLeft = Math.max(0, Math.floor((timeoutDate.getTime() - now.getTime()) / (1000 * 60)));
-            if (timeLeft > 0) {
-              return `Finding you a driver... If no driver is found within ${timeLeft} minutes, you'll be notified.`;
-            } else {
-              return "Finding you a driver... You can continue waiting or cancel and try again.";
-            }
-          } else {
-            return "Finding you a driver...";
-          }
+          return "Searching for a driver for you...";
         case 'driver_assigned': return `Driver ${ride.driver || 'N/A'} is en route. ETA: ${ride.driverEtaMinutes ?? 'calculating...'} min.`;
         case 'arrived_at_pickup': return `Driver ${ride.driver || 'N/A'} has arrived at your pickup location.`;
         case 'in_progress': return "Your ride is in progress. Enjoy!";
@@ -907,7 +904,7 @@ export default function MyActiveRidePage() {
         position: activeRide.driverCurrentLocation,
         title: "Your Driver",
         iconUrl: driverCarIconDataUrl,
-        iconScaledSize: { width: 32, height: 32 }
+        iconScaledSize: { width: 40, height: 50 }
       });
     }
 

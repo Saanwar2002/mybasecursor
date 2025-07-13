@@ -60,14 +60,23 @@ const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-displa
 
 
 
-const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
+const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
   <!-- Pin Needle (Black) -->
-  <path d="M15 45 L10 30 H20 Z" fill="black"/>
-  <!-- Blue Circle with Thick Black Border -->
-  <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
-  <!-- White Car Silhouette -->
-  <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
-  <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
+  <path d="M20 50 L15 35 H25 Z" fill="black"/>
+  <!-- Yellow Taxi Circle with Black Border -->
+  <circle cx="20" cy="18" r="15" fill="#FFD700" stroke="black" stroke-width="2"/>
+  <!-- Taxi Sign on Top -->
+  <rect x="18" y="8" width="4" height="3" fill="black" rx="1"/>
+  <!-- White Taxi Body -->
+  <rect x="14" y="12" width="12" height="6" fill="white" stroke="black" stroke-width="1" rx="2"/>
+  <!-- Taxi Windows -->
+  <rect x="15" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+  <rect x="22" y="13" width="3" height="3" fill="#87CEEB" rx="1"/>
+  <!-- Taxi Wheels -->
+  <circle cx="16" cy="20" r="2" fill="black"/>
+  <circle cx="24" cy="20" r="2" fill="black"/>
+  <!-- Taxi Light -->
+  <rect x="19" y="10" width="2" height="1" fill="#FF6B35"/>
 </svg>`;
 
 const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
@@ -508,59 +517,61 @@ useEffect(() => {
     const rideMarkers: google.maps.MarkerOptions[] = [];
     const rideLabels: ICustomMapLabelOverlay[] = [];
 
-    if (activeRide) {
+    if (activeRide && activeRide.pickupLocation && activeRide.dropoffLocation && typeof window !== 'undefined' && window.google?.maps?.Size) {
       rideMarkers.push({
-        position: activeRide.pickupLocation,
+        position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
         icon: {
           url: "/icons/pickup-marker.svg",
-          scaledSize: new google.maps.Size(32, 32),
+          scaledSize: new window.google.maps.Size(32, 32),
         },
       });
       rideLabels.push({
-        position: activeRide.pickupLocation,
+        position: { lat: activeRide.pickupLocation.latitude, lng: activeRide.pickupLocation.longitude },
         text: formatAddressForMapLabel(activeRide.pickupLocation.address),
-        type: LabelType.Pickup,
+        type: 'pickup' as LabelType,
         color: "#2196F3",
       });
 
       rideMarkers.push({
-        position: activeRide.dropoffLocation,
+        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
         icon: {
           url: "/icons/dropoff-marker.svg",
-          scaledSize: new google.maps.Size(32, 32),
+          scaledSize: new window.google.maps.Size(32, 32),
         },
       });
       rideLabels.push({
-        position: activeRide.dropoffLocation,
+        position: { lat: activeRide.dropoffLocation.latitude, lng: activeRide.dropoffLocation.longitude },
         text: formatAddressForMapLabel(activeRide.dropoffLocation.address),
-        type: LabelType.Dropoff,
+        type: 'dropoff' as LabelType,
         color: "#F44336",
       });
 
       activeRide.stops?.forEach((stop, index) => {
-        rideMarkers.push({
-          position: stop,
-          icon: {
-            url: `/icons/stop-marker-${index + 1}.svg`,
-            scaledSize: new google.maps.Size(32, 32),
-          },
-        });
-        rideLabels.push({
-          position: stop,
-          text: formatAddressForMapLabel(stop.address),
-          type: LabelType.Stop,
-          color: "#FFC107",
-        });
+        if (stop && stop.latitude && stop.longitude) {
+          rideMarkers.push({
+            position: { lat: stop.latitude, lng: stop.longitude },
+            icon: {
+              url: `/icons/stop-marker-${index + 1}.svg`,
+              scaledSize: new window.google.maps.Size(32, 32),
+            },
+          });
+          rideLabels.push({
+            position: { lat: stop.latitude, lng: stop.longitude },
+            text: formatAddressForMapLabel(stop.address),
+            type: 'stop' as LabelType,
+            color: "#FFC107",
+          });
+        }
       });
     }
 
-    if (driverLocation) {
+    if (driverLocation && typeof window !== 'undefined' && window.google?.maps?.Size && window.google?.maps?.Point) {
       rideMarkers.push({
         position: driverLocation,
         icon: {
           url: driverCarIconDataUrl,
-          scaledSize: new google.maps.Size(30, 45),
-          anchor: new google.maps.Point(15, 45),
+          scaledSize: new window.google.maps.Size(40, 50),
+          anchor: new window.google.maps.Point(20, 50),
         },
       });
     }
@@ -570,7 +581,7 @@ useEffect(() => {
       rideLabels.push({
         position: marker.position,
         text: marker.title,
-        type: LabelType.Hazard,
+        type: 'stop' as LabelType,
         color: "#FF5722",
       });
     });
@@ -592,9 +603,6 @@ useEffect(() => {
     driverLocation,
     hazardMarkers,
   ]);
-
-  const memoizedMarkers = mapAndRideDetails.markers;
-  const memoizedLabels = mapAndRideDetails.labels;
 
   // Helper to always get the correct location (mock or real)
   function getDriverLocationFromPosition(position: GeolocationPosition): google.maps.LatLngLiteral {
@@ -804,7 +812,7 @@ const mapDisplayElements = useMemo(() => {
               position: driverLocation,
               title: "Your Current Location",
               iconUrl: driverCarIconDataUrl,
-              iconScaledSize: {width: 30, height: 45}
+              iconScaledSize: {width: 40, height: 50}
           });
         } else {
           console.warn('Invalid driverLocation for marker:', driverLocation);
@@ -834,7 +842,7 @@ const mapDisplayElements = useMemo(() => {
             position: currentLocToDisplay,
             title: "Your Current Location",
             iconUrl: driverCarIconDataUrl,
-            iconScaledSize: {width: 30, height: 45}
+            iconScaledSize: {width: 40, height: 50}
         });
         if (driverCurrentStreetName && (currentStatusLower === 'driver_assigned' || currentStatusLower === 'in_progress' || currentStatusLower === 'in_progress_wait_and_return')) {
             let driverLabelContent = driverCurrentStreetName;
@@ -2139,6 +2147,7 @@ const mapDisplayElements = useMemo(() => {
     const parsedAddress = formatAddressForDisplay(currentLeg.address);
 
     const currentMainActionText = mainButtonText();
+    // Change from const to let so it can be reassigned
     let primaryButtonBgClass = "bg-blue-600 hover:bg-blue-700";
     if (currentMainActionText.toLowerCase().includes("start ride")) primaryButtonBgClass = "bg-green-600 hover:bg-green-700";
     if (currentMainActionText.toLowerCase().includes("notify arrival")) primaryButtonBgClass = "bg-sky-600 hover:bg-sky-700";
@@ -2376,6 +2385,16 @@ const mapDisplayElements = useMemo(() => {
   
   const memoizedMarkers = useMemo(() => mapDisplayElements.markers, [JSON.stringify(mapDisplayElements.markers)]);
   const memoizedLabels = useMemo(() => mapDisplayElements.labels, [JSON.stringify(mapDisplayElements.labels)]);
+  
+  // Define primaryButtonBgClass based on the current button text
+  const currentMainActionText = mainButtonText();
+  let primaryButtonBgClass = "bg-blue-600 hover:bg-blue-700";
+  if (currentMainActionText.toLowerCase().includes("start ride")) primaryButtonBgClass = "bg-green-600 hover:bg-green-700";
+  if (currentMainActionText.toLowerCase().includes("notify arrival")) primaryButtonBgClass = "bg-sky-600 hover:bg-sky-700";
+  if (currentMainActionText.toLowerCase().includes("complete ride")) primaryButtonBgClass = "bg-red-600 hover:bg-red-700";
+  if (currentMainActionText.toLowerCase().includes("depart stop") || currentMainActionText.toLowerCase().includes("proceed to")) primaryButtonBgClass = "bg-indigo-600 hover:bg-indigo-700";
+  if (currentMainActionText.toLowerCase().includes("arrived at stop")) primaryButtonBgClass = "bg-yellow-500 hover:bg-yellow-600 text-black";
+  
   return (
     <>
       {/* Main content - hidden when offer modal is open */}
@@ -2766,21 +2785,21 @@ const mapDisplayElements = useMemo(() => {
                         <div className="flex items-center gap-2 text-sm md:text-base">
                             <MapPin className="h-4 w-4 text-muted-foreground" />
                             <span className="font-semibold text-gray-700 dark:text-gray-300">From:</span>
-                            <span className="text-gray-600 dark:text-gray-400">{formatAddressForDisplay(activeRide.pickupLocation.address)}</span>
+                            <span className="text-gray-600 dark:text-gray-400">{formatAddressForDisplay(activeRide.pickupLocation?.address || 'No pickup address')}</span>
                         </div>
                         {activeRide.stops && activeRide.stops.length > 0 && (
                             activeRide.stops.map((stop, index) => (
                                 <div key={`stop-${index}`} className="flex items-center gap-2 text-sm md:text-base">
                                     <Flag className="h-4 w-4 text-muted-foreground" />
                                     <span className="font-semibold text-gray-700 dark:text-gray-300">Stop {index + 1}:</span>
-                                    <span className="text-gray-600 dark:text-gray-400">{formatAddressForDisplay(stop.address)}</span>
+                                    <span className="text-gray-600 dark:text-gray-400">{formatAddressForDisplay(stop?.address || 'No stop address')}</span>
                                 </div>
                             ))
                         )}
                         <div className="flex items-center gap-2 text-sm md:text-base">
                             <MapPin className="h-4 w-4 text-muted-foreground" />
                             <span className="font-semibold text-gray-700 dark:text-gray-300">To:</span>
-                            <span className="text-gray-600 dark:text-gray-400">{formatAddressForDisplay(activeRide.dropoffLocation.address)}</span>
+                            <span className="text-gray-600 dark:text-gray-400">{formatAddressForDisplay(activeRide.dropoffLocation?.address || 'No dropoff address')}</span>
                         </div>
                         <Separator className="my-2" />
                         <div className="flex items-center justify-between text-sm md:text-base">
@@ -2976,10 +2995,10 @@ const mapDisplayElements = useMemo(() => {
                             <AlertDialog open={showCancelConfirmationDialog} onOpenChange={setShowCancelConfirmationDialog}>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
+                                        <ShadAlertDialogTitleForDialog>Are you absolutely sure?</ShadAlertDialogTitleForDialog>
+                                        <ShadAlertDialogDescriptionForDialog>
                                             This action will cancel the active ride for {activeRide.passengerName}. This cannot be undone.
-                                        </AlertDialogDescription>
+                                        </ShadAlertDialogDescriptionForDialog>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel onClick={() => setIsCancelSwitchOn(false)}>Go Back</AlertDialogCancel>
@@ -2996,10 +3015,10 @@ const mapDisplayElements = useMemo(() => {
                             <AlertDialog open={isNoShowConfirmDialogOpen} onOpenChange={setIsNoShowConfirmDialogOpen}>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Confirm No-Show Report</AlertDialogTitle>
-                                        <AlertDialogDescription>
+                                        <ShadAlertDialogTitleForDialog>Confirm No-Show Report</ShadAlertDialogTitleForDialog>
+                                        <ShadAlertDialogDescriptionForDialog>
                                             Are you sure you want to report {activeRide.passengerName} as a no-show? This will cancel the ride and may apply a no-show fee.
-                                        </AlertDialogDescription>
+                                        </ShadAlertDialogDescriptionForDialog>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Go Back</AlertDialogCancel>
@@ -3029,9 +3048,9 @@ const mapDisplayElements = useMemo(() => {
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>Request Wait & Return</DialogTitle>
-                                    <DialogDescription>
+                                    <ShadDialogDescriptionDialog>
                                         Enter the estimated additional wait time in minutes for this wait & return.
-                                    </DialogDescription>
+                                    </ShadDialogDescriptionDialog>
                                 </DialogHeader>
                                 <Input
                                     type="number"
@@ -3057,9 +3076,9 @@ const mapDisplayElements = useMemo(() => {
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>Enter Account Job PIN</DialogTitle>
-                                    <DialogDescription>
+                                    <ShadDialogDescriptionDialog>
                                         Please enter the 4-digit PIN provided by the passenger to start this account job.
-                                    </DialogDescription>
+                                    </ShadDialogDescriptionDialog>
                                 </DialogHeader>
                                 <Input
                                     type="number"
@@ -3089,9 +3108,9 @@ const mapDisplayElements = useMemo(() => {
                             <DialogContent className="max-w-[calc(100vw-20px)] md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>Full Journey Details</DialogTitle>
-                                    <DialogDescription>
+                                    <ShadDialogDescriptionDialog>
                                         Comprehensive details for the active ride ({activeRide.displayBookingId || activeRide.id}).
-                                    </DialogDescription>
+                                    </ShadDialogDescriptionDialog>
                                 </DialogHeader>
                                 <ScrollArea className="h-[calc(80vh-120px)] pr-4">
                                     <div className="space-y-4 text-sm">
@@ -3099,11 +3118,11 @@ const mapDisplayElements = useMemo(() => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                             <p><span className="font-semibold">Passenger:</span> {activeRide.passengerName}</p>
                                             <p><span className="font-semibold">Phone:</span> {activeRide.passengerPhone}</p>
-                                            <p><span className="font-semibold">Fare Estimate:</span> £{activeRide.fareEstimate.toFixed(2)}</p>
+                                            <p><span className="font-semibold">Fare Estimate:</span> £{(activeRide.fareEstimate || 0).toFixed(2)}</p>
                                             <p><span className="font-semibold">Payment Method:</span> {activeRide.paymentMethod}</p>
                                             <p><span className="font-semibold">Passengers:</span> {activeRide.passengerCount}</p>
                                             <p><span className="font-semibold">Vehicle Type:</span> {activeRide.vehicleType}</p>
-                                            <p><span className="font-semibold">Status:</span> {activeRide.status.replace(/_/g, ' ')}</p>
+                                            <p><span className="font-semibold">Status:</span> {(activeRide.status || 'Unknown').replace(/_/g, ' ')}</p>
                                             {activeRide.isPriorityPickup && <p><span className="font-semibold">Priority Pickup:</span> Yes (+£{activeRide.priorityFeeAmount?.toFixed(2)})</p>}
                                             {activeRide.waitAndReturn && <p><span className="font-semibold">Wait & Return:</span> Yes</p>}
                                             {activeRide.accountJobPin && <p><span className="font-semibold">Account PIN:</span> {activeRide.accountJobPin}</p>}
@@ -3114,16 +3133,16 @@ const mapDisplayElements = useMemo(() => {
 
                                         <h3 className="font-bold text-lg">Locations</h3>
                                         <div className="space-y-2">
-                                            <p><span className="font-semibold">Pickup:</span> {activeRide.pickupLocation.address}</p>
-                                            {activeRide.pickupLocation.doorOrFlat && <p className="ml-4 text-xs text-muted-foreground">Door/Flat: {activeRide.pickupLocation.doorOrFlat}</p>}
+                                            <p><span className="font-semibold">Pickup:</span> {activeRide.pickupLocation?.address || 'No pickup address'}</p>
+                                            {activeRide.pickupLocation?.doorOrFlat && <p className="ml-4 text-xs text-muted-foreground">Door/Flat: {activeRide.pickupLocation.doorOrFlat}</p>}
                                             {activeRide.stops?.map((stop, index) => (
                                                 <div key={`modal-stop-${index}`}>
-                                                    <p><span className="font-semibold">Stop {index + 1}:</span> {stop.address}</p>
-                                                    {stop.doorOrFlat && <p className="ml-4 text-xs text-muted-foreground">Door/Flat: {stop.doorOrFlat}</p>}
+                                                    <p><span className="font-semibold">Stop {index + 1}:</span> {stop?.address || 'No stop address'}</p>
+                                                    {stop?.doorOrFlat && <p className="ml-4 text-xs text-muted-foreground">Door/Flat: {stop.doorOrFlat}</p>}
                                                 </div>
                                             ))}
-                                            <p><span className="font-semibold">Dropoff:</span> {activeRide.dropoffLocation.address}</p>
-                                            {activeRide.dropoffLocation.doorOrFlat && <p className="ml-4 text-xs text-muted-foreground">Door/Flat: {activeRide.dropoffLocation.doorOrFlat}</p>}
+                                            <p><span className="font-semibold">Dropoff:</span> {activeRide.dropoffLocation?.address || 'No dropoff address'}</p>
+                                            {activeRide.dropoffLocation?.doorOrFlat && <p className="ml-4 text-xs text-muted-foreground">Door/Flat: {activeRide.dropoffLocation.doorOrFlat}</p>}
                                         </div>
 
                                         <Separator className="my-4" />
@@ -3237,7 +3256,7 @@ const mapDisplayElements = useMemo(() => {
                     <p className="text-sm text-muted-foreground mt-2">Ensure you are online to receive new offers.</p>
                 </div>
             )}
-            {driverUser?.role === UserRole.Admin && (
+            {driverUser?.role === 'admin' && (
               <div className="mt-4 p-4 border rounded-md bg-gray-50 dark:bg-gray-800">
                 <h3 className="font-bold text-lg mb-2">Admin / Dev Tools</h3>
                 <Button onClick={handleSimulateOffer} className="w-full">Simulate New Offer</Button>
