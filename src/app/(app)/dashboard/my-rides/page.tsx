@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX } from "lucide-react";
+import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX, UserCircle, CalendarDays } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"; // Renamed DialogDescription
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
@@ -31,7 +31,7 @@ import { format, parseISO, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Loader } from '@googlemaps/js-api-loader';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { usePassengerBookings } from '@/hooks/usePassengerBookings';
@@ -309,6 +309,24 @@ export default function MyRidesPage() {
               {displayedRides.map((ride) => (
                 <Card key={ride.id} className="shadow-md hover:shadow-lg transition-shadow">
                   <CardContent className="p-4">
+                    <div className="flex items-center justify-between p-4 border-b">
+                      <div className="flex items-center gap-2">
+                        <UserCircle className="w-5 h-5 text-primary" />
+                        <span className="font-semibold">{ride.driver || 'Driver'}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          <CalendarDays className="inline w-4 h-4 mr-1" />
+                          {formatDate(ride.bookingTimestamp, ride.scheduledPickupAt)}
+                        </span>
+                      </div>
+                      <Badge variant={ride.status === 'completed' ? 'default' : 'destructive'}>
+                        {ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground pl-10 pb-2">
+                      Booked: {formatDate(ride.bookingTimestamp, ride.scheduledPickupAt) || 'N/A'} |
+                      Picked up: {formatDate(ride.rideStartedAt) || 'N/A'} |
+                      Drop off: {formatDate(ride.completedAt) || 'N/A'}
+                    </div>
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -465,6 +483,38 @@ export default function MyRidesPage() {
           )}
         </Card>
       </TooltipProvider>
+      {selectedRideForRating && (
+        <Dialog open={!!selectedRideForRating} onOpenChange={() => setSelectedRideForRating(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rate Your Ride</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center gap-2 py-4">
+              {[1,2,3,4,5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setCurrentRating(star)}
+                  className={star <= currentRating ? "text-yellow-400" : "text-gray-300"}
+                >
+                  <Star className="w-8 h-8" fill={star <= currentRating ? "#facc15" : "none"} />
+                </button>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={submitRating}
+                disabled={currentRating === 0}
+              >
+                Submit Rating
+              </Button>
+              <Button variant="outline" onClick={() => setSelectedRideForRating(null)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

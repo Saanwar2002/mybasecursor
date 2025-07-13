@@ -80,16 +80,24 @@ function getOperatorPrefix(operatorCode?: string | null): string {
   return PLATFORM_OPERATOR_ID_PREFIX;
 }
 
-export async function GET(req) {
-  // Example: Fetch active ride for a driver (replace with your logic)
+export async function GET(req: any) {
+  // Fetch active ride for a driver
   try {
     const { searchParams } = new URL(req.url);
     const driverId = searchParams.get('driverId');
     if (!driverId) {
       return NextResponse.json({ error: 'Missing driverId' }, { status: 400 });
     }
-    const ridesRef = db.collection('rides');
-    const snapshot = await ridesRef.where('driverId', '==', driverId).where('status', '==', 'active').get();
+    const bookingsRef = db.collection('bookings');
+    const snapshot = await bookingsRef
+      .where('driverId', '==', driverId)
+      .where('status', 'in', [
+        'driver_assigned',
+        'arrived_at_pickup',
+        'in_progress',
+        'in_progress_wait_and_return',
+      ])
+      .get();
     if (snapshot.empty) {
       return NextResponse.json({ ride: null });
     }

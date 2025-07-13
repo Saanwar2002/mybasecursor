@@ -3,17 +3,344 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 6, 30);
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    function isAdmin() {
+      return hasRole('admin');
+    }
+    
+    function isOperator() {
+      return hasRole('operator');
+    }
+    
+    function isDriver() {
+      return hasRole('driver');
+    }
+    
+    function isPassenger() {
+      return hasRole('passenger');
+    }
+    
+    function isOperatorOrAdmin() {
+      return isOperator() || isAdmin();
+    }
+    
+    function isDriverOrAdmin() {
+      return isDriver() || isAdmin();
+    }
+    
+    function isPassengerOrAdmin() {
+      return isPassenger() || isAdmin();
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Allow all authenticated users to read all fields for operators with status Active
+      allow read: if isAuthenticated() && (
+        isOwner(userId) || isAdmin() || isOperator() ||
+        (resource.data.role == 'operator' && resource.data.status == 'Active')
+      );
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin() || isOperator());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Bookings collection
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(resource.data.passengerId) || 
+        (isDriver() && resource.data.driverId == request.auth.uid)
+      );
+      allow create: if isAuthenticated() && (
+        isPassengerOrAdmin() || 
+        isOperatorOrAdmin()
+      ) && request.resource.data.passengerId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(resource.data.passengerId) || 
+        (isDriver() && resource.data.driverId == request.auth.uid)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Drivers collection (separate from users)
+    match /drivers/{driverId} {
+      // Allow all authenticated users to read all fields for drivers with status Active
+      allow read: if isAuthenticated() && resource.data.status == 'Active';
+      allow create: if isAuthenticated() && isOwner(driverId);
+      allow update, delete: if isAuthenticated() && (isOwner(driverId) || isOperator() || isAdmin());
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId) || 
+        (isOperator() && resource.data.operatorId == request.auth.uid)
+      );
+      allow create: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(request.resource.data.userId)
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Messages collection
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.senderId) || 
+        isOwner(resource.data.receiverId)
+      );
+      allow create: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(request.resource.data.senderId)
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.senderId)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Scheduled bookings
+    match /scheduledBookings/{scheduleId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(resource.data.passengerId)
+      );
+      allow create: if isAuthenticated() && (
+        isPassengerOrAdmin() || 
+        isOperatorOrAdmin()
+      ) && request.resource.data.passengerId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(resource.data.passengerId)
+      );
+      allow delete: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.passengerId)
+      );
+    }
+
+    // Ride offers
+    match /rideOffers/{offerId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        (isDriver() && resource.data.driverId == request.auth.uid) ||
+        (isPassenger() && resource.data.passengerId == request.auth.uid)
+      );
+      allow create: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isDriver()
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        (isDriver() && resource.data.driverId == request.auth.uid)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // User feedback
+    match /userFeedback/{feedbackId} {
+      allow read: if isAuthenticated() && (isAdmin() || isOperator());
+      allow create: if isAuthenticated() && (
+        isPassengerOrAdmin() || 
+        isDriverOrAdmin()
+      ) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Map hazards
+    match /mapHazards/{hazardId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        isDriverOrAdmin() || 
+        isOperatorOrAdmin()
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.reportedBy)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Earnings
+    match /earnings/{earningId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(resource.data.driverId)
+      );
+      allow create: if isAuthenticated() && (isAdmin() || isOperator());
+      allow update: if isAuthenticated() && (isAdmin() || isOperator());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Credit accounts
+    match /creditAccounts/{accountId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(resource.data.userId)
+      );
+      allow create: if isAuthenticated() && (isAdmin() || isOperator());
+      allow update: if isAuthenticated() && (isAdmin() || isOperator());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Operator settings
+    match /operatorSettings/{operatorId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(operatorId)
+      );
+      allow create: if isAuthenticated() && (isAdmin() || isOwner(operatorId));
+      allow update: if isAuthenticated() && (isAdmin() || isOwner(operatorId));
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Company settings
+    match /companySettings/{settingId} {
+      allow read: if isAuthenticated() && (isAdmin() || isOperator());
+      allow create, update, delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Counters (for ID generation)
+    match /counters/{counterId} {
+      allow read, write: if isAuthenticated() && (isAdmin() || isOperator());
+    }
+
+    // Favorite locations
+    match /favoriteLocations/{locationId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+      allow create: if isAuthenticated() && (
+        isPassengerOrAdmin()
+      ) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+      allow delete: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+    }
+
+    // Saved routes
+    match /savedRoutes/{routeId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+      allow create: if isAuthenticated() && (
+        isPassengerOrAdmin()
+      ) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+      allow delete: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+    }
+
+    // User blocks
+    match /userBlocks/{blockId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.blockerId)
+      );
+      allow create: if isAuthenticated() && (
+        isPassengerOrAdmin() || 
+        isDriverOrAdmin()
+      ) && request.resource.data.blockerId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.blockerId)
+      );
+      allow delete: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.blockerId)
+      );
+    }
+
+    // Operator incentive programs
+    match /operatorIncentivePrograms/{programId} {
+      allow read: if isAuthenticated() && (isAdmin() || isOperator());
+      allow create, update, delete: if isAuthenticated() && (isAdmin() || isOperator());
+    }
+
+    // Map hazard feedback
+    match /mapHazardFeedback/{feedbackId} {
+      allow read: if isAuthenticated() && (isAdmin() || isOperator());
+      allow create: if isAuthenticated() && (
+        isDriverOrAdmin() || 
+        isOperatorOrAdmin()
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.userId)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Subcollections
+    match /users/{userId}/favoriteDrivers/{favoriteId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    match /bookings/{bookingId}/chatMessages/{messageId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(resource.data.passengerId) || 
+        (isDriver() && resource.data.driverId == request.auth.uid)
+      );
+      allow create: if isAuthenticated() && (
+        isAdmin() || 
+        isOperator() || 
+        isOwner(request.resource.data.senderId)
+      );
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        isOwner(resource.data.senderId)
+      );
+      allow delete: if isAuthenticated() && isAdmin();
     }
   }
 }

@@ -1,9 +1,8 @@
-
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Car, CalendarDays, MapPin, DollarSign, Loader2, AlertTriangle, UserX, MessageSquare, UserCircle, ShieldX, Coins, CreditCard } from "lucide-react";
+import { Star, Car, CalendarDays, MapPin, DollarSign, Loader2, AlertTriangle, UserX, MessageSquare, UserCircle, ShieldX, Coins, CreditCard, Edit } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
@@ -20,10 +19,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger // Make sure AlertDialogTrigger is imported
+  AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 
-import { collection, query, where, onSnapshot, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface LocationPoint {
@@ -81,6 +80,68 @@ interface RideChatMessage {
   timestamp: SerializedTimestamp;
 }
 
+function EnhancedBlockPassengerDialog({ ride, onBlock, loading }: { ride: DriverRide, onBlock: (ride: DriverRide, reason: string) => void, loading: boolean }) {
+  const [reason, setReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [confirmText, setConfirmText] = useState('');
+  const reasons = [
+    '',
+    'Rude behavior',
+    'No show',
+    'Payment issue',
+    'Other',
+  ];
+  const isOther = reason === 'Other';
+  const isValid = (reason && (reason !== 'Other' || customReason.trim().length > 2)) && confirmText === 'BLOCK';
+  return (
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Block {ride.passengerName}?</AlertDialogTitle>
+        <AlertDialogDescription>
+          Are you sure you want to block this passenger? You will not be matched with them for future rides. This action can be undone in your profile settings.<br /><br />
+          <span className="font-semibold">Please select a reason for blocking:</span>
+          <select
+            className="block w-full mt-2 p-2 border rounded"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+          >
+            {reasons.map(r => <option key={r} value={r}>{r || 'Select a reason...'}</option>)}
+          </select>
+          {isOther && (
+            <input
+              className="block w-full mt-2 p-2 border rounded"
+              type="text"
+              placeholder="Enter custom reason"
+              value={customReason}
+              onChange={e => setCustomReason(e.target.value)}
+            />
+          )}
+          <div className="mt-4">
+            <span className="font-semibold">Type <span className="bg-gray-200 px-1 rounded">BLOCK</span> to confirm:</span>
+            <input
+              className="block w-full mt-2 p-2 border rounded"
+              type="text"
+              placeholder="Type BLOCK to confirm"
+              value={confirmText}
+              onChange={e => setConfirmText(e.target.value)}
+            />
+          </div>
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction
+          disabled={!isValid || loading}
+          className="bg-red-500 hover:bg-red-600 text-white"
+          onClick={() => onBlock(ride, isOther ? customReason : reason)}
+        >
+          {loading ? 'Blocking...' : 'Block Passenger'}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  );
+}
+
 export default function DriverRideHistoryPage() {
   const { user: driverUser } = useAuth();
   const { toast } = useToast();
@@ -97,7 +158,7 @@ export default function DriverRideHistoryPage() {
     if (!driverUser?.id || !db) return;
     setIsLoading(true);
     setError(null);
-    const ridesRef = collection(db, 'rides');
+    const ridesRef = collection(db, 'bookings');
     const q = query(ridesRef, where('driverId', '==', driverUser.id));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ridesData: DriverRide[] = snapshot.docs.map(docSnap => {
@@ -134,7 +195,7 @@ export default function DriverRideHistoryPage() {
       setIsLoading(false);
       // Fetch chat messages for each ride
       ridesData.forEach(ride => {
-        const chatRef = collection(db, 'rides', ride.id, 'chatMessages');
+        const chatRef = collection(db, 'bookings', ride.id, 'chatMessages');
         const chatQuery = query(chatRef, orderBy('timestamp', 'asc'));
         onSnapshot(chatQuery, (chatSnap) => {
           setRideChats(prev => ({
@@ -166,15 +227,19 @@ export default function DriverRideHistoryPage() {
 
   const submitPassengerRating = async () => {
     if (!ratingRide || !driverUser) return;
-    // Mock: Update local state and show toast
-    setRidesHistory(prev => prev.map(r => r.id === ratingRide.id ? { ...r, driverRatingForPassenger: currentRating } : r));
-    toast({ title: "Passenger Rating Submitted (Mock)", description: `You rated ${ratingRide.passengerName} ${currentRating} stars for ride ${ratingRide.displayBookingId || ratingRide.id}.` });
+    try {
+      await updateDoc(doc(db, "bookings", ratingRide.id), {
+        driverRatingForPassenger: currentRating
+      });
+      toast({ title: "Passenger Rating Submitted", description: `You rated ${ratingRide.passengerName} ${currentRating} stars for ride ${ratingRide.displayBookingId || ratingRide.id}.` });
+    } catch (err) {
+      toast({ title: "Error submitting rating", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    }
     setRatingRide(null);
     setCurrentRating(0);
-    // In a real app: await api.submitPassengerRating(ratingRide.id, driverUser.id, currentRating);
   };
 
-  const handleBlockPassenger = async (rideToBlock: DriverRide) => {
+  const handleBlockPassenger = async (rideToBlock: DriverRide, reason: string) => {
     if (!driverUser || !rideToBlock.passengerId || !rideToBlock.passengerName) {
       toast({ title: "Cannot Block", description: "Passenger information is missing for this ride.", variant: "destructive" });
       return;
@@ -190,6 +255,7 @@ export default function DriverRideHistoryPage() {
           blockedId: rideToBlock.passengerId,
           blockerRole: 'driver' as UserRole, // Current user's role
           blockedRole: 'passenger' as UserRole, // Role of the user being blocked
+          reason: reason,
         }),
       });
       const result = await response.json();
@@ -236,29 +302,24 @@ export default function DriverRideHistoryPage() {
         {(showAccountJobsOnly ? ridesHistory.filter(r => r.paymentMethod === 'account') : ridesHistory).map((ride) => (
           <Card key={ride.id} className="shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    <UserCircle className="w-5 h-5 text-primary" /> {ride.passengerName}
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-1 text-sm">
-                    <CalendarDays className="w-4 h-4" />
+              <div className="flex items-center justify-between p-4 border-b">
+                <div className="flex items-center gap-2">
+                  <UserCircle className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">{ride.passengerName}</span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    <CalendarDays className="inline w-4 h-4 mr-1" />
                     {getRideTerminalDate(ride)}
-                  </CardDescription>
+                  </span>
                 </div>
-                <Badge variant={
-                    ride.status === 'completed' ? 'default' :
-                    ride.status.toLowerCase().includes('cancel') ? 'destructive' : 'secondary'
-                  }
-                  className={cn(
-                    ride.status === 'completed' && 'bg-green-500/80 text-green-950',
-                    ride.status.toLowerCase().includes('cancel') && 'bg-red-500/80 text-red-950'
-                  )}
-                >
+                <Badge variant={ride.status === 'completed' ? 'default' : 'destructive'}>
                   {ride.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </Badge>
               </div>
-              {ride.displayBookingId && <CardDescription className="text-xs mt-1">ID: {ride.displayBookingId}</CardDescription>}
+              <div className="text-xs text-muted-foreground pl-10 pb-2">
+                Booked: {formatDate(ride.bookingTimestamp, ride.scheduledPickupAt) || 'N/A'} |
+                Picked up: {formatDate(ride.rideStartedAt) || 'N/A'} |
+                Drop off: {formatDate(ride.completedAt) || 'N/A'}
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-sm space-y-1">
@@ -306,35 +367,35 @@ export default function DriverRideHistoryPage() {
               <div className="pt-2 flex flex-col sm:flex-row gap-2 items-center flex-wrap">
                 {ride.status === 'completed' && (
                   ride.driverRatingForPassenger ? (
-                    <div className="flex items-center"><p className="text-sm mr-2">You Rated:</p>{[...Array(5)].map((_, i) => (<Star key={i} className={`w-5 h-5 ${i < ride.driverRatingForPassenger! ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />))}</div>
+                    <button
+                      className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500 text-white hover:bg-blue-600 transition-colors shadow flex items-center gap-2"
+                      onClick={() => handleRatePassenger(ride)}
+                    >
+                      <span>You rated this passenger</span>
+                      <span className="flex items-center ml-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-4 h-4 ${i < ride.driverRatingForPassenger ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                        ))}
+                      </span>
+                      <Edit className="w-3 h-3 ml-1" />
+                    </button>
                   ) : (
                     <Button variant="outline" size="sm" onClick={() => handleRatePassenger(ride)}>Rate Passenger</Button>
                   )
                 )}
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            disabled={blockingPassengerId === ride.passengerId}
-                        >
-                            {blockingPassengerId === ride.passengerId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
-                            Block Passenger
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Block {ride.passengerName}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                            Are you sure you want to block this passenger? You will not be matched with them for future rides. This action can be undone in settings.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleBlockPassenger(ride)} className="bg-destructive hover:bg-destructive/90">Block Passenger</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={blockingPassengerId === ride.passengerId}
+                    >
+                      {blockingPassengerId === ride.passengerId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
+                      Block Passenger
+                    </Button>
+                  </AlertDialogTrigger>
+                  <EnhancedBlockPassengerDialog ride={ride} onBlock={handleBlockPassenger} loading={blockingPassengerId === ride.passengerId} />
                 </AlertDialog>
               </div>
             </CardContent>

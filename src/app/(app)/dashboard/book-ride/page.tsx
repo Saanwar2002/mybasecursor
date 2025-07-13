@@ -2857,90 +2857,82 @@ const handleProceedToConfirmation = async () => {
 
       <Dialog open={saveRouteDialogOpen} onOpenChange={setSaveRouteDialogOpen}>
         <DialogContent>
-          <>
-            <ShadDialogTitle>Save Current Route</ShadDialogTitle>
-            <ShadDialogDescription>
-              Enter a label for this route (e.g., Home to Work, Airport Trip).
-            </ShadDialogDescription>
-            <div className="py-4">
-              <Label htmlFor="routeLabel" className="sr-only">Route Label</Label>
-              <Input
-                id="routeLabel"
-                value={newRouteLabel}
-                onChange={(e) => setNewRouteLabel(e.target.value)}
-                placeholder="e.g., My Daily Commute"
-                disabled={isSavingRoute}
-              />
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline" disabled={isSavingRoute}>Cancel</Button>
-              </DialogClose>
-              <Button onClick={submitSaveRoute} disabled={isSavingRoute || !newRouteLabel.trim()}>
-                {isSavingRoute ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Route
-              </Button>
-            </DialogFooter>
-          </>
+          <ShadDialogTitle><span>Save Current Route</span></ShadDialogTitle>
+          <ShadDialogDescription><span>Enter a label for this route (e.g., Home to Work, Airport Trip).</span></ShadDialogDescription>
+          <div className="py-4">
+            <Label htmlFor="routeLabel" className="sr-only">Route Label</Label>
+            <Input
+              id="routeLabel"
+              value={newRouteLabel}
+              onChange={(e) => setNewRouteLabel(e.target.value)}
+              placeholder="e.g., My Daily Commute"
+              disabled={isSavingRoute}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isSavingRoute}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={submitSaveRoute} disabled={isSavingRoute || !newRouteLabel.trim()}>
+              {isSavingRoute ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Route
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isWaitTimeDialogOpen} onOpenChange={setIsWaitTimeDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <>
-            <ShadDialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</ShadDialogTitle>
-            <ShadDialogDescription>
-              How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
-              (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
-            </ShadDialogDescription>
-            <div className="py-4 space-y-2">
-              <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
-              <Input
-                id="wait-time-input"
-                ref={waitTimeInputRef}
-                type="number"
-                min="0"
-                value={estimatedWaitMinutesInput}
-                onChange={(e) => setEstimatedWaitMinutesInput(e.target.value)}
-                placeholder="e.g., 15"
-              />
-              <p className="text-xs text-muted-foreground">
-                If actual wait exceeds this, extra charges may apply.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleWaitAndReturnDialogCancel}>Cancel W&R</Button>
-              <Button type="button" onClick={handleWaitAndReturnDialogConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm Wait Time</Button>
-            </DialogFooter>
-          </>
+          <ShadDialogTitle className="flex items-center gap-2"><Timer className="w-5 h-5 text-primary"/> Estimated Waiting Time</ShadDialogTitle>
+          <ShadDialogDescription>
+            How long do you estimate you&apos;ll need the driver to wait at the destination before starting the return journey?
+            (10 minutes free, then £{WAITING_CHARGE_PER_MINUTE_AT_DESTINATION.toFixed(2)}/min)
+          </ShadDialogDescription>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="wait-time-input">Wait Time (minutes)</Label>
+            <Input
+              id="wait-time-input"
+              ref={waitTimeInputRef}
+              type="number"
+              min="0"
+              value={estimatedWaitMinutesInput}
+              onChange={(e) => setEstimatedWaitMinutesInput(e.target.value)}
+              placeholder="e.g., 15"
+            />
+            <p className="text-xs text-muted-foreground">
+              If actual wait exceeds this, extra charges may apply.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleWaitAndReturnDialogCancel}>Cancel W&R</Button>
+            <Button type="button" onClick={handleWaitAndReturnDialogConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm Wait Time</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isPriorityFeeDialogOpen} onOpenChange={setIsPriorityFeeDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <>
-            <ShadDialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-300"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
-            <ShadDialogDescription>
-              Offer an extra amount to prioritize your booking. This will be added to your total fare. Minimum £0.50.
-            </ShadDialogDescription>
-            <div className="py-4 space-y-2">
-              <Label htmlFor="priority-fee-input">Extra Amount (£)</Label>
-              <Input
-                id="priority-fee-input"
-                ref={priorityFeeInputRef}
-                type="number"
-                min="0.50"
-                step="0.50"
-                value={priorityFeeInput}
-                onChange={(e) => setPriorityFeeInput(e.target.value)}
-                placeholder="e.g., 2.00"
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>Cancel Priority</Button>
-              <Button type="button" onClick={handlePriorityFeeDialogConfirm} className="bg-orange-500 hover:bg-orange-600 text-white">Set Priority Fee</Button>
-            </DialogFooter>
-          </>
+          <ShadDialogTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-300"><Crown className="w-5 h-5"/> Set Priority Fee</ShadDialogTitle>
+          <ShadDialogDescription>
+            Offer an extra amount to prioritize your booking. This will be added to your total fare. Minimum £0.50.
+          </ShadDialogDescription>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="priority-fee-input">Extra Amount (£)</Label>
+            <Input
+              id="priority-fee-input"
+              ref={priorityFeeInputRef}
+              type="number"
+              min="0.50"
+              step="0.50"
+              value={priorityFeeInput}
+              onChange={(e) => setPriorityFeeInput(e.target.value)}
+              placeholder="e.g., 2.00"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handlePriorityFeeDialogCancel}>Cancel Priority</Button>
+            <Button type="button" onClick={handlePriorityFeeDialogConfirm} className="bg-orange-500 hover:bg-orange-600 text-white">Set Priority Fee</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -2953,38 +2945,36 @@ const handleProceedToConfirmation = async () => {
         setIsAccountJobAuthPinDialogOpen(isOpen);
       }}>
         <DialogContent className="sm:max-w-xs">
-          <>
-            <DialogHeader>
-              <ShadDialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary"/> Account Job Authorization</ShadDialogTitle>
-              <ShadDialogDescription>
-                Please enter your 6-digit authorization PIN for account bookings. (Hint: 123456)
-              </ShadDialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-2">
-              <Label htmlFor="account-job-auth-pin">Enter 6-Digit PIN</Label>
-              <Input
-                id="account-job-auth-pin"
-                type={accountJobAuthPinInputType}
-                inputMode="numeric"
-                value={accountJobAuthPinInput}
-                onChange={handleAccountAuthPinInputChange}
-                maxLength={6}
-                placeholder="••••••"
-                className="text-center text-xl tracking-[0.3em]"
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => {
-                form.setValue("paymentMethod", previousPaymentMethod);
-                setIsAccountJobAuthPinVerified(false);
-                setAccountJobAuthPinInput("");
-                setAccountJobAuthPinInputType('password');
-                setIsAccountJobAuthPinDialogOpen(false);
-                toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
-              }}>Cancel & Change Payment</Button>
-              <Button type="button" onClick={handleAccountJobAuthPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm PIN</Button>
-            </DialogFooter>
-          </>
+          <DialogHeader>
+            <ShadDialogTitle className="flex items-center gap-2"><LockKeyhole className="w-5 h-5 text-primary"/> Account Job Authorization</ShadDialogTitle>
+            <ShadDialogDescription>
+              Please enter your 6-digit authorization PIN for account bookings. (Hint: 123456)
+            </ShadDialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="account-job-auth-pin">Enter 6-Digit PIN</Label>
+            <Input
+              id="account-job-auth-pin"
+              type={accountJobAuthPinInputType}
+              inputMode="numeric"
+              value={accountJobAuthPinInput}
+              onChange={handleAccountAuthPinInputChange}
+              maxLength={6}
+              placeholder="••••••"
+              className="text-center text-xl tracking-[0.3em]"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {
+              form.setValue("paymentMethod", previousPaymentMethod);
+              setIsAccountJobAuthPinVerified(false);
+              setAccountJobAuthPinInput("");
+              setAccountJobAuthPinInputType('password');
+              setIsAccountJobAuthPinDialogOpen(false);
+              toast({ title: "PIN Entry Cancelled", description: `Payment method reverted to ${previousPaymentMethod}.`, variant: "default" });
+            }}>Cancel & Change Payment</Button>
+            <Button type="button" onClick={handleAccountJobAuthPinConfirm} className="bg-primary hover:bg-primary/90 text-primary-foreground">Confirm PIN</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
