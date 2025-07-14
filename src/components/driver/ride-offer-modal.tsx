@@ -272,7 +272,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="w-full sm:max-w-md bg-card shadow-2xl p-0 flex flex-col h-[88vh] max-h-[88vh]">
-        <>
+        <div>
           <DialogHeader className="p-3 pb-2 space-y-1 border-b bg-card">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg font-bold flex items-center gap-1.5">
@@ -411,7 +411,7 @@ export function RideOfferModal({ isOpen, onClose, onAccept, onDecline, rideDetai
               </Button>
             </div>
           </div>
-        </>
+        </div>
       </DialogContent>
     </Dialog>
   );

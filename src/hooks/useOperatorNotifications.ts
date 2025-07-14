@@ -21,27 +21,34 @@ export function useOperatorNotifications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db || !user) return () => {};
-    // Listen for notifications for this operator (by UID or by role)
+    if (!db || !user || !user.id) return () => {};
+
     const q = query(
       collection(db, 'notifications'),
       where('read', '==', false),
       where('toRole', 'in', ['operator', 'all']),
       orderBy('createdAt', 'desc')
     );
-    // Optionally, add a second query for toUserId == user.id
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs: OperatorNotification[] = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        // Show if toUserId matches or toRole matches
-        if ((data.toUserId && data.toUserId === user.id) || (data.toRole && (data.toRole === 'operator' || data.toRole === 'all'))) {
-          notifs.push({ id: docSnap.id, ...data } as OperatorNotification);
-        }
+
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const notifs: OperatorNotification[] = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if ((data.toUserId && data.toUserId === user.id) || (data.toRole && (data.toRole === 'operator' || data.toRole === 'all'))) {
+            notifs.push({ id: docSnap.id, ...data } as OperatorNotification);
+          }
+        });
+        setNotifications(notifs);
+        setLoading(false);
       });
-      setNotifications(notifs);
+    } catch (err) {
+      console.error("Firestore onSnapshot error in useOperatorNotifications:", err);
       setLoading(false);
-    });
+    }
+
     return () => {
       if (typeof unsubscribe === 'function') {
         unsubscribe();
