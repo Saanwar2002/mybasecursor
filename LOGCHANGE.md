@@ -32,6 +32,14 @@
   - `DialogContent asChild received an array: [...]` (may still appear in other dialogs not yet fixed)
 - No evidence of 200ms polling from the main driver page, but further investigation may be needed if fast refresh persists elsewhere.
 
+## 2024-06-28
+- Fixed: Favorite Locations now persist after page refresh by fetching from Firestore on load.
+- Fixed: Prevented duplicate favorite locations from being added (by address).
+- Fixed: Favorite removal now works correctly (frontend uses 'favId' param to match backend API).
+- Improved: After removing a favorite, the list is re-fetched from Firestore to ensure UI and backend are in sync.
+- Improved: API response for adding a favorite now matches frontend expectations (returns { id, data }).
+- Improved: Error handling for missing/invalid data in add/remove/list favorite APIs.
+
 ## [Unreleased]
 
 ### Driver Available Rides Page Improvements
@@ -39,6 +47,28 @@
 - When the driver toggles Offline, 'Pause Ride Offers' is automatically turned off and must be manually re-enabled after going Online.
 - Restored always-visible bottom controls card with toggles and status below the map.
 - Fixed build and rendering issues with the map, warning banner, and controls layout for a consistent user experience.
+
+### [TODO: Upcoming]
+
+#### Outstanding ESLint Issues (to be fixed in a future update)
+- Unused variables, imports, and components (e.g., variables defined but never used)
+- Unexpected `any` types (should be replaced with specific types)
+- React hook dependency warnings (missing or unnecessary dependencies in `useEffect`)
+- Unescaped characters in JSX (e.g., `'` or `"` should be escaped)
+- Variables assigned but never used
+- Prefer `const` over `let` or `var`
+- Component or variable is not defined
+
+**Affected areas:**
+- Dashboard pages
+- Driver and operator pages
+- API route files
+- Components and hooks
+
+These issues are spread across the codebase and will be addressed in a future code quality update.
+
+### Code Change Rules
+- When fixing code quality issues (unused variables, any types, etc.), always fix one error type at a time, re-run the relevant linter or type checker after each fix, and only proceed to the next error type after confirming the previous is resolved.
 
 ---
 **Next Steps:**

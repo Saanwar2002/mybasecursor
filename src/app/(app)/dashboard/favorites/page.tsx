@@ -82,30 +82,22 @@ export default function FavoriteLocationsPage() {
     });
   }, [toast]);
 
-  const fetchFavoriteLocations = useCallback(async () => {
-    if (!user) return;
-    setIsLoadingFavorites(true);
-    setErrorFavorites(null);
-    try {
-      const response = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to fetch favorites: ${response.status}`);
-      }
-      const data: FavoriteLocation[] = await response.json();
-      setFavoriteLocations(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "An unknown error occurred.";
-      setErrorFavorites(message);
-      toast({ title: "Error Fetching Favorites", description: message, variant: "destructive" });
-    } finally {
-      setIsLoadingFavorites(false);
-    }
-  }, [user, toast]);
-
   useEffect(() => {
-    fetchFavoriteLocations();
-  }, [fetchFavoriteLocations]);
+    async function fetchFavorites() {
+      if (!user) return;
+      setIsLoadingFavorites(true);
+      try {
+        const response = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
+        const data = await response.json();
+        setFavoriteLocations(Array.isArray(data.favoriteLocations) ? data.favoriteLocations : []);
+      } catch (error) {
+        setErrorFavorites("Failed to load favorites.");
+      } finally {
+        setIsLoadingFavorites(false);
+      }
+    }
+    fetchFavorites();
+  }, [user]);
 
   const fetchAddressSuggestions = useCallback((
     inputValue: string,
@@ -217,17 +209,27 @@ export default function FavoriteLocationsPage() {
         throw new Error(errorData.message || 'Failed to add favorite.');
       }
       const newFavorite = await response.json();
-      setFavoriteLocations(prev => [{ 
-        id: newFavorite.id, 
-        label: newFavorite.data.label,
-        address: newFavorite.data.address,
-        latitude: newFavorite.data.latitude,
-        longitude: newFavorite.data.longitude,
-        createdAt: newFavorite.data.createdAt ? { 
-            _seconds: Math.floor(new Date(newFavorite.data.createdAt).getTime() / 1000),
-            _nanoseconds: (new Date(newFavorite.data.createdAt).getTime() % 1000) * 1000000
-        } : undefined
-      }, ...prev]);
+      if (!newFavorite.data) {
+        toast({ title: "Failed to Add Favorite", description: "Favorite data missing from server response.", variant: "destructive" });
+        setIsAddingFavorite(false);
+        return;
+      }
+      setFavoriteLocations(prev => {
+        if (prev.some(fav => fav.address === newFavorite.data.address)) {
+          return prev; // Don't add duplicate
+        }
+        return [{
+          id: newFavorite.id,
+          label: newFavorite.data.label,
+          address: newFavorite.data.address,
+          latitude: newFavorite.data.latitude,
+          longitude: newFavorite.data.longitude,
+          createdAt: newFavorite.data.createdAt ? { 
+              _seconds: Math.floor(new Date(newFavorite.data.createdAt).getTime() / 1000),
+              _nanoseconds: (new Date(newFavorite.data.createdAt).getTime() % 1000) * 1000000
+          } : undefined
+        }, ...prev];
+      });
       toast({ title: "Favorite Added!", description: `${values.label} saved.` });
       favoriteForm.reset();
       setNewFavLocationAddress("");
@@ -244,14 +246,17 @@ export default function FavoriteLocationsPage() {
     if (!user) return;
     setIsRemovingFavorite(favId);
     try {
-      const response = await fetch(`/api/users/favorite-locations/remove?id=${favId}&userId=${user.id}`, {
+      const response = await fetch(`/api/users/favorite-locations/remove?favId=${favId}&userId=${user.id}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to remove favorite.');
       }
-      setFavoriteLocations(prev => prev.filter(fav => fav.id !== favId));
+      // Re-fetch favorites from API after removal
+      const listResponse = await fetch(`/api/users/favorite-locations/list?userId=${user.id}`);
+      const listData = await listResponse.json();
+      setFavoriteLocations(Array.isArray(listData.favoriteLocations) ? listData.favoriteLocations : []);
       toast({ title: "Favorite Removed", description: "The location has been removed." });
     } catch (error) {
       toast({ title: "Failed to Remove Favorite", description: error instanceof Error ? error.message : "Unknown error.", variant: "destructive" });

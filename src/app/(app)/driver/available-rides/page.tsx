@@ -319,16 +319,11 @@ export default function AvailableRidesPage() {
   const [currentOfferDetails, setCurrentOfferDetails] = useState<RideOffer | null>(null);
   const [stagedOfferDetails, setStagedOfferDetails] = useState<RideOffer | null>(null);
 
-  const [showEndOfRideReminder, setShowEndOfRideReminder] = useState(false);
   const [driverMarkerHeading, setDriverMarkerHeading] = useState<number | null>(null);
 
   const [isSpeedLimitFeatureEnabled, setIsSpeedLimitFeatureEnabled] = useState(false);
   const [currentMockSpeed, setCurrentMockSpeed] = useState(0);
   const [currentMockLimit, setCurrentMockLimit] = useState(30);
-
-  const [currentDriverOperatorPrefix, setCurrentDriverOperatorPrefix] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [rideRequests, setRideRequests] = useState<RideOffer[]>([]);
 
   const journeyPoints = useMemo(() => {
     if (!activeRide) return [];
@@ -512,19 +507,6 @@ export default function AvailableRidesPage() {
 
 
   useEffect(() => {
-    if (driverUser?.operatorCode) {
-      setCurrentDriverOperatorPrefix(driverUser.operatorCode);
-    } else if (driverUser?.id && driverUser.id.includes('/')) {
-      const parts = driverUser.id.split('/');
-      if (parts.length > 0) {
-        setCurrentDriverOperatorPrefix(parts[0]);
-      }
-    } else if (driverUser?.id) {
-      setCurrentDriverOperatorPrefix('OP_DefaultGuest');
-    }
-  }, [driverUser]);
-
-  useEffect(() => {
     if (isDriverOnline && navigator.geolocation) {
       setGeolocationError(null);
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -590,8 +572,6 @@ export default function AvailableRidesPage() {
       const data: ActiveRide | null = await response.json();
       console.log("fetchActiveRide - Data received from API:", data);
 
-      setError(null);
-
       setActiveRide(data);
 
 
@@ -607,7 +587,6 @@ export default function AvailableRidesPage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error fetching active ride.";
       console.error("Error in fetchActiveRide:", message);
-      setError(message);
     } finally {
       if (initialLoadOrNoRide) setIsLoading(false);
     }
@@ -875,21 +854,6 @@ export default function AvailableRidesPage() {
     };
   }, [activeRide, driverLocation]);
 
-  useEffect(() => {
-    if (activeRide?.status === 'in_progress') {
-      setShowEndOfRideReminder(false);
-      endOfRideReminderTimerRef.current = setTimeout(() => {
-        setShowEndOfRideReminder(true);
-      }, 8000);
-    } else {
-      setShowEndOfRideReminder(false);
-    }
-    return () => {
-      if (endOfRideReminderTimerRef.current) {
-        clearTimeout(endOfRideReminderTimerRef.current);
-      }
-    };
-  }, [activeRide?.status]);
 
   useEffect(() => {
     if (!activeRide || !driverLocation || !isMapSdkLoaded || !directionsServiceRef.current) {
@@ -1154,7 +1118,6 @@ export default function AvailableRidesPage() {
       console.log(`[handleAcceptOffer] Accept offer for ${currentActionRideId}: Setting activeRide:`, JSON.stringify(newActiveRideFromServer, null, 2));
       setActiveRide(newActiveRideFromServer);
       setLocalCurrentLegIndex(0);
-      setRideRequests([]);
       setIsOfferModalOpen(false);
       setCurrentOfferDetails(null);
 
@@ -1780,7 +1743,6 @@ export default function AvailableRidesPage() {
         }
         setIsPollingEnabled(true);
     } else {
-        setRideRequests([]);
         setIsPollingEnabled(false);
         setIsPaused(false); // Automatically unpause when going offline
         if (watchIdRef.current !== null) {
