@@ -7,6 +7,8 @@ if (!getApps().length) {
 }
 const db = getFirestore();
 
+import { Timestamp } from 'firebase/firestore';
+
 interface Booking {
   id: string;
   displayBookingId?: string; 

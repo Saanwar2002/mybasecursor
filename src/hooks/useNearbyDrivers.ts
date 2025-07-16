@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { FirebaseError } from '../types/global';
 
 export interface DriverMarker {
   id: string;
   name?: string;
   location: { lat: number; lng: number };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Haversine formula to calculate distance in miles between two lat/lng points
@@ -72,7 +73,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
           where('status', '==', 'Active')
         );
       }
-    } catch (queryError: any) {
+    } catch (queryError: FirebaseError) {
       console.error('useNearbyDrivers: Error creating query:', queryError);
       setError(`Query error: ${queryError.message}`);
       setLoading(false);
@@ -94,7 +95,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
                     return { id: doc.id, ...data } as DriverMarker;
                   }
                   return null;
-                } catch (docError: any) {
+                } catch (docError: FirebaseError) {
                   console.error('useNearbyDrivers: Error processing driver doc:', docError);
                   return null;
                 }
@@ -114,7 +115,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
                   );
                   console.log(`[useNearbyDrivers] Driver ${driver.id} at (${driver.location.lat},${driver.location.lng}) distance from pickup: ${dist.toFixed(2)} miles`);
                   return dist <= NEARBY_RADIUS_MILES;
-                } catch (distanceError: any) {
+                } catch (distanceError: FirebaseError) {
                   console.error('useNearbyDrivers: Error calculating distance for driver:', driver.id, distanceError);
                   return false;
                 }
@@ -140,7 +141,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
                               return { id: doc.id, ...data } as DriverMarker;
                             }
                             return null;
-                          } catch (docError: any) {
+                          } catch (docError: FirebaseError) {
                             console.error('useNearbyDrivers: Error processing fallback driver doc:', docError);
                             return null;
                           }
@@ -158,7 +159,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
                             );
                             console.log(`[useNearbyDrivers] (Fallback) Driver ${driver.id} at (${driver.location.lat},${driver.location.lng}) distance from pickup: ${dist.toFixed(2)} miles`);
                             return dist <= NEARBY_RADIUS_MILES;
-                          } catch (distanceError: any) {
+                          } catch (distanceError: FirebaseError) {
                             console.error('useNearbyDrivers: Error calculating fallback distance for driver:', driver.id, distanceError);
                             return false;
                           }
@@ -167,7 +168,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
                       setDrivers(fallbackDrivers);
                       setUsedFallback(true);
                       setLoading(false);
-                    } catch (fallbackSnapshotError: any) {
+                    } catch (fallbackSnapshotError: FirebaseError) {
                       console.error('useNearbyDrivers: Error processing fallback snapshot:', fallbackSnapshotError);
                       setError(`Fallback snapshot error: ${fallbackSnapshotError.message}`);
                       setLoading(false);
@@ -180,7 +181,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
                   }
                 );
                 return () => fallbackUnsub();
-              } catch (fallbackQueryError: any) {
+              } catch (fallbackQueryError: FirebaseError) {
                 console.error('useNearbyDrivers: Error creating fallback query:', fallbackQueryError);
                 setError(`Fallback query error: ${fallbackQueryError.message}`);
                 setLoading(false);
@@ -189,7 +190,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
               setDrivers(driverMarkers);
               setLoading(false);
             }
-          } catch (snapshotError: any) {
+          } catch (snapshotError: FirebaseError) {
             console.error('useNearbyDrivers: Error processing snapshot:', snapshotError);
             setError(`Snapshot processing error: ${snapshotError.message}`);
             setLoading(false);
@@ -201,7 +202,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
           setLoading(false);
         }
       );
-    } catch (onSnapshotError: any) {
+    } catch (onSnapshotError: FirebaseError) {
       console.error('useNearbyDrivers: Error setting up onSnapshot:', onSnapshotError);
       setError(`Snapshot setup error: ${onSnapshotError.message}`);
       setLoading(false);
@@ -211,7 +212,7 @@ export function useNearbyDrivers(pickupCoords?: { lat: number; lng: number }, op
       if (unsubscribe) {
         try {
           unsubscribe();
-        } catch (cleanupError: any) {
+        } catch (cleanupError: FirebaseError) {
           console.error('useNearbyDrivers: Error during cleanup:', cleanupError);
         }
       }

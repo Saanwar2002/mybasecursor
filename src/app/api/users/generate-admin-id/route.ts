@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { safeDoc } from '@/lib/firebase-utils';
+import { getDoc, setDoc } from 'firebase/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
 
 // Function to generate sequential admin ID
 async function generateSequentialAdminId(): Promise<string> {
-  const counterRef = doc(db, 'counters', 'adminId');
+  const counterRef = safeDoc('counters', 'adminId');
+  if (!counterRef) {
+    throw new Error('Database not available');
+  }
   
   try {
     // Get current counter

@@ -9,7 +9,7 @@ export interface Notification {
   type: NotificationType;
   title: string;
   body: string;
-  createdAt?: any;
+  createdAt?: Timestamp;
   read?: boolean;
   link?: string;
 }

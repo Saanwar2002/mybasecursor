@@ -9,7 +9,20 @@ const CreditAccountSchema = z.object({
   pin: z.string().length(6, { message: "PIN must be 6 digits" }).regex(/^\d{6}$/, { message: "PIN must be 6 digits" })
 });
 
-const creditAccounts: any[] = [
+interface CreditAccountData {
+  id: string;
+  accountHolderName: string;
+  associatedUserId?: string;
+  balance: number;
+  creditLimit: number;
+  status: string;
+  billingCycle: string;
+  pin: string;
+  createdAt: string;
+  lastBilledDate?: string;
+}
+
+const creditAccounts: CreditAccountData[] = [
   { id: "acc_1", accountHolderName: "Corporate Client A", balance: -150.75, creditLimit: 500, status: "Active", billingCycle: "Monthly", pin: "123456", createdAt: new Date(2023,0,15).toISOString() },
   { id: "acc_2", accountHolderName: "Regular VIP John Doe", associatedUserId: "user_vip_john", balance: 25.00, creditLimit: 200, status: "Active", billingCycle: "Fortnightly", pin: "654321", lastBilledDate: new Date(2023,9,20).toISOString(), createdAt: new Date(2023,2,10).toISOString() },
   { id: "acc_3", accountHolderName: "Hotel Partnership X", balance: -450.00, creditLimit: 1000, status: "Suspended", billingCycle: "Monthly", pin: "111111", createdAt: new Date(2022,11,1).toISOString() },

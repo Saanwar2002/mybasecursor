@@ -23,7 +23,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle as ShadDialogTitle, DialogDescription as ShadDialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/contexts/auth-context'; 
+import { useAuth } from '@/contexts/auth-context';
+import { Booking } from '../../../types/global'; 
 
 interface LocationPoint {
   address: string;
@@ -148,7 +149,7 @@ export default function OperatorManageRidesPage() {
       }
       const data = await response.json();
       
-      const fetchedRides = data.bookings.map((b: any) => ({
+      const fetchedRides = data.bookings.map((b: Booking) => ({
         id: b.id,
         displayBookingId: b.displayBookingId,
         originatingOperatorId: b.originatingOperatorId,

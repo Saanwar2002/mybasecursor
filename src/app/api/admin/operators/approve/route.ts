@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { getSafeDb, safeDoc } from '@/lib/firebase-utils';
+import { updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +10,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
+    const db = getSafeDb();
+    if (!db) {
+      return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
+    }
+
     // Get the user document
-    const userRef = doc(db, 'users', operatorUserId);
+    const userRef = safeDoc('users', operatorUserId);
+    if (!userRef) {
+      return NextResponse.json({ error: 'Database not available' }, { status: 500 });
+    }
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
@@ -38,7 +46,10 @@ export async function POST(request: NextRequest) {
         });
 
         // Create operator settings document
-        const operatorSettingsRef = doc(db, 'operatorSettings', operatorId);
+        const operatorSettingsRef = safeDoc('operatorSettings', operatorId);
+        if (!operatorSettingsRef) {
+          return NextResponse.json({ error: 'Database not available' }, { status: 500 });
+        }
         await setDoc(operatorSettingsRef, {
           autoDispatchEnabled: false, // Default to disabled
           operatorName: userData.companyName || userData.name,
@@ -91,7 +102,10 @@ export async function POST(request: NextRequest) {
 
 // Function to generate sequential operator ID
 async function generateSequentialOperatorId(): Promise<string> {
-  const counterRef = doc(db, 'counters', 'operatorId');
+  const counterRef = safeDoc('counters', 'operatorId');
+  if (!counterRef) {
+    throw new Error('Database not available');
+  }
   
   try {
     // Get current counter
@@ -114,7 +128,10 @@ async function generateSequentialOperatorId(): Promise<string> {
 
 // Function to generate sequential admin ID
 async function generateSequentialAdminId(): Promise<string> {
-  const counterRef = doc(db, 'counters', 'adminId');
+  const counterRef = safeDoc('counters', 'adminId');
+  if (!counterRef) {
+    throw new Error('Database not available');
+  }
   
   try {
     // Get current counter

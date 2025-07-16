@@ -81,7 +81,7 @@ export default function OperatorManageDriversPage() {
         throw new Error(errorData.message || `Failed to fetch drivers: ${response.status}`);
       }
       const data = await response.json();
-      const fetchedDrivers = (data.drivers || []).map((d: any) => ({
+      const fetchedDrivers = (data.drivers || []).map((d: { id: string; status?: string; [key: string]: unknown }) => ({
         ...d,
         status: d.status || 'Inactive' 
       }));
@@ -180,7 +180,7 @@ export default function OperatorManageDriversPage() {
   const handleDriverStatusUpdate = async (driverId: string, newStatus: Driver['status'], reason?: string) => {
     setActionLoading(prev => ({ ...prev, [driverId]: true }));
     try {
-        const payload: any = { status: newStatus };
+        const payload: { status: Driver['status']; statusReason?: string } = { status: newStatus };
         if (newStatus === 'Suspended' && reason) {
             payload.statusReason = reason;
         }
@@ -275,7 +275,7 @@ export default function OperatorManageDriversPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Bulk update failed');
-      toast({ title: 'Bulk Update Complete', description: `${data.results.filter((r: any) => r.success).length} succeeded, ${data.results.filter((r: any) => !r.success).length} failed.`, variant: 'default' });
+      toast({ title: 'Bulk Update Complete', description: `${data.results.filter((r: { success: boolean }) => r.success).length} succeeded, ${data.results.filter((r: { success: boolean }) => !r.success).length} failed.`, variant: 'default' });
       setSelectedDriverIds([]);
       fetchDrivers(null, 'filter');
     } catch (err) {

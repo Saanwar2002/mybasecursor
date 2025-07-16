@@ -87,7 +87,7 @@ function PlatformUsersContent() {
         if (!res.ok) return;
         const data = await res.json();
         const map: Record<string, string> = {};
-        (data.operators || []).forEach((op: any) => {
+        (data.operators || []).forEach((op: { operatorCode?: string; name?: string }) => {
           if (op.operatorCode && op.name) map[op.operatorCode] = op.name;
         });
         setOperatorMap(map);
@@ -202,7 +202,7 @@ function PlatformUsersContent() {
 
     setActionLoading(prev => ({ ...prev, [userIdToUpdate]: true }));
     try {
-        const payload: any = { status: newStatus };
+        const payload: { status: PlatformUser['status']; statusReason?: string } = { status: newStatus };
         if (newStatus === 'Suspended' && reason) {
             payload.statusReason = reason;
         }
@@ -244,7 +244,7 @@ function PlatformUsersContent() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Bulk update failed');
-      toast({ title: 'Bulk Update Complete', description: `${data.results.filter((r: any) => r.success).length} succeeded, ${data.results.filter((r: any) => !r.success).length} failed.`, variant: 'default' });
+      toast({ title: 'Bulk Update Complete', description: `${data.results.filter((r: { success: boolean }) => r.success).length} succeeded, ${data.results.filter((r: { success: boolean }) => !r.success).length} failed.`, variant: 'default' });
       setSelectedUserIds([]);
       fetchUsers(null, 'filter');
     } catch (err) {

@@ -73,7 +73,7 @@ export default function OperatorManageOperatorsPage() {
       
       const fetchedOperators = (data.operators || [])
         .filter((op: OperatorUser) => op.id !== currentAdminUser?.id) // Exclude self
-        .map((op: any) => ({
+        .map((op: { id: string; status?: string; [key: string]: unknown }) => ({
           ...op,
           status: op.status || 'Inactive'
         }));
@@ -137,7 +137,7 @@ export default function OperatorManageOperatorsPage() {
   const handleOperatorStatusUpdate = async (operatorId: string, newStatus: OperatorUser['status'], reason?: string) => {
     setActionLoading(prev => ({ ...prev, [operatorId]: true }));
     try {
-        const payload: any = { status: newStatus };
+        const payload: { status: OperatorUser['status']; statusReason?: string } = { status: newStatus };
         if (newStatus === 'Suspended' && reason) {
             payload.statusReason = reason;
         }

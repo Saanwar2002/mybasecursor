@@ -135,7 +135,7 @@ export default function RideSummaryPage() {
 
       const pickupWaitCharge = typeof bookingData.pickupWaitingCharge === 'number' ? bookingData.pickupWaitingCharge : 0;
       const stopWaitChargesValue = bookingData.completedStopWaitCharges && typeof bookingData.completedStopWaitCharges === 'object' 
-        ? Object.values(bookingData.completedStopWaitCharges).reduce((sum: number, charge: any) => sum + (typeof charge === 'number' ? charge : 0), 0) 
+        ? Object.values(bookingData.completedStopWaitCharges).reduce((sum: number, charge: unknown) => sum + (typeof charge === 'number' ? charge : 0), 0) 
         : 0;
       
       const calculatedFinalFare = baseFare + priorityFee + wrSurcharge + pickupWaitCharge + stopWaitChargesValue;
@@ -152,7 +152,7 @@ export default function RideSummaryPage() {
             address: bookingData.dropoffLocation?.address || "N/A",
             doorOrFlat: bookingData.dropoffLocation?.doorOrFlat
         },
-        stops: bookingData.stops?.map((s: any) => ({ address: s.address, doorOrFlat: s.doorOrFlat })) || [],
+        stops: bookingData.stops?.map((s: { address: string; doorOrFlat?: string }) => ({ address: s.address, doorOrFlat: s.doorOrFlat })) || [],
         fareEstimate: baseFare, // Store the original base fare
         paymentMethod: bookingData.paymentMethod,
         status: bookingData.status,

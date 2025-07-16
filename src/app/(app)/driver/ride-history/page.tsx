@@ -163,7 +163,7 @@ export default function DriverRideHistoryPage() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ridesData: DriverRide[] = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
-        const convertTS = (ts: any): SerializedTimestamp | null => {
+        const convertTS = (ts: unknown): SerializedTimestamp | null => {
           if (ts instanceof Timestamp) {
             return { _seconds: ts.seconds, _nanoseconds: ts.nanoseconds };
           }

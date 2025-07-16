@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth, UserRole } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Car, Loader2, PhoneOutcome, Briefcase, Shield, ShieldCheck } from "lucide-react"; 
+import { Car, Loader2, Briefcase, Shield, ShieldCheck } from "lucide-react"; 
 import React, { useState, useEffect, useRef } from "react";
 import { 
   createUserWithEmailAndPassword, 
@@ -80,12 +80,14 @@ const formSchema = z.object({
 
 type RegistrationStep = 'initial' | 'verifyingPhone';
 
+import { Timestamp, SerializedTimestamp, FirebaseError } from '../../types/global';
+
 interface UserProfile { 
   uid: string;
   name: string;
   email: string;
   role: UserRole;
-  createdAt: any; 
+  createdAt: Timestamp | SerializedTimestamp; 
   status: 'Active' | 'Pending Approval' | 'Suspended';
   customId?: string; 
   operatorCode?: string; 
@@ -149,7 +151,7 @@ export function RegisterForm() {
         }
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
           'size': 'invisible',
-          'callback': (response: any) => {
+          'callback': (response: string) => {
             console.log("reCAPTCHA solved:", response);
           },
           'expired-callback': () => {
@@ -167,7 +169,7 @@ export function RegisterForm() {
           console.error("Error rendering reCAPTCHA in useEffect:", err);
           toast({title: "reCAPTCHA Render Error", description: `Could not render reCAPTCHA: ${err.message}. Try refreshing.`, variant: "destructive"});
         });
-      } catch (e: any) {
+      } catch (e: FirebaseError) {
         console.error("Error initializing RecaptchaVerifier for registration:", e);
         toast({title: "reCAPTCHA Init Error", description: `Could not initialize reCAPTCHA: ${e.message}`, variant: "destructive"});
       }
@@ -192,8 +194,8 @@ export function RegisterForm() {
       .then(data => {
         setActiveOperators(
           (data.operators || [])
-            .filter((op: any) => op.operatorCode && op.name)
-            .map((op: any) => ({ operatorCode: op.operatorCode, name: op.name }))
+            .filter((op: { operatorCode?: string; name?: string }) => op.operatorCode && op.name)
+            .map((op: { operatorCode: string; name: string }) => ({ operatorCode: op.operatorCode, name: op.name }))
         );
       })
       .catch(() => setActiveOperators([]))
@@ -296,7 +298,7 @@ export function RegisterForm() {
             setConfirmationResult(confirmation);
             setRegistrationStep('verifyingPhone');
             setIsSubmitting(false);
-          } catch (phoneError: any) {
+          } catch (phoneError: FirebaseError) {
             console.error("Error sending phone verification code:", phoneError);
             toast({ title: "Phone Verification Failed", description: `Could not send verification code: ${phoneError.message || phoneError}`, variant: "destructive", duration: 7000 });
             // Even if phone fails, proceed to login
@@ -321,7 +323,7 @@ export function RegisterForm() {
           toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''} ${values.role === 'admin' || values.role === 'operator' ? 'Your account is pending approval. You will be notified once approved.' : ''}` });
           setIsSubmitting(false);
         }
-      } catch (error: any) {
+      } catch (error: FirebaseError) {
         handleRegistrationError(error);
         setIsSubmitting(false);
         setFirebaseUserForLinking(null);
@@ -373,14 +375,14 @@ export function RegisterForm() {
             finalProfile?.driverIdentifier
         );
         setIsSubmitting(false);
-      } catch (error: any) {
+      } catch (error: FirebaseError) {
         handleRegistrationError(error);
         setIsSubmitting(false);
       }
     }
   }
 
-  function handleRegistrationError(error: any) {
+  function handleRegistrationError(error: FirebaseError) {
     let errorMessage = "An unknown error occurred during registration.";
     if (error.code) {
       switch (error.code) {

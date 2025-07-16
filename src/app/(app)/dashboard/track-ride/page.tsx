@@ -1109,7 +1109,7 @@ export default function MyActiveRidePage() {
                 {/* Timeout countdown for queued bookings */}
                 {activeRide.status === 'pending_assignment' && timeoutCountdown !== null && timeoutCountdown > 0 && (
                   <Alert variant="default" className="bg-orange-100 dark:bg-orange-800/30 border-orange-400 dark:border-orange-600 text-orange-700 dark:text-orange-300">
-                    <Timer className="h-4 w-4 text-current" />
+                    <Clock className="h-4 w-4 text-current" />
                     <ShadAlertTitle className="font-semibold text-current text-sm">
                       Driver Search Timeout
                     </ShadAlertTitle>

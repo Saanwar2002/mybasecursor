@@ -12,7 +12,12 @@ const DialogTrigger = DialogPrimitive.Trigger
 
 const DialogPortal = DialogPrimitive.Portal
 
-const DebugDialogClose = React.forwardRef(function DebugDialogClose(props: any, ref) {
+interface DialogProps {
+  children?: React.ReactNode;
+  [key: string]: unknown;
+}
+
+const DebugDialogClose = React.forwardRef<HTMLButtonElement, DialogProps>(function DebugDialogClose(props, ref) {
   const child = props.children;
   if (Array.isArray(child)) {
     console.error('DialogClose asChild received an array:', child);
@@ -130,7 +135,7 @@ const DialogDescription = React.forwardRef<
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 
 // Debug wrapper for asChild components
-function debugAsChild(name: string, props: any) {
+function debugAsChild(name: string, props: DialogProps) {
   const child = props.children;
   if (Array.isArray(child)) {
     console.error(`${name} asChild received an array:`, child);
@@ -139,32 +144,32 @@ function debugAsChild(name: string, props: any) {
   }
 }
 
-const DebugDialogTrigger = React.forwardRef(function DebugDialogTrigger(props: any, ref) {
+const DebugDialogTrigger = React.forwardRef<HTMLButtonElement, DialogProps>(function DebugDialogTrigger(props, ref) {
   debugAsChild('DialogTrigger', props);
   return <DialogPrimitive.Trigger ref={ref} {...props}>{props.children}</DialogPrimitive.Trigger>;
 });
 
-const DebugDialogContent = React.forwardRef(function DebugDialogContent(props: any, ref) {
+const DebugDialogContent = React.forwardRef<HTMLDivElement, DialogProps>(function DebugDialogContent(props, ref) {
   debugAsChild('DialogContent', props);
   return <DialogPrimitive.Content ref={ref} {...props}>{props.children}</DialogPrimitive.Content>;
 });
 
-const DebugDialogHeader = (props: any) => {
+const DebugDialogHeader = (props: DialogProps) => {
   debugAsChild('DialogHeader', props);
   return <div {...props}>{props.children}</div>;
 };
 
-const DebugDialogFooter = (props: any) => {
+const DebugDialogFooter = (props: DialogProps) => {
   debugAsChild('DialogFooter', props);
   return <div {...props}>{props.children}</div>;
 };
 
-const DebugDialogTitle = React.forwardRef(function DebugDialogTitle(props: any, ref) {
+const DebugDialogTitle = React.forwardRef<HTMLHeadingElement, DialogProps>(function DebugDialogTitle(props, ref) {
   debugAsChild('DialogTitle', props);
   return <DialogPrimitive.Title ref={ref} {...props}>{props.children}</DialogPrimitive.Title>;
 });
 
-const DebugDialogDescription = React.forwardRef(function DebugDialogDescription(props: any, ref) {
+const DebugDialogDescription = React.forwardRef<HTMLParagraphElement, DialogProps>(function DebugDialogDescription(props, ref) {
   debugAsChild('DialogDescription', props);
   return <DialogPrimitive.Description ref={ref} {...props}>{props.children}</DialogPrimitive.Description>;
 });

@@ -28,6 +28,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { collection, query, where, onSnapshot, deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { SupportTicket } from "@/types/global";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,7 @@ export default function DriverHelpSupportPage() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [ticketsLoading, setTicketsLoading] = useState(true);
-  const [tickets, setTickets] = useState([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
 
   const form = useForm<FeedbackFormValues>({
     resolver: zodResolver(feedbackFormSchema),
@@ -139,6 +140,9 @@ export default function DriverHelpSupportPage() {
 
   async function handleDeleteTicket(ticketId: string) {
     try {
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
       await deleteDoc(doc(db, "userFeedback", ticketId));
       toast({ title: "Ticket Deleted", description: `Your ticket has been deleted.` });
     } catch (error) {

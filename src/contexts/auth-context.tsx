@@ -6,7 +6,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { auth, db } from '@/lib/firebase'; 
 import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, signOut } from 'firebase/auth'; 
 import { doc, getDoc, Timestamp } from 'firebase/firestore'; 
-import { useToast } from '@/hooks/use-toast'; 
+import { useToast } from '@/hooks/use-toast';
+import { ActiveRide, FirebaseError } from '../types/global'; 
 
 export type UserRole = 'passenger' | 'driver' | 'operator' | 'admin';
 
@@ -56,6 +57,9 @@ interface AuthContextType {
   loading: boolean;
   updateUserProfileInContext: (updatedProfileData: Partial<User>) => void;
   phoneVerificationRequired: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  setActiveRide: (ride: ActiveRide | null) => void;
+  setIsPollingEnabled: (enabled: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -217,7 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email}`);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       console.log("AuthContext.loginWithEmail: signInWithEmailAndPassword SUCCESS for UID:", userCredential.user.uid);
-    } catch (error: any) {
+    } catch (error: FirebaseError) {
       setLoading(false);
       console.error("AuthContext.loginWithEmail CAUGHT ERROR. Code:", error.code, "Message:", error.message);
       let specificErrorMessage = "An unexpected login error occurred.";
@@ -400,6 +404,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user, loading, router, pathname]);
 
 
+  // Add missing functions for compatibility
+  const login = loginWithEmail; // Alias for compatibility
+  const setActiveRide = (ride: ActiveRide | null) => {
+    // This function can be implemented based on your needs
+    console.log('setActiveRide called with:', ride);
+  };
+  const setIsPollingEnabled = (enabled: boolean) => {
+    // This function can be implemented based on your needs
+    console.log('setIsPollingEnabled called with:', enabled);
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -409,6 +424,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       loading,
       updateUserProfileInContext,
       phoneVerificationRequired,
+      login,
+      setActiveRide,
+      setIsPollingEnabled,
     }}>
       {children}
     </AuthContext.Provider>

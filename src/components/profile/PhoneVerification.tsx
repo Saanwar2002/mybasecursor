@@ -4,6 +4,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import { FirebaseError } from '../../types/global';
 
 export default function PhoneVerification() {
   const { user } = useAuth();
@@ -30,7 +31,7 @@ export default function PhoneVerification() {
       const result = await signInWithPhoneNumber(auth, phone, appVerifier);
       setConfirmationResult(result);
       setStatus('sent');
-    } catch (err: any) {
+    } catch (err: FirebaseError) {
       setError(err.message);
       setStatus('error');
     }
@@ -43,7 +44,7 @@ export default function PhoneVerification() {
       if (confirmationResult) {
         await confirmationResult.confirm(code);
         // Update Firestore profile
-        if (user) {
+        if (user && db) {
           await updateDoc(doc(db, 'users', user.id), {
             phoneNumber: phone,
             phoneVerified: true,
@@ -53,7 +54,7 @@ export default function PhoneVerification() {
         setStatus('verified');
         setEditing(false);
       }
-    } catch (err: any) {
+    } catch (err: FirebaseError) {
       setError(err.message);
       setStatus('error');
     }

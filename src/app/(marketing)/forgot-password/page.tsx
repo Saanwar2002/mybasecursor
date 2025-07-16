@@ -22,6 +22,9 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
     try {
+      if (!auth) {
+        throw new Error('Authentication not initialized');
+      }
       await sendPasswordResetEmail(auth, email);
       setSuccess("A password reset email has been sent if the address exists in our system.");
     } catch (err: any) {

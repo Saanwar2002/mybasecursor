@@ -99,7 +99,7 @@ export default function OperatorOperationalSettingsPage() {
     }
   }, [user, fetchOperationalSettings, fetchDispatchSettings]);
 
-  const handleSaveSetting = async (settingKey: keyof OperationalSettingsData, value: any, settingType: 'toggle' | 'value') => {
+  const handleSaveSetting = async (settingKey: keyof OperationalSettingsData, value: string | number | boolean, settingType: 'toggle' | 'value') => {
     if (!user?.operatorCode) {
       toast({ title: "Error", description: "Operator details not found. Cannot save setting.", variant: "destructive" });
       return;

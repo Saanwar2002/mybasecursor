@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { getSafeDb, safeCollection } from '@/lib/firebase-utils';
+import { query, where, getDocs } from 'firebase/firestore';
 
 export async function GET(request: NextRequest) {
   try {
+    const db = getSafeDb();
+    if (!db) {
+      return NextResponse.json({ error: 'Database not initialized' }, { status: 500 });
+    }
+
     // Query for all pending operators and admins
-    const usersRef = collection(db, 'users');
+    const usersRef = safeCollection('users');
+    if (!usersRef) {
+      return NextResponse.json({ error: 'Database not available' }, { status: 500 });
+    }
     const q = query(
       usersRef,
       where('role', 'in', ['operator', 'admin']),

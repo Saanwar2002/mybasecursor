@@ -17,18 +17,18 @@ interface FavoriteLocationDoc {
   createdAt: Timestamp; // Firestore Timestamp on server
 }
 
-function deepSerialize(obj: any): any {
+function deepSerialize(obj: unknown): unknown {
   if (obj == null) return obj;
   if (Array.isArray(obj)) return obj.map(deepSerialize);
   if (typeof obj === 'object') {
     // Firestore Timestamp check (Admin SDK)
-    if (obj.constructor && obj.constructor.name === 'Timestamp' && 'seconds' in obj && 'nanoseconds' in obj) {
-      return { _seconds: obj.seconds, _nanoseconds: obj.nanoseconds };
+    if (obj && 'constructor' in obj && obj.constructor && 'name' in obj.constructor && obj.constructor.name === 'Timestamp' && 'seconds' in obj && 'nanoseconds' in obj) {
+      return { _seconds: (obj as any).seconds, _nanoseconds: (obj as any).nanoseconds };
     }
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        result[key] = deepSerialize(obj[key]);
+        result[key] = deepSerialize((obj as Record<string, unknown>)[key]);
       }
     }
     return result;

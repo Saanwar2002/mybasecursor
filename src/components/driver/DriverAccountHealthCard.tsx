@@ -4,13 +4,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone, ThumbsUp, AlertCircle as AlertCircleIcon, Loader2 } from "lucide-react"; // Added Loader2
+import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone, ThumbsUp, AlertCircle as AlertCircleIcon, Loader2, Briefcase } from "lucide-react"; // Added Loader2
 import { Progress } from "@/components/ui/progress"; 
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import ShadCN Alert components
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useEffect, useState } from "react";
+import { CreditAccount } from "../../types/global";
 
 
 interface HealthMetricProps {
@@ -89,7 +90,7 @@ export function DriverAccountHealthCard() {
         setCreditAccountLoading(true);
         const accountsRes = await fetch(`/api/operator/credit-accounts`);
         const accountsData = await accountsRes.json();
-        const myAccount = accountsData.accounts.find((acc: any) => acc.associatedUserId === user.id);
+        const myAccount = accountsData.accounts.find((acc: CreditAccount) => acc.associatedUserId === user.id);
         if (myAccount) {
           setCreditAccount({ balance: myAccount.balance, creditLimit: myAccount.creditLimit });
         } else {
@@ -178,7 +179,7 @@ export function DriverAccountHealthCard() {
           <div className="flex items-center justify-center h-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : creditAccount ? (
           <div className="flex flex-col items-center mb-2">
-            <span className="text-xs text-muted-foreground flex items-center gap-1"><Briefcase className="w-4 h-4 text-purple-700" />Credit Account Balance</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-1"><CreditCard className="w-4 h-4 text-purple-700" />Credit Account Balance</span>
             <span className={`text-lg font-bold ${creditAccount.balance < 0 ? 'text-red-600' : creditAccount.balance < 0.2 * creditAccount.creditLimit ? 'text-yellow-600' : 'text-green-700'}`}>£{creditAccount.balance.toFixed(2)}</span>
             {creditAccount.balance < 0 ? (
               <Badge variant="destructive" className="mt-1 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Over Limit</Badge>

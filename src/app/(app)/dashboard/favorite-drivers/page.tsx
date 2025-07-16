@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { FirebaseError } from '../../../types/global';
 
 interface FavoriteDriver {
   id: string;
@@ -42,7 +43,7 @@ export default function FavoriteDriversPage() {
         title: 'Driver Removed',
         description: 'The driver has been removed from your favorites.',
       });
-    } catch (err: any) {
+    } catch (err: FirebaseError) {
       toast({
         title: 'Error',
         description: 'Failed to remove favorite driver.',

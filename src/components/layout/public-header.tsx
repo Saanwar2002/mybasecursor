@@ -27,9 +27,16 @@ export function PublicHeader() {
 
 // Helper, assuming Button component exists as used in the original context
 // If not, replace <Button> with a styled <Link> or <a>
-const Button = ({ children, asChild, size, ...props }: any) => {
+interface ButtonProps {
+  children: React.ReactNode;
+  asChild?: boolean;
+  size?: string;
+  [key: string]: unknown;
+}
+
+const Button = ({ children, asChild, size, ...props }: ButtonProps) => {
   if (asChild) {
-    return React.cloneElement(children, props);
+    return React.cloneElement(children as React.ReactElement, props);
   }
   // Basic button styling, adapt as needed or import your actual Button
   const sizeClasses = size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm';

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
+import { FirebaseError } from '../types/global';
 
 // Fallback Firebase configuration (using user-confirmed working key for Maps as API key fallback)
 const FALLBACK_API_KEY = "AIzaSyAEnaOlXAGlkox-wpOOER7RUPhd8iWKhg4";
@@ -77,14 +78,14 @@ if (firebaseConfigError) {
           if (db) {
             // Set up error handling for Firestore
             const originalOnError = (db as any).app.options.onError;
-            (db as any).app.options.onError = (error: any) => {
+            (db as any).app.options.onError = (error: FirebaseError) => {
               console.error("Firestore internal error caught:", error);
               if (originalOnError) {
                 originalOnError(error);
               }
             };
           }
-        } catch (dbError: any) {
+        } catch (dbError: FirebaseError) {
           console.error("CRITICAL: Failed to initialize Firestore (db). Error Code:", dbError.code, "Message:", dbError.message);
           // db remains null (already initialized to null above)
         }
@@ -92,7 +93,7 @@ if (firebaseConfigError) {
         try {
           auth = getAuth(app);
           console.log("Firebase Auth instance obtained successfully.");
-        } catch (authError: any) {
+        } catch (authError: FirebaseError) {
           console.error("CRITICAL: Failed to initialize Firebase Auth. Error Code:", authError.code, "Message:", authError.message);
           // auth remains null (already initialized to null above)
         }
@@ -100,7 +101,7 @@ if (firebaseConfigError) {
         console.error("CRITICAL: Firebase app object is null after initialization/retrieval attempt. 'db' and 'auth' will be null.");
         // db and auth remain null (already initialized to null above)
     }
-  } catch (initError: any) {
+  } catch (initError: FirebaseError) {
     console.error("CRITICAL: Firebase app initializeApp() FAILED. Error Code:", initError.code, "Message:", initError.message);
     // Ensure db and auth are null on any init error
     app = null; 

@@ -235,7 +235,7 @@ export default function OperatorDashboardPage() {
     acc + category.items.filter(item => !item.completed && item.priority === 'high').length, 0);
 
   useEffect(() => {
-    if (!user?.operatorCode) return;
+    if (!user?.operatorCode || !db) return;
 
     const q = query(
       collection(db, 'mapHazards'),
@@ -254,7 +254,7 @@ export default function OperatorDashboardPage() {
           id: 'emergencies',
           name: 'Emergencies',
           icon: AlertTriangle,
-          items: emergencies.map((emergency: any) => ({
+          items: emergencies.map((emergency: { id: string; details?: string }) => ({
             id: emergency.id,
             label: emergency.details || 'New emergency reported',
             completed: false,

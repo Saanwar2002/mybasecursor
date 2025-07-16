@@ -40,6 +40,12 @@ export default function OperatorSupportTicketsPage() {
     async function fetchTickets() {
       setIsLoading(true);
       try {
+        if (!db) {
+          console.error('Database not initialized');
+          setTickets([]);
+          setIsLoading(false);
+          return;
+        }
         const querySnapshot = await getDocs(collection(db, 'userFeedback'));
         const fetchedTickets: SupportTicket[] = querySnapshot.docs.map(doc => {
           const data = doc.data();

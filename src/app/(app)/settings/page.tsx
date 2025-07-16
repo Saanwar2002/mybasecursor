@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, Layers, Info, Route, CreditCard, Coins, Save } from "lucide-react"; 
+import { Settings, Bell, Palette, Lock, HelpCircle, Dog, UserX, Car as CarIcon, Briefcase, UserCircle as UserCircleIcon, Trash2, AlertTriangle, Loader2, Layers, Info, Route, CreditCard, Coins, Save, ShieldCheck } from "lucide-react"; 
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, UserRole, User, PLATFORM_OPERATOR_CODE } from "@/contexts/auth-context"; 
@@ -146,7 +146,7 @@ export default function SettingsPage() {
       case 'passenger': return <UserCircleIcon className="w-4 h-4 inline mr-1 text-muted-foreground" />;
       case 'driver': return <CarIcon className="w-4 h-4 inline mr-1 text-muted-foreground" />;
       case 'operator': return <Briefcase className="w-4 h-4 inline mr-1 text-muted-foreground" />;
-      case 'admin': return <Shield className="w-4 h-4 inline mr-1 text-muted-foreground" />;
+      case 'admin': return <ShieldCheck className="w-4 h-4 inline mr-1 text-muted-foreground" />;
       default: return <UserCircleIcon className="w-4 h-4 inline mr-1 text-muted-foreground" />;
     }
   };
