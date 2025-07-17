@@ -463,12 +463,12 @@ function PlatformUsersContent() {
                         {actionLoading[userToList.id] ? (<Loader2 className="h-5 w-5 animate-spin inline-block" />) : (
                             <>
                                 {userToList.id !== currentAdminUser?.id && userToList.role !== 'admin' && userToList.status === 'Pending Approval' && (
-                                    <Button variant="outline" size="xs" className="h-7 px-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" title="Approve User" onClick={() => handleUserStatusUpdate(userToList.id, userToList.role, 'Active')}>
+                                    <Button variant="outline" size="sm" className="h-7 px-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white" title="Approve User" onClick={() => handleUserStatusUpdate(userToList.id, userToList.role, 'Active')}>
                                         <CheckCircle className="h-3.5 w-3.5"/> <span className="ml-1 hidden sm:inline">Approve</span>
                                     </Button>
                                 )}
                                 {userToList.id !== currentAdminUser?.id && (isSuperAdmin || userToList.role !== 'admin') && userToList.status === 'Active' && (
-                                    <Button variant="outline" size="xs" className="h-7 px-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white" title="Suspend User" onClick={() => {
+                                    <Button variant="outline" size="sm" className="h-7 px-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white" title="Suspend User" onClick={() => {
                                         const reason = prompt("Reason for suspension (optional):");
                                         handleUserStatusUpdate(userToList.id, userToList.role, 'Suspended', reason || undefined);
                                     }}>
@@ -476,7 +476,7 @@ function PlatformUsersContent() {
                                     </Button>
                                 )}
                                  {userToList.id !== currentAdminUser?.id && (isSuperAdmin || userToList.role !== 'admin') && (userToList.status === 'Inactive' || userToList.status === 'Suspended') && (
-                                    <Button variant="outline" size="xs" className="h-7 px-2 border-sky-500 text-sky-500 hover:bg-sky-500 hover:text-white" title="Activate User" onClick={() => handleUserStatusUpdate(userToList.id, userToList.role, 'Active')}>
+                                    <Button variant="outline" size="sm" className="h-7 px-2 border-sky-500 text-sky-500 hover:bg-sky-500 hover:text-white" title="Activate User" onClick={() => handleUserStatusUpdate(userToList.id, userToList.role, 'Active')}>
                                         <UserPlus className="h-3.5 w-3.5"/> <span className="ml-1 hidden sm:inline">Activate</span>
                                     </Button>
                                 )}

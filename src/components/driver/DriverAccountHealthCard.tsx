@@ -4,7 +4,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone, ThumbsUp, AlertCircle as AlertCircleIcon, Loader2, Briefcase } from "lucide-react"; // Added Loader2
+import { Activity, Star, TrendingUp, CheckCircle, AlertTriangle, MessageSquareQuote, ArrowRight, ShieldCheck, UserX, TrafficCone, ThumbsUp, AlertCircle as AlertCircleIcon, Loader2, Briefcase, CreditCard } from "lucide-react"; // Added Loader2
 import { Progress } from "@/components/ui/progress"; 
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import ShadCN Alert components
@@ -67,7 +67,7 @@ export function DriverAccountHealthCard() {
         const rides = Array.isArray(ridesData) ? ridesData : ridesData.rides || [];
         // Compute metrics
         let completed = 0, accepted = 0, total = 0, ratingSum = 0, ratingCount = 0;
-        rides.forEach(ride => {
+        rides.forEach((ride: any) => {
           if (ride.status === "completed") completed++;
           if (ride.status === "completed" || ride.status === "cancelled_by_passenger" || ride.status === "cancelled_no_show") accepted++;
           total++;

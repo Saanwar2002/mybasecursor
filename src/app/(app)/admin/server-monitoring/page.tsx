@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ServerCog, Zap, Cpu, AlertTriangle, BarChart2, Link as LinkIcon, ExternalLink } from "lucide-react";
+import { ServerCog, Zap, Cpu, AlertTriangle, BarChart2, Link as LinkIcon, ExternalLink, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface MetricCardProps {

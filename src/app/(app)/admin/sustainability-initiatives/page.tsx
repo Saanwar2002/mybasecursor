@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Leaf, TrendingUp, Zap, Recycle, Lightbulb, Info, Edit, CheckCircle, CircleEllipsis } from "lucide-react";
+import { Leaf, TrendingUp, Zap, Recycle, Lightbulb, Info, Edit, CheckCircle, CircleEllipsis, PlusCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";

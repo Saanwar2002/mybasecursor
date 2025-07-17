@@ -221,7 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log(`AuthContext.loginWithEmail: Attempting signInWithEmailAndPassword for ${email}`);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       console.log("AuthContext.loginWithEmail: signInWithEmailAndPassword SUCCESS for UID:", userCredential.user.uid);
-    } catch (error: FirebaseError) {
+    } catch (error: any) {
       setLoading(false);
       console.error("AuthContext.loginWithEmail CAUGHT ERROR. Code:", error.code, "Message:", error.message);
       let specificErrorMessage = "An unexpected login error occurred.";

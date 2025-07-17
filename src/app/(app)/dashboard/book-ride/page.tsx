@@ -2022,7 +2022,7 @@ const handleProceedToConfirmation = async () => {
       const averageSpeedKmh = 20; // You can adjust this value as needed
       const averageSpeedKmMin = averageSpeedKmh / 60;
       // Haversine formula in km
-      function getDistanceInKm(coord1, coord2) {
+      function getDistanceInKm(coord1: {lat: number, lng: number}, coord2: {lat: number, lng: number}): number {
         const R = 6371;
         const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
         const dLon = (coord2.lng - coord1.lng) * Math.PI / 180;

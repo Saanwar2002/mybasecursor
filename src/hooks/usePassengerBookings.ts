@@ -95,7 +95,7 @@ export function usePassengerBookings(userId: string | undefined | null, statusFi
           orderBy('bookingTimestamp', 'desc')
         );
       }
-    } catch (queryError: FirebaseError) {
+    } catch (queryError: any) {
       console.error('usePassengerBookings: Error creating query:', queryError);
       setError(`Query error: ${queryError.message}`);
       setLoading(false);
@@ -113,7 +113,7 @@ export function usePassengerBookings(userId: string | undefined | null, statusFi
             setBookings(rides);
             setLoading(false);
             setError(null);
-          } catch (snapshotError: FirebaseError) {
+          } catch (snapshotError: any) {
             console.error('usePassengerBookings: Error processing snapshot:', snapshotError);
             setError(`Snapshot processing error: ${snapshotError.message}`);
             setLoading(false);
@@ -125,7 +125,7 @@ export function usePassengerBookings(userId: string | undefined | null, statusFi
           setLoading(false);
         }
       );
-    } catch (onSnapshotError: FirebaseError) {
+    } catch (onSnapshotError: any) {
       console.error('usePassengerBookings: Error setting up onSnapshot:', onSnapshotError);
       setError(`Snapshot setup error: ${onSnapshotError.message}`);
       setLoading(false);
@@ -135,7 +135,7 @@ export function usePassengerBookings(userId: string | undefined | null, statusFi
       if (unsubscribe) {
         try {
           unsubscribe();
-        } catch (cleanupError: FirebaseError) {
+        } catch (cleanupError: any) {
           console.error('usePassengerBookings: Error during cleanup:', cleanupError);
         }
       }

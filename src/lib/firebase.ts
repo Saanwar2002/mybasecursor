@@ -85,7 +85,7 @@ if (firebaseConfigError) {
               }
             };
           }
-        } catch (dbError: FirebaseError) {
+        } catch (dbError: any) {
           console.error("CRITICAL: Failed to initialize Firestore (db). Error Code:", dbError.code, "Message:", dbError.message);
           // db remains null (already initialized to null above)
         }
@@ -93,7 +93,7 @@ if (firebaseConfigError) {
         try {
           auth = getAuth(app);
           console.log("Firebase Auth instance obtained successfully.");
-        } catch (authError: FirebaseError) {
+        } catch (authError: any) {
           console.error("CRITICAL: Failed to initialize Firebase Auth. Error Code:", authError.code, "Message:", authError.message);
           // auth remains null (already initialized to null above)
         }
@@ -101,7 +101,7 @@ if (firebaseConfigError) {
         console.error("CRITICAL: Firebase app object is null after initialization/retrieval attempt. 'db' and 'auth' will be null.");
         // db and auth remain null (already initialized to null above)
     }
-  } catch (initError: FirebaseError) {
+  } catch (initError: any) {
     console.error("CRITICAL: Firebase app initializeApp() FAILED. Error Code:", initError.code, "Message:", initError.message);
     // Ensure db and auth are null on any init error
     app = null; 

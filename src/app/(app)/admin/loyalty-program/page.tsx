@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Star, Gift, Users, TrendingUp, AlertTriangle, CheckCircle, Edit, Save } from "lucide-react";
+import { Star, Gift, Users, TrendingUp, AlertTriangle, CheckCircle, Edit, Save, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

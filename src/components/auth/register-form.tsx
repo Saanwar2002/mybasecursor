@@ -169,7 +169,7 @@ export function RegisterForm() {
           console.error("Error rendering reCAPTCHA in useEffect:", err);
           toast({title: "reCAPTCHA Render Error", description: `Could not render reCAPTCHA: ${err.message}. Try refreshing.`, variant: "destructive"});
         });
-      } catch (e: FirebaseError) {
+      } catch (e: any) {
         console.error("Error initializing RecaptchaVerifier for registration:", e);
         toast({title: "reCAPTCHA Init Error", description: `Could not initialize reCAPTCHA: ${e.message}`, variant: "destructive"});
       }
@@ -298,7 +298,7 @@ export function RegisterForm() {
             setConfirmationResult(confirmation);
             setRegistrationStep('verifyingPhone');
             setIsSubmitting(false);
-          } catch (phoneError: FirebaseError) {
+          } catch (phoneError: any) {
             console.error("Error sending phone verification code:", phoneError);
             toast({ title: "Phone Verification Failed", description: `Could not send verification code: ${phoneError.message || phoneError}`, variant: "destructive", duration: 7000 });
             // Even if phone fails, proceed to login
@@ -323,7 +323,7 @@ export function RegisterForm() {
           toast({ title: "Registration Successful!", description: `Welcome, ${values.name}! Your MyBase account as a ${values.role} has been created. ${values.role === 'driver' ? `Your assigned driver suffix (mock) is ${userProfile.driverIdentifier}.` : ''} ${values.role === 'admin' || values.role === 'operator' ? 'Your account is pending approval. You will be notified once approved.' : ''}` });
           setIsSubmitting(false);
         }
-      } catch (error: FirebaseError) {
+      } catch (error: any) {
         handleRegistrationError(error);
         setIsSubmitting(false);
         setFirebaseUserForLinking(null);
@@ -375,7 +375,7 @@ export function RegisterForm() {
             finalProfile?.driverIdentifier
         );
         setIsSubmitting(false);
-      } catch (error: FirebaseError) {
+      } catch (error: any) {
         handleRegistrationError(error);
         setIsSubmitting(false);
       }

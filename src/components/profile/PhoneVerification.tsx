@@ -31,7 +31,7 @@ export default function PhoneVerification() {
       const result = await signInWithPhoneNumber(auth, phone, appVerifier);
       setConfirmationResult(result);
       setStatus('sent');
-    } catch (err: FirebaseError) {
+    } catch (err: any) {
       setError(err.message);
       setStatus('error');
     }
@@ -54,7 +54,7 @@ export default function PhoneVerification() {
         setStatus('verified');
         setEditing(false);
       }
-    } catch (err: FirebaseError) {
+    } catch (err: any) {
       setError(err.message);
       setStatus('error');
     }
