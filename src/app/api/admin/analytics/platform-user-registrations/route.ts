@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 // import { db } from '@/lib/firebase'; // Uncomment when using real data
 // import { collection, query, where, Timestamp, getCountFromServer } from 'firebase/firestore';
 import { z } from 'zod';
-import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns';
+import { subMonths, format } from 'date-fns';
 
 const querySchema = z.object({
   months: z.coerce.number().int().min(1).max(24).optional().default(6),

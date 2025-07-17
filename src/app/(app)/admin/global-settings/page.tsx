@@ -1,7 +1,7 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Settings, AlertTriangle, DollarSign, Loader2, Save, Users, Briefcase, Globe, Landmark, Zap } from "lucide-react"; // Added Zap for Feature Toggles
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Settings, AlertTriangle, Loader2, Save, Users, Briefcase, Globe, Zap } from "lucide-react"; // Added Zap for Feature Toggles
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,7 +66,7 @@ export default function AdminGlobalSettingsPage() {
   const [errorCommission, setErrorCommission] = useState<string | null>(null);
 
   // General Settings States
-  const [generalSettingsData, setGeneralSettingsData] = useState<GeneralSettingsData | null>(null);
+
   const [isLoadingGeneral, setIsLoadingGeneral] = useState(true);
   const [isSavingGeneral, setIsSavingGeneral] = useState(false);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
@@ -126,7 +126,6 @@ export default function AdminGlobalSettingsPage() {
         throw new Error(errData.message);
       }
       const data: GeneralSettingsData = await response.json();
-      setGeneralSettingsData(data);
       generalSettingsForm.reset({
         defaultCurrency: data.defaultCurrency,
         platformMinimumFare: data.platformMinimumFare,

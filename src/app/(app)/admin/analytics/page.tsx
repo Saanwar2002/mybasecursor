@@ -1,11 +1,11 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, TrendingUp, Users, Car as CarIcon, DollarSign, AlertTriangle, Loader2, Users2, Building, Shield, Lightbulb, BrainCircuit } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Car as CarIcon, DollarSign, AlertTriangle, Loader2, Users2, Building, Shield, BrainCircuit } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { format, subDays, subMonths } from 'date-fns';
+
 
 interface PlatformSummaryStats {
   totalUsers: number;
@@ -212,7 +212,7 @@ export default function AdminAnalyticsPage() {
   );
 }
 
-const Loader2Icon = () => <Loader2 className="h-5 w-5 animate-spin" />;
+
 
 interface StatCardProps {
     title: string;

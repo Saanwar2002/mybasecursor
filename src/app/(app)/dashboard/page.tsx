@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, MapPin, Sparkles, History, MessageCircle, Cog, Users2, CheckCircle2, Smile, DollarSign as DollarSignIcon, Building } from 'lucide-react';
+import { Car, MapPin, Sparkles, History, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState, useEffect, useMemo } from 'react'; // Added useMemo
+import { useState, useEffect } from 'react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

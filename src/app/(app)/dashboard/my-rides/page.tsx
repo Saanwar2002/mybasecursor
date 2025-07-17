@@ -1,10 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Star, Car, Calendar as CalendarIconLucide, MapPin, DollarSign, Loader2, AlertTriangle, Trash2, Edit, Clock, PlusCircle, XCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, UserX, UserCircle, CalendarDays } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Star, MapPin, Loader2, AlertTriangle, UserX, UserCircle, CalendarDays } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 import { useAuth, UserRole } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';

@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Building, Users, BarChart3, Settings, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useState, useEffect } from 'react';

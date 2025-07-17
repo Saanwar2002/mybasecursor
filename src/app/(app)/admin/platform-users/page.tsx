@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserPlus, Edit, Filter, Search, Loader2, AlertTriangle, CheckCircle, XCircle, ShieldAlert, Eye, Shield, Briefcase, Car as CarIcon } from "lucide-react"; // Added CarIcon
+import { Users, UserPlus, Filter, Search, Loader2, AlertTriangle, CheckCircle, ShieldAlert, Eye, Shield, Briefcase, Car as CarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,7 +15,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DateRange } from 'react-day-picker';
-import { addDays } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const SUPER_ADMIN_UID = "qWDHrEVDBfWu3A2F5qY6N9tGgnI3";

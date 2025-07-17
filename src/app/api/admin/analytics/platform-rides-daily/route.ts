@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 // import { db } from '@/lib/firebase'; // Uncomment when using real data
 // import { collection, query, where, Timestamp, getCountFromServer } from 'firebase/firestore';
 import { z } from 'zod';
-import { subDays, format, startOfDay, endOfDay } from 'date-fns';
+import { subDays, format } from 'date-fns';
 
 const querySchema = z.object({
   days: z.coerce.number().int().min(1).max(90).optional().default(30),

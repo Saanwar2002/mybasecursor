@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Send, MessageCircle, X, Loader2 } from "lucide-react";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/auth-context';
 import { useChatUsers, ChatUser } from '@/hooks/useChatUsers';
-import { useChatMessages, Message } from '@/hooks/useChatMessages';
+import { useChatMessages } from '@/hooks/useChatMessages';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ChatPage() {
