@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Loader2, AlertTriangle, XCircle, DollarSign, MessageSquare, ShieldX, CreditCard, Coins, Timer, Info, Check, Navigation, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, AlertTriangle, MessageSquare, Info, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -14,36 +14,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth, PLATFORM_OPERATOR_CODE } from "@/contexts/auth-context";
 import { RideOfferModal, type RideOffer } from "@/components/driver/ride-offer-modal";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle as ShadAlertDialogTitleForDialog,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Input } from '@/components/ui/input';
+
 import { CustomMapLabelOverlayConstructor, getCustomMapLabelOverlayClass, LabelType } from '@/components/ui/custom-map-label-overlay';
 import { Separator } from '@/components/ui/separator';
 import { Timestamp } from 'firebase/firestore';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { SpeedLimitDisplay } from '@/components/driver/SpeedLimitDisplay';
 import type { LucideIcon } from 'lucide-react';
-import { formatAddressForMapLabel, formatAddressForDisplay } from '@/lib/utils';
+import { formatAddressForMapLabel } from '@/lib/utils';
 import { PauseCircle, PlayCircle } from 'lucide-react';
-import { AlertDialogDescription } from "@/components/ui/alert-dialog";
 
 
 const GoogleMapDisplay = dynamic(() => import('@/components/ui/google-map-display'), {
@@ -264,35 +241,19 @@ type RideActionPayload = Record<string, unknown> & {
 
 export default function AvailableRidesPage() {
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
   const [isDriverOnline, setIsDriverOnline] = useState(true);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const [isCancelSwitchOn, setIsCancelSwitchOn] = useState(false);
-  const [showCancelConfirmationDialog, setShowCancelConfirmationDialog] = useState(false);
-  const [driverRatingForPassenger, setDriverRatingForPassenger] = useState<number>(0);
-  const [ackWindowSecondsLeft, setAckWindowSecondsLeft] = useState<number | null>(null);
-  const [freeWaitingSecondsLeft, setFreeWaitingSecondsLeft] = useState<number | null>(null);
-  const [extraWaitingSeconds, setExtraWaitingSeconds] = useState<number | null>(null);
+
   const [currentWaitingCharge, setCurrentWaitingCharge] = useState<number>(0);
   const waitingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [isPollingEnabled, setIsPollingEnabled] = useState(true);
   const rideRefreshIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
   const driverLocationAtAcceptanceRef = useRef<google.maps.LatLngLiteral | null>(null);
   const stationaryReminderTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [isStationaryReminderVisible, setIsStationaryReminderVisible] = useState(false);
-  const [consecutiveMissedOffers, setConsecutiveMissedOffers] = useState(0);
-  const MAX_CONSECUTIVE_MISSED_OFFERS = 3;
-  const CustomMapLabelOverlayClassRef = useRef<CustomMapLabelOverlayConstructor | null>(null);
-  const [isWRRequestDialogOpen, setIsWRRequestDialogOpen] = useState(false);
-  const [wrRequestDialogMinutes, setWrRequestDialogMinutes] = useState<string>("10");
-  const [isRequestingWR, setIsRequestingWR] = useState(false);
-  const [isAccountJobPinDialogOpen, setIsAccountJobPinDialogOpen] = useState(false);
-  const [enteredAccountJobPin, setEnteredAccountJobPin] = useState("");
-  const [isVerifyingAccountJobPin, setIsVerifyingAccountJobPin] = useState(false);
   const [isMapSdkLoaded, setIsMapSdkLoaded] = useState(false);
-  const [isSosDialogOpen, setIsSosDialogOpen] = useState(false);
-  const [isHazardReportDialogOpen, setIsHazardReportDialogOpen] = useState(false);
   const [localCurrentLegIndex, setLocalCurrentLegIndex] = useState(0);
   const [activeStopDetails, setActiveStopDetails] = useState<ActiveStopDetails | null>(null);
   const stopIntervalRef = useRef<NodeJS.Timeout | null>(null);

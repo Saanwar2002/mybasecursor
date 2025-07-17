@@ -160,7 +160,7 @@ function ManagePlatformOperatorsContent() {
             <DialogTrigger asChild><Button className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 md:mt-0"><UserPlus className="mr-2 h-4 w-4" /> Add New Operator</Button></DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <div>
-                <DialogHeader> <DialogTitle>Add New Platform Operator</DialogTitle> <DialogDescription> Enter the details for the new taxi base operator. They will be created with 'Pending Approval' status. </DialogDescription> </DialogHeader>
+                <DialogHeader> <DialogTitle>Add New Platform Operator</DialogTitle> <DialogDescription> Enter the details for the new taxi base operator. They will be created with &apos;Pending Approval&apos; status. </DialogDescription> </DialogHeader>
                 <Form {...addOperatorForm}>
                   <form onSubmit={addOperatorForm.handleSubmit(onAddOperatorSubmit)} className="space-y-4 py-2">
                     <FormField control={addOperatorForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Operator/Company Name</FormLabel><FormControl><Input placeholder="e.g., City Taxis Ltd" {...field} disabled={actionLoading['addNewOperator']} /></FormControl><FormMessage /></FormItem> )} />

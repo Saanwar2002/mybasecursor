@@ -193,7 +193,7 @@ export default function ScheduledRidesPage() {
             </div>
           )}
           {!isLoading && !error && scheduledBookings.length === 0 && (
-             <p className="text-center text-muted-foreground py-8">You have no scheduled rides yet. Click "Create New Schedule" to add one.</p>
+             <p className="text-center text-muted-foreground py-8">You have no scheduled rides yet. Click &quot;Create New Schedule&quot; to add one.</p>
           )}
           {!isLoading && !error && scheduledBookings.length > 0 && (
             <div className="space-y-4">
@@ -262,7 +262,7 @@ export default function ScheduledRidesPage() {
                             <AlertDialogHeader>
                             <AlertDialogTitle>Confirm Delete</AlertDialogTitle>
                             <AlertDialogDescription>
-                                Are you sure you want to delete the scheduled ride "{schedule.label}"? This action cannot be undone.
+                                Are you sure you want to delete the scheduled ride &quot;{schedule.label}&quot;? This action cannot be undone.
                             </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

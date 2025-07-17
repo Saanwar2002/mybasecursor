@@ -330,7 +330,7 @@ export default function OperatorManageDriversPage() {
                 <DialogHeader>
                   <DialogTitle>Add New Driver</DialogTitle>
                   <DialogDescription>
-                    Fill in the details to onboard a new driver. They will be set to 'Pending Approval' under your operator code: {currentOperatorCodeForDemo}.
+                    Fill in the details to onboard a new driver. They will be set to &apos;Pending Approval&apos; under your operator code: {currentOperatorCodeForDemo}.
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAddDriverSubmit} className="grid gap-4 py-4">

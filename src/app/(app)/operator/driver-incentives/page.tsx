@@ -171,7 +171,7 @@ export default function OperatorDriverIncentivesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-headline flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" /> Your Fleet's Programs
+            <TrendingUp className="w-5 h-5 text-primary" /> Your Fleet&apos;s Programs
           </CardTitle>
         </CardHeader>
         <CardContent>

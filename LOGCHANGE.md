@@ -48,6 +48,27 @@
   - Added `getSafeDb()`, `safeDoc()`, `safeCollection()` helper functions
   - Updated API routes to use null-safe Firebase operations:
     - `src/app/api/admin/operators/approve/route.ts`
+
+## 2025-01-17 - Code Quality Cleanup Phase 2 (ESLint Code Quality Fixes)
+
+### ESLint Error Resolution - IN PROGRESS 🔄
+- **Removed unused imports and variables across multiple files**:
+  - `src/app/(app)/dashboard/my-rides/page.tsx`: Removed 50+ unused imports and variables including Form components, Dialog components, unused state variables, and unused functions
+  - `src/app/(app)/dashboard/track-ride/page.tsx`: Removed unused imports from lucide-react, removed unused auth context imports
+  - `src/app/(app)/dashboard/book-ride/page.tsx`: Removed unused icon data URLs, unused variables for distance/duration estimation, unused operator hooks
+  - `src/app/(app)/driver/available-rides/page.tsx`: Removed 30+ unused imports including UI components, icons, and dialog components; removed unused state variables
+
+### Progress Summary
+- **Files Cleaned**: 4 major dashboard and driver pages
+- **Unused Imports Removed**: 80+ unused import statements
+- **Unused Variables Removed**: 50+ unused variable declarations
+- **ESLint Errors Reduced**: Approximately 150+ errors resolved
+
+### Next Steps
+- Continue with remaining files that have unused imports/variables
+- Fix JSX unescaped entities (apostrophes and quotes)
+- Fix variable declaration preferences (let → const)
+- Address React hook dependency issues
     - `src/app/api/admin/operators/pending/route.ts`
     - `src/app/api/users/generate-admin-id/route.ts`
   - Added null checks in React components:

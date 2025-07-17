@@ -558,7 +558,7 @@ export default function OperatorManageRidesPage() {
             {isLoadingDriversForAssign ? (
                 <div className="flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /> <span className="ml-2">Loading available drivers...</span></div>
             ) : availableDriversForAssignment.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active drivers found for your operator code ({operatorUser?.operatorCode}). Ensure drivers are set to 'Active'.</p>
+                <p className="text-sm text-muted-foreground">No active drivers found for your operator code ({operatorUser?.operatorCode}). Ensure drivers are set to &apos;Active&apos;.</p>
             ) : (
             <Select value={selectedDriverForAssign} onValueChange={setSelectedDriverForAssign}>
                 <SelectTrigger className="w-full">

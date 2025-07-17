@@ -1,14 +1,14 @@
 "use client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, Users, MessageSquare, UserCircle, BellRing, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, TimerIcon, Info, Check, Navigation, Play, PhoneCall, RefreshCw, Briefcase, UserX as UserXIcon, TrafficCone, Gauge, ShieldCheck as ShieldCheckIcon, MinusCircle, Construction, Users as UsersIcon, Power, AlertOctagon, LockKeyhole, CheckCircle as CheckCircleIcon, Route, Crown, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Car, Clock, Loader2, AlertTriangle, Edit, XCircle, DollarSign, Calendar as CalendarIconLucide, MessageSquare, CheckCheck, ShieldX, CreditCard, Coins, PlusCircle, TimerIcon, Info, RefreshCw, Star } from "lucide-react";
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth, UserRole, PLATFORM_OPERATOR_CODE, type User } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { format, parseISO, isValid, differenceInMinutes, addMinutes } from 'date-fns';
+import { format, parseISO, isValid, addMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from "@/components/ui/separator";
 import Image from 'next/image';
@@ -33,12 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from '@/components/ui/scroll-area';
-import type { BookingUpdatePayload } from '@/app/api/operator/bookings/[bookingId]/route';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert"; // Renamed AlertDescription for Alert
-import type { ICustomMapLabelOverlay, CustomMapLabelOverlayConstructor, LabelType } from '@/components/ui/custom-map-label-overlay';
-import { getCustomMapLabelOverlayClass } from '@/components/ui/custom-map-label-overlay';
+
 import { formatAddressForMapLabel } from '@/lib/utils';
 import { usePassengerBookings } from '@/hooks/usePassengerBookings';
 import { useRouter } from 'next/navigation';
@@ -1114,7 +1109,7 @@ export default function MyActiveRidePage() {
                       Driver Search Timeout
                     </ShadAlertTitle>
                     <ShadAlertDescriptionForAlert className="text-sm text-current/80">
-                      If no driver is found within <strong>{timeoutCountdown} minutes</strong>, you'll be notified and can choose to keep waiting or cancel.
+                      If no driver is found within <strong>{timeoutCountdown} minutes</strong>, you&apos;ll be notified and can choose to keep waiting or cancel.
                     </ShadAlertDescriptionForAlert>
                   </Alert>
                 )}

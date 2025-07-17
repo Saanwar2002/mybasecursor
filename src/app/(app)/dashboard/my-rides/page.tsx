@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, Loader2, AlertTriangle, UserX, UserCircle, CalendarDays } from "lucide-react";
+import { Star, MapPin, Loader2, AlertTriangle, UserX, UserCircle, CalendarDays, Edit } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { useAuth, UserRole } from '@/contexts/auth-context';
@@ -19,20 +19,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
-import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO, isValid } from "date-fns";
-import { cn } from "@/lib/utils";
+import { useRef } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionForAlert } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { usePassengerBookings } from '@/hooks/usePassengerBookings';
 import { useFavoriteDrivers, addFavoriteDriver } from '@/hooks/useFavoriteDrivers';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -92,18 +81,7 @@ const formatDate = (timestamp?: JsonTimestamp | null, isoString?: string | null)
   } catch (e) { return 'Date/Time N/A (Conversion Error)'; }
 };
 
-const editDetailsFormSchema = z.object({
-  pickupLocation: z.string().min(3, { message: "Pickup location is required." }),
-  dropoffLocation: z.string().min(3, { message: "Drop-off location is required." }),
-  stops: z.array( z.object({ location: z.string().min(3, { message: "Stop location must be at least 3 characters." }) }) ).optional(),
-  desiredPickupDate: z.date().optional(),
-  desiredPickupTime: z.string().optional(),
-}).refine(data => !((data.desiredPickupDate && !data.desiredPickupTime) || (!data.desiredPickupDate && data.desiredPickupTime)), {
-  message: "Both date and time must be provided if scheduling, or both left empty for ASAP.", path: ["desiredPickupTime"],
-});
 
-type EditDetailsFormValues = z.infer<typeof editDetailsFormSchema>;
-type DialogAutocompleteData = { fieldId: string; inputValue: string; suggestions: google.maps.places.AutocompletePrediction[]; showSuggestions: boolean; isFetchingSuggestions: boolean; isFetchingDetails: boolean; coords: google.maps.LatLngLiteral | null; };
 
 export default function MyRidesPage() {
   const { user } = useAuth();
@@ -113,42 +91,13 @@ export default function MyRidesPage() {
   const [selectedRideForRating, setSelectedRideForRating] = useState<Ride | null>(null);
   const [currentRating, setCurrentRating] = useState(0);
 
-  const [rideToCancel, setRideToCancel] = useState<Ride | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [cancellingRideIdSwitch, setCancellingRideIdSwitch] = useState<string | null>(null);
 
-  const [rideToEditDetails, setRideToEditDetails] = useState<Ride | null>(null);
-  const [isEditDetailsDialogOpen, setIsEditDetailsDialogOpen] = useState(false);
-  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-  const [dialogPickupInputValue, setDialogPickupInputValue] = useState("");
-  const [dialogPickupSuggestions, setDialogPickupSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [showDialogPickupSuggestions, setShowDialogPickupSuggestions] = useState(false);
-  const [isFetchingDialogPickupSuggestions, setIsFetchingDialogPickupSuggestions] = useState(false);
-  const [isFetchingDialogPickupDetails, setIsFetchingDialogPickupDetails] = useState(false);
-  const [dialogPickupCoords, setDialogPickupCoords] = useState<google.maps.LatLngLiteral | null>(null);
 
-  const [dialogDropoffInputValue, setDialogDropoffInputValue] = useState("");
-  const [dialogDropoffSuggestions, setDialogDropoffSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [showDialogDropoffSuggestions, setShowDialogDropoffSuggestions] = useState(false);
-  const [isFetchingDialogDropoffSuggestions, setIsFetchingDialogDropoffSuggestions] = useState(false);
-  const [isFetchingDialogDropoffDetails, setIsFetchingDialogDropoffDetails] = useState(false);
-  const [dialogDropoffCoords, setDialogDropoffCoords] = useState<google.maps.LatLngLiteral | null>(null);
-
-  const [dialogStopAutocompleteData, setDialogStopAutocompleteData] = useState<DialogAutocompleteData[]>([]);
-
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | undefined>(undefined);
-
-  const editDetailsForm = useForm<EditDetailsFormValues>({
-    resolver: zodResolver(editDetailsFormSchema),
-    defaultValues: { pickupLocation: "", dropoffLocation: "", stops: [], desiredPickupDate: undefined, desiredPickupTime: "" },
-  });
-
-  const { fields: editStopsFields, append: appendEditStop, remove: removeEditStop } = useFieldArray({ control: editDetailsForm.control, name: "stops" });
 
   const [favoriteActionLoading, setFavoriteActionLoading] = useState<Record<string, boolean>>({});
   const [driverCustomIds, setDriverCustomIds] = useState<Record<string, string>>({});

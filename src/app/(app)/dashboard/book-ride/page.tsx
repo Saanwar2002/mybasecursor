@@ -207,18 +207,7 @@ const passengerLocationIconSvg = `
   <circle cx="12" cy="31.5" r="2.5" fill="#2D3748"/>
 </svg>
 `;
-const passengerLocationIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(passengerLocationIconSvg)}` : '';
 
-const driverCarIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="45" viewBox="0 0 30 45">
-  <!-- Pin Needle (Black) -->
-  <path d="M15 45 L10 30 H20 Z" fill="black"/>
-  <!-- Blue Circle with Thick Black Border -->
-  <circle cx="15" cy="16" r="12" fill="#3B82F6" stroke="black" stroke-width="2"/>
-  <!-- White Car Silhouette -->
-  <rect x="12" y="10.5" width="6" height="4" fill="white" rx="1"/> <!-- Cabin -->
-  <rect x="9" y="14.5" width="12" height="5" fill="white" rx="1"/> <!-- Body -->
-</svg>`;
-const driverCarIconDataUrl = typeof window !== 'undefined' ? `data:image/svg+xml;base64,${window.btoa(driverCarIconSvg)}` : '';
 
 // Fix for linter: declare window for TypeScript
 declare const window: any;
@@ -234,8 +223,7 @@ declare global {
 export default function BookRidePage() {
   const [baseFareEstimate, setBaseFareEstimate] = useState<number | null>(null);
   const [totalFareEstimate, setTotalFareEstimate] = useState<number | null>(null);
-  const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
-  const [estimatedDurationMinutes, setEstimatedDurationMinutes] = useState<number | null>(null);
+
 
   const { toast } = useToast();
   const { user, phoneVerificationRequired } = useAuth();
@@ -270,7 +258,7 @@ export default function BookRidePage() {
   const recognitionRef = useRef<Window['SpeechRecognition'] | Window['webkitSpeechRecognition'] | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const [driverArrivalInfo, setDriverArrivalInfo] = useState<{ pickupLocation: string } | null>(null);
+
 
   const [suggestedGpsPickup, setSuggestedGpsPickup] = useState<{ address: string, coords: google.maps.LatLngLiteral, accuracy: number } | null>(null);
   const [geolocationFetchStatus, setGeolocationFetchStatus] = useState<GeolocationFetchStatus>("idle");
@@ -280,7 +268,6 @@ export default function BookRidePage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
-  const [availabilityStatusMessage, setAvailabilityStatusMessage] = useState("Checking availability in your area...");
   const [availabilityStatusLevel, setAvailabilityStatusLevel] = useState<AvailabilityStatusLevel>('loading');
   const [mapBusynessLevel, setMapBusynessLevel] = useState<'idle' | 'moderate' | 'high'>('idle');
   
@@ -307,7 +294,7 @@ export default function BookRidePage() {
   const [accountJobAuthPinInputType, setAccountJobAuthPinInputType] = useState<'password' | 'text'>('password');
   const pinPeekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { operators, loading: loadingOperators, error: errorOperators } = useOperators();
+
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -3006,9 +2993,9 @@ const handleProceedToConfirmation = async () => {
                         <h4 className="font-semibold text-orange-800">What happens next?</h4>
                         <ul className="text-sm text-orange-700 space-y-1">
                           <li>• Your booking will be queued in our system</li>
-                          <li>• We'll notify you as soon as a driver is assigned</li>
+                          <li>• We&apos;ll notify you as soon as a driver is assigned</li>
                           <li>• Estimated wait time: ~{estimatedWaitTime || 15} minutes</li>
-                          <li>• If no driver is found within 30 minutes, you'll be notified</li>
+                          <li>• If no driver is found within 30 minutes, you&apos;ll be notified</li>
                           <li>• You can cancel anytime before driver assignment</li>
                         </ul>
                       </div>

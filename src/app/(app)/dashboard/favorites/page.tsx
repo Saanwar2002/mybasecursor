@@ -337,7 +337,7 @@ export default function FavoriteLocationsPage() {
                     )}
                   </div>
                   <FormDescription>
-                    If autocomplete doesn't provide a door number, please add it manually for accuracy.
+                    If autocomplete doesn&apos;t provide a door number, please add it manually for accuracy.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

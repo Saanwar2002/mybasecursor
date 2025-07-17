@@ -110,7 +110,7 @@ export default function AdminAnalyticsPage() {
           <CardTitle className="text-3xl font-headline flex items-center gap-2">
             <BarChart3 className="w-8 h-8 text-primary" /> Platform System Analytics
           </CardTitle>
-          <CardDescription>Global insights into the TaxiNow platform's performance and user base.</CardDescription>
+          <CardDescription>Global insights into the TaxiNow platform&apos;s performance and user base.</CardDescription>
         </CardHeader>
       </Card>
       
