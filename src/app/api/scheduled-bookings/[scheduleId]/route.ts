@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const scheduleRef = db.collection('scheduledBookings').doc(scheduleId);
     const scheduleSnap = await scheduleRef.get();
 
-    if (!scheduleSnap.exists()) {
+    if (!scheduleSnap.exists) {
       return NextResponse.json({ message: 'Scheduled booking not found.' }, { status: 404 });
     }
 
@@ -170,11 +170,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const scheduleRef = db.collection('scheduledBookings').doc(scheduleId);
     const scheduleSnap = await scheduleRef.get();
 
-    if (!scheduleSnap.exists()) {
+    if (!scheduleSnap.exists) {
       return NextResponse.json({ message: 'Scheduled booking not found.' }, { status: 404 });
     }
     const scheduleData = scheduleSnap.data();
-    if (scheduleData.passengerId !== passengerId) { 
+    if (scheduleData?.passengerId !== passengerId) { 
       console.warn(`API DELETE /scheduled-bookings/${scheduleId}: Unauthorized attempt by passenger ${passengerId}. Owner is ${scheduleData.passengerId}.`);
       return NextResponse.json({ message: 'Unauthorized to delete this schedule.' }, { status: 403 });
     }
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const scheduleRef = db.collection('scheduledBookings').doc(scheduleId);
     const scheduleSnap = await scheduleRef.get();
 
-    if (!scheduleSnap.exists()) {
+    if (!scheduleSnap.exists) {
       return NextResponse.json({ message: `Scheduled booking with ID ${scheduleId} not found.` }, { status: 404 });
     }
     
@@ -215,11 +215,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const responseData = {
         id: scheduleSnap.id,
         ...data,
-        createdAt: data.createdAt?.toDate().toISOString(),
-        updatedAt: data.updatedAt?.toDate().toISOString(),
-        nextRunDate: data.nextRunDate instanceof Timestamp 
+        createdAt: data?.createdAt?.toDate().toISOString(),
+        updatedAt: data?.updatedAt?.toDate().toISOString(),
+        nextRunDate: data?.nextRunDate instanceof Timestamp 
             ? data.nextRunDate.toDate().toISOString().split('T')[0] 
-            : typeof data.nextRunDate === 'string' ? data.nextRunDate : undefined,
+            : typeof data?.nextRunDate === 'string' ? data.nextRunDate : undefined,
     };
 
     return NextResponse.json(responseData, { status: 200 });

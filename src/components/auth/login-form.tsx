@@ -48,7 +48,7 @@ export function LoginForm() {
     console.log("LoginForm onSubmit triggered with Firebase integration:", values.email, values.role);
     setIsSubmittingForm(true);
     try {
-      await loginWithEmail(values.email, values.password, values.role);
+      await loginWithEmail(values.email, values.password);
     } catch (error) {
       console.error("LoginForm direct catch from onSubmit (should be rare if AuthContext handles well):", error);
     } finally {

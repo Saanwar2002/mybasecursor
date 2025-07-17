@@ -228,11 +228,16 @@ export default function OperatorManageDriversPage() {
     };
     // Remove undefined, empty string, or null fields
     Object.keys(updatedData).forEach(
-      key => (
-        updatedData[key] === undefined ||
-        updatedData[key] === '' ||
-        updatedData[key] === null
-      ) && delete updatedData[key]
+      key => {
+        const typedKey = key as keyof typeof updatedData;
+        if (
+          updatedData[typedKey] === undefined ||
+          updatedData[typedKey] === '' ||
+          updatedData[typedKey] === null
+        ) {
+          delete updatedData[typedKey];
+        }
+      }
     );
     // Prevent sending an empty payload
     if (Object.keys(updatedData).length === 0) {
@@ -282,6 +287,25 @@ export default function OperatorManageDriversPage() {
       toast({ title: 'Bulk Update Failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteDriver = async (driverId: string) => {
+    if (!window.confirm('Are you sure you want to delete this driver? This action cannot be undone.')) return;
+    setActionLoading(prev => ({ ...prev, [driverId]: true }));
+    try {
+      const response = await fetch(`/api/operator/drivers/${driverId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete driver.');
+      }
+      toast({ title: 'Driver Deleted', description: `Driver deleted successfully.` });
+      fetchDrivers(null, 'filter');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error deleting driver.';
+      toast({ title: 'Delete Driver Failed', description: message, variant: 'destructive' });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [driverId]: false }));
     }
   };
 
@@ -600,23 +624,4 @@ export default function OperatorManageDriversPage() {
       </Dialog>
     </div>
   );
-}
-
-async function handleDeleteDriver(driverId: string) {
-  if (!window.confirm('Are you sure you want to delete this driver? This action cannot be undone.')) return;
-  setActionLoading(prev => ({ ...prev, [driverId]: true }));
-  try {
-    const response = await fetch(`/api/operator/drivers/${driverId}`, { method: 'DELETE' });
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to delete driver.');
-    }
-    toast({ title: 'Driver Deleted', description: `Driver deleted successfully.` });
-    fetchDrivers(null, 'filter');
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error deleting driver.';
-    toast({ title: 'Delete Driver Failed', description: message, variant: 'destructive' });
-  } finally {
-    setActionLoading(prev => ({ ...prev, [driverId]: false }));
-  }
 }

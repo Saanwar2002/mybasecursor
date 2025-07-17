@@ -113,6 +113,79 @@
     - Dashboard and management pages
     - Driver and operator functionality pages
 
+## 2025-01-16 - Code Quality Cleanup Phase 2 (Null and Undefined Safety)
+
+### Null and Undefined Safety Checks - IN PROGRESS 🔄
+- **Fixed critical null/undefined property access issues**:
+  - **Track Ride Page (`src/app/(app)/dashboard/track-ride/page.tsx`)**:
+    - Added null safety for `activeRide.driver` property access
+    - Fixed `activeRide.driverEtaMinutes` type checking with proper number validation
+    - Added array safety checks for `activeRide.stops` with `Array.isArray()` validation
+    - Fixed booking ID display with proper fallback chain: `activeRide?.displayBookingId || activeRide?.id || 'N/A'`
+    - Enhanced Image component `alt` prop with fallback value
+  - **Driver Ride History Page (`src/app/(app)/driver/ride-history/page.tsx`)**:
+    - Fixed `convertTS` function to properly handle SerializedTimestamp types
+    - Added Firebase null safety checks before collection/doc operations
+    - Fixed missing `fetchRideHistory` function reference (replaced with `window.location.reload()`)
+    - Added null safety for `ride.driverRatingForPassenger` rating comparisons
+    - Fixed Timestamp conversion in ticket display with proper type checking
+
+### Firebase Null Safety Improvements - COMPLETED ✅
+- **API Routes Firebase Operations**:
+  - **Booking ID Generation (`src/app/api/bookings/generate-booking-id/route.ts`)**:
+    - Added null checks for `counterDoc.data()` before accessing properties
+    - Enhanced error handling for null counter document data
+  - **Driver Management (`src/app/api/operator/drivers/[driverId]/route.ts`)**:
+    - Fixed `counterDoc.data()` null safety in driver ID generation
+    - Corrected `docSnap.exists()` method call (removed parentheses)
+    - Fixed undefined `entity` variable in DELETE response
+  - **Drivers Route (`src/app/api/operator/drivers/route.ts`)**:
+    - Added null safety for counter document data access
+  - **Scheduled Bookings (`src/app/api/scheduled-bookings/[scheduleId]/route.ts`)**:
+    - Fixed all `scheduleSnap.exists()` method calls (removed parentheses)
+    - Added null safety for `existingScheduleData` and `data` object access
+    - Enhanced property access with optional chaining
+  - **Bookings Update (`src/app/api/bookings/update-details/route.ts`)**:
+    - Added missing imports: `NextRequest`, `Timestamp`, `deleteField`
+    - Fixed `bookingData` null safety checks before property access
+
+### Component Null Safety Fixes - COMPLETED ✅
+- **Driver Help Support (`src/app/(app)/driver/help-support/page.tsx`)**:
+  - Fixed Timestamp conversion in ticket display with proper type checking
+  - Added support for both Timestamp and SerializedTimestamp formats
+- **Operator Management Pages**:
+  - **Manage Drivers (`src/app/(app)/operator/manage-drivers/page.tsx`)**:
+    - Fixed index signature issues in `updatedData` object iteration
+    - Moved `handleDeleteDriver` function inside component scope
+    - Removed duplicate function definition
+  - **Drivers Awaiting Approval (`src/app/(app)/operator/drivers-awaiting-approval/page.tsx`)**:
+    - Fixed invalid toast variant from "success" to default
+
+### Import and Type Definition Fixes - COMPLETED ✅
+- **API Routes**:
+  - **Admin Operators Create (`src/app/api/admin/operators/create/route.ts`)**:
+    - Added missing `z` import from zod library
+  - **Admin Users Route (`src/app/api/admin/users/route.ts`)**:
+    - Fixed Query type assignment issues with proper `any` typing
+- **Components**:
+  - **Register Form (`src/components/auth/register-form.tsx`)**:
+    - Removed duplicate `Timestamp` import to resolve conflicts
+  - **Login Form (`src/components/auth/login-form.tsx`)**:
+    - Fixed `loginWithEmail` function signature (removed extra role parameter)
+
+### Files Updated (20+ files)
+- Dashboard and tracking pages
+- Driver management and history pages
+- API routes for bookings, drivers, and scheduled operations
+- Authentication and form components
+- Operator management interfaces
+
+### Remaining Null Safety Issues
+- Property access on potentially undefined objects in remaining components
+- Firebase operation null checks in hooks and utilities
+- Component prop validation and default value handling
+- API response data validation and error handling
+
 ## [Unreleased - Remaining Work]
 
 ### Driver Available Rides Page Improvements

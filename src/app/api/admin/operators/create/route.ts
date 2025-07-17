@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
+import { z } from 'zod';
 
 if (!getApps().length) {
   initializeApp({ credential: applicationDefault() });

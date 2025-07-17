@@ -31,7 +31,7 @@ import {
   linkWithCredential,
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp, updateDoc, Timestamp, getDoc, deleteField } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, updateDoc, getDoc, deleteField } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 const phoneRegex = new RegExp(

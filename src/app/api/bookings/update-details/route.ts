@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
+import type { NextRequest } from 'next/server';
+import { getFirestore, Timestamp, deleteField } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 
 if (!getApps().length) {
@@ -75,6 +76,10 @@ export async function POST(request: NextRequest) {
     }
 
     const bookingData = bookingSnap.data();
+
+    if (!bookingData) {
+      return NextResponse.json({ message: 'Booking data not found.' }, { status: 404 });
+    }
 
     if (bookingData.passengerId !== passengerId) {
       return NextResponse.json({ message: 'You are not authorized to update this booking.' }, { status: 403 });

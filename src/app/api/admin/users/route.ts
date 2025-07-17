@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const limitCount = parseInt(searchParams.get('limit') || '50');
 
-    let q = db.collection('users');
+    let q: any = db.collection('users');
     
     if (role) {
       q = q.where('role', '==', role);

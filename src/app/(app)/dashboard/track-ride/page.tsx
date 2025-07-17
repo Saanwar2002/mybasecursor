@@ -1237,7 +1237,7 @@ export default function MyActiveRidePage() {
                   </Alert>
                 )}
                 
-                {activeRide.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div className="flex-1"> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> {activeRide.status === 'driver_assigned' && activeRide.driverEtaMinutes && activeRide.driverEtaMinutes > 0 && (
+                {activeRide?.driver && ( <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"> <Image src={activeRide.driverAvatar || `https://placehold.co/48x48.png?text=${activeRide.driver.charAt(0)}`} alt={activeRide.driver || 'Driver'} width={48} height={48} className="rounded-full" data-ai-hint="driver avatar" /> <div className="flex-1"> <p className="font-semibold">{activeRide.driver}</p> <p className="text-xs text-muted-foreground">{activeRide.driverVehicleDetails || "Vehicle details N/A"}</p> {activeRide.status === 'driver_assigned' && activeRide.driverEtaMinutes && typeof activeRide.driverEtaMinutes === 'number' && activeRide.driverEtaMinutes > 0 && (
                   <div className="flex items-center gap-1 mt-1">
                     <Clock className="w-3 h-3 text-blue-600" />
                     <span className="text-xs font-medium text-blue-600">
@@ -1246,7 +1246,7 @@ export default function MyActiveRidePage() {
                   </div>
                 )} </div> <Button asChild variant="outline" size="sm" className="ml-auto"><Link href="/dashboard/chat" className="flex items-center"><MessageSquare className="w-4 h-4 mr-1.5" /> Chat</Link></Button> </div> )}
                 <Separator />
-                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide.stops && activeRide.stops.length > 0 && activeRide.stops.map((stop: LocationPoint, index: number): JSX.Element => (
+                <div className="text-sm space-y-1"> <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-green-500 mt-0.5 shrink-0" /> <strong>From:</strong> {pickupAddressDisplay}</p> {activeRide?.stops && Array.isArray(activeRide.stops) && activeRide.stops.length > 0 && activeRide.stops.map((stop: LocationPoint, index: number): JSX.Element => (
   <p key={index} className="flex items-start gap-1.5 pl-5"><MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" /> <strong>Stop {index + 1}:</strong> {stop.address}</p>
 ))} <p className="flex items-start gap-1.5"><MapPin className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> <strong>To:</strong> {dropoffAddressDisplay}</p> 
                   
@@ -1257,7 +1257,7 @@ export default function MyActiveRidePage() {
                       <Badge variant="outline" className="ml-1.5 border-orange-300 text-orange-100 bg-orange-500/50">Surge</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground pl-5">Booking ID: {activeRide.displayBookingId || activeRide.id}</p>
+                  <p className="text-xs text-muted-foreground pl-5">Booking ID: {activeRide?.displayBookingId || activeRide?.id || 'N/A'}</p>
 
                 <div className="bg-primary/10 p-2 rounded-md border border-black/70 flex items-center gap-1.5"> {activeRide.paymentMethod === 'card' ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : activeRide.paymentMethod === 'cash' ? <Coins className="w-4 h-4 text-muted-foreground" /> : <Briefcase className="w-4 h-4 text-muted-foreground" />} <strong>Payment:</strong> {paymentDisplay} </div> </div>
                  {activeRide.status === 'arrived_at_pickup' && !activeRide.passengerAcknowledgedArrivalTimestamp && ( <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={() => handleAcknowledgeArrival(activeRide.id)}> <CheckCheck className="mr-2 h-5 w-5" /> Acknowledge Driver Arrival </Button> )}
@@ -1307,7 +1307,7 @@ export default function MyActiveRidePage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will cancel your ride request (ID: {activeRide?.displayBookingId || rideIdToCancel || 'N/A'}). This action cannot be undone.
+                This will cancel your ride request (ID: {activeRide?.displayBookingId || activeRide?.id || rideIdToCancel || 'N/A'}). This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

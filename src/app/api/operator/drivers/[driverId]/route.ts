@@ -46,7 +46,7 @@ export async function GET(req: Request, { params }: { params: { driverId: string
     const driverId = params.driverId;
     const docRef = db.collection('users').doc(driverId);
     const docSnap = await docRef.get();
-    if (!docSnap.exists()) {
+    if (!docSnap.exists) {
       return NextResponse.json({ error: 'Driver not found' }, { status: 404 });
     }
     return NextResponse.json({ id: docSnap.id, ...docSnap.data() });
@@ -99,7 +99,11 @@ async function generateSequentialDriverId(operatorCode: string): Promise<string>
         transaction.set(counterRef, { currentId: 1 });
         return 1;
       }
-      const currentId = counterDoc.data().currentId;
+      const counterData = counterDoc.data();
+      if (!counterData) {
+        throw new Error('Counter document data is null');
+      }
+      const currentId = counterData.currentId;
       transaction.update(counterRef, { currentId: currentId + 1 });
       return currentId + 1;
     });
@@ -252,7 +256,7 @@ export async function DELETE(request: NextRequest, context: GetContext) {
       return NextResponse.json({ message: `User with ID ${driverId} is not a driver and cannot be deleted via this endpoint.` }, { status: 403 });
     }
     await driverRef.delete();
-    return NextResponse.json({ message: `${entity} ${driverId} deleted successfully.` }, { status: 200 });
+    return NextResponse.json({ message: `Driver ${driverId} deleted successfully.` }, { status: 200 });
   } catch (error) {
     console.error('UNHANDLED ERROR in API route:', error);
     return NextResponse.json({ message: 'Unhandled server error', details: error instanceof Error ? error.message : String(error) }, { status: 500 });

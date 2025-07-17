@@ -167,7 +167,10 @@ export default function DriverRideHistoryPage() {
           if (ts instanceof Timestamp) {
             return { _seconds: ts.seconds, _nanoseconds: ts.nanoseconds };
           }
-          return ts || null;
+          if (ts && typeof ts === 'object' && '_seconds' in ts && '_nanoseconds' in ts) {
+            return ts as SerializedTimestamp;
+          }
+          return null;
         };
         return {
           id: docSnap.id,
@@ -195,6 +198,7 @@ export default function DriverRideHistoryPage() {
       setIsLoading(false);
       // Fetch chat messages for each ride
       ridesData.forEach(ride => {
+        if (!db) return;
         const chatRef = collection(db, 'bookings', ride.id, 'chatMessages');
         const chatQuery = query(chatRef, orderBy('timestamp', 'asc'));
         onSnapshot(chatQuery, (chatSnap) => {
@@ -228,6 +232,9 @@ export default function DriverRideHistoryPage() {
   const submitPassengerRating = async () => {
     if (!ratingRide || !driverUser) return;
     try {
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
       await updateDoc(doc(db, "bookings", ratingRide.id), {
         driverRatingForPassenger: currentRating
       });
@@ -280,7 +287,7 @@ export default function DriverRideHistoryPage() {
 
 
   if (isLoading) return (<div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Ride History</CardTitle><CardDescription>Loading your past rides...</CardDescription></CardHeader></Card><div className="flex justify-center items-center py-10"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div></div>);
-  if (error && ridesHistory.length === 0) return (<div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Ride History</CardTitle><CardDescription>View your completed or cancelled rides.</CardDescription></CardHeader></Card><Card className="border-destructive bg-destructive/10"><CardContent className="pt-6 text-center text-destructive"><AlertTriangle className="w-12 h-12 mx-auto mb-2" /><p className="font-semibold">Could not load ride history.</p><p className="text-sm">{error}</p><Button variant="outline" onClick={fetchRideHistory} className="mt-4">Try Again</Button></CardContent></Card></div>);
+  if (error && ridesHistory.length === 0) return (<div className="space-y-6"><Card className="shadow-lg"><CardHeader><CardTitle className="text-3xl font-headline">Ride History</CardTitle><CardDescription>View your completed or cancelled rides.</CardDescription></CardHeader></Card><Card className="border-destructive bg-destructive/10"><CardContent className="pt-6 text-center text-destructive"><AlertTriangle className="w-12 h-12 mx-auto mb-2" /><p className="font-semibold">Could not load ride history.</p><p className="text-sm">{error}</p><Button variant="outline" onClick={() => window.location.reload()} className="mt-4">Try Again</Button></CardContent></Card></div>);
 
   return (
     <div className="space-y-6">
@@ -317,7 +324,7 @@ export default function DriverRideHistoryPage() {
               </div>
               <div className="text-xs text-muted-foreground pl-10 pb-2">
                 Booked: {formatDate(ride.bookingTimestamp, ride.scheduledPickupAt) || 'N/A'} |
-                Picked up: {formatDate(ride.rideStartedAt) || 'N/A'} |
+                Picked up: N/A |
                 Drop off: {formatDate(ride.completedAt) || 'N/A'}
               </div>
             </CardHeader>
@@ -374,7 +381,7 @@ export default function DriverRideHistoryPage() {
                       <span>You rated this passenger</span>
                       <span className="flex items-center ml-1">
                         {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-4 h-4 ${i < ride.driverRatingForPassenger ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                          <Star key={i} className={`w-4 h-4 ${i < (ride.driverRatingForPassenger || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
                         ))}
                       </span>
                       <Edit className="w-3 h-3 ml-1" />

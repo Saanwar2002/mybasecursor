@@ -109,7 +109,7 @@ export default function DriversAwaitingApprovalPage() {
                               const errorData = await response.json();
                               throw new Error(errorData.message || `Failed to approve driver: ${response.status}`);
                             }
-                            toast({ title: "Driver Approved", description: `${driver.name} has been approved.`, variant: "success" });
+                            toast({ title: "Driver Approved", description: `${driver.name} has been approved.` });
                             fetchPendingDrivers();
                           } catch (err) {
                             toast({ title: "Error Approving Driver", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });

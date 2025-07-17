@@ -27,7 +27,11 @@ export async function POST(req: Request) {
         return 1;
       }
       
-      const currentId = counterDoc.data().currentId;
+      const counterData = counterDoc.data();
+      if (!counterData) {
+        throw new Error('Counter document data is null');
+      }
+      const currentId = counterData.currentId;
       transaction.update(counterRef, { currentId: currentId + 1 });
       return currentId + 1;
     });

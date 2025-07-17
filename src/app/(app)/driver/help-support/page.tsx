@@ -253,7 +253,11 @@ export default function DriverHelpSupportPage() {
                     <TableRow key={ticket.id}>
                       <TableCell>{ticket.category}</TableCell>
                       <TableCell><Badge>{ticket.status}</Badge></TableCell>
-                      <TableCell className="text-xs">{ticket.submittedAt ? new Date(ticket.submittedAt).toLocaleString() : "-"}</TableCell>
+                      <TableCell className="text-xs">{ticket.submittedAt ? (
+                        typeof ticket.submittedAt === 'object' && '_seconds' in ticket.submittedAt 
+                          ? new Date(ticket.submittedAt._seconds * 1000).toLocaleString()
+                          : new Date(ticket.submittedAt).toLocaleString()
+                      ) : "-"}</TableCell>
                       <TableCell className="max-w-xs truncate" title={ticket.details}>{ticket.details}</TableCell>
                       <TableCell>
                         {ticket.canDelete && (
