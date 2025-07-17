@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 
 if (!getApps().length) {
@@ -54,6 +54,10 @@ export async function GET(req: Request, { params }: { params: { passengerId: str
       return NextResponse.json({ error: 'Passenger not found' }, { status: 404 });
     }
     const passengerData = docSnap.data();
+
+    if (!passengerData) {
+      return NextResponse.json({ error: 'Passenger data not found' }, { status: 404 });
+    }
 
     if (passengerData.role !== 'passenger') {
       return NextResponse.json({ message: `User with ID ${passengerId} is not a passenger.` }, { status: 404 });

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     q = q.orderBy('createdAt', 'desc').limit(limitCount);
 
     const snapshot = await q.get();
-    const users = snapshot.docs.map(doc => ({
+    const users = snapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }));

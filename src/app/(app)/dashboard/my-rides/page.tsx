@@ -260,6 +260,10 @@ export default function MyRidesPage() {
     uniqueDriverIds.forEach(async (driverId) => {
       if (!driverId || driverCustomIds[driverId]) return;
       try {
+        if (!db) {
+          console.error('Firestore database not initialized');
+          return;
+        }
         const driverDoc = await getDoc(doc(db, 'users', driverId));
         if (driverDoc.exists()) {
           const data = driverDoc.data();
@@ -312,10 +316,10 @@ export default function MyRidesPage() {
                     <div className="flex items-center justify-between p-4 border-b">
                       <div className="flex items-center gap-2">
                         <UserCircle className="w-5 h-5 text-primary" />
-                        <span className="font-semibold">{ride.driver || 'Driver'}</span>
+                        <span className="font-semibold">{String(ride.driver) || 'Driver'}</span>
                         <span className="text-xs text-muted-foreground ml-2">
                           <CalendarDays className="inline w-4 h-4 mr-1" />
-                          {formatDate(ride.bookingTimestamp, ride.scheduledPickupAt)}
+                          {formatDate(ride.bookingTimestamp as JsonTimestamp, ride.scheduledPickupAt)}
                         </span>
                       </div>
                       <Badge variant={ride.status === 'completed' ? 'default' : 'destructive'}>
@@ -323,9 +327,9 @@ export default function MyRidesPage() {
                       </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground pl-10 pb-2">
-                      Booked: {formatDate(ride.bookingTimestamp, ride.scheduledPickupAt) || 'N/A'} |
-                      Picked up: {formatDate(ride.rideStartedAt) || 'N/A'} |
-                      Drop off: {formatDate(ride.completedAt) || 'N/A'}
+                      Booked: {formatDate(ride.bookingTimestamp as JsonTimestamp, ride.scheduledPickupAt) || 'N/A'} |
+                      Picked up: {formatDate(ride.rideStartedAt as JsonTimestamp) || 'N/A'} |
+                      Drop off: {formatDate(ride.completedAt as JsonTimestamp) || 'N/A'}
                     </div>
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div className="flex-1">
@@ -334,11 +338,11 @@ export default function MyRidesPage() {
                             {ride.status === 'completed' ? 'Completed' : 'Cancelled'}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
-                            {new Date(ride.bookingTimestamp?.toDate?.() || ride.bookingTimestamp).toLocaleDateString()}
+                            {new Date((ride.bookingTimestamp as any)?._seconds * 1000 || Date.now()).toLocaleDateString()}
                           </span>
                         </div>
                         <CardDescription className="text-xs mt-1">
-                          Booking ID: {ride.displayBookingId || ride.id}
+                          Booking ID: {String(ride.displayBookingId || ride.id)}
                         </CardDescription>
                         {ride.driverId && driverCustomIds[ride.driverId] && (
                           <CardDescription className="text-xs">

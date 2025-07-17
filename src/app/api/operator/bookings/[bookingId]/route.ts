@@ -458,7 +458,7 @@ export async function POST(request: NextRequest, context: PostContext) {
           // --- CREDIT ACCOUNT UPDATE LOGIC END ---
 
           // --- Ride Offer Status Update Logic ---
-          if (updateDataFromPayload.action === 'accept_ride') {
+          if (updateDataFromPayload.action === 'complete_ride') {
             // Mark the ride offer as accepted
             try {
               const offerRef = db.collection('rideOffers').doc(bookingIdForHandler);
@@ -679,12 +679,7 @@ export async function POST(request: NextRequest, context: PostContext) {
       return NextResponse.json({ message: 'Booking updated successfully', booking: responseData }, { status: 200 });
     }
 
-    if (updateDataFromPayload.driverId && updateDataFromPayload.action === 'accept_ride') {
-      updatePayloadFirestore.status = 'driver_assigned';
-    }
-    if (updateDataFromPayload.driverId && updateDataFromPayload.action !== 'accept_ride') {
-      updatePayloadFirestore.status = 'pending_assignment';
-    }
+
 
   } catch (error: any) {
     console.error(`API POST Error /api/operator/bookings/${bookingIdForHandler}:`, error);

@@ -112,6 +112,10 @@ export default function PassengerRideSummaryPage() {
       let driverCustomId = '';
       if (bookingData.driverId) {
         try {
+          if (!db) {
+            console.error('Firestore database not initialized');
+            return;
+          }
           const driverDoc = await getDoc(doc(db, 'users', bookingData.driverId));
           if (driverDoc.exists()) {
             const d = driverDoc.data();

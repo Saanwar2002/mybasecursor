@@ -109,6 +109,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     }
 
     const existingScheduleData = scheduleSnap.data();
+    if (!existingScheduleData) {
+      return NextResponse.json({ message: 'Schedule data not found.' }, { status: 404 });
+    }
     // Verify ownership using passengerId from payload (replace with authenticatedUserId in real app)
     if (updateData.passengerId !== existingScheduleData.passengerId) {
       return NextResponse.json({ message: 'Unauthorized to update this schedule.' }, { status: 403 });
@@ -119,7 +122,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     finalUpdatePayload.updatedAt = Timestamp.fromDate(new Date());
 
     // Handle nullable fields explicitly to allow setting them to null or removing them
-    const nullableFields: Array<keyof typeof finalUpdatePayload> = ['returnPickupTime', 'estimatedWaitTimeMinutesOutbound', 'driverNotes', 'estimatedFareOneWay', 'estimatedFareReturn'];
+    const nullableFields = ['returnPickupTime', 'estimatedWaitTimeMinutesOutbound', 'driverNotes', 'estimatedFareOneWay', 'estimatedFareReturn'];
     nullableFields.forEach(field => {
         if (finalUpdatePayload[field] === null) {
             finalUpdatePayload[field] = null; // Firestore accepts null
@@ -175,7 +178,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
     const scheduleData = scheduleSnap.data();
     if (scheduleData?.passengerId !== passengerId) { 
-      console.warn(`API DELETE /scheduled-bookings/${scheduleId}: Unauthorized attempt by passenger ${passengerId}. Owner is ${scheduleData.passengerId}.`);
+      console.warn(`API DELETE /scheduled-bookings/${scheduleId}: Unauthorized attempt by passenger ${passengerId}. Owner is ${scheduleData?.passengerId}.`);
       return NextResponse.json({ message: 'Unauthorized to delete this schedule.' }, { status: 403 });
     }
     await scheduleRef.delete();

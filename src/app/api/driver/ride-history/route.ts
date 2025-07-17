@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 
 if (!getApps().length) {

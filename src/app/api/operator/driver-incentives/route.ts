@@ -23,12 +23,12 @@ export async function GET(req: Request) {
     if (!db) {
       return NextResponse.json({ error: "Firestore (db) is not initialized!" }, { status: 500 });
     }
-    let q = collection(db, "operatorIncentivePrograms");
+    let q: any = collection(db, "operatorIncentivePrograms");
     if (operatorCode) {
       q = query(q, where("operatorCode", "==", operatorCode));
     }
     const snapshot = await getDocs(q);
-    const programs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const programs = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json({ programs });
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch programs", details: error instanceof Error ? error.message : String(error) }, { status: 500 });

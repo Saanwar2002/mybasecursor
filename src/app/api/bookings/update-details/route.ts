@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getFirestore, Timestamp, deleteField } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, applicationDefault, getApps } from 'firebase-admin/app';
 
 if (!getApps().length) {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (scheduledPickupAt === null) {
-        updateData.scheduledPickupAt = deleteField(); 
+        updateData.scheduledPickupAt = FieldValue.delete(); 
     } else {
         updateData.scheduledPickupAt = scheduledPickupAt;
     }

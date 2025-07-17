@@ -70,8 +70,10 @@ export async function GET(req: Request) {
 
       if (blockedUserSnap.exists) {
         const blockedUserData = blockedUserSnap.data();
-        blockedUserName = blockedUserData.name || 'Unnamed User';
-        blockedUserRole = blockedUserData.role || 'passenger';
+        if (blockedUserData) {
+          blockedUserName = blockedUserData.name || 'Unnamed User';
+          blockedUserRole = blockedUserData.role || 'passenger';
+        }
       }
 
       blockedUsersDisplay.push({

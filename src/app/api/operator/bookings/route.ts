@@ -12,12 +12,12 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const operatorId = searchParams.get('operatorId');
     const bookingsRef = db.collection('bookings');
-    let query = bookingsRef;
+    let query: any = bookingsRef;
     if (operatorId) {
       query = query.where('operatorId', '==', operatorId);
     }
     const snapshot = await query.get();
-    const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const bookings = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json({ bookings });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch bookings', details: error instanceof Error ? error.message : String(error) }, { status: 500 });
